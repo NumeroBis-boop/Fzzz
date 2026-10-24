@@ -57,6 +57,14 @@ export const SOURCE_UNITES: Source = {
   origine: "Toolzzz content.js (TEMPS_UNITE, COUT_UNITE, VIE/ATT/DEF_UNITE)",
 };
 
+/**
+ * Unités présentes sur le s5 : les pages Armée et Attaquer n'y listent que 12
+ * unités de combat (ni Concierge d'élite ni Tank d'élite).
+ */
+export const UNITES_S5: ReadonlySet<CodeUnite> = new Set<CodeUnite>([
+  "ouvriere", "jsn", "sn", "ne", "js", "s", "c", "a", "ae", "se", "tk", "tu", "tue",
+]);
+
 export function unite(code: CodeUnite): Unite {
   const u = UNITES.find((x) => x.code === code);
   if (!u) throw new Error(`Unité inconnue : ${code}`);

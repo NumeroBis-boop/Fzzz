@@ -1,37 +1,23 @@
 # Fiche 01 : heure serveur et heures d'arrivée
 
-Statut : **à valider par le joueur**
+Statut : **implémentée (v0.1), à tester en jeu**
 
-## Besoin
+## Ce que fait l'extension
 
-- Afficher l'heure du serveur à la seconde, sur toutes les pages du jeu.
-- Afficher l'heure d'arrivée des attaques en heure serveur, à la seconde.
+- **Badge d'heure serveur**, en bas à droite de toutes les pages, à la seconde, avec sa précision (par exemple « ±0,2 s »).
+- **Arrivée à la seconde** de chaque attaque, sur Armée et sur Attaquer, à côté du compte à rebours. Les attaques sont aussi numérotées dans leur ordre d'arrivée, puisque les combats sont résolus dans cet ordre à la seconde.
+- **Chasses en cours sur la page Armée**. Elles sont lues dans la boîte Compte+ : la première à se terminer est donnée à la seconde, les autres à la minute.
 
 ## Méthode
 
-Le script d'arrière-plan écoute (`webRequest`, sans blocage) les pages `*.fourmizzz.fr` que le joueur charge. Pour chacune, il note :
+1. Le script d'arrière-plan lit passivement l'en-tête HTTP `Date` des pages que tu charges. **Aucune requête n'est émise**, conformément à la règle C2.
+2. Le jeu donne, pour chaque attaque, les secondes restantes au moment où il a généré la page : `reste(70427, "attaque_98500")`. L'arrivée vaut l'en-tête `Date` de cette page + ce reste, à ±1 s.
+3. Si l'en-tête de la page n'est pas disponible, l'extension se rabat sur l'horloge estimée (`core/horloge.ts`).
+4. **Garde-fou** : l'heure calculée doit tomber dans la minute affichée par le jeu (« Arrivée à 19h56 »). Sinon, elle s'affiche en rouge avec la mention « à vérifier ».
 
-- l'heure locale au départ de la requête ;
-- l'heure locale à la réception des en-têtes ;
-- l'en-tête `Date` du serveur.
+Le fuseau est Europe/Paris. Le passage à l'heure d'hiver du 25 octobre est géré.
 
-`core/horloge.ts` en déduit un intervalle pour le décalage serveur − local. Il croise ensuite les intervalles de toutes les pages chargées. La précision attendue est de ±0,5 s ou mieux après quelques pages ; elle est affichée.
+## Limites
 
-**Aucune requête supplémentaire.** Interroger le serveur à intervalle régulier prolongerait la session, ce que la règle C2 interdit.
-
-## Heures d'arrivée
-
-Arrivée = heure serveur au moment de l'affichage + durée restante lue sur la page. Si la page donne une heure absolue, on l'affiche telle quelle.
-
-## Hypothèse à tester en jeu (bloquante pour l'affichage)
-
-Toolzzz affiche deux heures : l'arrivée à la seconde, et l'heure du RC arrondie à la minute suivante. Si les combats sont résolus à la minute pleine, la seconde d'arrivée ne sert qu'à **ordonner** les attaques d'une même minute.
-
-**Test** : lancer deux sondes sur la même cible à environ 20 s d'écart dans la même minute, puis noter les heures exactes affichées pour l'arrivée et pour les deux RC.
-
-## Données dont j'ai besoin
-
-Ce conteneur ne peut pas accéder à `s5.fourmizzz.fr`. Il me faut :
-
-- le HTML des pages Armée et Attaquer avec une attaque en cours (Ctrl+S, « page web, HTML uniquement ») ;
-- le résultat du test des deux sondes.
+- Les chasses ne sont visibles que si la boîte Compte+ est présente dans la page. Sans Compte+, rien ne s'affiche.
+- La précision de ±1 s vient de la troncature de `Date` à la seconde.

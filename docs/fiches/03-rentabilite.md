@@ -1,33 +1,32 @@
 # Fiche 03 : rentabilité d'un niveau d'Armes, de Bouclier ou d'Étable à pucerons
 
-Statut : **critère à valider par le joueur**
+Statut : **cœur de calcul écrit (`core/rentabilite.ts`) ; affichage en jeu à faire**
 
-## Coûts (données Toolzzz, non vérifiées sur s5)
+## Critère retenu
 
-| Niveau n | Nourriture | Matériaux | Ouvrières |
-|---|---|---|---|
-| Armes | 300 × 2ⁿ⁻¹ | 200 × 2ⁿ⁻¹ | 80 × 2ⁿ⁻¹ |
-| Bouclier | 200 × 2ⁿ⁻¹ | 300 × 2ⁿ⁻¹ | 80 × 2ⁿ⁻¹ |
-| Étable à pucerons | 0 | 1500 × 2ⁿ⁻¹ | **0** |
+Les ouvrières sacrifiées viennent du stock des convois et ne récoltaient rien (réponse du joueur). Leur vrai coût est donc le **temps de ponte** qu'elles ont demandé. Pendant ce temps, la reine aurait pu pondre des unités de combat.
 
-## Armes et Bouclier : critère proposé
+Pour un niveau d'Armes ou de Bouclier :
 
-Un niveau ajoute +10 % de la valeur **de base** de l'armée : attaque et défense pour Armes, vie pour Bouclier. Le gain absolu est donc constant d'un niveau à l'autre, alors que le coût double.
+- **gain du niveau** = 10 % de la caractéristique de base de l'armée (vie pour Bouclier, attaque et défense pour Armes) ;
+- **gain de l'alternative** = unités pondables pendant le temps de ponte des ouvrières × caractéristique × (1 + 0,1 × niveau actuel). L'outil retient la meilleure unité **disponible sur le s5** ;
+- le niveau est rentable si son gain dépasse celui de la meilleure alternative.
 
-Le niveau est rentable si son coût total est inférieur au coût de pondre 10 % d'armée en plus :
+Nourriture, matériaux et temps de recherche sont affichés à côté, sans entrer dans le critère.
 
-- **coût du niveau** = nourriture + matériaux + ouvrières × valeur d'une ouvrière ;
-- **coût de l'équivalent pondu** = 10 % × (coût en nourriture de l'armée) **et** 10 % × (temps de ponte de l'armée).
+C'est l'idée de Toolzzz, avec deux corrections :
 
-Le temps de ponte est souvent le facteur limitant, plus que la nourriture. L'autre conversation l'omettait : je propose d'afficher les deux comparaisons séparément plutôt que de les fusionner.
+- Toolzzz appliquait le bonus de Bouclier aux dégâts des unités pondues ;
+- Toolzzz comparait seulement avec JS, Tank et TuE, au lieu de la meilleure unité.
 
-Valeur d'une ouvrière = 5 (coût de ponte) + récolte perdue sur un horizon H. Une ouvrière récolte 48 ressources par jour, **si elle a de la place sur le TDC** ; au-delà du TDC, la récolte perdue est nulle. H est un paramètre réglable, 30 jours par défaut.
+## Étable à pucerons
 
-## Étable à pucerons : à préciser
+Le niveau n exige Communication avec les animaux au niveau n + 2.
 
-Son effet est d'une autre nature : +1 % de pillage par niveau, et +1 % sur les ressources prélevées sur un colonisé. Il ne se compare pas à une taille d'armée. Le gain dépend :
+**Coût du niveau** = étable (matériaux) + chaque niveau de Communication manquant, dont les ouvrières entraînent un temps de ponte.
 
-- du volume pillé par jour ;
-- des ressources qui arrivent chez ton ou tes colonisés.
+**Gain journalier** = pillage du jour / (30 + n) + prélèvement de colonie / (20 + n). Il suppose que la limite « 1 ressource par point d'attaque survivant » ne bride pas le pillage. Le pillage et le prélèvement de colonie sont saisis par le joueur.
 
-**Question** : qu'entends-tu par « pondre des ouvrières pour passer un niveau de puceron » ? D'après les données disponibles, ce bâtiment ne coûte pas d'ouvrières.
+## Hypothèse
+
+Une seule file de ponte, partagée entre ouvrières et unités.

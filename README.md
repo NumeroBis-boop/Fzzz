@@ -6,7 +6,7 @@ Outils pour [Fourmizzz](https://s5.fourmizzz.fr) : calculateurs (trajet, flood, 
 
 ```
 packages/core     formules et analyseurs en TypeScript pur, testés (Vitest)
-apps/extension    extension WXT (à venir)
+apps/extension    extension WXT (Chrome MV3, Firefox PC et Android)
 docs/             règles de conformité et fiches de conception
 ```
 
@@ -19,6 +19,20 @@ pnpm install
 pnpm test
 pnpm typecheck
 ```
+
+## Installer la version de développement
+
+```bash
+pnpm install
+pnpm --filter @fzzz/extension build           # Chrome, Edge, Brave… → apps/extension/.output/chrome-mv3
+pnpm --filter @fzzz/extension build:firefox   # Firefox → apps/extension/.output/firefox-mv3
+```
+
+- **Chrome / Edge** : `chrome://extensions`, activer le mode développeur, « Charger l'extension non empaquetée », choisir `.output/chrome-mv3`.
+- **Firefox PC** : `about:debugging#/runtime/this-firefox`, « Charger un module complémentaire temporaire », choisir `manifest.json` dans `.output/firefox-mv3`.
+- **Firefox Android** : nécessite une publication sur addons.mozilla.org (ou une collection personnalisée) ; prévu plus tard.
+
+Fonctions de la v0.1 : heure serveur à la seconde, arrivées des attaques à la seconde et dans l'ordre, chasses sur la page Armée, durées de trajet sur la page Ennemies (après une visite du Laboratoire).
 
 ## Règlement
 

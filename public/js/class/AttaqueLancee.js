@@ -347,6 +347,7 @@ class AttaqueLancee {
           </tbody></table>
           <button type="button" id="${id}Copier" class="o_marginT15 o_button" title="Une ligne : cible, heure d'arrivée, terrain estimé">Copier pour le forum</button>
           <button type="button" id="${id}CopierDetail" class="o_marginT15 o_button" title="Chaque attaque, avec ses troupes">Copier le détail</button>
+          <button type="button" id="${id}Partager" class="o_marginT15 o_button f_info" title="Enregistre arrivée, cible et terrain estimé pris dans le forum de l'alliance (sujet Floods | pseudo)">Partager mes floods avec la ${Utils.alliance || "l'alliance"}</button>
           ${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_marginT15 o_button f_error">Tout annuler</button>` : ""}
           </div>`;
       conteneur.append(html);
@@ -377,6 +378,13 @@ class AttaqueLancee {
         natifs.forEach((n) => n.parentNode && n.parentNode.removeChild(n));
       });
       majToutAnnuler();
+      // Fzzz : partage des floods dans le forum de l'alliance
+      $(`#${id}Partager`).on("click", (e) =>
+        PartageChasses.partagerFloods(
+          groupe.map((a) => a.capture),
+          $(e.currentTarget),
+        ),
+      );
       // copie pour le forum : un résumé d'une ligne, ou chaque attaque en détail
       [
         [`#${id}Copier`, () => AttaqueLancee.formatForumCourt(cible, groupe)],

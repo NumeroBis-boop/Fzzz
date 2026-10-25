@@ -1726,9 +1726,27 @@ tr.en_tete_message > td.td_coche {
 #o_syntheseChasses td {
   padding: 2px 8px;
 }
-#o_syntheseChasses td[title] {
+#o_syntheseChasses td.o_aide {
   cursor: help;
 }
 .o_syntheseTotal td {
   border-top: 1px solid currentColor;
+}
+#o_syntheseChasses {
+  margin: 4px 0 10px 0;
+}
+#o_syntheseChasses .o_syntheseUnites {
+  text-align: left;
+  font-size: 0.9em;
+}
+.o_syntheseBoutons {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.o_syntheseBoutons .o_button {
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 0.85em;
 }

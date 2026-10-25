@@ -129,7 +129,14 @@ class PageRessource {
             if (nom.length > unites[cle].nom.length) unites[cle].nom = nom;
           }
         });
-        let detail = Object.values(unites),
+        // ordre des unités du jeu (JSN, SN, NE, JS, S…), inconnues en dernier
+        let rang = (nom) => {
+            let r = [...NOM_UNITES, ...NOM_UNITE].findIndex(
+              (n) => n.toLowerCase() == nom.toLowerCase(),
+            );
+            return r == -1 ? 99 : r % NOM_UNITES.length;
+          },
+          detail = Object.values(unites).sort((a, b) => rang(a.nom) - rang(b.nom)),
           total = detail.reduce((t, u) => t + u.nb, 0);
         return {
           terrain: terrain,
@@ -137,24 +144,35 @@ class PageRessource {
           detail: detail.map((u) => `${numeral(u.nb).format()} ${u.nom}`).join(", "),
         };
       },
+      textes = [],
       ligne = (libelle, liste, classe) => {
-        let s = somme(liste);
-        return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td title="${s.detail}">${numeral(s.total).format()}</td></tr>`;
+        let s = somme(liste),
+          unites = s.detail ? s.detail + "." : "";
+        textes.push(
+          `${libelle} : ${liste.length} chasse${liste.length > 1 ? "s" : ""}, ${numeral(s.terrain).format()} cm², ${unites}`,
+        );
+        return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td class='o_syntheseUnites'>${unites}</td></tr>`;
       },
-      aujourdhui = Horloge.serveur(),
-      html = `<div id='o_syntheseChasses' class='o_marginT15'><table class='o_maxWidth centre' cellspacing='0'>
+      html = `<div id='o_syntheseChasses'><table class='o_maxWidth centre' cellspacing='0'>
         <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>Unités mises en chasse</td></tr>`;
     groupes.forEach((g, i) => {
-      html += ligne(
-        g.impact.isSame(aujourdhui, "day")
-          ? g.impact.format("HH[h]mm")
-          : g.impact.format("D MMM HH[h]mm"),
-        g.chasses,
-        i % 2 ? "" : "ligne_paire",
-      );
+      html += ligne(g.impact.format("D MMM [à] HH[h]mm"), g.chasses, i % 2 ? "" : "ligne_paire");
     });
     if (groupes.length > 1) html += ligne("Total", chasses, "gras o_syntheseTotal");
-    $("#boite_tdc").append(html + "</table></div>");
+    html += `</table><div class='o_syntheseBoutons'>
+        <button type='button' id='o_copierSynthese' class='o_button f_info'>Copier la synthèse</button>
+        <button type='button' id='o_partagerChasses' class='o_button f_info'>Partager mes chasses avec la ${Utils.alliance || "l'alliance"}</button>
+      </div></div>`;
+    // sous le titre « Chasse en cours », au-dessus des lignes de chasse
+    let $titre = $("#boite_tdc span.titre").filter((i, e) =>
+      $(e).text().includes("Chasse en cours"),
+    );
+    if ($titre.length) $titre.first().after(html);
+    else $("#boite_tdc").append(html);
+    $("#o_copierSynthese").on("click", () =>
+      CommerceFzzz.copier(textes.join("\n"), "Synthèse des chasses copiée dans le presse-papier."),
+    );
+    $("#o_partagerChasses").on("click", () => $.toast({ ...TOAST_INFO, text: "En cours de dev" }));
   }
   /**
    * Ajoute un bouton "Annuler toutes les chasses" dans la boîte de chasse en cours.

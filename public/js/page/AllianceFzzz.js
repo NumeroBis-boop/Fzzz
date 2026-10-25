@@ -117,7 +117,33 @@ class AllianceFzzz {
     try {
       initiale = sessionStorage.getItem("fzzz_vueMembres") || "trajet";
     } catch (e) {}
+    // largeur commune : celle de la vue la plus large, pour que l'encart ne
+    // change pas de taille d'une vue à l'autre (les colonnes se répartissent)
+    let fixerLargeur = () => {
+      let $t = $("#tabMembresAlliance"),
+        $w = $("#tabMembresAlliance_wrapper"),
+        courante = sessionStorage.getItem("fzzz_vueMembres") || initiale,
+        max = 0;
+      $w.css("width", "");
+      $t.addClass("o_allMesure");
+      ["reset", "trajet", "floods"].forEach((v) => {
+        for (let i = 0; i < n; i++) api.column(i).visible(vues[v](i), false);
+        max = Math.max(max, $t.outerWidth());
+      });
+      $t.removeClass("o_allMesure");
+      $w.css("width", max + "px");
+      // second passage à la largeur fixée : une vue dont le contenu déborde
+      // (rang à largeur fixe, en-têtes) agrandit la largeur commune
+      ["reset", "trajet", "floods"].forEach((v) => {
+        for (let i = 0; i < n; i++) api.column(i).visible(vues[v](i), false);
+        max = Math.max(max, $t.outerWidth());
+      });
+      $w.css("width", max + "px");
+      appliquer(courante);
+    };
+    AllianceFzzz._fixerLargeur = fixerLargeur;
     appliquer(initiale);
+    fixerLargeur();
     AllianceFzzz._charger(api);
   }
   /**
@@ -244,5 +270,7 @@ class AllianceFzzz {
         .on("mouseleave", () => $info.hide());
     });
     api.rows().invalidate("dom").draw(false);
+    // les colonnes remplies ont pu élargir la vue « Floods et chasses »
+    if (AllianceFzzz._fixerLargeur) AllianceFzzz._fixerLargeur();
   }
 }

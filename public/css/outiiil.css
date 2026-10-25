@@ -1914,3 +1914,16 @@ tr.en_tete_message > td.td_coche {
   max-width: 11em;
   white-space: normal;
 }
+#tabMembresAlliance th,
+#tabMembresAlliance td {
+  text-align: center !important;
+}
+/* mesure de la largeur naturelle d'une vue (AllianceFzzz) */
+#tabMembresAlliance.o_allMesure {
+  width: auto !important;
+}
+#tabMembresAlliance.o_allMesure .o_allCol0,
+#tabMembresAlliance.o_allMesure .o_allCol1,
+#tabMembresAlliance.o_allMesure .o_allCol3 {
+  width: auto !important;
+}

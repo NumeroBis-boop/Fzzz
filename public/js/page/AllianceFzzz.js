@@ -202,17 +202,15 @@ class AllianceFzzz {
         date: e.date,
         delta: vers ? -e.terrain : e.terrain,
         autre: vers ? e.lanceur : e.cible,
+        id: e.id,
       });
     });
-    let parMinute = {};
-    evts
+    // une ligne par chasse ou par flood, même à la même minute (multi-flood) :
+    // chaque montant envoyé reste visible
+    return evts
       .filter((e) => e.date >= maintenant)
-      .forEach((e) => {
-        let m = (parMinute[e.date] = parMinute[e.date] || { date: e.date, delta: 0, autres: [] });
-        m.delta += e.delta;
-        if (!m.autres.includes(e.autre)) m.autres.push(e.autre);
-      });
-    return Object.values(parMinute).sort((a, b) => (a.date < b.date ? -1 : 1));
+      .map((e) => ({ date: e.date, delta: e.delta, autres: [e.autre], id: e.id || 0 }))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
   }
   /**
    * @private

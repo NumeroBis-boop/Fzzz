@@ -217,10 +217,15 @@ class PartageChasses {
             }
             return true;
           });
-        if (!nouvelles.length) return 0;
-        let toutes = anciennes
-            .concat(nouvelles)
-            .sort((a, b) => (a.date < b.date ? 1 : -1))
+        // les entrées passées sont retirées du sujet à chaque partage
+        let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+          aVenir = anciennes.filter((e) => e.date >= maintenant);
+        if (!nouvelles.length && aVenir.length == anciennes.length) return 0;
+        let toutes = aVenir
+            .concat(nouvelles.filter((e) => e.date >= maintenant))
+            .sort((a, b) =>
+              a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0),
+            )
             .slice(0, PARTAGE_MAX_ENTREES),
           message = toutes.map((e) => PartageChasses._ligne(type, e)).join("\n"),
           q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
@@ -470,25 +475,31 @@ class PartageChasses {
           enCours = (liste) =>
             liste.filter((e) => e.date >= maintenant).sort((a, b) => (a.date < b.date ? -1 : 1));
         // synthèse : TdC du joueur après chaque minute où il varie (chasse +, flood −)
-        let variations = {};
-        enCours(chasses).forEach(
-          (e) => (variations[e.date] = (variations[e.date] || 0) + e.terrain),
-        );
-        enCours(floods).forEach((e) => (variations[e.date] = (variations[e.date] || 0) + e.delta));
+        // une ligne par chasse ou par flood, même à la même minute (multi-flood)
+        let variations = enCours(chasses)
+          .map((e) => ({ date: e.date, delta: e.terrain, autre: "Chasse" }))
+          .concat(
+            enCours(floods).map((e) => ({
+              date: e.date,
+              delta: e.delta,
+              autre: e.delta < 0 ? e.lanceur : e.cible,
+              id: e.id || 0,
+            })),
+          )
+          // à minute égale : dans l'ordre d'envoi (numéro d'attaque)
+          .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.id || 0) - (b.id || 0)));
         let synthese = "";
-        if (Object.keys(variations).length && terrain > 0) {
+        if (variations.length && terrain > 0) {
           let tdc = terrain,
             lignes = [
-              `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`,
+              `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td></tr>`,
             ];
-          Object.keys(variations)
-            .sort()
-            .forEach((d) => {
-              tdc += variations[d];
-              lignes.push(
-                `<tr><td>${moment(d, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${signe(variations[d], "")})</td></tr>`,
-              );
-            });
+          variations.forEach((v) => {
+            tdc += v.delta;
+            lignes.push(
+              `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${signe(v.delta, "")})</td><td class='o_allInfoCible'>${v.autre}</td></tr>`,
+            );
+          });
           synthese =
             "<div class='o_partageSeparation'></div>" +
             `<div class='o_partageSynthese'>` +

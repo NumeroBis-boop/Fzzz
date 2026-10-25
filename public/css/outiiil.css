@@ -1930,3 +1930,7 @@ tr.en_tete_message > td.td_coche {
 #o_allInfobulle .o_allInfoCible {
   font-style: italic;
 }
+#o_chassesPartagees .o_allInfoCible {
+  font-style: italic;
+  padding-left: 6px;
+}

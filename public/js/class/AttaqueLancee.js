@@ -328,8 +328,7 @@ class AttaqueLancee {
     let annulables = attaques.filter((a) => a.annuler.length),
       // type="button" obligatoire : sur la page Attaquer ce bloc est dans le
       // formulaire de lancement du jeu, un <button> nu le soumettrait
-      html = `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">
-        <table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">
+      html = `<table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">
         <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Troupes</th><th>Lieu</th><th></th><th></th></tr></thead>
         <tbody>`;
     attaques.forEach((a, i) => {
@@ -342,9 +341,17 @@ class AttaqueLancee {
         <td><button type="button" class="o_button f_info o_attaquePartager" data-i="${i}">Partager ce flood avec la ${tag}</button><span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span><span id="${id}Reste${i}" style="display:none;"></span></td></tr>`;
     });
     html += `</tbody></table>
-      ${annulables.length > 1 ? `<div class="o_attaquesBoutons"><button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button></div>` : ""}
-      </div>`;
-    conteneur.append(html);
+      ${annulables.length > 1 ? `<div class="o_attaquesBoutons"><button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button></div>` : ""}`;
+    conteneur.append(
+      `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">` +
+        Utils.spoiler(
+          `Mes attaques en cours (${attaques.length})`,
+          html,
+          "attaquesEnCours",
+          "o_attaquesTitre",
+        ) +
+        "</div>",
+    );
     AttaqueLancee.colorerTags($(`#${id}`));
     // « Partager TOUS mes floods » sous la ligne « Attaque(s) en cours … » du jeu
     let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button></div>`,

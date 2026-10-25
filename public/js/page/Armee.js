@@ -58,6 +58,8 @@ class PageArmee {
     this.recupereArmeeTdc();
     this.recupereArmeeDome();
     this.recupereArmeeLoge();
+    // Fzzz : floods partagés en cours sur le joueur
+    PartageChasses.afficherArmee();
     // Affichage du nombre d'attaque restante
     $("h3:eq(2)").append(
       ` ${this._nbAttaque}, reste : ${monProfil.niveauRecherche[6] + 1 - this._nbAttaque}.</p>`,

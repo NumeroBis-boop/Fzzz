@@ -153,7 +153,7 @@ class PageRessource {
         );
         return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td class='o_syntheseUnites'>${unites}</td></tr>`;
       },
-      html = `<div id='o_syntheseChasses'><table class='o_maxWidth centre' cellspacing='0'>
+      html = `<table class='o_maxWidth centre' cellspacing='0'>
         <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>Unités mises en chasse</td></tr>`;
     groupes.forEach((g, i) => {
       html += ligne(g.impact.format("D MMM [à] HH[h]mm"), g.chasses, i % 2 ? "" : "ligne_paire");
@@ -162,7 +162,16 @@ class PageRessource {
     html += `</table><div class='o_syntheseBoutons'>
         <button type='button' id='o_copierSynthese' class='o_button f_info'>Copier la synthèse</button>
         <button type='button' id='o_partagerChasses' class='o_button f_info'>Partager mes chasses avec la ${Utils.alliance || "l'alliance"}</button>
-      </div></div>`;
+      </div>`;
+    html =
+      "<div id='o_syntheseChasses'>" +
+      Utils.spoiler(
+        `Synthèse des chasses en cours (${chasses.length})`,
+        html,
+        "ressourcesSynthese",
+        "gras",
+      ) +
+      "</div>";
     // sous le titre « Chasse en cours », au-dessus des lignes de chasse
     let $titre = $("#boite_tdc span.titre").filter((i, e) =>
       $(e).text().includes("Chasse en cours"),

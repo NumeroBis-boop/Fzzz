@@ -309,6 +309,95 @@ class PartageChasses {
     );
   }
   /**
+   * Floods partagés depuis ou vers un joueur, lus dans les sujets « Floods » de
+   * tous les membres (par paquets de 4) : delta < 0 pour une perte (flood
+   * reçu), > 0 pour une prise (flood envoyé).
+   *
+   * @private
+   * @param {Array} sujetsFloods [{pseudo, id}]
+   * @param {String} cible pseudo en minuscules
+   */
+  static _floods(sujetsFloods, cible) {
+    let floods = [],
+      lirePaquet = (k) =>
+        k >= sujetsFloods.length
+          ? Promise.resolve()
+          : Promise.all(
+              sujetsFloods.slice(k, k + 4).map((t) =>
+                PartageChasses.lireSujet(t.id)
+                  .then((d) =>
+                    d.floods.forEach((e) => {
+                      // vers le joueur : perte ; depuis le joueur : prise
+                      let vers = e.cible.toLowerCase() == cible,
+                        depuis = t.pseudo.toLowerCase() == cible;
+                      if (vers != depuis)
+                        floods.push({
+                          ...e,
+                          lanceur: t.pseudo,
+                          delta: vers ? -e.terrain : e.terrain,
+                        });
+                    }),
+                  )
+                  .catch(() => {}),
+              ),
+            ).then(() => lirePaquet(k + 4));
+    return lirePaquet(0).then(() => floods);
+  }
+  /**
+   * Armee.php : floods en cours sur le joueur, au-dessus de « Troupes en Garnison ».
+   *
+   * @static
+   * @method afficherArmee
+   */
+  static afficherArmee() {
+    let moi = monProfil.pseudo,
+      $titre = $("#centre *")
+        .filter(
+          (i, e) =>
+            /^\s*Troupes en Garnison/i.test(e.textContent) &&
+            !$(e)
+              .children()
+              .filter((k, c) => /Troupes en Garnison/i.test(c.textContent)).length,
+        )
+        .first();
+    if (!moi || !$titre.length) return;
+    let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
+    PartageChasses.sujets()
+      .then((sujets) =>
+        PartageChasses._floods(
+          sujets.liste.filter((t) => t.type == "Floods"),
+          moi.toLowerCase(),
+        ),
+      )
+      .then((floods) => {
+        let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+          recus = floods
+            .filter((e) => e.delta < 0 && e.date >= maintenant)
+            .sort((a, b) => (a.date < b.date ? -1 : 1)),
+          html = "";
+        if (!recus.length) html += "<p>Aucun flood partagé en cours sur toi.</p>";
+        else {
+          html += `<table class='o_attaquesLancees o_maxWidth centre' cellspacing='0'><thead><tr><th>#</th><th>Arrivée</th><th>TdC (estimé)</th><th>Lanceur</th></tr></thead><tbody>`;
+          recus.forEach((e, i) => {
+            html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td><td>${moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td><span class='o_varNeg'>−${numeral(e.terrain).format()} cm²</span></td><td><a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a></td></tr>`;
+          });
+          html += `<tr class='o_syntheseTotal'><td></td><td>Total (${recus.length})</td><td><span class='o_varNeg'>−${numeral(recus.reduce((t, e) => t + e.terrain, 0)).format()} cm²</span></td><td></td></tr></tbody></table>`;
+        }
+        $("#o_floodsRecus").remove();
+        $ancre.before(
+          "<div id='o_floodsRecus' class='boite_amelioration simulateur centre o_blocAttaques'>" +
+            Utils.spoiler(
+              `Floods en cours sur ${moi} partagés avec la ${Utils.alliance} (${recus.length})`,
+              html,
+              "armeeFloodsRecus",
+              "o_attaquesTitre",
+            ) +
+            "</div>",
+        );
+      })
+      .catch(() => {});
+  }
+  /**
    * Page membre : chasses et floods partagés par le joueur consulté.
    *
    * @static
@@ -323,39 +412,21 @@ class PartageChasses {
         // chasses du joueur affiché ; floods de tous les membres dirigés vers lui
         // (lecture des sujets « Floods » par paquets de 4, à chaque affichage :
         // une correction faite dans le forum est donc prise en compte)
-        let floods = [],
-          lirePaquet = (k) =>
-            k >= sujetsFloods.length
-              ? Promise.resolve()
-              : Promise.all(
-                  sujetsFloods.slice(k, k + 4).map((t) =>
-                    PartageChasses.lireSujet(t.id)
-                      .then((d) =>
-                        d.floods.forEach((e) => {
-                          // vers le joueur : perte ; depuis le joueur : prise
-                          let vers = e.cible.toLowerCase() == cible,
-                            depuis = t.pseudo.toLowerCase() == cible;
-                          if (vers != depuis)
-                            floods.push({
-                              ...e,
-                              lanceur: t.pseudo,
-                              delta: vers ? -e.terrain : e.terrain,
-                            });
-                        }),
-                      )
-                      .catch(() => {}),
-                  ),
-                ).then(() => lirePaquet(k + 4));
         return Promise.all([
           idChasses ? PartageChasses.lireSujet(idChasses).then((d) => d.chasses) : [],
-          lirePaquet(0).then(() => floods),
+          PartageChasses._floods(sujetsFloods, cible),
         ]);
       })
       .then(([chasses, floods]) => {
-        let tableau = (titre, entrees, colonnes, cellules) => {
-          let html = `<h3 class='o_partageTitre'>${titre}</h3>`;
-          if (!entrees.length) return html + "<p class='centre'>Aucun partage en cours.</p>";
-          html += `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
+        let tableau = (titre, entrees, colonnes, cellules, cle) => {
+          if (!entrees.length)
+            return Utils.spoiler(
+              `${titre} (0)`,
+              "<p class='centre'>Aucun partage en cours.</p>",
+              cle,
+              "o_partageTitre",
+            );
+          let html = `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
           entrees.forEach((e, i) => {
             html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(e)
               .map((t) => `<td>${t}</td>`)
@@ -365,9 +436,12 @@ class PartageChasses {
             total = entrees.some((e) => e.delta != null)
               ? signe(somme)
               : `${numeral(somme).format()} cm²`;
-          return (
+          return Utils.spoiler(
+            `${titre} (${entrees.length})`,
             html +
-            `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total}</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`
+              `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total}</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`,
+            cle,
+            "o_partageTitre",
           );
         };
         // « +2 340 cm² » en vert, « −2 340 cm² » en rouge
@@ -401,9 +475,15 @@ class PartageChasses {
             });
           synthese =
             "<div class='o_partageSeparation'></div>" +
-            `<div class='o_partageSynthese'><h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
-              <table class='centre' cellspacing='0'>${lignes.join("")}</table>
-              <p class='o_partageAvertissement'><em>En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p></div>`;
+            `<div class='o_partageSynthese'>` +
+            Utils.spoiler(
+              `Évolution du TdC de ${pseudo}`,
+              `<table class='centre' cellspacing='0'>${lignes.join("")}</table>
+              <p class='o_partageAvertissement'><em>En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p>`,
+              "profilSynthese",
+              "o_partageTitre",
+            ) +
+            "</div>";
         }
         $("#o_chassesPartagees").remove();
         // entre le bloc « Action » et la suite de la page
@@ -415,6 +495,7 @@ class PartageChasses {
               enCours(chasses),
               ["Heure d'impact", "TdC chassé"],
               (e) => [date(e), numeral(e.terrain).format() + " cm²"],
+              "profilChasses",
             ) +
             "<div class='o_partageSeparation'></div>" +
             tableau(
@@ -426,6 +507,7 @@ class PartageChasses {
                 signe(e.delta),
                 `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a> → <a href='Membre.php?Pseudo=${encodeURIComponent(e.cible)}'>${e.cible}</a>`,
               ],
+              "profilFloods",
             ) +
             synthese +
             "</div>",

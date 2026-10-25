@@ -1838,3 +1838,19 @@ tr.en_tete_message > td.td_coche {
   font-size: 0.8em;
   padding-left: 6px;
 }
+
+/* Fzzz : encarts repliables (Utils.spoiler) */
+.o_spoilerTitre {
+  cursor: pointer;
+  font-weight: bold;
+  user-select: none;
+  margin: 4px 0;
+}
+.o_spoilerTitre:hover {
+  text-decoration: underline;
+}
+.o_spoilerFleche {
+  display: inline-block;
+  width: 1em;
+  font-size: 0.8em;
+}

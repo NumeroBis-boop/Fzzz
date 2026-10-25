@@ -217,6 +217,37 @@ class Utils {
    * @param {String} id identifiant de la ligne ajoutée
    * @param {String} contenu HTML affiché une fois déplié
    */
+  /**
+   * Fzzz : encart repliable. Renvoie le HTML d'un titre cliquable (flèche
+   * ▶/▼) suivi de son contenu, replié par défaut ; l'état ouvert/fermé est
+   * mémorisé par clé dans le navigateur.
+   *
+   * @static
+   * @method spoiler
+   */
+  static spoiler(titre, corps, cle, classeTitre = "") {
+    let ouvert = false;
+    try {
+      ouvert = localStorage.getItem("fzzz_spoiler_" + cle) == "1";
+    } catch (e) {}
+    if (!Utils._spoilersActifs) {
+      Utils._spoilersActifs = true;
+      $(document).on("click", ".o_spoilerTitre", (e) => {
+        let $t = $(e.currentTarget),
+          $c = $t.next(".o_spoilerCorps"),
+          ouvrir = !$c.is(":visible");
+        $c.toggle(ouvrir);
+        $t.find(".o_spoilerFleche").text(ouvrir ? "▼" : "▶");
+        try {
+          localStorage.setItem("fzzz_spoiler_" + $t.data("spoiler"), ouvrir ? "1" : "0");
+        } catch (err) {}
+      });
+    }
+    return `<div class='o_spoilerTitre ${classeTitre}' data-spoiler='${cle}'><span class='o_spoilerFleche'>${ouvert ? "▼" : "▶"}</span> ${titre}</div><div class='o_spoilerCorps'${ouvert ? "" : " style='display:none;'"}>${corps}</div>`;
+  }
+  /**
+   * Fzzz : bandeau « Estimer le niveau de rentabilité… » (voir plus bas).
+   */
   static ajouterSpoilerRentabilite($ligne, id, contenu) {
     $("#" + id).remove();
     $ligne.after(`

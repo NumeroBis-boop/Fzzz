@@ -4,7 +4,12 @@
  **********************************************************************/
 
 // colonnes ajoutées en fin de ligne au tableau des membres
-const ALLIANCE_COLONNES_FZZZ = ["Prochaine variation", "Montant", "Joueur cible", "TdC final"];
+const ALLIANCE_COLONNES_FZZZ = [
+  "Prochaine<br/>variation",
+  "Montant",
+  "Joueur cible",
+  "TdC<br/>final",
+];
 
 /**
  * Page Membres de l'alliance : vues « Temps de trajet », « Reset » (tableau
@@ -23,10 +28,15 @@ class AllianceFzzz {
    */
   static colonnes() {
     let $t = $("#tabMembresAlliance");
-    $t.find("thead tr").append(ALLIANCE_COLONNES_FZZZ.map((c) => `<th>${c}</th>`).join(""));
+    $t.find("thead tr").append(
+      ALLIANCE_COLONNES_FZZZ.map((c, i) => `<th class='o_allCol${i}'>${c}</th>`).join(""),
+    );
+    // rang : largeur au plus juste (le libellé ne passe plus sur toute la ligne)
+    $t.find("thead th:eq(2)").addClass("o_allRang");
+    $t.find("tbody tr").each((i, tr) => $(tr).find("td:eq(2)").addClass("o_allRang"));
     $t.find("tbody tr").each((i, tr) => {
       $(tr).append(
-        `<td class='o_allVar' data-order='99999999'>…</td><td class='o_allMontant' data-order='0'></td><td class='o_allCible'></td><td class='o_allFinal' data-order='0'></td>`,
+        `<td class='o_allVar o_allCol0' data-order='99999999'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allCible o_allCol2'></td><td class='o_allFinal o_allCol3' data-order='0'></td>`,
       );
     });
     // ligne des totaux (pied fusionné sur toutes les colonnes) déplacée sous le
@@ -73,8 +83,8 @@ class AllianceFzzz {
     if (!$boutons.length)
       $boutons = $("<div class='dt-buttons'></div>").prependTo("#tabMembresAlliance_wrapper");
     $boutons.prepend(
-      `<a class='dt-button o_allVue' data-vue='trajet' href='#'><span>Temps de trajet</span></a>
-       <a class='dt-button o_allVue' data-vue='reset' href='#'><span>Reset</span></a>
+      `<a class='dt-button o_allVue' data-vue='reset' href='#'><span>Standard</span></a>
+       <a class='dt-button o_allVue' data-vue='trajet' href='#'><span>Temps de trajet</span></a>
        <a class='dt-button o_allVue' data-vue='floods' href='#'><span>Floods et chasses en cours</span></a>`,
     );
     $boutons.find(".o_allVue").on("click", (e) => {
@@ -198,11 +208,15 @@ class AllianceFzzz {
         p = vars[0];
       cellule(r, n - 4)
         .attr("data-order", p ? moment(p.date, "YYYY-MM-DD HH:mm").unix() : 99999999)
+        .toggleClass("o_allVide", !p)
         .html(p ? moment(p.date, "YYYY-MM-DD HH:mm").format("DD/MM HH:mm") : "—");
       cellule(r, n - 3)
         .attr("data-order", p ? p.delta : 0)
+        .toggleClass("o_allVide", !p)
         .html(p ? AllianceFzzz._signe(p.delta) : "—");
-      cellule(r, n - 2).html(p ? p.autres.join(", ") : "—");
+      cellule(r, n - 2)
+        .toggleClass("o_allVide", !p)
+        .html(p ? p.autres.join(", ") : "—");
       cellule(r, n - 1)
         .attr("data-order", final)
         .html(numeral(final).format());

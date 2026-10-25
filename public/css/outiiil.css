@@ -1002,7 +1002,37 @@ hr.o_scSepar {
 /* Récapitulatif des attaques lancées, pages : Armee.php, ennemie.php?Attaquer=... */
 .o_attaquesLancees td,
 .o_attaquesLancees th {
-  padding: 2px 6px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+/* Fzzz : blocs compacts, empilés sans grand espace */
+.o_blocAttaques {
+  margin: 6px 0 !important;
+  padding: 4px 8px !important;
+}
+.o_blocAttaques .o_attaquesTitre {
+  margin: 2px 0 4px 0;
+  font-size: 1.1em;
+}
+.o_attaquesLancees td.o_troupesCourtes {
+  white-space: normal;
+  cursor: help;
+}
+.o_attaquesNote td {
+  font-size: 0.8em;
+  padding-top: 2px;
+}
+.o_attaquesBoutons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.o_attaquesBoutons .o_button {
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 0.8em;
 }
 
 /* Lanceur de flood, page : ennemie.php?Attaquer=... */

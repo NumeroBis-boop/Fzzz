@@ -326,30 +326,32 @@ class AttaqueLancee {
           .sort((a, b) => a.ligne.arrivee - b.ligne.arrivee),
         id = `o_attaquesLancees${index}`,
         annulables = groupe.filter((a) => a.annuler.length),
-        html = `<br/><div id="${id}" class="boite_amelioration simulateur centre">
-          <h2>Attaques sur ${groupe[0].ligne.cibleHtml || cible}</h2>
+        // Fzzz : bloc compact (une ligne par attaque) pour lire plusieurs floods d'un coup
+        html = `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">
+          <h3 class="o_attaquesTitre">Attaques sur ${groupe[0].ligne.cibleHtml || cible} <span class="reduce">(${groupe.length})</span></h3>
           <table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">
-          <thead><tr><th>#</th><th>Lieu</th><th>Troupes</th><th>Reste</th><th>Arrivée</th><th>Terrain de ${cible}*</th><th></th></tr></thead>
+          <thead><tr><th>#</th><th>Lieu</th><th>Troupes</th><th>Reste</th><th>Arrivée</th><th>TdC ${cible}*</th><th></th></tr></thead>
           <tbody>`;
       groupe.forEach((a, i) => {
         let c = a.capture;
         html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
-          <td>${AttaqueLancee.lieu(a) || "?"}</td>
-          <td>${AttaqueLancee.troupes(a) || "?"}</td>
-          <td id="${id}Reste${i}"></td>
-          <td>${AttaqueLancee.formatArrivee(a.ligne.secondes)}</td>
+          <td>${AttaqueLancee.lieuCourt(a) || "?"}</td>
+          <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || ""}">${AttaqueLancee.troupesCourtes(a) || "?"}</td>
+          <td id="${id}Reste${i}"><span id="${id}Compte${i}"></span></td>
+          <td>${Utils.roundMinute(a.ligne.secondes).format("DD/MM HH[h]mm")}</td>
           <td>${c && c.terrainCible != null ? numeral(c.terrainCible).format() : "?"}</td>
           <td id="${id}Annuler${i}"></td></tr>`;
       });
       // type="button" obligatoire : sur la page Attaquer ce bloc est dans le
       // formulaire de lancement du jeu, un <button> nu le soumettrait
-      html += `<tr class="reduce"><td colspan="7"><em>* : terrain estimé après l'attaque, si elle réussit et que rien d'autre ne le fait varier entre-temps.${groupe.some((a) => !AttaqueLancee.troupes(a)) ? " « ? » : attaque lancée depuis un autre navigateur, détails inconnus." : ""}</em></td></tr>
+      html += `<tr class="reduce o_attaquesNote"><td colspan="7"><em>* : terrain estimé après l'attaque, si elle réussit et que rien d'autre ne le fait varier entre-temps.${groupe.some((a) => !AttaqueLancee.troupes(a)) ? " « ? » : attaque lancée depuis un autre navigateur, détails inconnus." : ""}</em></td></tr>
           </tbody></table>
-          <button type="button" id="${id}Copier" class="o_marginT15 o_button" title="Une ligne : cible, heure d'arrivée, terrain estimé">Copier pour le forum</button>
-          <button type="button" id="${id}CopierDetail" class="o_marginT15 o_button" title="Chaque attaque, avec ses troupes">Copier le détail</button>
-          <button type="button" id="${id}Partager" class="o_marginT15 o_button f_info" title="Enregistre arrivée, cible et terrain estimé pris dans le forum de l'alliance (sujet Floods | pseudo)">Partager mes floods avec la ${Utils.alliance || "l'alliance"}</button>
-          ${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_marginT15 o_button f_error">Tout annuler</button>` : ""}
-          </div>`;
+          <div class="o_attaquesBoutons">
+          <button type="button" id="${id}Copier" class="o_button" title="Une ligne : cible, heure d'arrivée, terrain estimé">Copier pour le forum</button>
+          <button type="button" id="${id}CopierDetail" class="o_button" title="Chaque attaque, avec ses troupes">Copier le détail</button>
+          <button type="button" id="${id}Partager" class="o_button f_info" title="Enregistre arrivée, cible et terrain estimé pris dans le forum de l'alliance (sujet Floods | pseudo)">Partager mes floods avec la ${Utils.alliance || "l'alliance"}</button>
+          ${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}
+          </div></div>`;
       conteneur.append(html);
       // compteur et lien Annuler : déplacés dans le tableau (natif conservé).
       // Pour une attaque capturée on connaît l'heure de lancement : le lien
@@ -363,7 +365,10 @@ class AttaqueLancee {
         let natifs = AttaqueLancee.noeudsLigne(a.ligne.elt),
           restant = a.capture ? a.capture.lancee + DELAI_ANNULATION * 1000 - Date.now() : null;
         a.cellule = `#${id}Annuler${i}`;
-        $(a.ligne.elt).appendTo(`#${id}Reste${i}`);
+        // compteur du jeu (« 14 heures 9 minutes 3 secondes ») conservé mais masqué,
+        // remplacé à l'affichage par un compte compact
+        $(a.ligne.elt).hide().appendTo(`#${id}Reste${i}`);
+        Utils.decreaseTime(a.ligne.secondes, `${id}Compte${i}`, { format: PrevenirFlood.duree });
         if (a.annuler.length) {
           if (restant !== null && restant <= 0) a.annuler.remove();
           else {
@@ -462,6 +467,21 @@ class AttaqueLancee {
   /**
    * Lieu visé d'une attaque : capture, sinon texte du jeu (C+), sinon null.
    */
+  static lieuCourt(a) {
+    let lieu = AttaqueLancee.lieu(a);
+    if (!lieu) return null;
+    return /terrain/i.test(lieu) ? "TdC" : /loge/i.test(lieu) ? "Loge" : "Fourmilière";
+  }
+  /**
+   * Troupes abrégées (« 2 111 JSN, 30 S ») ; texte complet en infobulle.
+   */
+  static troupesCourtes(a) {
+    if (!a.capture) return a.ligne.troupesNatif;
+    return new Armee({ unite: a.capture.unite }).unite
+      .map((nb, i) => (nb ? `${numeral(nb).format()} ${NOM_RAC_UNITE[i + 1]}` : null))
+      .filter(Boolean)
+      .join(", ");
+  }
   static lieu(a) {
     return a.capture ? a.capture.lieu : a.ligne.lieuNatif;
   }

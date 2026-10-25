@@ -633,6 +633,10 @@ const DATEPICKER_OPTION = {
           page = new PageChat();
           page.executer();
           break;
+        case location.href.indexOf("/alliance.php?forum_menu") > 0:
+          // Fzzz : repère la section du forum qui stocke les chasses partagées
+          PartageChasses.observerForum();
+          break;
         case location.href.indexOf("/alliance.php?Membres") > 0:
           page = new PageAlliance();
           page.executer();

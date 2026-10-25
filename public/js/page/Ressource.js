@@ -172,7 +172,15 @@ class PageRessource {
     $("#o_copierSynthese").on("click", () =>
       CommerceFzzz.copier(textes.join("\n"), "Synthèse des chasses copiée dans le presse-papier."),
     );
-    $("#o_partagerChasses").on("click", () => $.toast({ ...TOAST_INFO, text: "En cours de dev" }));
+    $("#o_partagerChasses").on("click", (e) =>
+      PartageChasses.partager(
+        groupes.map((g) => {
+          let s = somme(g.chasses);
+          return { impact: g.impact, terrain: s.terrain, unites: s.detail ? s.detail + "." : "" };
+        }),
+        $(e.currentTarget),
+      ),
+    );
   }
   /**
    * Ajoute un bouton "Annuler toutes les chasses" dans la boîte de chasse en cours.

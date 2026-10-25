@@ -121,6 +121,7 @@ export default defineConfig({
           "js/page/Laboratoire.js",
           "js/page/MessagerieFzzz.js",
           "js/page/Messagerie.js",
+          "js/page/PartageChasses.js",
           "js/page/Profil.js",
           "js/page/Reine.js",
           "js/page/Ressource.js",

@@ -116,8 +116,17 @@ class SimulationChasse {
    * d'abord (deux fois les pertes max quand des unités XP partent, sinon au
    * prorata de la difficulté), puis les autres unités jusqu'à la part
    * d'attaque de la chasse. La première chasse prend tout ce qui reste.
+   * `facteur` remplace la marge de JSN par défaut (lanceur par budget de pertes).
    */
-  static repartir(unites, tdcArrivee, terrain, nombre, indexRef, bouclier) {
+  static repartir(
+    unites,
+    tdcArrivee,
+    terrain,
+    nombre,
+    indexRef,
+    bouclier,
+    facteur = SimulationChasse.FACTEUR_SECURITE,
+  ) {
     let dispo = unites.slice(),
       difficulte = SimulationChasse.difficulteTotale(tdcArrivee, terrain, nombre),
       restante = difficulte,
@@ -129,7 +138,7 @@ class SimulationChasse {
         pertes = SimulationChasse.pertes(indexRef, diff, bouclier),
         att = difficulte ? (diff * base) / difficulte : 0,
         xp = ORDRE_XP_CHASSE.some((u) => dispo[u] > 0);
-      if (xp) envoi[0] = Math.round(pertes.MAX * SimulationChasse.FACTEUR_SECURITE);
+      if (xp) envoi[0] = Math.round(pertes.MAX * facteur);
       else {
         envoi[0] = Math.round((dispo[0] * diff) / restante);
         restante -= diff;

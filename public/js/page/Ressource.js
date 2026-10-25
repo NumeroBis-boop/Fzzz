@@ -49,6 +49,8 @@ class PageRessource {
       this._armee.chargeData(data);
       // Ajout du lanceur de chasse
       this.lanceur();
+      // Fzzz : second lanceur (budget de pertes) et sélecteur entre les deux
+      this.selecteurLanceur();
     });
     // Lie les chasses lancées aux lignes du jeu (compte des troupes dehors)
     TroupesDehors.synchroniserChasses();
@@ -95,6 +97,46 @@ class PageRessource {
         },
       );
     });
+  }
+  /**
+   * Fzzz : sélecteur entre le lanceur standard et le lanceur par budget de
+   * pertes. Seul le lanceur choisi est affiché ; le choix est mémorisé.
+   *
+   * @private
+   * @method selecteurLanceur
+   */
+  selecteurLanceur() {
+    if (!$("#o_prepaChasse").length) return this;
+    const CLE = "fzzz_lanceurChasse";
+    let choix = "standard";
+    try {
+      choix = localStorage.getItem(CLE) || "standard";
+    } catch (e) {}
+    $("#o_prepaChasse").before(
+      `<div id='o_choixLanceur' class='boite_amelioration simulateur centre'>
+        <label class='gras'>Lanceur de chasses :
+          <select id='o_choixLanceurSelect'>
+            <option value='standard'>Standard (ratio choisi)</option>
+            <option value='budget'>Budget de pertes (JSN sacrifiées)</option>
+          </select>
+        </label>
+      </div>`,
+    );
+    new LanceurBudget(this._armee, this._nbChasse).afficher($("#o_prepaChasse"));
+    let appliquer = (v) => {
+      $("#o_prepaChasse").toggle(v == "standard");
+      $("#o_lanceurBudget").toggle(v == "budget");
+    };
+    $("#o_choixLanceurSelect")
+      .val(choix)
+      .on("change", (e) => {
+        try {
+          localStorage.setItem(CLE, e.currentTarget.value);
+        } catch (err) {}
+        appliquer(e.currentTarget.value);
+      });
+    appliquer(choix);
+    return this;
   }
   /**
    * Formulaire de lancement pour les chasses.

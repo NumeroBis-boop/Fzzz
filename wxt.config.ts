@@ -119,6 +119,7 @@ export default defineConfig({
           "js/page/Messagerie.js",
           "js/page/Profil.js",
           "js/page/Reine.js",
+          "js/page/LanceurBudget.js",
           "js/page/Ressource.js",
           "js/content.js",
         ],

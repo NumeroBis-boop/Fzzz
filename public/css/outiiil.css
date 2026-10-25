@@ -1454,3 +1454,22 @@ center > div > #tabMembresAlliance {
 .o_spoilerContenu td {
   padding: 1px 6px;
 }
+
+/* Fzzz : sélecteur de lanceur de chasses et lanceur par budget de pertes */
+#o_choixLanceur {
+  margin-bottom: 8px;
+  padding: 6px;
+}
+#o_lanceurBudget input {
+  text-align: right;
+}
+#o_lbChasses th,
+#o_lbChasses td {
+  padding: 2px 5px;
+}
+#o_lbChasses tr.green td {
+  color: #1d7a1d;
+}
+#o_lbChasses tr.red td {
+  color: #b00020;
+}

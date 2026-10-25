@@ -139,7 +139,7 @@ class PageLaboratoire {
   /**
    * Extension sous la ligne Armes (la ligne du jeu reste intacte) : FdF hors
    * bonus (HB) de l'armée, FdF HB requise pour que le niveau suivant rapporte
-   * autant que la ponte de JS, d'Artilleuses ou de Tanks pendant le temps de
+   * autant que la ponte de JS, d'Artilleuses, de Tanks ou de Tueuses d'élite pendant le temps de
    * ponte des ouvrières sacrifiées, ce qu'il manque, et le nombre d'unités de
    * chaque sorte qui comblerait ce manque.
    *
@@ -170,7 +170,7 @@ class PageLaboratoire {
             1n) /
             BigInt(TEMPS_UNITE[u]),
         ),
-      lignes = [4, 8, 11]
+      lignes = [4, 8, 11, 14]
         .map((u) => {
           let s = seuil(u),
             manque = Math.max(0, s - fdf),
@@ -184,6 +184,7 @@ class PageLaboratoire {
     $("#o_fdfArmesLigne").remove();
     $ligne.after(`
       <tr id='o_fdfArmesLigne'><td colspan='${$ligne.children("td").length || 4}'>
+        <div id='o_fdfArmesCadre'>
         <div id='o_fdfArmesBandeau'><span class='o_fleche'>▶</span> Estimer le niveau de rentabilité du niveau supérieur</div>
         <div id='o_fdfArmes' style='display:none'>
           <p><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
@@ -192,6 +193,7 @@ class PageLaboratoire {
             <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>FdF HB manquante</td><td class='right'>Unités à pondre</td></tr>
             ${lignes}
           </table>
+        </div>
         </div>
       </td></tr>`);
     // bandeau en spoiler, replié par défaut

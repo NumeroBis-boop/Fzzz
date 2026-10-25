@@ -1360,11 +1360,12 @@ center > div > #tabMembresAlliance {
   box-sizing: border-box !important;
   margin: 0 0 6px 0 !important;
   padding: 2px 6px !important;
-  background: #d7c384 !important;
-  border: 1px solid #8b7440;
+  /* repli si la couleur du cadre « S5 Pseudo » ne peut être lue (voir Horloge.js) */
+  background: #4b4a3b;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 6px;
   box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.45);
-  color: #3a2a0c !important;
+  color: #f3ead2;
   font-family: inherit;
   text-shadow: none !important;
   white-space: nowrap;
@@ -1377,7 +1378,7 @@ center > div > #tabMembresAlliance {
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
-  color: #3a2a0c !important;
+  color: inherit !important;
 }
 #o_horloge.o_horlogePC #o_horlogeHeure {
   opacity: 0.6;
@@ -1388,23 +1389,23 @@ center > div > #tabMembresAlliance {
   gap: 0.2em;
   font-size: 0.6em;
   white-space: nowrap;
-  color: #3a2a0c !important;
+  color: inherit !important;
 }
 #o_horloge .o_horlogeLatence button {
   width: 1.5em;
   height: 1.5em;
   margin: 0;
   padding: 0;
-  border: 1px solid #8b7440;
+  border: 1px solid currentColor;
   border-radius: 3px;
-  background: #f1e6c2;
-  color: #3a2a0c;
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
   font-size: 1em;
   line-height: 1em;
   cursor: pointer;
 }
 #o_horloge .o_horlogeLatence button:hover {
-  background: #fff6dc;
+  background: rgba(255, 255, 255, 0.3);
 }
 #o_horloge #o_latenceValeur {
   display: inline-block;
@@ -1412,31 +1413,22 @@ center > div > #tabMembresAlliance {
   text-align: center;
 }
 
-/* Fzzz : extension sous la ligne Armes du Laboratoire */
+/* Fzzz : extension sous la ligne Armes du Laboratoire, en spoiler */
 #o_fdfArmesLigne > td {
   padding: 0 !important;
 }
-#o_fdfArmes {
+#o_fdfArmesCadre {
   box-sizing: border-box;
   width: 100%;
   margin: 0 0 8px 0;
-  padding: 6px 10px;
   border: 1px solid #8b7440;
-  border-top: none;
-  border-radius: 0 0 6px 6px;
+  border-radius: 6px;
   background: #d7c384;
   color: #3a2a0c;
+  overflow: hidden;
 }
 #o_fdfArmesBandeau {
-  box-sizing: border-box;
-  width: 100%;
-  margin: 0 0 8px 0;
   padding: 5px 10px;
-  border: 1px solid #8b7440;
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  background: #d7c384;
-  color: #3a2a0c;
   font-weight: bold;
   text-align: left;
   cursor: pointer;
@@ -1446,8 +1438,10 @@ center > div > #tabMembresAlliance {
   background: #cfb978;
 }
 #o_fdfArmesBandeau.o_ouvert {
-  margin-bottom: 0;
-  border-radius: 0;
+  border-bottom: 1px solid #8b7440;
+}
+#o_fdfArmes {
+  padding: 6px 10px;
 }
 #o_fdfArmes p {
   margin: 0 0 4px 0;

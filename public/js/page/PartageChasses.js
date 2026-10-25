@@ -150,7 +150,8 @@ class PartageChasses {
         D = "(\\d{1,2})/(\\d{1,2})/(\\d{2,4})\\s+(\\d{1,2})[:hH](\\d{2})",
         N = "(\\d[\\d \\u00a0\\u202f.]*)\\s*cm",
         reC = new RegExp(`${D}\\s*\\|\\s*${N}`, "g"),
-        reF = new RegExp(`${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*${N}`, "g"),
+        // flood : « date | cible | cm² » suivi, depuis 1.18.5, de « | #id d'attaque »
+        reF = new RegExp(`${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*${N}²?(?:\\s*\\|\\s*#(\\d+))?`, "g"),
         // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF, lus seulement
         // si le sujet n'a aucune ligne au format actuel
         reC0 = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
@@ -162,7 +163,12 @@ class PartageChasses {
           ).format("YYYY-MM-DD HH:mm"),
         nombre = (t) => parseInt(t.replace(/\D/g, ""));
       while ((m = reF.exec(texte)))
-        floods.push({ date: date(m), cible: m[6].trim(), terrain: nombre(m[7]) });
+        floods.push({
+          date: date(m),
+          cible: m[6].trim(),
+          terrain: nombre(m[7]),
+          id: m[8] ? parseInt(m[8]) : null,
+        });
       // une ligne de flood contient aussi « date | … » : les chasses sont lues
       // sur le texte privé des lignes de flood
       let texteC = texte.replace(reF, "");
@@ -186,7 +192,9 @@ class PartageChasses {
   static _partager(type, entrees) {
     let pseudo = monProfil.pseudo,
       titre = `${type} | ${pseudo}`,
-      cle = (e) => e.date + "|" + (e.cible || "");
+      // une chasse par minute ; un flood par attaque du jeu (un multi-flood
+      // envoie plusieurs attaques sur la même cible à la même minute)
+      cle = (e) => e.date + "|" + (e.cible || "") + "|" + (e.cible ? e.terrain : "");
     return PartageChasses.sujets().then((sujets) => {
       let idSujet = sujets[`${type} | ${pseudo.toLowerCase()}`];
       return (
@@ -196,8 +204,19 @@ class PartageChasses {
             )
           : Promise.resolve([])
       ).then((anciennes) => {
-        let connues = anciennes.map(cle),
-          nouvelles = entrees.filter((e) => !connues.includes(cle(e)));
+        let ids = anciennes.filter((e) => e.id).map((e) => e.id),
+          // anciennes lignes sans numéro d'attaque : chacune ne couvre qu'un envoi
+          sansId = anciennes.filter((e) => !e.id).map(cle),
+          nouvelles = entrees.filter((e) => {
+            if (e.id && ids.includes(e.id)) return false;
+            let k = sansId.indexOf(cle(e));
+            if (type == "Chasses" ? k != -1 : k != -1 && !e.id) return false;
+            if (k != -1) {
+              sansId.splice(k, 1);
+              return false;
+            }
+            return true;
+          });
         if (!nouvelles.length) return 0;
         let toutes = anciennes
             .concat(nouvelles)
@@ -226,7 +245,7 @@ class PartageChasses {
     let date = moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm");
     return type == "Chasses"
       ? `${date} | ${numeral(e.terrain).format()} cm²`
-      : `${date} | ${e.cible} | ${numeral(e.terrain).format()} cm²`;
+      : `${date} | ${e.cible} | ${numeral(e.terrain).format()} cm²${e.id ? ` | #${e.id}` : ""}`;
   }
   /**
    * Bouton : désactivé pendant l'envoi, puis bilan.
@@ -305,6 +324,7 @@ class PartageChasses {
           date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
           cible: c.cible,
           terrain: c.terrainDepart - c.terrainCible,
+          id: c.id,
         })),
     );
   }

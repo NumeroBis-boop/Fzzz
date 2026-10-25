@@ -6,7 +6,7 @@ Statut : **implémentée (v0.1), à tester en jeu**
 
 - **Badge d'heure serveur**, en bas à droite de toutes les pages, à la seconde, avec sa précision (par exemple « ±0,2 s »).
 - **Arrivée à la seconde** de chaque attaque, sur Armée et sur Attaquer, à côté du compte à rebours. Les attaques sont aussi numérotées dans leur ordre d'arrivée, puisque les combats sont résolus dans cet ordre à la seconde.
-- **Chasses en cours sur la page Armée**. Elles sont lues dans la boîte Compte+ : la première à se terminer est donnée à la seconde, les autres à la minute.
+- **Chasses à la seconde** sur Ressources, et **rappel des chasses sur la page Armée**. La liste vue sur Ressources est mémorisée avec ses heures de retour exactes. Si la boîte Compte+ compte un autre nombre de chasses, la page Armée invite à rouvrir Ressources. Sans visite de Ressources, la page Armée se rabat sur la boîte Compte+, à la minute près.
 
 ## Méthode
 
@@ -19,5 +19,4 @@ Le fuseau est Europe/Paris. Le passage à l'heure d'hiver du 25 octobre est gér
 
 ## Limites
 
-- Les chasses ne sont visibles que si la boîte Compte+ est présente dans la page. Sans Compte+, rien ne s'affiche.
 - La précision de ±1 s vient de la troncature de `Date` à la seconde.

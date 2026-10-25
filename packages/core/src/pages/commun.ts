@@ -1,4 +1,4 @@
-import type { CodeUnite } from "../data/unites.js";
+import type { CodeUnite, Effectifs } from "../data/unites.js";
 
 /** « 3 460 273 » (espaces simples ou insécables) → 3460273. */
 export function entier(texte: string | null | undefined): number | null {
@@ -26,21 +26,55 @@ export const ABREVIATIONS_S5: Record<string, CodeUnite> = {
   TE: "tue",
 };
 
-/** Noms complets des pages du s5 (page Attaquer, sans abréviation). */
-export const NOMS_S5: Record<string, CodeUnite> = {
-  "Jeune Soldate Naine": "jsn",
-  "Soldate Naine": "sn",
-  "Naine d’Elite": "ne",
-  "Jeune Soldate": "js",
-  Soldate: "s",
-  Concierge: "c",
-  Artilleuse: "a",
-  "Artilleuse d’élite": "ae",
-  "Soldate d’élite": "se",
-  Tank: "tk",
-  Tueuse: "tu",
-  "Tueuse d’élite": "tue",
-};
+/**
+ * Noms au singulier et au pluriel, tels qu'écrits dans les listes de troupes
+ * (« 518 Jeunes Soldates Naines, 291 Naines d’Elites, 3 579 Artilleuses d’élites »).
+ * Clés normalisées : minuscules, apostrophes droites, sans « s » final par mot.
+ */
+const NOMS_TROUPES: [string, CodeUnite][] = [
+  ["jeune soldate naine", "jsn"],
+  ["soldate naine", "sn"],
+  ["naine d'elite", "ne"],
+  ["jeune soldate", "js"],
+  ["soldate d'elite", "se"],
+  ["soldate", "s"],
+  ["concierge", "c"],
+  ["artilleuse d'elite", "ae"],
+  ["artilleuse", "a"],
+  ["tank", "tk"],
+  ["tueuse d'elite", "tue"],
+  ["tueuse", "tu"],
+  ["ouvriere", "ouvriere"],
+];
+
+function normaliserNom(nom: string): string {
+  return nom
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[’`]/g, "'")
+    .split(/\s+/)
+    .map((mot) => (mot.length > 3 && mot.endsWith("s") ? mot.slice(0, -1) : mot))
+    .join(" ")
+    .trim();
+}
+
+export function codeUnite(nom: string): CodeUnite | undefined {
+  const n = normaliserNom(nom);
+  return NOMS_TROUPES.find(([k]) => k === n)?.[1];
+}
+
+/** « 518 Jeunes Soldates Naines, 690 Soldates Naines » → { jsn: 518, sn: 690 }. */
+export function lireTroupes(texte: string): Effectifs {
+  const res: Effectifs = {};
+  for (const morceau of texte.split(",")) {
+    const m = /^\s*([\d\s\u00a0\u202f]+?)\s+(\D+?)\s*\.?\s*$/.exec(morceau);
+    const code = m ? codeUnite(m[2]!) : undefined;
+    const n = m ? entier(m[1]) : null;
+    if (code && n !== null) res[code] = (res[code] ?? 0) + n;
+  }
+  return res;
+}
 
 /** Données cachées présentes sur toutes les pages (`#data`). */
 export interface DonneesJoueur {

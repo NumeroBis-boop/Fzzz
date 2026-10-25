@@ -19,8 +19,13 @@ describe("portée et prise", () => {
   it("borne la portée entre la moitié et le triple", () => {
     expect(estAPortee(1000, 500)).toBe(true);
     expect(estAPortee(1000, 499)).toBe(false);
-    expect(estAPortee(1000, 3000)).toBe(true);
-    expect(estAPortee(1000, 3001)).toBe(false);
+    expect(estAPortee(1000, 2999)).toBe(true);
+    expect(estAPortee(1000, 3000)).toBe(false);
+    // Bornes affichées par la page Ennemies pour 19 095 cm² : 9 548 à 57 284
+    expect(estAPortee(19095, 9548)).toBe(true);
+    expect(estAPortee(19095, 9547)).toBe(false);
+    expect(estAPortee(19095, 57284)).toBe(true);
+    expect(estAPortee(19095, 57285)).toBe(false);
   });
 
   it("prend 20 % du TDC cible, limité par les unités", () => {

@@ -1,0 +1,38 @@
+<!-- Extrait anonymisé de Ressources.php (s5, 2026-10-25) : boîte Compte+ (ponte, chasses) et chasses en cours. -->
+<html><body>
+<table><tr id="ligne_ponte" onclick="document.location.href='Reine.php'" class="lien tooltip_compte_plus" title="">
+	<td><a href="Reine.php"><div class="mini_icone_ponte"></div></a></td>
+	<td> <a href="Reine.php" >Jeunes Soldates Naines</a></td>
+	<td style="text-align:right;"><a href="Reine.php" id="temps_ponte" style="width:55px;display:block;overflow:hidden;white-space:nowrap;"></a>
+		<script language="JavaScript">$(function() {
+		resteTemps(25050,"temps_ponte");
+		});</script><script language="JavaScript">$(function() {
+		$("#ligne_ponte").tooltip({
+	    tooltipClass: "warning-tooltip",
+	    content:"<table style=\"white-space: nowrap;\"><tr><td style=\"text-align:right;padding-left:10px;\"><strong>4 576 </strong></td><td style=\"text-align:left;padding-left:5px;\">Jeunes Soldates Naines</td><td style=\"text-align:right;padding-left:15px;\">07h40</td></tr></table>"
+		});
+		});</script></td></tr><tr id="ligne_chasse" onclick="document.location.href='Ressources.php'" class="lien tooltip_compte_plus" title="">
+	<td><a href="Ressources.php"><div class="mini_icone_chasse"></div></a></td>
+	<td> <a href="Ressources.php" ><strong>2</strong> chasses</a></td>
+	<td style="text-align:right;"><a href="Ressources.php" id="temps_chasse" style="width:55px;display:block;overflow:hidden;white-space:nowrap;"></a>
+		<script language="JavaScript">$(function() {
+		resteTemps(8204,"temps_chasse");
+		});</script><script language="JavaScript">$(function() {
+		$("#ligne_chasse").tooltip({
+	    tooltipClass: "warning-tooltip",
+	    content:"<table><tr><td style=\"text-align:right;padding-left:10px;\"><strong>1</strong> cm²</td><td style=\"text-align:right;padding-left:15px;\">02h59</td></tr><tr><td style=\"text-align:right;padding-left:10px;\"><strong>12 924</strong> cm²</td><td style=\"text-align:right;padding-left:15px;\">03h57</td></tr></table>"
+		});
+		});</script></td></tr></table>
+<table class="boite_amelioration" CELLSPACING="25" id="boite_tdc"><tr ><td >
+<span class="titre">Terrain de Chasse</span >
+<strong>: 19 095cm<sup>2</sup></strong><br />
+<form action="AcquerirTerrain.php" method="post">
+Agrandir son terrain de chasse de  <input type="tel" onkeyup="javascript:calculTempsChasse(' 8','19095');" id="AcquerirTerrain" name="AcquerirTerrain" size="8" value="0"> cm<sup>2</sup><input  type="submit" name="AgrandirTerrain" id="AgrandirTerrain" value="Agrandir" >
+<br /> Cette chasse durera : <span id="tempsDeChasse"></span>
+</p></form>
+<br />
+<span class="titre">Chasse en cours<br /> </span ><span >- Vos chasseuses vont conquérir 1 cm² dans <span id="chasse_232614">2H 16m 44s </span></span><script language="JavaScript">reste(8204, "chasse_232614");</script> - <a href="/Ressources.php?annuler=232614">Annuler</a><br /><small><em> Troupes en chasses :  384 Jeunes Soldates Naines.<br />
+		Arrivée à 02h59</em></small><br/><br /><span >- Vos chasseuses vont conquérir 12 924 cm² dans <span id="chasse_232531">3H 14m 27s </span></span><script language="JavaScript">reste(11667, "chasse_232531");</script><br /><small><em> Troupes en chasses :  518 Jeunes Soldates Naines, 690 Soldates Naines, 291 Naines d’Elites, 8 449 Jeunes Soldates, 3 078 Soldates, 8 886 Artilleuses, 3 579 Artilleuses d’élites, 1 248 Soldates d’élites.<br />
+		Arrivée à 03h57</em></small><br/><br />
+</td></tr></table>
+</body></html>

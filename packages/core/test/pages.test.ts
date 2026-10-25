@@ -2,8 +2,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { lireAttaquesEnCours } from "../src/pages/attaques.js";
-import { lireChassesBoite } from "../src/pages/boite-compte-plus.js";
+import { lireAttaquesEnCours, lireChassesEnCours } from "../src/pages/attaques.js";
+import { estimerNiveauxPonte, lireChassesBoite, lirePonteBoite } from "../src/pages/boite-compte-plus.js";
+import { lireBonusChasse } from "../src/pages/ressources.js";
+import { lireTroupes } from "../src/pages/commun.js";
+import { dureeChasse } from "../src/chasse.js";
 import { lirePageArmee } from "../src/pages/armee.js";
 import { lireTableauEnnemie } from "../src/pages/ennemie.js";
 import { lireDonneesJoueur } from "../src/pages/commun.js";
@@ -83,5 +86,86 @@ describe("page Ennemies (s5)", () => {
       ["Joueur2", 48693, 89, "En vacances"],
       ["Joueur3", 37891, 44, "Soumis à Joueur4"],
     ]);
+  });
+});
+
+describe("page Armée avec dôme (s5)", () => {
+  const doc = charger("armee-dome.html");
+
+  it("lit la garnison sur deux lieux", () => {
+    expect(lirePageArmee(doc).troupes).toEqual({ terrain: {}, dome: { jsn: 378 }, loge: { jsn: 35 } });
+  });
+
+  it("retrouve les valeurs du jeu, arrondies par défaut", () => {
+    // Dôme 3 : 3 024 + 2 419 + 756 = 6 199 ; attaque 1 134 + 1 020 (1 020,6) = 2 154 ; défense 756 + 680
+    expect(caracteristiques({ jsn: 378 }, { bouclier: 8, armes: 9 }, "dome", 3)).toMatchObject({
+      vie: 6199,
+      att: 2154,
+      def: 1436,
+    });
+    // Loge 3 : 280 + 224 + 210 = 714 ; attaque 105 + 94 (94,5) = 199 ; défense 70 + 63
+    expect(caracteristiques({ jsn: 35 }, { bouclier: 8, armes: 9 }, "loge", 3)).toMatchObject({
+      vie: 714,
+      att: 199,
+      def: 133,
+    });
+    expect(consommationJournaliere({ jsn: 378 }, "dome")).toBe(604);
+    expect(consommationJournaliere({ jsn: 35 }, "loge")).toBe(84);
+  });
+
+  it("lit lieu, troupes et minute d'arrivée de chaque attaque", () => {
+    expect(lireAttaquesEnCours(doc).map((a) => [a.cible, a.lieu, a.reste, a.effectifs, a.arriveeAffichee])).toEqual([
+      ["Allie1", "Dôme", 14440, { jsn: 2 }, "04h46"],
+      ["Allie2", "Loge Impériale", 33130, { jsn: 3 }, "09h57"],
+      ["Allie3", "Terrain de chasse", 48357, { jsn: 1 }, "14h11"],
+    ]);
+  });
+});
+
+describe("page Ressources (s5)", () => {
+  const doc = charger("ressources.html");
+
+  it("lit les chasses en cours avec leurs troupes", () => {
+    const c = lireChassesEnCours(doc);
+    expect(c.map((x) => [x.id, x.surface, x.reste, x.arriveeAffichee])).toEqual([
+      ["232614", 1, 8204, "02h59"],
+      ["232531", 12924, 11667, "03h57"],
+    ]);
+    expect(c[0]?.effectifs).toEqual({ jsn: 384 });
+    expect(c[1]?.effectifs).toEqual({
+      jsn: 518,
+      sn: 690,
+      ne: 291,
+      js: 8449,
+      s: 3078,
+      a: 8886,
+      ae: 3579,
+      se: 1248,
+    });
+  });
+
+  it("lit les deux chasses dans la boîte Compte+", () => {
+    expect(lireChassesBoite(doc)?.chasses).toEqual([
+      { surface: 1, finAffichee: "02h59" },
+      { surface: 12924, finAffichee: "03h57" },
+    ]);
+  });
+
+  it("déduit 38 niveaux de bonus de ponte du rythme de la file", () => {
+    const ponte = lirePonteBoite(doc);
+    expect(ponte).toEqual({ file: [{ nombre: 4576, unite: "jsn" }], reste: 25050 });
+    expect(estimerNiveauxPonte(ponte!)).toBe(38);
+  });
+
+  it("lit le bonus de chasse et applique la formule du jeu", () => {
+    expect(lireBonusChasse(doc)).toEqual({ bonus: 8, tdc: 19095 });
+    expect(dureeChasse(19095, 12924, 8)).toBe(Math.ceil(32019 * 0.9 ** 8));
+  });
+});
+
+describe("lireTroupes", () => {
+  it("gère singulier, pluriel et milliers", () => {
+    expect(lireTroupes("1 Jeune Soldate Naine")).toEqual({ jsn: 1 });
+    expect(lireTroupes("1 248 Soldates d’élites, 2 Tanks, 5 Tueuses d’élite")).toEqual({ se: 1248, tk: 2, tue: 5 });
   });
 });

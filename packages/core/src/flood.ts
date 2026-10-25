@@ -3,12 +3,17 @@ import type { Source } from "./statut.js";
 export const SOURCE_FLOOD: Source = {
   statut: "officiel",
   origine: "Tutoriel : prise = 20 % du TDC cible, 1 cm² max par unité ; portée ½–3× vérifiée à l'arrivée",
-  note: "Arrondi (floor) et bornes inclusives : hypothèses reprises de Toolzzz, à vérifier sur RC.",
+  note:
+    "Page Ennemies du s5 : pour 19 095 cm², « Terrain Max » = 57 284 = 3 × 19 095 − 1, d'où une borne haute stricte. " +
+    "Arrondi de la prise (floor) : hypothèse reprise de Toolzzz, à vérifier sur RC.",
 };
 
-/** Portée d'attaque : la cible doit avoir entre la moitié et le triple du TDC de l'attaquant. */
+/**
+ * Portée d'attaque : cible d'au moins la moitié et de moins du triple du TDC
+ * de l'attaquant (bornes déduites de la page Ennemies, voir SOURCE_FLOOD).
+ */
 export function estAPortee(tdcAttaquant: number, tdcCible: number): boolean {
-  return 2 * tdcCible >= tdcAttaquant && tdcCible <= 3 * tdcAttaquant;
+  return 2 * tdcCible >= tdcAttaquant && tdcCible < 3 * tdcAttaquant;
 }
 
 /** Terrain pris par une attaque victorieuse. */

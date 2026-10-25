@@ -1,6 +1,6 @@
 # Fiche 03 : rentabilité d'un niveau d'Armes, de Bouclier ou d'Étable à pucerons
 
-Statut : **cœur de calcul écrit (`core/rentabilite.ts`) ; affichage en jeu à faire**
+Statut : **affiché sur la page Armée (v0.2) pour Armes et Bouclier ; étable à pucerons à afficher**
 
 ## Critère retenu
 
@@ -27,6 +27,13 @@ Le niveau n exige Communication avec les animaux au niveau n + 2.
 
 **Gain journalier** = pillage du jour / (30 + n) + prélèvement de colonie / (20 + n). Il suppose que la limite « 1 ressource par point d'attaque survivant » ne bride pas le pillage. Le pillage et le prélèvement de colonie sont saisis par le joueur.
 
-## Hypothèse
+## Données utilisées
 
-Une seule file de ponte, partagée entre ouvrières et unités.
+- **Armée totale** : garnison (page Armée) + chasses mémorisées (page Ressources) + attaques en cours.
+- **Bouclier et Armes** : page Armée.
+- **Bonus de ponte** : déduit du rythme de la file (boîte Compte+).
+
+## Hypothèses
+
+- Une seule file de ponte, partagée entre ouvrières et unités.
+- Toutes les unités du s5 se pondent directement. **À confirmer** : si les élites ne s'obtiennent que par l'expérience, l'alternative en défense (aujourd'hui la Tueuse d'élite) doit être restreinte.

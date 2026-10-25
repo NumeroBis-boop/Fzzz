@@ -1,4 +1,4 @@
-import type { CleRecherche, Effectifs } from "@fzzz/core";
+import type { CleConstruction, CleRecherche, Coordonnees, Effectifs } from "@fzzz/core";
 
 /** Chasse vue sur Ressources.php, avec son heure de retour absolue (heure serveur, ms). */
 export interface ChasseMemorisee {
@@ -24,6 +24,19 @@ export interface Profil {
   armee?: Effectifs;
   majArmee?: number;
   salleAnalyse?: number;
+  constructions?: Partial<Record<CleConstruction, number>>;
+  /** Coordonnées de la fourmilière du joueur (son propre profil). */
+  moi?: Coordonnees;
+  /** Coordonnées vues sur les profils consultés, par pseudo. */
+  coordonnees?: Record<string, Coordonnees & { maj: number }>;
+}
+
+/** Somme Couveuse + Solarium + Technique de ponte, si les deux pages ont été vues. */
+export function bonusPonteConnu(p: Profil): number | undefined {
+  const c = p.constructions;
+  const tdp = p.recherches?.techniquePonte;
+  if (c?.couveuse === undefined || c.solarium === undefined || tdp === undefined) return undefined;
+  return c.couveuse + c.solarium + tdp;
 }
 
 export async function lireProfil(): Promise<Profil> {

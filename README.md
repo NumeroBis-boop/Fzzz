@@ -20,19 +20,17 @@ pnpm test
 pnpm typecheck
 ```
 
-## Installer la version de développement
+## Installer l'extension
+
+Voir [docs/installation.md](docs/installation.md). Les archives prêtes à installer sont publiées sur la page Releases du dépôt.
+
+Pour construire soi-même :
 
 ```bash
 pnpm install
-pnpm --filter @fzzz/extension build           # Chrome, Edge, Brave… → apps/extension/.output/chrome-mv3
-pnpm --filter @fzzz/extension build:firefox   # Firefox → apps/extension/.output/firefox-mv3
+pnpm --filter @fzzz/extension zip           # Chrome, Edge, Brave…
+pnpm --filter @fzzz/extension zip:firefox   # Firefox + archive des sources
 ```
-
-- **Chrome / Edge** : `chrome://extensions`, activer le mode développeur, « Charger l'extension non empaquetée », choisir `.output/chrome-mv3`.
-- **Firefox PC** : `about:debugging#/runtime/this-firefox`, « Charger un module complémentaire temporaire », choisir `manifest.json` dans `.output/firefox-mv3`.
-- **Firefox Android** : nécessite une publication sur addons.mozilla.org (ou une collection personnalisée) ; prévu plus tard.
-
-Fonctions de la v0.1 : heure serveur à la seconde, arrivées des attaques à la seconde et dans l'ordre, chasses sur la page Armée, durées de trajet sur la page Ennemies (après une visite du Laboratoire).
 
 ## Règlement
 

@@ -1,0 +1,35 @@
+name: Extension
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm --filter @fzzz/extension zip
+      - run: pnpm --filter @fzzz/extension zip:firefox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fzzz-extension
+          path: apps/extension/.output/*.zip
+      - name: Publier la version (tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" apps/extension/.output/*.zip --title "Fzzz $GITHUB_REF_NAME" --generate-notes

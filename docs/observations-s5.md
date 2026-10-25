@@ -18,7 +18,13 @@ Chaque ligne indique ce qui a été observé, sur quelle page, et ce que cela co
 | Laboratoire : les 10 coûts du niveau suivant | Coûts = base × 2^(n−1), données Toolzzz exactes |
 | Laboratoire : les 10 temps du niveau suivant | t × 1,7^(n−1) × 0,9^6 (Salle d'analyse 6) ; Acide t = 10 000 s et Poison t = 50 000 s (Toolzzz : 2 800 et 3 200, faux) |
 | Champignonnière 17 : 595 612 / jour | Production = ⌊72 × 1,7^n⌋ (Toolzzz : 122 × 1,7^(n−1), −0,3 %) |
-| Missyl : distance affichée 92, trajet 19 h 33 min 56 s (70 436 s), VA 7 | Formule de trajet cohérente : distance exacte 91,98, arrondie à 92 par le jeu |
+| (9, 36) → Missyl (99, 17), VA 7 : 19 h 33 min 56 s (70 436 s), distance affichée 92 | Trajet = ⌊0,9^VA × 637 200 × (1 − e^(−d/350))⌋ avec d = 91,984 : valeur brute 70 436,32, **tronquée** (Toolzzz arrondit au supérieur : +1 s) |
+| Construction : coûts et temps des 13 bâtiments | Temps = t × 1,6^(n−1) × 0,9^Architecture (11), arrondi au plus proche ; coûts tronqués (Champignonnière 18 : 3 134 453,94 → 3 134 453) |
+| Couveuse 14 + Solarium 12 + Technique de ponte 12 | = 38, le bonus de ponte déduit de la file : confirmé |
+| Description de l'Étable à pucerons | +1 % de capacité de transport en pillage et +5 % en commerce par niveau (le tutoriel parlait de « 30 % + 1 % » de pillage : la description du bâtiment fait foi) |
+| Description du Dôme et de la Loge | « 10 % de base puis 5 % par évolution » et « 30 % puis 15 % » : cohérent avec (n + 2) × 5 % et (n + 2) × 15 % |
+| Étable à cochenilles | +10 % d'expérience par niveau, exige Communication 10 |
+| Message « Vol par X » | Ne contient que « X vous a pris N cm² » et la minute : pas de détail du combat |
 | RC daté 17h23 pour une arrivée à 17:23:00 | Le RC porte la minute d'arrivée (le combat se résout à la seconde d'arrivée) |
 | Combats résolus dans l'ordre d'arrivée à la seconde | Observation du joueur |
 | Étable à pucerons niveau n : Communication avec les animaux niveau n + 2 | Règle donnée par le joueur |
@@ -27,10 +33,9 @@ Chaque ligne indique ce qui a été observé, sur quelle page, et ce que cela co
 
 | Observation | Ce qu'il manque |
 |---|---|
-| Trajet vers Missyl (x = 99, y = 17) | Tes propres coordonnées : la distance exacte doit valoir 91,98 |
+| Rapport de combat complet (attaquant) | HTML d'un « Butin chez X » ou d'un RC d'attaque ouvert |
 | Page Ennemies : distances entières | La durée calculée à partir d'une distance arrondie peut s'écarter de plusieurs minutes ; il faudra passer par les coordonnées de l'API |
 
 ## Non vérifié
 
 - Abréviations des pages pour le Concierge d'élite et le Tank d'élite (aucune ligne vue).
-- Temps de construction (aucune page Construction vue).

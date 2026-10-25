@@ -9,7 +9,7 @@ export const SOURCE_COUTS: Source = {
   origine: "Toolzzz public/js/data/couts.js, extrait de toolzzz.fr/couts.php (2026-05-07)",
   note:
     "Coûts des 10 recherches et temps de 8 recherches vérifiés sur le Laboratoire du s5 (2026-10-25, Salle d'analyse 6). " +
-    "Temps de base d'Acide et de Poison corrigés (10 000 et 50 000 s au lieu de 2 800 et 3 200). Constructions : non vérifiées.",
+    "Temps de base d'Acide et de Poison corrigés (10 000 et 50 000 s au lieu de 2 800 et 3 200). Constructions : coûts et temps des 13 bâtiments vérifiés sur la page Construction (Architecture 11).",
 };
 
 const RATIO_T_CONSTRUCTION = 1.6;
@@ -82,7 +82,8 @@ export interface Cout {
 export function coutConstruction(cle: CleConstruction, niveau: number): Cout {
   const c: Construction = CONSTRUCTIONS[cle];
   const ratio = c.ratioM ?? RATIO_COUT;
-  return { nourriture: 0, materiaux: Math.round(c.m * ratio ** (niveau - 1)), ouvrieres: 0 };
+  // Tronqué comme le jeu : Champignonnière 18 = ⌊90 × 1,85^17⌋ = 3 134 453.
+  return { nourriture: 0, materiaux: Math.floor(c.m * ratio ** (niveau - 1) + 1e-6), ouvrieres: 0 };
 }
 
 export function coutRecherche(cle: CleRecherche, niveau: number): Cout {

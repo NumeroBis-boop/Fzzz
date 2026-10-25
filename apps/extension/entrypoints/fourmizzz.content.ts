@@ -17,10 +17,14 @@ import {
   lirePageArmee,
   lirePonteBoite,
   lireTableauEnnemie,
+  distance,
+  lireConstructions,
+  lireDonneesJoueur,
+  lirePageMembre,
   type Effectifs,
 } from "@fzzz/core";
 import { estimationHorloge, generationPage, initialiserHorloge, maintenantServeur } from "../src/horloge";
-import { lireProfil, majProfil, type ChasseMemorisee } from "../src/reglages";
+import { bonusPonteConnu, lireProfil, majProfil, type ChasseMemorisee } from "../src/reglages";
 import { additionner, blocRentabilite, ligneRentabilite } from "../src/rentabilite";
 import { creerBadge, el, STYLE_ALERTE, STYLE_INFO } from "../src/ui";
 
@@ -45,6 +49,10 @@ export default defineContentScript({
       await pageRessources();
     } else if (page === "/laboratoire.php") {
       await pageLaboratoire();
+    } else if (page === "/construction.php") {
+      await pageConstruction();
+    } else if (page === "/membre.php") {
+      await pageMembre();
     }
   },
 });
@@ -69,7 +77,9 @@ function afficherHorloge(): void {
 async function memoriserPonte(): Promise<void> {
   const ponte = lirePonteBoite(document);
   const total = ponte?.file.reduce((s, f) => s + f.nombre, 0) ?? 0;
-  const n = ponte && total >= 100 ? estimerNiveauxPonte(ponte) : null;
+  // Les niveaux lus sur Construction et Laboratoire priment sur l'estimation.
+  const exact = bonusPonteConnu(await lireProfil());
+  const n = exact ?? (ponte && total >= 100 ? estimerNiveauxPonte(ponte) : null);
   if (n !== null && n >= 0) await majProfil({ niveauxPonte: n });
 }
 
@@ -177,10 +187,11 @@ async function pageArmee(): Promise<void> {
 async function afficherTrajets(): Promise<void> {
   const lignes = lireTableauEnnemie(document);
   if (lignes.length === 0) return;
-  const va = (await lireProfil()).recherches?.vitesseAttaque;
+  const profil = await lireProfil();
+  const va = profil.recherches?.vitesseAttaque;
   const entete = document.querySelector("#tabEnnemie tr")?.children[5];
   entete?.after(
-    el("th", { title: "Durée de trajet estimée (distance affichée arrondie par le jeu)" }, "Trajet"),
+    el("th", { title: "Durée de trajet : exacte si le profil du joueur a été consulté, sinon estimée (≈) depuis la distance arrondie" }, "Trajet"),
     el("th", { title: "Heure serveur d'arrivée si l'attaque part maintenant" }, "Arrivée"),
   );
   const now = maintenantServeur();
@@ -191,9 +202,15 @@ async function afficherTrajets(): Promise<void> {
       cellule.after(el("td", { title: "Ouvrez la page Laboratoire pour que Fzzz connaisse votre Vitesse d'attaque" }, "VA ?"), el("td"));
       continue;
     }
-    const d = dureeTrajet(l.distance, va);
+    const c = profil.coordonnees?.[l.pseudo];
+    const exacte = c !== undefined && profil.moi !== undefined;
+    const d = dureeTrajet(exacte ? distance(profil.moi!, c!) : l.distance, va);
     cellule.after(
-      el("td", { title: `VA ${va}, distance ${l.distance}` }, `≈ ${formaterDuree(d)}`),
+      el(
+        "td",
+        { title: exacte ? `VA ${va}, coordonnées (${c!.x}, ${c!.y})` : `VA ${va}, distance arrondie ${l.distance}` },
+        `${exacte ? "" : "≈ "}${formaterDuree(d)}`,
+      ),
       el("td", {}, now === null ? "" : formaterHeure(now + d * 1000, false)),
     );
   }
@@ -237,6 +254,34 @@ async function pageLaboratoire(): Promise<void> {
         `Fzzz : le niveau ${comm + 1} débloque l'étable à pucerons niveau ${etable}. ` +
           `Ses ${c.cout.ouvrieres.toLocaleString("fr-FR")} ouvrières représentent ${formaterDuree(c.tempsPonteOuvrieres)} de ponte.`,
       ),
+    );
+  }
+}
+
+async function pageConstruction(): Promise<void> {
+  const lignes = lireConstructions(document);
+  if (lignes.length === 0) return;
+  await majProfil({ constructions: Object.fromEntries(lignes.map((l) => [l.cle, l.niveau])) });
+  const exact = bonusPonteConnu(await lireProfil());
+  if (exact !== undefined) await majProfil({ niveauxPonte: exact });
+}
+
+/** Mémorise les coordonnées du profil affiché (le sien ou celui d'un autre joueur). */
+async function pageMembre(): Promise<void> {
+  const m = lirePageMembre(document);
+  if (!m) return;
+  const profil = await lireProfil();
+  const coordonnees = { ...profil.coordonnees, [m.pseudo]: { x: m.x, y: m.y, maj: Date.now() } };
+  const moi = lireDonneesJoueur(document)?.pseudo === m.pseudo ? { x: m.x, y: m.y } : profil.moi;
+  await majProfil({ coordonnees, ...(moi ? { moi } : {}) });
+
+  const now = maintenantServeur();
+  if (m.trajet && now !== null) {
+    const ligne = Array.from(document.querySelectorAll(".boite_membre tr")).find((tr) =>
+      tr.firstElementChild?.textContent?.includes("Temps de trajet"),
+    );
+    ligne?.lastElementChild?.append(
+      el("span", { style: STYLE_INFO, title: "Heure serveur d'arrivée si l'attaque part maintenant" }, ` → arrivée ${formaterHeure(now + m.trajet * 1000)}`),
     );
   }
 }

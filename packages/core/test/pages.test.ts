@@ -7,8 +7,10 @@ import { estimerNiveauxPonte, lireChassesBoite, lirePonteBoite } from "../src/pa
 import { lireBonusChasse } from "../src/pages/ressources.js";
 import { lireTroupes } from "../src/pages/commun.js";
 import { dureeChasse } from "../src/chasse.js";
-import { estimerSalleAnalyse, lireLaboratoire, lireNiveauxRecherche } from "../src/pages/laboratoire.js";
-import { coutRecherche, productionChampignonniere, tempsRecherche } from "../src/data/couts.js";
+import { estimerSalleAnalyse, lireConstructions, lireLaboratoire, lireNiveauxRecherche } from "../src/pages/laboratoire.js";
+import { lirePageMembre } from "../src/pages/membre.js";
+import { lireVolsSubis } from "../src/pages/messagerie.js";
+import { coutConstruction, coutRecherche, productionChampignonniere, tempsConstruction, tempsRecherche } from "../src/data/couts.js";
 import { lirePageArmee } from "../src/pages/armee.js";
 import { lireTableauEnnemie } from "../src/pages/ennemie.js";
 import { lireDonneesJoueur } from "../src/pages/commun.js";
@@ -204,5 +206,52 @@ describe("page Laboratoire (s5)", () => {
 describe("Champignonnière", () => {
   it("produit 595 612 au niveau 17 comme sur le s5", () => {
     expect(productionChampignonniere(17)).toBe(595612);
+  });
+});
+
+describe("page Construction (s5)", () => {
+  const lignes = lireConstructions(charger("construction.html"));
+
+  it("reconnaît les 13 bâtiments, y compris « Etable » sans accent", () => {
+    expect(lignes).toHaveLength(13);
+    expect(lignes.find((l) => l.cle === "etablePucerons")?.niveau).toBe(0);
+  });
+
+  it("retrouve coûts et temps affichés (Architecture 11)", () => {
+    for (const l of lignes) {
+      expect(coutConstruction(l.cle, l.niveau + 1).materiaux, l.cle).toBe(l.cout.materiaux);
+      expect(tempsConstruction(l.cle, l.niveau + 1, 11), l.cle).toBe(l.temps);
+    }
+  });
+
+  it("donne le bonus de ponte avec la Technique de ponte : 14 + 12 + 12 = 38", () => {
+    const niv = (cle: string) => lignes.find((l) => l.cle === cle)!.niveau;
+    expect(niv("couveuse") + niv("solarium") + 12).toBe(38);
+  });
+
+  it("annonce la production du niveau 18 de la Champignonnière", () => {
+    expect(productionChampignonniere(18)).toBe(1012542);
+  });
+});
+
+describe("page Membre (s5)", () => {
+  it("lit pseudo, coordonnées et temps de trajet", () => {
+    expect(lirePageMembre(charger("membre.html"))).toEqual({
+      pseudo: "MonPseudo",
+      alliance: "TAG",
+      x: 9,
+      y: 36,
+      distance: 0,
+      trajet: 0,
+    });
+  });
+});
+
+describe("messagerie : vols subis", () => {
+  it("lit attaquant, surface et date", () => {
+    expect(lireVolsSubis(charger("vol.html"))).toEqual([
+      { attaquant: "Attaquant1", surface: 5967, date: "25/10/26 à 01h00" },
+      { attaquant: "Attaquant1", surface: 4773, date: "25/10/26 à 01h00" },
+    ]);
   });
 });

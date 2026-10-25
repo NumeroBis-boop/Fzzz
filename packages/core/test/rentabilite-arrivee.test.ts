@@ -37,7 +37,9 @@ describe("rentabilité", () => {
   });
 
   it("estime le gain journalier d'un niveau d'étable", () => {
-    expect(gainJournalierPuceron(10, 40_000, 0)).toBe(1000);
+    // Étable 10 → 11 : capacité commerce × 1,55 / 1,5
+    expect(gainJournalierPuceron(10, { convois: 1_500_000 })).toBeCloseTo(50_000);
+    expect(gainJournalierPuceron(0, { pillage: 100_000 })).toBeCloseTo(1_000);
   });
 });
 

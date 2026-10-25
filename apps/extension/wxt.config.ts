@@ -2,6 +2,14 @@ import { defineConfig } from "wxt";
 
 export default defineConfig({
   manifestVersion: 3,
+  zip: {
+    artifactTemplate: "fzzz-{{version}}-{{browser}}.zip",
+    sourcesTemplate: "fzzz-{{version}}-sources.zip",
+    // Les sources pour addons.mozilla.org doivent permettre de tout reconstruire,
+    // cœur de calcul compris : on part de la racine du dépôt.
+    sourcesRoot: "../..",
+    excludeSources: ["**/node_modules/**", "**/.output/**", "**/.wxt/**", ".git/**", ".github/**"],
+  },
   manifest: {
     name: "Fzzz",
     description: "Outils pour Fourmizzz : heure serveur, arrivées à la seconde, trajets, flood, rentabilité.",

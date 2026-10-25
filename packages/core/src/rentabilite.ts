@@ -143,15 +143,18 @@ export function coutNiveauPuceron(
 }
 
 /**
- * Gain journalier d'un niveau d'étable, à partir de ce qui est pillé et
- * prélevé aujourd'hui : pillage = 30 % + 1 %/niveau, colonie = 20 % + 1 %/niveau
- * (tutoriel). Suppose que la limite « 1 ressource par point d'attaque
- * survivant » ne bride pas le pillage.
+ * Gain journalier d'un niveau d'étable à pucerons. D'après la description du
+ * bâtiment sur le s5, chaque niveau augmente la capacité de transport des
+ * fourmis de 5 % pour le commerce et de 1 % pour les pillages. Le niveau
+ * n → n + 1 multiplie donc la capacité par (1 + 0,05(n+1)) / (1 + 0,05n).
+ *
+ * Les volumes sont ceux d'aujourd'hui, saisis par le joueur. Le gain n'est
+ * réel que si ces volumes sont limités par la capacité de transport.
  */
 export function gainJournalierPuceron(
   niveauEtable: number,
-  pillageJournalier: number,
-  prelevementColonieJournalier: number,
+  volumes: { convois?: number; pillage?: number },
 ): number {
-  return pillageJournalier / (30 + niveauEtable) + prelevementColonieJournalier / (20 + niveauEtable);
+  const gain = (volume: number, pas: number) => (volume * pas) / (1 + pas * niveauEtable);
+  return gain(volumes.convois ?? 0, 0.05) + gain(volumes.pillage ?? 0, 0.01);
 }

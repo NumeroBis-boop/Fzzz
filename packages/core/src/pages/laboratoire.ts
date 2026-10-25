@@ -1,8 +1,8 @@
-import { RECHERCHES, type CleRecherche, type Cout } from "../data/couts.js";
+import { CONSTRUCTIONS, RECHERCHES, type CleConstruction, type CleRecherche, type Cout } from "../data/couts.js";
 import { entier } from "./commun.js";
 
 /**
- * Lignes du Laboratoire (laboratoire.php, s5) :
+ * Lignes du Laboratoire (laboratoire.php) et de la Construction (construction.php), s5 :
  *
  *   <tr class="ligneAmelioration"> … <td class="desciption_amelioration"><h2>Armes</h2>
  *   <span class="niveau_amelioration">niveau 9</span> … <td class="cout_amelioration">
@@ -14,8 +14,8 @@ import { entier } from "./commun.js";
  * identifiants du jeu (Architecture vient avant Communication).
  */
 
-export interface LigneLaboratoire {
-  cle: CleRecherche;
+export interface LigneAmelioration<K extends string> {
+  cle: K;
   niveau: number;
   /** Coût du niveau suivant. */
   cout: Cout;
@@ -25,9 +25,15 @@ export interface LigneLaboratoire {
   ligne: Element;
 }
 
-const PAR_NOM = new Map<string, CleRecherche>(
-  (Object.entries(RECHERCHES) as [CleRecherche, { nom: string }][]).map(([cle, r]) => [r.nom.toLowerCase(), cle]),
-);
+/** Titre sans accents ni casse : la page Construction écrit « Etable », les données « Étable ». */
+const normaliser = (nom: string) => nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function index<K extends string>(table: Record<K, { nom: string }>): Map<string, K> {
+  return new Map((Object.entries(table) as [K, { nom: string }][]).map(([cle, r]) => [normaliser(r.nom), cle]));
+}
+
+const RECHERCHES_PAR_NOM = index<CleRecherche>(RECHERCHES);
+const CONSTRUCTIONS_PAR_NOM = index<CleConstruction>(CONSTRUCTIONS);
 
 /** « 2H 6m 3s », « 3m 4s », « 1J 2H » → secondes. */
 export function lireDuree(texte: string): number | null {
@@ -40,9 +46,13 @@ export function lireDuree(texte: string): number | null {
   return trouve ? total : null;
 }
 
-export function lireLaboratoire(doc: ParentNode): LigneLaboratoire[] {
+export type LigneLaboratoire = LigneAmelioration<CleRecherche>;
+export type LigneConstruction = LigneAmelioration<CleConstruction>;
+
+/** Même structure de page pour Laboratoire et Construction (`tr.ligneAmelioration`). */
+function lireAmeliorations<K extends string>(doc: ParentNode, parNom: Map<string, K>): LigneAmelioration<K>[] {
   return Array.from(doc.querySelectorAll(".ligneAmelioration")).flatMap((ligne) => {
-    const cle = PAR_NOM.get(ligne.querySelector("h2")?.textContent?.trim().toLowerCase() ?? "");
+    const cle = parNom.get(normaliser(ligne.querySelector("h2")?.textContent ?? ""));
     const niveau = /niveau\s+(\d+)/i.exec(ligne.querySelector(".niveau_amelioration")?.textContent ?? "")?.[1];
     if (!cle || niveau === undefined) return [];
     const val = (sel: string) => entier(ligne.querySelector(`.cout_amelioration .${sel}`)?.textContent?.trim()) ?? 0;
@@ -56,6 +66,14 @@ export function lireLaboratoire(doc: ParentNode): LigneLaboratoire[] {
       },
     ];
   });
+}
+
+export function lireLaboratoire(doc: ParentNode): LigneLaboratoire[] {
+  return lireAmeliorations(doc, RECHERCHES_PAR_NOM);
+}
+
+export function lireConstructions(doc: ParentNode): LigneConstruction[] {
+  return lireAmeliorations(doc, CONSTRUCTIONS_PAR_NOM);
 }
 
 export function lireNiveauxRecherche(doc: ParentNode): Partial<Record<CleRecherche, number>> {

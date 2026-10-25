@@ -6,9 +6,11 @@ export interface Coordonnees {
 }
 
 export const SOURCE_TRAJET: Source = {
-  statut: "communaute",
-  origine: "Toolzzz Joueur.js / content.js : ceil(0.9^VA × 637200 × (1 − e^(−d/350)))",
-  note: "La MAJ 8 annonce une nouvelle carte : à recaler sur des trajets réels du s5.",
+  statut: "verifie-s5",
+  origine: "⌊0,9^VA × 637 200 × (1 − e^(−d/350))⌋, d = distance euclidienne des coordonnées",
+  note:
+    "Vérifié sur le s5 (2026-10-25) : (9, 36) → (99, 17), VA 7 : 70 436,32 → 70 436 s affichés. " +
+    "Toolzzz arrondit au supérieur (ceil), soit une seconde de trop.",
 };
 
 /**
@@ -34,7 +36,7 @@ export function dureeTrajet(
   vitesseAttaque: number,
   p: ParametresTrajet = PARAMETRES_TRAJET_DEFAUT,
 ): number {
-  return Math.ceil(0.9 ** vitesseAttaque * p.dureeMax * (1 - Math.exp(-dist / p.echelle)));
+  return Math.floor(0.9 ** vitesseAttaque * p.dureeMax * (1 - Math.exp(-dist / p.echelle)) + 1e-9);
 }
 
 /**

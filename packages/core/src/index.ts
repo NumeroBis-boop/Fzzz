@@ -15,3 +15,5 @@ export * from "./pages/armee.js";
 export * from "./pages/ennemie.js";
 export * from "./pages/laboratoire.js";
 export * from "./pages/ressources.js";
+export * from "./pages/membre.js";
+export * from "./pages/messagerie.js";

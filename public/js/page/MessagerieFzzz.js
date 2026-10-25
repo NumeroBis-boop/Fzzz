@@ -95,13 +95,166 @@ class MessagerieFzzz {
    * @static
    * @method observer
    */
-  static observer() {
+  static observer(page) {
     let cible = document.getElementById("corps_messagerie") || document.body,
       attente = null;
     new MutationObserver(() => {
       clearTimeout(attente);
-      attente = setTimeout(MessagerieFzzz.decorer, 50);
+      attente = setTimeout(() => {
+        // couleurs du jeu (rouge / vert) sur les listes rechargées
+        if (page) page.couleurMessage();
+        MessagerieFzzz.decorer();
+        MessagerieFzzz.analyser();
+      }, 50);
     }).observe(cible, { childList: true, subtree: true });
+  }
+  /**
+   * Ligne d'en-tête (tr.en_tete_message) de la conversation qui contient `elt`.
+   *
+   * @private
+   * @static
+   */
+  static _entete(elt) {
+    for (let n = elt; n && n !== document.body; n = n.parentElement)
+      for (let s = n.previousElementSibling; s; s = s.previousElementSibling)
+        if (s.matches && s.matches("tr.en_tete_message")) return $(s);
+    return $();
+  }
+  /**
+   * Boutons « Analyser » sous les rapports ouverts : un pour l'ensemble des
+   * chasses d'une conversation, un par RC de combat.
+   *
+   * @static
+   * @method analyser
+   */
+  static analyser() {
+    let chasses = new Set();
+    $("tr[id^='message_']")
+      .not(".o_fzzzVu")
+      .each((i, elt) => {
+        let $m = $(elt).addClass("o_fzzzVu"),
+          $texte = $m.find(".message").first();
+        if (!$texte.length) return;
+        // correction d'affichage reprise de Toolzzz
+        $texte.removeAttr("colspan");
+        let $entete = MessagerieFzzz._entete(elt),
+          titre = $entete.find(".intitule_message").text();
+        if (/chasseuses ont conquis|chasse réussie/i.test(titre)) chasses.add($entete.attr("id"));
+        else if (
+          /attaque (réussie|échouée)|invasion|rebellion|vol par|butin chez|colonie/i.test(titre)
+        )
+          MessagerieFzzz._analyseCombat($m, $texte);
+      });
+    chasses.forEach((id) => id && MessagerieFzzz._analyseChasses($("#" + id)));
+  }
+  /**
+   * Bouton et tableau repliable, comme l'onglet « Analyser » des outils.
+   *
+   * @private
+   * @static
+   */
+  static _bloc(id, libelle, contenu) {
+    let $bloc = $(`<div id='${id}' class='o_analyseRapport'>
+        <button type='button' class='o_button f_info o_analyseBouton'>${libelle}</button>
+        <div class='o_analyseContenu' style='display:none'>${contenu}</div>
+      </div>`);
+    $bloc.find(".o_analyseBouton").on("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      $bloc.find(".o_analyseContenu").toggle();
+    });
+    return $bloc;
+  }
+  /**
+   * Bilan des chasses d'une conversation, sous son dernier rapport : une
+   * chasse ou le bilan au choix, comme dans l'outil Chasse.
+   *
+   * @private
+   * @static
+   */
+  static _analyseChasses($entete) {
+    let conv = $entete.attr("id").match(/\d+/)[0],
+      $messages = $entete.nextUntil("tr.en_tete_message").find("tr[id^='message_'] .message"),
+      bilan = new Chasse(""),
+      lignes = "",
+      nombre = 0;
+    $messages.each((i, elt) => {
+      let chasse = new Chasse($(elt).text());
+      try {
+        if (!chasse.analyse()) return;
+      } catch (e) {
+        return;
+      }
+      lignes += chasse.toHTMLBoite(false);
+      bilan.ajoute(chasse);
+      nombre++;
+    });
+    $("#o_analyseChasses_" + conv).remove();
+    if (!nombre) return;
+    let entete =
+        "<tr class='gras'><td colspan='2'>Avant</td><td colspan='2'>Evolution</td><td colspan='2'>Résultat</td></tr>",
+      choix = "";
+    if (nombre > 1) {
+      for (let i = 0; i < nombre; i++) choix += `<option value='${i}'>Chasse ${i + 1}</option>`;
+      choix = `<tr><td colspan='6'><select class='o_analyseChoix'>${choix}<option value='${nombre}' selected>Bilan</option></select></td></tr>`;
+    }
+    let table = `<table class='o_maxWidth'>${entete}${nombre > 1 ? lignes + bilan.toHTMLBoite(true) : lignes.replace(/ style='display:none'/g, "")}${choix}</table>`,
+      $bloc = MessagerieFzzz._bloc(
+        "o_analyseChasses_" + conv,
+        nombre > 1 ? `Analyser les ${nombre} chasses` : "Analyser la chasse",
+        table,
+      );
+    $messages.last().append($bloc);
+    $bloc.find("table tr:even").css("background-color", monProfil.parametre["couleur2"].valeur);
+    // 4 lignes par chasse, le bilan en dernier
+    $bloc.find(".o_analyseChoix").on("change", (e) => {
+      let n = parseInt(e.currentTarget.value),
+        $lignes = $bloc.find("table tr").slice(1, -1);
+      $lignes
+        .hide()
+        .slice(n * 4, n * 4 + 4)
+        .show();
+    });
+  }
+  /**
+   * Analyse d'un RC de combat sous le rapport. Pour une sonde, un bouton ouvre
+   * l'onglet « Analyser » de l'outil Combat avec ce rapport (calcul de
+   * l'attaque à lancer).
+   *
+   * @private
+   * @static
+   */
+  static _analyseCombat($m, $texte) {
+    let id = ($m.attr("id").match(/\d+/) || [""])[0],
+      rc = $texte.text(),
+      combat = new Combat({ id: id, RC: rc }),
+      contenu = "";
+    try {
+      contenu = combat.analyse()
+        ? `<table class='o_maxWidth'>${combat.toHTMLBoite()}</table>`
+        : "<p>Ce rapport ne peut pas être analysé.</p>";
+    } catch (e) {
+      contenu = "<p>Ce rapport ne peut pas être analysé.</p>";
+    }
+    let sonde = null;
+    try {
+      sonde = combat.analyseSonde();
+    } catch (e) {}
+    if (sonde)
+      contenu += `<button type='button' class='o_button o_analyseSonde'>Analyse de la sonde dans l'outil Combat</button>`;
+    let $bloc = MessagerieFzzz._bloc("o_analyseCombat_" + id, "Analyser", contenu);
+    $texte.append($bloc);
+    $bloc.find("table tr:even").css("background-color", monProfil.parametre["couleur2"].valeur);
+    $bloc.find(".o_analyseSonde").on("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // outil Combat, onglet Analyser, avec ce rapport
+      $("#o_itemCombat").parent().click();
+      setTimeout(() => {
+        $("#o_tabsCombat").tabs("option", "active", 0);
+        $("#o_rcCombat").val(rc).trigger("input");
+      }, 300);
+    });
   }
   /**
    * Range les messages mal classés dans le dossier de leur catégorie.

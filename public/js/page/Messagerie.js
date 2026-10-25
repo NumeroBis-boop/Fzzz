@@ -25,10 +25,12 @@ class PageMessagerie {
     this.couleurMessage();
     // Fzzz : couleurs des convois et conversations, bouton de copie, rangement
     MessagerieFzzz.decorer();
-    MessagerieFzzz.observer();
+    MessagerieFzzz.observer(this);
     MessagerieFzzz.ranger();
-    // Evenement lorsque de nouveaux elements sont affiches
-    this.analyseMessage();
+    // Fzzz : l'analyse des rapports ouverts passe par MessagerieFzzz.observer
+    // (boutons « Analyser »). analyseMessage() reposait sur l'événement
+    // DOMNodeInserted, retiré de Chrome ; l'appeler en plus doublerait
+    // l'affichage sur Firefox.
     return this;
   }
   /**

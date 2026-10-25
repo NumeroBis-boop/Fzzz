@@ -1479,8 +1479,7 @@ center > div > #tabMembresAlliance {
   color: #7a3db8 !important;
 }
 .intitule_message.o_titreConversation {
-  color: #d6d6d6 !important;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+  color: #1f3a7a !important;
 }
 .o_copierRapport {
   height: 14px;
@@ -1531,4 +1530,23 @@ tr.en_tete_message .intitule_message {
 tr.en_tete_message > td.td_participants,
 tr.en_tete_message > td.td_coche {
   white-space: nowrap;
+}
+/* Fzzz : boutons « Analyser » sous les rapports de la messagerie */
+.o_analyseRapport {
+  margin: 6px 0 2px 0;
+  text-align: left;
+}
+.o_analyseRapport .o_analyseContenu {
+  margin-top: 4px;
+  padding: 4px 6px;
+  border: 1px solid #8b7440;
+  border-radius: 6px;
+  background: #d7c384;
+  color: #3a2a0c;
+}
+.o_analyseRapport .o_analyseContenu td {
+  padding: 1px 6px;
+}
+.o_analyseRapport .o_analyseSonde {
+  margin-top: 6px;
 }

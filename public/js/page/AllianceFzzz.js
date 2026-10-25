@@ -64,10 +64,14 @@ class AllianceFzzz {
       n = api.settings()[0].aoColumns.length,
       fzzz = [n - 4, n - 3, n - 2, n - 1],
       trajet = avecTrajet ? [9, 10] : [],
+      // colonne de numérotation du jeu (1, 2, 3…) : masquée dans toutes les vues
+      numero = [0, 1].find((c) =>
+        api.rows()[0].every((r) => /^\s*\d+\s*$/.test($(api.cell(r, c).node()).text())),
+      ),
       autres = [...Array(n).keys()].filter((i) => !fzzz.includes(i) && !trajet.includes(i)),
       vues = {
-        trajet: (i) => !fzzz.includes(i),
-        reset: (i) => autres.includes(i),
+        trajet: (i) => !fzzz.includes(i) && i !== numero,
+        reset: (i) => autres.includes(i) && i !== numero,
         floods: (i) => [2, 3, 5].includes(i) || fzzz.includes(i),
       },
       appliquer = (vue) => {
@@ -222,9 +226,7 @@ class AllianceFzzz {
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
       let tdc = terrain,
-        lignes = [
-          `<tr><td>${Horloge.serveur().format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`,
-        ];
+        lignes = [`<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`];
       vars.forEach((v) => {
         tdc += v.delta;
         lignes.push(

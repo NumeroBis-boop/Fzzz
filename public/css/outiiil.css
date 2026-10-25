@@ -1886,7 +1886,6 @@ tr.en_tete_message > td.td_coche {
   padding: 0 6px;
   white-space: nowrap;
 }
-#tabMembresAlliance .o_allRang,
 #tabMembresAlliance .o_allCol0,
 #tabMembresAlliance .o_allCol1,
 #tabMembresAlliance .o_allCol3 {
@@ -1903,4 +1902,15 @@ tr.en_tete_message > td.td_coche {
 }
 #tabMembresAlliance td.o_allVide {
   text-align: center;
+}
+/* tableau des membres : même largeur dans les trois vues ; rang à largeur fixe
+   (« Wouf Wouf Wouf ❌ » tient sur une ligne, au-delà retour à la ligne) */
+#tabMembresAlliance {
+  width: 100% !important;
+}
+#tabMembresAlliance .o_allRang {
+  width: 11em !important;
+  min-width: 11em;
+  max-width: 11em;
+  white-space: normal;
 }

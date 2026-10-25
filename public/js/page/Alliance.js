@@ -168,7 +168,7 @@ class PageAlliance {
         buttons: [],
         order: [],
         stripeClasses: ["", "alt"],
-        responsive: true,
+        responsive: false, // Fzzz : le repli des colonnes (bouton +) cachait les colonnes ajoutées
         language: {
           zeroRecords: "Aucun joueur trouvé",
           infoEmpty: "Aucun enregistrement",
@@ -209,7 +209,7 @@ class PageAlliance {
       buttons: [],
       order: [],
       stripeClasses: ["", "alt"],
-      responsive: true,
+      responsive: false, // Fzzz : le repli des colonnes (bouton +) cachait les colonnes ajoutées
       language: {
         zeroRecords: "Aucun joueur trouvé",
         infoEmpty: "Aucun enregistrement",

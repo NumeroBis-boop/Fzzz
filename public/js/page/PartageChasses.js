@@ -459,7 +459,7 @@ class PartageChasses {
         if (Object.keys(variations).length && terrain > 0) {
           let tdc = terrain,
             lignes = [
-              `<tr><td>${Horloge.serveur().format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`,
+              `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`,
             ];
           Object.keys(variations)
             .sort()

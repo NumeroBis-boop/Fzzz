@@ -70,7 +70,10 @@ class MessagerieFzzz {
       .not(".o_fzzz")
       .each((i, elt) => {
         let $ligne = $(elt).addClass("o_fzzz"),
-          c = MessagerieFzzz.categorie($ligne);
+          c = MessagerieFzzz.categorie($ligne),
+          $titre = $ligne.find(".intitule_message");
+        // titre complet au survol : la liste compactée le tronque
+        if (!$titre.attr("title")) $titre.attr("title", $titre.text().trim());
         if (c && c.nom == "convoi") $ligne.find(".intitule_message").addClass("o_titreConvoi");
         if (c && c.nom == "conversation")
           $ligne.find(".intitule_message").addClass("o_titreConversation");

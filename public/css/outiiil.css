@@ -1476,11 +1476,11 @@ center > div > #tabMembresAlliance {
 
 /* Fzzz : messagerie */
 .intitule_message.o_titreConvoi {
-  color: #9b5fd1 !important;
+  color: #7a3db8 !important;
 }
 .intitule_message.o_titreConversation {
-  color: #ffffff !important;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.55);
+  color: #d6d6d6 !important;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
 }
 .o_copierRapport {
   height: 14px;
@@ -1508,4 +1508,27 @@ center > div > #tabMembresAlliance {
 }
 #o_copieManuelle textarea {
   width: 70%;
+}
+/* Fzzz : liste des messages compactée (une ligne par message, titre tronqué) */
+tr.en_tete_message > td {
+  height: auto !important;
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+  line-height: 1.25 !important;
+  vertical-align: middle !important;
+}
+tr.en_tete_message > td.td_objet {
+  white-space: nowrap;
+}
+tr.en_tete_message .intitule_message {
+  display: inline-block;
+  max-width: calc(100% - 7.5em);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+tr.en_tete_message > td.td_participants,
+tr.en_tete_message > td.td_coche {
+  white-space: nowrap;
 }

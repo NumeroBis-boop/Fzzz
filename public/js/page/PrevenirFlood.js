@@ -118,10 +118,10 @@ class PrevenirFlood {
       if (terrain && prise == null) estime = false;
       total += prise || 0;
       lignes.push(
-        `- Attaque ${i + 1} : arrivée le ${arrivee.format("D MMM à HH[h]mm[m]ss[s]")} (RC à ${Utils.minuteRC(arrivee).format("HH[h]mm")})` +
+        `- Attaque ${i + 1} : arrivée le ${arrivee.format("DD/MM à HH[h]mm")} --> ` +
           (terrain
-            ? `, environ ${prise != null ? numeral(prise).format() : "?"} cm² de terrain de chasse`
-            : `, sur ${(a.lieu || "?").toLowerCase()}`),
+            ? `${prise != null ? numeral(prise).format() : "?"} cm²`
+            : (a.lieu || "?").toLowerCase()),
       );
     });
     let premiere = attaques.find((a) => a.terrainDepart != null),

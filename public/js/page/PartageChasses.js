@@ -313,7 +313,7 @@ class PartageChasses {
    * @static
    * @method afficherProfil
    */
-  static afficherProfil(pseudo) {
+  static afficherProfil(pseudo, terrain) {
     let cible = pseudo.toLowerCase();
     PartageChasses.sujets()
       .then((sujets) => {
@@ -363,30 +363,59 @@ class PartageChasses {
           maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
           enCours = (liste) =>
             liste.filter((e) => e.date >= maintenant).sort((a, b) => (a.date < b.date ? -1 : 1));
+        // synthèse : TdC du joueur après chaque minute où il varie (chasse +, flood −)
+        let variations = {};
+        enCours(chasses).forEach(
+          (e) => (variations[e.date] = (variations[e.date] || 0) + e.terrain),
+        );
+        enCours(floods).forEach(
+          (e) => (variations[e.date] = (variations[e.date] || 0) - e.terrain),
+        );
+        let synthese = "";
+        if (Object.keys(variations).length && terrain > 0) {
+          let tdc = terrain,
+            lignes = [
+              `<tr><td>${Horloge.serveur().format("DD/MM")} maintenant</td><td>${numeral(tdc).format()} cm²</td></tr>`,
+            ];
+          Object.keys(variations)
+            .sort()
+            .forEach((d) => {
+              tdc += variations[d];
+              lignes.push(
+                `<tr><td>${moment(d, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td></tr>`,
+              );
+            });
+          synthese =
+            "<div class='o_partageSeparation'></div>" +
+            `<div class='o_partageSynthese'><h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
+              <table class='centre' cellspacing='0'>${lignes.join("")}</table>
+              <p class='o_partageAvertissement'><em>En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p></div>`;
+        }
         $("#o_chassesPartagees").remove();
-        $(".boite_membre")
-          .last()
-          .after(
-            `<div id='o_chassesPartagees' class='boite_membre'>` +
-              tableau(
-                `Chasses en cours partagées avec la ${Utils.alliance}`,
-                enCours(chasses),
-                ["Heure d'impact", "TdC chassé"],
-                (e) => [date(e), numeral(e.terrain).format() + " cm²"],
-              ) +
-              "<div class='o_partageSeparation'></div>" +
-              tableau(
-                `Floods en cours sur ${pseudo} partagés avec la ${Utils.alliance}`,
-                enCours(floods),
-                ["Arrivée", "TdC floodé (estimé)", "Lanceur"],
-                (e) => [
-                  date(e),
-                  numeral(e.terrain).format() + " cm²",
-                  `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a>`,
-                ],
-              ) +
-              "</div>",
-          );
+        // entre le bloc « Action » et la suite de la page
+        let $action = $(".boite_membre").filter((i, e) => /^\s*Action/.test($(e).text()));
+        ($action.length ? $action.first() : $(".boite_membre").last()).after(
+          `<div id='o_chassesPartagees' class='boite_membre'>` +
+            tableau(
+              `Chasses en cours partagées avec la ${Utils.alliance}`,
+              enCours(chasses),
+              ["Heure d'impact", "TdC chassé"],
+              (e) => [date(e), numeral(e.terrain).format() + " cm²"],
+            ) +
+            "<div class='o_partageSeparation'></div>" +
+            tableau(
+              `Floods en cours sur ${pseudo} partagés avec la ${Utils.alliance}`,
+              enCours(floods),
+              ["Arrivée", "TdC floodé (estimé)", "Lanceur"],
+              (e) => [
+                date(e),
+                numeral(e.terrain).format() + " cm²",
+                `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a>`,
+              ],
+            ) +
+            synthese +
+            "</div>",
+        );
       })
       .catch(() => {});
   }

@@ -41,7 +41,7 @@ class PageProfil {
     this._profil.id = $("a[href^='commerce.php?ID=']").attr("href").match(/\d+/g)[0];
     this._profil.terrain = numeral($(".tableau_score tr:eq(1) td:eq(1)").text()).value();
     // Fzzz : chasses partagées par ce joueur (forum de l'alliance)
-    PartageChasses.afficherProfil(this._profil.pseudo);
+    PartageChasses.afficherProfil(this._profil.pseudo, this._profil.terrain);
     // si on consulte un profil différent du sien
     if (!this._profil.estJoueurCourant()) {
       // si on a pas de compte+ on affiche le temps de trajet

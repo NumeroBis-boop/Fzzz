@@ -7,6 +7,8 @@ import { estimerNiveauxPonte, lireChassesBoite, lirePonteBoite } from "../src/pa
 import { lireBonusChasse } from "../src/pages/ressources.js";
 import { lireTroupes } from "../src/pages/commun.js";
 import { dureeChasse } from "../src/chasse.js";
+import { estimerSalleAnalyse, lireLaboratoire, lireNiveauxRecherche } from "../src/pages/laboratoire.js";
+import { coutRecherche, productionChampignonniere, tempsRecherche } from "../src/data/couts.js";
 import { lirePageArmee } from "../src/pages/armee.js";
 import { lireTableauEnnemie } from "../src/pages/ennemie.js";
 import { lireDonneesJoueur } from "../src/pages/commun.js";
@@ -167,5 +169,40 @@ describe("lireTroupes", () => {
   it("gère singulier, pluriel et milliers", () => {
     expect(lireTroupes("1 Jeune Soldate Naine")).toEqual({ jsn: 1 });
     expect(lireTroupes("1 248 Soldates d’élites, 2 Tanks, 5 Tueuses d’élite")).toEqual({ se: 1248, tk: 2, tue: 5 });
+  });
+});
+
+describe("page Laboratoire (s5)", () => {
+  const lignes = lireLaboratoire(charger("laboratoire.html"));
+
+  it("lit les niveaux par titre de recherche", () => {
+    expect(lireNiveauxRecherche(charger("laboratoire.html"))).toEqual({
+      techniquePonte: 12,
+      bouclier: 8,
+      armes: 9,
+      architecture: 11,
+      communication: 2,
+      vitesseChasse: 8,
+      vitesseAttaque: 7,
+      genetique: 4,
+      acide: 1,
+      poison: 0,
+    });
+  });
+
+  it("retrouve exactement les coûts affichés du niveau suivant", () => {
+    for (const l of lignes) expect(coutRecherche(l.cle, l.niveau + 1), l.cle).toEqual(l.cout);
+  });
+
+  it("retrouve les temps affichés avec la Salle d'analyse déduite (6)", () => {
+    const sa = estimerSalleAnalyse(lignes);
+    expect(sa).toBe(6);
+    for (const l of lignes) expect(tempsRecherche(l.cle, l.niveau + 1, sa!), l.cle).toBe(l.temps);
+  });
+});
+
+describe("Champignonnière", () => {
+  it("produit 595 612 au niveau 17 comme sur le s5", () => {
+    expect(productionChampignonniere(17)).toBe(595612);
   });
 });

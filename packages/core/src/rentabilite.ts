@@ -1,4 +1,4 @@
-import { UNITES, UNITES_S5, unite, type CodeUnite, type Effectifs } from "./data/unites.js";
+import { UNITES, UNITES_PONDABLES, unite, type CodeUnite, type Effectifs } from "./data/unites.js";
 import { coutConstruction, coutRecherche, tempsRecherche, type Cout } from "./data/couts.js";
 
 /**
@@ -69,7 +69,7 @@ function evaluer(
   const tOuv = tempsPonte("ouvriere", cout.ouvrieres, ctx.niveauxPonte);
   const gainNiveau = base(ctx.effectifs, champ) * 0.1;
 
-  const alternatives = UNITES.filter((u) => UNITES_S5.has(u.code) && u.code !== "ouvriere" && u[champ] > 0)
+  const alternatives = UNITES.filter((u) => UNITES_PONDABLES.has(u.code) && u.code !== "ouvriere" && u[champ] > 0)
     .map((u): Alternative => {
       const nombre = Math.floor(tOuv / (u.ponte * 0.9 ** ctx.niveauxPonte));
       return {

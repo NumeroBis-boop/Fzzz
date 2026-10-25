@@ -19,7 +19,7 @@ export function additionner(...armees: Effectifs[]): Effectifs {
   return total;
 }
 
-function ligne(titre: string, r: Rentabilite, carac: string): HTMLElement {
+export function ligneRentabilite(titre: string, r: Rentabilite, carac: string): HTMLElement {
   const alt = r.alternatives[0];
   const verdict = r.rentable ? "rentable" : "pas rentable";
   return el(
@@ -51,8 +51,8 @@ export function blocRentabilite(
       { style: "font-size:0.9em;opacity:.8" },
       `Armée totale : ${nombre(total)} unités (garnison, chasses et attaques vues). Bonus de ponte : ${niveaux.ponte}.`,
     ),
-    ligne("Bouclier", b, "PV"),
-    ligne("Armes (attaque)", a.attaque, "att"),
-    ligne("Armes (défense)", a.defense, "déf"),
+    ligneRentabilite("Bouclier", b, "PV"),
+    ligneRentabilite("Armes (attaque)", a.attaque, "att"),
+    ligneRentabilite("Armes (défense)", a.defense, "déf"),
   );
 }

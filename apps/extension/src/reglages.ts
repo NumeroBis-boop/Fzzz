@@ -20,6 +20,10 @@ export interface Profil {
   /** Bonus de chasse lu sur Ressources.php. */
   vitesseChasse?: number;
   chasses?: ChasseMemorisee[];
+  /** Armée totale (garnison + chasses + attaques) vue sur la page Armée. */
+  armee?: Effectifs;
+  majArmee?: number;
+  salleAnalyse?: number;
 }
 
 export async function lireProfil(): Promise<Profil> {

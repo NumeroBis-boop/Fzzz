@@ -58,10 +58,10 @@ export const SOURCE_UNITES: Source = {
 };
 
 /**
- * Unités présentes sur le s5 : les pages Armée et Attaquer n'y listent que 12
- * unités de combat (ni Concierge d'élite ni Tank d'élite).
+ * Unités que la reine peut pondre sur le s5 : toutes sauf le Concierge d'élite
+ * et le Tank d'élite, qui ne s'obtiennent que par l'expérience (joueur, s5).
  */
-export const UNITES_S5: ReadonlySet<CodeUnite> = new Set<CodeUnite>([
+export const UNITES_PONDABLES: ReadonlySet<CodeUnite> = new Set<CodeUnite>([
   "ouvriere", "jsn", "sn", "ne", "js", "s", "c", "a", "ae", "se", "tk", "tu", "tue",
 ]);
 

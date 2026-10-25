@@ -7,7 +7,9 @@ import type { Source } from "../statut.js";
 export const SOURCE_COUTS: Source = {
   statut: "communaute",
   origine: "Toolzzz public/js/data/couts.js, extrait de toolzzz.fr/couts.php (2026-05-07)",
-  note: "Vérifié par Toolzzz sur s1/s2/s3/test, pas sur le s5.",
+  note:
+    "Coûts des 10 recherches et temps de 8 recherches vérifiés sur le Laboratoire du s5 (2026-10-25, Salle d'analyse 6). " +
+    "Temps de base d'Acide et de Poison corrigés (10 000 et 50 000 s au lieu de 2 800 et 3 200). Constructions : non vérifiées.",
 };
 
 const RATIO_T_CONSTRUCTION = 1.6;
@@ -25,8 +27,6 @@ export interface Construction {
   max: number;
   /** Ratio de coût en matériaux, s'il diffère de 2. */
   ratioM?: number;
-  /** Production au niveau 1 (Champignonnière, nourriture/jour). */
-  prod?: number;
 }
 
 export interface Recherche {
@@ -41,7 +41,7 @@ export interface Recherche {
 }
 
 export const CONSTRUCTIONS = {
-  champignonniere: { nom: "Champignonnière", t: 120, m: 90, max: 50, prod: 122, ratioM: 1.85 },
+  champignonniere: { nom: "Champignonnière", t: 120, m: 90, max: 50, ratioM: 1.85 },
   entrepotNourriture: { nom: "Entrepôt de Nourriture", t: 180, m: 600, max: 50 },
   entrepotMateriaux: { nom: "Entrepôt de Matériaux", t: 180, m: 600, max: 50 },
   couveuse: { nom: "Couveuse", t: 180, m: 600, max: 50 },
@@ -65,8 +65,8 @@ export const RECHERCHES = {
   vitesseChasse: { nom: "Vitesse de chasse", t: 200, o: 50, n: 4000, m: 2500, max: 50 },
   vitesseAttaque: { nom: "Vitesse d'attaque", t: 200, n: 3000, m: 1000, max: 50 },
   genetique: { nom: "Génétique", t: 180, o: 1000, n: 3000, m: 10000, max: 50 },
-  acide: { nom: "Acide", t: 2800, o: 5000, n: 100000, m: 300000, max: 30 },
-  poison: { nom: "Poison", t: 3200, o: 250000, n: 40000000, m: 15000000, max: 20 },
+  acide: { nom: "Acide", t: 10000, o: 5000, n: 100000, m: 300000, max: 30 },
+  poison: { nom: "Poison", t: 50000, o: 250000, n: 40000000, m: 15000000, max: 20 },
 } as const satisfies Record<string, Recherche>;
 
 export type CleConstruction = keyof typeof CONSTRUCTIONS;
@@ -111,8 +111,12 @@ export function capaciteEntrepot(niveau: number): number {
   return 500 + 1200 * 2 ** niveau;
 }
 
-/** Production journalière de nourriture de la Champignonnière. */
+/**
+ * Production journalière de nourriture de la Champignonnière : ⌊72 × 1,7^n⌋.
+ * Vérifié au niveau 17 sur le s5 (595 612). Toolzzz utilisait 122 × 1,7^(n−1),
+ * soit 0,3 % de moins : 122 est l'arrondi de 72 × 1,7 = 122,4.
+ */
 export function productionChampignonniere(niveau: number): number {
   if (niveau <= 0) return 0;
-  return Math.round(CONSTRUCTIONS.champignonniere.prod * RATIO_PROD_CHAMPI ** (niveau - 1));
+  return Math.floor(72 * RATIO_PROD_CHAMPI ** niveau + 1e-6);
 }

@@ -9,7 +9,11 @@ import {
   lireBonusChasse,
   lireChassesBoite,
   lireChassesEnCours,
-  lireNiveauxRecherche,
+  coutNiveauPuceron,
+  estimerSalleAnalyse,
+  lireLaboratoire,
+  rentabiliteArmes,
+  rentabiliteBouclier,
   lirePageArmee,
   lirePonteBoite,
   lireTableauEnnemie,
@@ -17,7 +21,7 @@ import {
 } from "@fzzz/core";
 import { estimationHorloge, generationPage, initialiserHorloge, maintenantServeur } from "../src/horloge";
 import { lireProfil, majProfil, type ChasseMemorisee } from "../src/reglages";
-import { additionner, blocRentabilite } from "../src/rentabilite";
+import { additionner, blocRentabilite, ligneRentabilite } from "../src/rentabilite";
 import { creerBadge, el, STYLE_ALERTE, STYLE_INFO } from "../src/ui";
 
 export default defineContentScript({
@@ -40,8 +44,7 @@ export default defineContentScript({
     } else if (page === "/ressources.php") {
       await pageRessources();
     } else if (page === "/laboratoire.php") {
-      const recherches = lireNiveauxRecherche(document);
-      if (Object.keys(recherches).length > 0) await majProfil({ recherches, majRecherches: Date.now() });
+      await pageLaboratoire();
     }
   },
 });
@@ -166,6 +169,7 @@ async function pageArmee(): Promise<void> {
     const enChasse: Effectifs[] = chasses.map((c) => c.effectifs);
     const enAttaque: Effectifs[] = lireAttaquesEnCours(document).map((a) => a.effectifs);
     const total = additionner(armee.troupes.terrain, armee.troupes.dome, armee.troupes.loge, ...enChasse, ...enAttaque);
+    await majProfil({ armee: total, majArmee: Date.now() });
     placer(blocRentabilite(total, { bouclier: armee.niveauBouclier, armes: armee.niveauArmes, ponte: profil.niveauxPonte }));
   }
 }
@@ -191,6 +195,48 @@ async function afficherTrajets(): Promise<void> {
     cellule.after(
       el("td", { title: `VA ${va}, distance ${l.distance}` }, `≈ ${formaterDuree(d)}`),
       el("td", {}, now === null ? "" : formaterHeure(now + d * 1000, false)),
+    );
+  }
+}
+
+async function pageLaboratoire(): Promise<void> {
+  const lignes = lireLaboratoire(document);
+  if (lignes.length === 0) return;
+  const recherches = Object.fromEntries(lignes.map((l) => [l.cle, l.niveau]));
+  const salleAnalyse = estimerSalleAnalyse(lignes);
+  await majProfil({ recherches, majRecherches: Date.now(), ...(salleAnalyse !== null ? { salleAnalyse } : {}) });
+
+  const profil = await lireProfil();
+  const sous = (cle: string, ...contenu: HTMLElement[]) => {
+    const cellule = lignes.find((l) => l.cle === cle)?.ligne.querySelector(".desciption_amelioration");
+    cellule?.append(el("div", { style: "margin-top:6px;font-size:0.9em" }, ...contenu));
+  };
+  const ponte = profil.niveauxPonte;
+  const bouclier = recherches.bouclier;
+  const armes = recherches.armes;
+
+  if (profil.armee && ponte !== undefined && bouclier !== undefined && armes !== undefined) {
+    const ctx = { effectifs: profil.armee, niveauBouclier: bouclier, niveauArmes: armes, niveauxPonte: ponte };
+    const a = rentabiliteArmes(ctx);
+    sous("bouclier", ligneRentabilite("Bouclier", rentabiliteBouclier(ctx), "PV"));
+    sous("armes", ligneRentabilite("Attaque", a.attaque, "att"), ligneRentabilite("Défense", a.defense, "déf"));
+  } else {
+    sous("bouclier", el("em", {}, "Fzzz : ouvrez la page Armée (et Ressources) pour calculer la rentabilité."));
+  }
+
+  // Communication avec les animaux n débloque l'étable à pucerons n − 2.
+  const comm = recherches.communication;
+  if (comm !== undefined && ponte !== undefined) {
+    const etable = Math.max(0, comm + 1 - 2);
+    const c = coutNiveauPuceron(Math.max(0, etable - 1), comm, ponte);
+    sous(
+      "communication",
+      el(
+        "span",
+        { style: STYLE_INFO },
+        `Fzzz : le niveau ${comm + 1} débloque l'étable à pucerons niveau ${etable}. ` +
+          `Ses ${c.cout.ouvrieres.toLocaleString("fr-FR")} ouvrières représentent ${formaterDuree(c.tempsPonteOuvrieres)} de ponte.`,
+      ),
     );
   }
 }

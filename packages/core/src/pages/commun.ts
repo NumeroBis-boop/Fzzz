@@ -9,7 +9,8 @@ export function entier(texte: string | null | undefined): number | null {
 
 /**
  * Abréviations utilisées par les pages du s5 (`div.que_sur_telephone`).
- * Le s5 n'affiche que 12 unités : ni Concierge d'élite ni Tank d'élite.
+ * Les pages vues n'affichent que 12 unités : le Concierge d'élite et le Tank
+ * d'élite (obtenus seulement par l'expérience) n'y ont pas de ligne.
  */
 export const ABREVIATIONS_S5: Record<string, CodeUnite> = {
   JSN: "jsn",
@@ -38,9 +39,11 @@ const NOMS_TROUPES: [string, CodeUnite][] = [
   ["jeune soldate", "js"],
   ["soldate d'elite", "se"],
   ["soldate", "s"],
+  ["concierge d'elite", "ce"],
   ["concierge", "c"],
   ["artilleuse d'elite", "ae"],
   ["artilleuse", "a"],
+  ["tank d'elite", "tke"],
   ["tank", "tk"],
   ["tueuse d'elite", "tue"],
   ["tueuse", "tu"],

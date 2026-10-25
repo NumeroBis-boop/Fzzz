@@ -1,6 +1,6 @@
 # Fiche 03 : rentabilité d'un niveau d'Armes, de Bouclier ou d'Étable à pucerons
 
-Statut : **affiché sur la page Armée (v0.2) pour Armes et Bouclier ; étable à pucerons à afficher**
+Statut : **affiché sur les pages Armée et Laboratoire (v0.3) ; gain de l'étable à pucerons à afficher (nécessite le pillage du joueur)**
 
 ## Critère retenu
 
@@ -36,4 +36,5 @@ Le niveau n exige Communication avec les animaux au niveau n + 2.
 ## Hypothèses
 
 - Une seule file de ponte, partagée entre ouvrières et unités.
-- Toutes les unités du s5 se pondent directement. **À confirmer** : si les élites ne s'obtiennent que par l'expérience, l'alternative en défense (aujourd'hui la Tueuse d'élite) doit être restreinte.
+- Alternatives : toutes les unités pondables, c'est-à-dire toutes sauf le Concierge d'élite et le Tank d'élite (obtenus par l'expérience).
+- Sur le Laboratoire, l'armée utilisée est la dernière armée totale vue sur la page Armée.

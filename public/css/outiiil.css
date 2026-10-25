@@ -1650,3 +1650,25 @@ tr.en_tete_message > td.td_coche {
 .o_bilanTable .o_bilanLigneUnite .o_varNeg {
   font-weight: normal !important;
 }
+
+/* Fzzz : toutou centré dans l'espace à droite du tableau du bilan */
+.o_bilanChienZone {
+  flex: 1 1 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+/* Fzzz : boutons de partage avec l'alliance sous le titre de la messagerie */
+#o_partageAlliance {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 10px 0;
+}
+#o_partageAlliance .o_button {
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 0.85em;
+  white-space: nowrap;
+}

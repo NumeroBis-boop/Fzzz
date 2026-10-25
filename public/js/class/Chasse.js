@@ -239,7 +239,7 @@ class Chasse {
           this._xp[i] ? pct(this._xp[i], av.unite[i]) : "",
           "o_bilanLigneUnite",
         );
-    return html + `</table>${chien}</div></div>`;
+    return html + `</table><div class='o_bilanChienZone'>${chien}</div></div></div>`;
   }
   /**
    *

@@ -47,6 +47,29 @@ const CATEGORIES_MESSAGES = [
  */
 class MessagerieFzzz {
   /**
+   * Boutons de partage avec l'alliance sous le titre « Messagerie ».
+   * Pas encore branchés : un message l'indique.
+   *
+   * @static
+   * @method boutonsPartage
+   */
+  static boutonsPartage() {
+    let $titre = $("#messagerie > h2").first();
+    if (!$titre.length || $("#o_partageAlliance").length) return;
+    let tag = Utils.alliance || "l'alliance";
+    $(`<div id='o_partageAlliance'>
+        <button type='button' class='o_button f_info' data-quoi='convois'>Partager mes convois avec la ${tag}</button>
+        <button type='button' class='o_button f_info' data-quoi='rc'>Partager mes RC avec la ${tag}</button>
+        <button type='button' class='o_button f_info' data-quoi='chasses'>Partager mes chasses avec la ${tag}</button>
+      </div>`)
+      .insertAfter($titre)
+      .find("button")
+      .on("click", (e) => {
+        e.preventDefault();
+        $.toast({ ...TOAST_INFO, text: "En cours de dev" });
+      });
+  }
+  /**
    * Catégorie d'une ligne de conversation, ou null.
    *
    * @static

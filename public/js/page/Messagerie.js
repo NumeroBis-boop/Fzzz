@@ -24,6 +24,7 @@ class PageMessagerie {
     if (!Utils.comptePlus) this.plus(0);
     this.couleurMessage();
     // Fzzz : couleurs des convois et conversations, bouton de copie, rangement
+    MessagerieFzzz.boutonsPartage();
     MessagerieFzzz.decorer();
     MessagerieFzzz.observer(this);
     MessagerieFzzz.ranger();

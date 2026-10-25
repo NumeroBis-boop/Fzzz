@@ -1475,20 +1475,23 @@ center > div > #tabMembresAlliance {
 }
 
 /* Fzzz : messagerie */
-.intitule_message.o_titreDefense {
+.o_titreDefense {
   color: #b42318 !important;
 }
-.intitule_message.o_titreAttaque {
+.o_titreAttaque {
   color: #287a36 !important;
 }
-.intitule_message.o_titreChasse {
-  color: #9a5700 !important;
+.o_titreChasse {
+  color: #39ff14 !important;
+  font-style: italic;
 }
-.intitule_message.o_titreConvoi {
+.o_titreConvoi {
   color: #7137a8 !important;
 }
-.intitule_message.o_titreAutre {
-  color: #2864a0 !important;
+.o_titreAutre {
+  color: #ffffff !important;
+  font-weight: bold !important;
+  text-shadow: none !important;
 }
 .o_copierRapport {
   height: 14px;

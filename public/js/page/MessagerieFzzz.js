@@ -86,7 +86,8 @@ class MessagerieFzzz {
             : { convoi: "o_titreConvoi", chasse: "o_titreChasse", conversation: "o_titreAutre" }[
                 c.nom
               ];
-        if (classe) $titre.addClass(classe);
+        // le titre et la date prennent la couleur du type
+        if (classe) $titre.add($ligne.find(".td_objet > span").first()).addClass(classe);
         $(
           `<img class='o_copierRapport' src='${IMG_COPIER}' title='Copier le rapport complet' alt='Copier'/>`,
         )

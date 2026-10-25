@@ -50,7 +50,7 @@ export default defineConfig({
     action: {
       default_icon: "images/icons/48.png",
     },
-    permissions: [],
+    permissions: ["webRequest", "storage"],
     host_permissions: ["*://*.fourmizzz.fr/*"],
     content_scripts: [
       // Bootstrap au document_start : pose des classes CSS sur <html> dès

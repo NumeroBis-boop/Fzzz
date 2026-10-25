@@ -442,7 +442,8 @@ const DATEPICKER_OPTION = {
     monProfil = new Joueur({ pseudo: $("#pseudo").text() });
     // chargement des parametre
     monProfil.getParametre();
-    // horloge à la seconde au-dessus de l'encart « S5 Pseudo »
+    // heure du serveur, puis horloge à la seconde au-dessus de l'encart « S5 Pseudo »
+    Horloge.initialiser();
     Horloge.afficher();
     // des qu'on les inos constructions/recherches et profil on affiches les outils
     Promise.all([

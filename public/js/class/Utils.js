@@ -193,15 +193,30 @@ class Utils {
     return duree;
   }
   /**
-   * Arrondie un temps à la minute.
+   * Minute du RC d'un événement dans `temps` secondes, compté depuis `depart`
+   * (par défaut l'heure du serveur ; Horloge.clic() pour une action lancée
+   * maintenant, latence comprise).
    *
    * @static
    * @method roundMinute
-   * @param {Object} temps
-   * @return {Object} temps à arrondi a la minute supérieur.
+   * @param {Number} temps secondes
+   * @param {Object} depart moment de départ
+   * @return {Object} minute du RC
    */
-  static roundMinute(temps) {
-    return moment().add(temps, "s").add(1, "minute").startOf("minute");
+  static roundMinute(temps, depart = Horloge.serveur()) {
+    return Utils.minuteRC(moment(depart).add(temps, "s"));
+  }
+  /**
+   * Le RC est daté de la minute qui suit l'impact, à la seconde près :
+   * 17h23:12 → 17h24, et 17h23:00 pile → 17h23.
+   *
+   * @static
+   * @method minuteRC
+   * @param {Object} impact moment de l'impact
+   * @return {Object} minute du RC
+   */
+  static minuteRC(impact) {
+    return moment(Math.ceil(Math.floor(moment(impact).valueOf() / 1000) / 60) * 60000);
   }
   /**
    * Sur construction.php / laboratoire.php, remplace les blocs natifs
@@ -492,10 +507,10 @@ class Utils {
    * @return L'affichage du contenue de l'id est incrementé d'une seconde.
    */
   static incrementTime(time, id, idRound = "") {
-    let retour = moment().add(time, "s");
+    let retour = Horloge.clic().add(time, "s");
     $("#" + id).text(retour.format("D MMM à HH[h]mm[m]ss[s]"));
-    if (idRound && retour.seconds() % 60 == 0)
-      $("#" + idRound).text(Utils.roundMinute(time).format("D MMM à HH[h]mm"));
+    if (idRound)
+      $("#" + idRound).text(Utils.roundMinute(time, Horloge.clic()).format("D MMM à HH[h]mm"));
     setTimeout(() => {
       Utils.incrementTime(time, id, idRound);
     }, 1000);

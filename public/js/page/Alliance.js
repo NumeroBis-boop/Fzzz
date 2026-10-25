@@ -144,7 +144,7 @@ class PageAlliance {
         let tdHtml;
         if (has) {
           const tdt = monProfil.getTempsParcours2(j);
-          const retour = Utils.roundMinute(tdt);
+          const retour = Utils.roundMinute(tdt, Horloge.clic());
           // data-order : DataTable trie sur l'attribut (entier brut) plutôt que sur
           // le texte affiché ("22h 31m" sinon trié en alphabétique).
           tdHtml = `<td data-order='${tdt}'>${Utils.intToTime(tdt)}</td><td data-order='${retour.unix()}'>${retour.format("D MMM à HH[h]mm")}</td>`;
@@ -823,7 +823,7 @@ class PageAlliance {
    * @method _tempsEntre
    */
   _tempsEntre(a, b) {
-    return Math.ceil(637200 * (1 - Math.exp(-Math.hypot(a.x - b.x, a.y - b.y) / 350)));
+    return Math.round(637200 * (1 - Math.exp(-Math.hypot(a.x - b.x, a.y - b.y) / 350)));
   }
   /**
    * Ordre de passage qui minimise la somme des temps de trajet : plus proche

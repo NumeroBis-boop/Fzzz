@@ -118,7 +118,7 @@ class PageAttaquer {
     // Ajout du bouton pour la synchro simple
     // Ajout du temps de trajet
     const nbSonde = monProfil.parametre["uniteSonde"].valeur;
-    const titleSync = `Affiche le compte à rebours jusqu'au moment où l'attaque arrivera sur une minute pleine (utile pour synchroniser plusieurs attaques avec des alliés). À zéro, c'est à toi de cliquer sur Lancer.`;
+    const titleSync = `Affiche le compte à rebours, au dixième de seconde et en heure du serveur + latence, jusqu'au moment où l'attaque arrivera sur une minute pleine (utile pour synchroniser plusieurs attaques avec des alliés). À zéro, c'est à toi de cliquer sur Lancer.`;
     const titleSonde = `Prépare ${nbSonde} unité${nbSonde > 1 ? "s" : ""} de la première espèce disponible (configurable dans Paramètres → Général) et affiche le compte à rebours de la minute pleine — révèle le nombre de défenseurs ennemis sans engager toute l'armée. À zéro, c'est à toi de cliquer sur Lancer.`;
     const titleSondeDirect = `Comme Sonder mais sans attendre la minute pleine : envoi immédiat, au clic. Utile quand le timing n'a pas d'importance.`;
     $("#o_btnLancer")
@@ -126,7 +126,7 @@ class PageAttaquer {
         `<div id="o_btnSynchro"><button id='o_synchro' class="o_button f_info" title="${titleSync}">Synchroniser</button><button id='o_sonder' class="o_button f_error" title="${titleSonde}">Sonder</button><button id='o_sonderDirect' class="o_button f_error" title="${titleSondeDirect}">Sonder direct</button></div>`,
       )
       .after(
-        `<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${moment().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible)).format("D MMM à HH[h]mm")}</span>).</p>`,
+        `<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${Horloge.clic().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()).format("D MMM à HH[h]mm")}</span>).</p>`,
       );
     $("#o_synchro").click((e) => {
       e.preventDefault();
@@ -172,15 +172,24 @@ class PageAttaquer {
   lancerSynchro(attente) {
     // Règlement du s5 : le clic final appartient au joueur. L'extension affiche
     // seulement le compte à rebours et signale le moment de cliquer.
+    // Compte à rebours au dixième, en heure serveur + latence : un réglage de
+    // la latence pendant le décompte est pris en compte.
+    let cible = Horloge.clic().valueOf() + attente * 1000,
+      arrivee = Horloge.clic().add(attente, "s").add(monProfil.getTempsParcours2(this._cible), "s");
     $("#formulaireChoixArmee fieldset:eq(1)").append(
-      `<p id="o_syncA" class="centre">Clique sur <b>Lancer</b> dans : <span id='o_decSyncA'></span>.</p>`,
+      `<p id="o_syncA" class="centre">Clique sur <b>Lancer</b> dans : <span id='o_decSyncA' class='gras'></span> (arrivée ${arrivee.format("HH[h]mm[m]ss[s]")}, latence ${Horloge.libelleLatence()}).</p>`,
     );
-    Utils.decreaseTime(attente, "o_decSyncA", {
-      aZero: () => {
+    let tic = () => {
+      let reste = cible - Horloge.clic().valueOf();
+      if (reste > 0) {
+        $("#o_decSyncA").text((reste / 1000).toFixed(1).replace(".", ",") + " s");
+        setTimeout(tic, Math.min(100, reste));
+      } else {
         $("#o_syncA").html("<b>Clique sur Lancer maintenant.</b>").addClass("red");
         $("input[name='ChoixArmee']").addClass("o_synchroPret").focus();
-      },
-    });
+      }
+    };
+    tic();
   }
   /**
    * Formulaire de lancemenet de flood.

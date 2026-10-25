@@ -1724,7 +1724,8 @@ class BoiteCombat extends Boite {
       // si on peut calculer une heure de lancement (ref = ennemi à chopper, pas moi)
       const capturePossible = dernierMvt && !ref.estJoueurCourant();
       const tempsMoiVersRef = capturePossible ? monProfil.getTempsParcours2(ref) : 0;
-      const maintenant = moment();
+      // heure serveur + latence : « Lancer à » se lit directement sur l'horloge Fzzz
+      const maintenant = Horloge.clic();
       // on calcule les temps de trajet vers les joueurs
       for (let i = 0; i < joueurs.length; i++) {
         joueurs[i].chargerProfil(values[i + ind]);

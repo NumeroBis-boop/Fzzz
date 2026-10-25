@@ -419,7 +419,8 @@ class Joueur {
    *
    */
   getTempsParcours(x = monProfil.x, y = monProfil.y) {
-    return Math.ceil(
+    // arrondi au plus proche, comme le jeu (vérifié sur des trajets réels du s5)
+    return Math.round(
       Math.pow(0.9, this._niveauRecherche[6]) *
         637200 *
         (1 - Math.exp(-(Math.sqrt(Math.pow(x - this._x, 2) + Math.pow(y - this._y, 2)) / 350))),
@@ -429,7 +430,7 @@ class Joueur {
    *
    */
   getTempsParcours2(joueur) {
-    return Math.ceil(
+    return Math.round(
       Math.pow(0.9, this._niveauRecherche[6]) *
         637200 *
         (1 -
@@ -450,7 +451,15 @@ class Joueur {
    *
    */
   attenteSynchro() {
-    return 60 - (moment().add(this.getTempsParcours(), "s").seconds() % 60);
+    // Attente (s, au dixième) avant de cliquer pour que l'attaque arrive sur
+    // une minute pleine (seconde :00), en heure serveur + latence. Le clic vise
+    // le milieu de la seconde de lancement : ±0,5 s de marge de réaction.
+    let maintenant = Horloge.clic().valueOf(),
+      trajet = this.getTempsParcours() * 1000,
+      arrivee = Math.ceil((maintenant + trajet) / 60000) * 60000,
+      lancement = arrivee - trajet + 500;
+    if (lancement - maintenant < 2000) lancement += 60000;
+    return (lancement - maintenant) / 1000;
   }
   /**
    *
@@ -699,7 +708,7 @@ class Joueur {
         if (radar.joueurs.hasOwnProperty(this._pseudo)) {
           $(e.currentTarget).tooltip({
             position: { my: "left+10 center", at: "right center" },
-            content: `<table><tr><td>Temps de trajet</td><td class="right">${Utils.intToTime(monProfil.getTempsParcours2(radar.joueurs[this._pseudo]))}</td></tr><td>Retour le</td><td class="right">${moment().add(monProfil.getTempsParcours2(radar.joueurs[this._pseudo]), "s").format("D MMM à HH[h]mm[m]ss[s]")}</td><tr></tr></table>`,
+            content: `<table><tr><td>Temps de trajet</td><td class="right">${Utils.intToTime(monProfil.getTempsParcours2(radar.joueurs[this._pseudo]))}</td></tr><td>Retour le</td><td class="right">${Horloge.clic().add(monProfil.getTempsParcours2(radar.joueurs[this._pseudo]), "s").format("D MMM à HH[h]mm[m]ss[s]")}</td><tr></tr></table>`,
             hide: { effect: "fade", duration: 10 },
             tooltipClass: "warning-tooltip ui-tooltip-right",
           });

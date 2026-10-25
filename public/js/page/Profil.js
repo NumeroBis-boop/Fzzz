@@ -46,7 +46,7 @@ class PageProfil {
       !Utils.comptePlus && this.plus();
       // Affichage du retour dynamique
       $(".boite_membre:first div:first table").append(
-        `<tr><td class='right'>Retour le :</td><td id='o_tempsRetour'>${moment().add(monProfil.getTempsParcours2(this._profil), "s").format("D MMM à HH[h]mm[m]ss[s]")}</td></tr><tr><td class='right'>Rapport :</td><td id='o_tempsRetourRapport'>${Utils.roundMinute(monProfil.getTempsParcours2(this._profil)).format("D MMM à HH[h]mm")}</td></tr>`,
+        `<tr><td class='right'>Retour le :</td><td id='o_tempsRetour'>${Horloge.clic().add(monProfil.getTempsParcours2(this._profil), "s").format("D MMM à HH[h]mm[m]ss[s]")}</td></tr><tr><td class='right'>Rapport :</td><td id='o_tempsRetourRapport'>${Utils.roundMinute(monProfil.getTempsParcours2(this._profil), Horloge.clic()).format("D MMM à HH[h]mm")}</td></tr>`,
       );
       Utils.incrementTime(
         monProfil.getTempsParcours2(this._profil),

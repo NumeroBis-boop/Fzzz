@@ -43,7 +43,7 @@ class AttaqueLancee {
     }
     return liste.filter((a) =>
       a.id
-        ? moment(a.arrivee).isAfter(moment())
+        ? moment(a.arrivee).isAfter(Horloge.serveur())
         : a.lancee && moment().diff(a.lancee, "s") < DUREE_VIE_CAPTURE,
     );
   }
@@ -136,7 +136,7 @@ class AttaqueLancee {
         // le titre du tableau pour garder les pseudos cliquables (issue #25)
         cibleHtml: $(elt).prev().find("a").length ? $(elt).prev().html() : null,
         secondes: secondes,
-        arrivee: moment().add(secondes, "s"),
+        arrivee: Horloge.serveur().add(secondes, "s"),
         lieuNatif: lieu ? lieu[1] : null,
         troupesNatif: troupes ? troupes[1] : null,
       });
@@ -469,7 +469,7 @@ class AttaqueLancee {
    */
   static formatForumCourt(cible, groupe) {
     let arrivees = groupe.map((a) =>
-        Utils.roundMinute(Math.max(0, a.ligne.arrivee.diff(moment(), "s"))),
+        Utils.minuteRC(moment.max(a.ligne.arrivee, Horloge.serveur())),
       ),
       premiere = arrivees[0],
       derniere = arrivees[arrivees.length - 1],
@@ -497,7 +497,7 @@ class AttaqueLancee {
   static formatForum(cible, groupe) {
     let texte = groupe
         .map((a) => {
-          let secondes = Math.max(0, a.ligne.arrivee.diff(moment(), "s")),
+          let secondes = Math.max(0, a.ligne.arrivee.diff(Horloge.serveur(), "s")),
             lieu = AttaqueLancee.lieu(a),
             troupes = AttaqueLancee.troupes(a),
             lignes = [

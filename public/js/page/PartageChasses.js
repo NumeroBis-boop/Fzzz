@@ -44,7 +44,10 @@ class PartageChasses {
       $.ajax({
         type: "post",
         url: location.origin + "/alliance.php?forum_menu",
-        data: { xajax: fonction, "xajaxargs[]": args, xajaxr: moment().valueOf() },
+        data:
+          args === undefined
+            ? { xajax: fonction, xajaxr: moment().valueOf() }
+            : { xajax: fonction, "xajaxargs[]": args, xajaxr: moment().valueOf() },
       }),
     );
   }
@@ -55,30 +58,60 @@ class PartageChasses {
    * @method lire
    */
   static lire() {
-    let id = PartageChasses.idSection;
-    if (!id) return Promise.reject(new Error("section inconnue"));
-    return PartageChasses._xajax("callGetForum", id).then((data) => {
-      let reponse = $(data).find("cmd:eq(1)").text();
-      if (!reponse || reponse.includes("Vous n'avez pas accès à ce forum."))
-        throw new Error("section inaccessible");
-      let sujets = [];
-      $("<div/>")
-        .append(reponse)
-        .find("#form_cat tr:gt(0)")
-        .each((i, elt) => {
-          let m = $(elt)
-            .find("td:eq(1)")
-            .text()
-            .trim()
-            .match(/^Chasse \| (.+?) \| (\d{4}-\d\d-\d\d \d\d:\d\d) \| (\d+)/);
-          if (m)
-            sujets.push({
-              pseudo: m[1],
-              impact: moment(m[2], "YYYY-MM-DD HH:mm"),
-              terrain: parseInt(m[3]),
-            });
-        });
-      return sujets;
+    return PartageChasses.trouverSection().then((id) =>
+      PartageChasses._xajax("callGetForum", id).then((data) => {
+        let reponse = $(data).find("cmd:eq(1)").text();
+        if (!reponse || reponse.includes("Vous n'avez pas accès à ce forum.")) {
+          // identifiant périmé (section supprimée puis recréée) : on le relira
+          try {
+            localStorage.removeItem(PartageChasses.cle);
+          } catch (e) {}
+          throw new Error("section inaccessible");
+        }
+        let sujets = [];
+        $("<div/>")
+          .append(reponse)
+          .find("#form_cat tr:gt(0)")
+          .each((i, elt) => {
+            let m = $(elt)
+              .find("td:eq(1)")
+              .text()
+              .trim()
+              .match(/^Chasse \| (.+?) \| (\d{4}-\d\d-\d\d \d\d:\d\d) \| (\d+)/);
+            if (m)
+              sujets.push({
+                pseudo: m[1],
+                impact: moment(m[2], "YYYY-MM-DD HH:mm"),
+                terrain: parseInt(m[3]),
+              });
+          });
+        return sujets;
+      }),
+    );
+  }
+  /**
+   * Identifiant de la section : celui mémorisé, sinon lu dans la liste des
+   * sections que renvoie le forum (le même appel que la page Forum du jeu).
+   *
+   * @static
+   * @method trouverSection
+   * @return {Promise<String>} rejetée avec Error("absente") si la section n'existe pas
+   */
+  static trouverSection() {
+    if (PartageChasses.idSection) return Promise.resolve(PartageChasses.idSection);
+    return PartageChasses._xajax("callGetForum").then((data) => {
+      let html = $(data)
+          .find("cmd")
+          .map((i, c) => $(c).text())
+          .get()
+          .join(""),
+        $span = $("<div/>")
+          .append(html)
+          .find(`span[class^='forum']:contains('${FORUM_SECTION_CHASSES}')`),
+        id = $span.length ? ($span.attr("class").match(/\d+/) || [])[0] : null;
+      if (!id) throw new Error("absente");
+      PartageChasses.idSection = id;
+      return id;
     });
   }
   /**
@@ -89,14 +122,6 @@ class PartageChasses {
    * @param {Array} groupes [{impact (moment), terrain, unites (texte)}]
    */
   static partager(groupes, $bouton) {
-    if (!PartageChasses.idSection) {
-      $.toast({
-        ...TOAST_WARNING,
-        hideAfter: 10000,
-        text: `Ouvre une fois le forum de l'alliance pour que Fzzz y trouve la section « ${FORUM_SECTION_CHASSES} ». Si elle n'existe pas, un chef peut la créer depuis le forum (bouton Fzzz).`,
-      });
-      return;
-    }
     let pseudo = monProfil.pseudo;
     $bouton.prop("disabled", true);
     PartageChasses.lire()
@@ -127,10 +152,14 @@ class PartageChasses {
             : "Ces chasses étaient déjà partagées.",
         }),
       )
-      .catch(() =>
+      .catch((e) =>
         $.toast({
           ...TOAST_ERROR,
-          text: `Partage impossible : section « ${FORUM_SECTION_CHASSES} » introuvable ou inaccessible. Rouvre le forum de l'alliance.`,
+          hideAfter: 10000,
+          text:
+            e && e.message == "absente"
+              ? `Le forum de l'alliance n'a pas encore de section « ${FORUM_SECTION_CHASSES} » : un chef peut la créer d'un clic depuis la page Forum (bouton Fzzz).`
+              : `Partage impossible : la section « ${FORUM_SECTION_CHASSES} » du forum n'a pas pu être lue.`,
         }),
       )
       .finally(() => $bouton.prop("disabled", false));
@@ -142,7 +171,6 @@ class PartageChasses {
    * @method afficherProfil
    */
   static afficherProfil(pseudo) {
-    if (!PartageChasses.idSection) return;
     PartageChasses.lire()
       .then((sujets) => {
         let siennes = sujets

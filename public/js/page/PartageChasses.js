@@ -420,15 +420,12 @@ class PartageChasses {
         ]);
       })
       .then(([chasses, floods]) => {
-        let tableau = (titre, entrees, colonnes, cellules, cle) => {
-          if (!entrees.length)
-            return Utils.spoiler(
-              `${titre} (0)`,
-              "<p class='centre'>Aucun partage en cours.</p>",
-              cle,
-              "o_partageTitre",
-            );
-          let html = `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
+        let tableau = (titre, entrees, colonnes, cellules) => {
+          let titreHtml = `<h3 class='o_partageTitre'>${titre} (${entrees.length})</h3>`;
+          if (!entrees.length) return titreHtml + "<p class='centre'>Aucun partage en cours.</p>";
+          let html =
+            titreHtml +
+            `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
           entrees.forEach((e, i) => {
             html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(e)
               .map((t) => `<td>${t}</td>`)
@@ -438,12 +435,9 @@ class PartageChasses {
             total = entrees.some((e) => e.delta != null)
               ? signe(somme)
               : `${numeral(somme).format()} cm²`;
-          return Utils.spoiler(
-            `${titre} (${entrees.length})`,
+          return (
             html +
-              `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total}</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`,
-            cle,
-            "o_partageTitre",
+            `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total}</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`
           );
         };
         // « +2 340 cm² » en vert, « −2 340 cm² » en rouge
@@ -478,13 +472,9 @@ class PartageChasses {
           synthese =
             "<div class='o_partageSeparation'></div>" +
             `<div class='o_partageSynthese'>` +
-            Utils.spoiler(
-              `Évolution du TdC de ${pseudo}`,
-              `<table class='centre' cellspacing='0'>${lignes.join("")}</table>
-              <p class='o_partageAvertissement'><em>En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p>`,
-              "profilSynthese",
-              "o_partageTitre",
-            ) +
+            `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
+              <table class='centre' cellspacing='0'>${lignes.join("")}</table>
+              <p class='o_partageAvertissement'><em>En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p>` +
             "</div>";
         }
         $("#o_chassesPartagees").remove();
@@ -492,26 +482,30 @@ class PartageChasses {
         let $action = $(".boite_membre").filter((i, e) => /^\s*Action/.test($(e).text()));
         ($action.length ? $action.first() : $(".boite_membre").last()).after(
           `<div id='o_chassesPartagees' class='boite_membre'>` +
-            tableau(
-              `Chasses en cours partagées avec la ${Utils.alliance}`,
-              enCours(chasses),
-              ["Heure d'impact", "TdC chassé"],
-              (e) => [date(e), numeral(e.terrain).format() + " cm²"],
-              "profilChasses",
+            // un seul dépliant pour tout l'encart
+            Utils.spoiler(
+              `Chasses et floods en cours partagés avec la ${Utils.alliance}`,
+              tableau(
+                `Chasses en cours partagées avec la ${Utils.alliance}`,
+                enCours(chasses),
+                ["Heure d'impact", "TdC chassé"],
+                (e) => [date(e), numeral(e.terrain).format() + " cm²"],
+              ) +
+                "<div class='o_partageSeparation'></div>" +
+                tableau(
+                  `Floods en cours depuis ou vers ${pseudo} partagés avec la ${Utils.alliance}`,
+                  enCours(floods),
+                  ["Arrivée", "TdC (estimé)", "Lanceur → cible"],
+                  (e) => [
+                    date(e),
+                    signe(e.delta),
+                    `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a> → <a href='Membre.php?Pseudo=${encodeURIComponent(e.cible)}'>${e.cible}</a>`,
+                  ],
+                ) +
+                synthese,
+              "profilPartages",
+              "o_partageTitre o_partageSpoiler",
             ) +
-            "<div class='o_partageSeparation'></div>" +
-            tableau(
-              `Floods en cours depuis ou vers ${pseudo} partagés avec la ${Utils.alliance}`,
-              enCours(floods),
-              ["Arrivée", "TdC (estimé)", "Lanceur → cible"],
-              (e) => [
-                date(e),
-                signe(e.delta),
-                `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a> → <a href='Membre.php?Pseudo=${encodeURIComponent(e.cible)}'>${e.cible}</a>`,
-              ],
-              "profilFloods",
-            ) +
-            synthese +
             "</div>",
         );
       })

@@ -1860,3 +1860,7 @@ tr.en_tete_message > td.td_coche {
   margin: 3px 0;
   cursor: pointer;
 }
+#o_chassesPartagees .o_partageSpoiler {
+  font-size: 1.05em;
+  margin: 6px 0;
+}

@@ -1672,3 +1672,42 @@ tr.en_tete_message > td.td_coche {
   font-size: 0.85em;
   white-space: nowrap;
 }
+
+/* Fzzz : sélection et copie des convois en cours (commerce.php) */
+.o_convoiOutils {
+  white-space: nowrap;
+  margin-right: 4px;
+}
+.o_convoiOutils .o_convoiCoche {
+  margin: 0 3px 0 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.o_convoiCopier {
+  height: 14px;
+  vertical-align: middle;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.o_convoiCopier:hover {
+  opacity: 1;
+}
+#o_convoisOutils {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 6px 0;
+}
+#o_convoisOutils label {
+  cursor: pointer;
+  font-size: 0.9em;
+}
+#o_convoisOutils input {
+  margin: 0 3px 0 10px;
+  vertical-align: middle;
+}
+#o_convoisOutils .o_button {
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 0.85em;
+}

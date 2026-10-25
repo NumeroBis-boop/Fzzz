@@ -70,6 +70,7 @@ class PageCommerce {
     });
     // option c+
     if (!Utils.comptePlus) this.plus();
+    CommerceFzzz.decorer();
     return this;
   }
   /**

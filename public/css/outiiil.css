@@ -1927,3 +1927,6 @@ tr.en_tete_message > td.td_coche {
 #tabMembresAlliance.o_allMesure .o_allCol3 {
   width: auto !important;
 }
+#o_allInfobulle .o_allInfoCible {
+  font-style: italic;
+}

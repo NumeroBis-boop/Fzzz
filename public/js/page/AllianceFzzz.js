@@ -252,11 +252,13 @@ class AllianceFzzz {
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
       let tdc = terrain,
-        lignes = [`<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`];
+        lignes = [
+          `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td></tr>`,
+        ];
       vars.forEach((v) => {
         tdc += v.delta;
         lignes.push(
-          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${AllianceFzzz._signe(v.delta)})</td></tr>`,
+          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${AllianceFzzz._signe(v.delta)})</td><td class='o_allInfoCible'>${v.autres.join(", ")}</td></tr>`,
         );
       });
       let html = `<div class='gras'>${pseudo}</div>${

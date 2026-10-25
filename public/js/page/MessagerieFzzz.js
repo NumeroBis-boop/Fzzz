@@ -35,7 +35,7 @@ const CATEGORIES_MESSAGES = [
 
 /**
  * Ajouts de Fzzz à la messagerie :
- * - titres des convois en violet, des RC de chasse en bleu marine, des autres
+ * - titres des convois en violet, des RC de chasse en bleu, des autres
  *   messages en noir (les RC de combat gardent le rouge et le vert de
  *   PageMessagerie.couleurMessage) ;
  * - à l'ouverture de la messagerie, rangement des convois dans « Commerce »,
@@ -75,7 +75,7 @@ class MessagerieFzzz {
           $titre = $ligne.find(".intitule_message");
         // titre complet au survol : la liste compactée le tronque
         if (!$titre.attr("title")) $titre.attr("title", $titre.text().trim());
-        // convois en violet, RC de chasse en bleu marine, RC de combat dans les
+        // convois en violet, RC de chasse en bleu, RC de combat dans les
         // couleurs du jeu (rouge / vert), tout le reste en noir
         let classe = !c
           ? "o_titreAutre"

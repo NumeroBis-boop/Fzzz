@@ -1790,3 +1790,12 @@ tr.en_tete_message > td.td_coche {
 #o_chassesPartagees td {
   padding: 2px 22px;
 }
+#o_chassesPartagees td {
+  font-weight: normal;
+}
+#o_chassesPartagees .o_partageEntete td {
+  font-weight: bold;
+}
+#o_chassesPartagees .o_partageSeparation {
+  height: 1.5em;
+}

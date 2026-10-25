@@ -111,7 +111,8 @@ class PartageChasses {
           PartageChasses.idSection = null;
           throw new Error("section inaccessible");
         }
-        let sujets = {};
+        // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse
+        let sujets = { liste: [] };
         $("<div/>")
           .append(reponse)
           .find("#form_cat tr")
@@ -121,7 +122,10 @@ class PartageChasses {
               idSujet =
                 $(elt).find("input[name='topic[]']").val() ||
                 (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0];
-            if (m && idSujet) sujets[`${m[1]} | ${m[2].trim().toLowerCase()}`] = idSujet;
+            if (m && idSujet) {
+              sujets[`${m[1]} | ${m[2].trim().toLowerCase()}`] = idSujet;
+              sujets.liste.push({ type: m[1], pseudo: m[2].trim(), id: idSujet });
+            }
           });
         return sujets;
       }),
@@ -141,21 +145,33 @@ class PartageChasses {
         chasses = [],
         floods = [],
         m,
-        D = "(\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d)",
-        N = "([\\d \\u00a0\\u202f]+) cm²",
-        reC = new RegExp(`${D} \\| ${N}`, "g"),
-        reF = new RegExp(`${D} \\| ([^|\\n]+?) \\| ${N}`, "g"),
-        // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF
+        // tolérant aux corrections à la main : 1 ou 2 chiffres, année sur 2 ou
+        // 4 chiffres, « 02:46 » ou « 02h46 », espaces libres autour des « | »
+        D = "(\\d{1,2})/(\\d{1,2})/(\\d{2,4})\\s+(\\d{1,2})[:hH](\\d{2})",
+        N = "(\\d[\\d \\u00a0\\u202f.]*)\\s*cm",
+        reC = new RegExp(`${D}\\s*\\|\\s*${N}`, "g"),
+        reF = new RegExp(`${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*${N}`, "g"),
+        // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF, lus seulement
+        // si le sujet n'a aucune ligne au format actuel
         reC0 = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
         reF0 = /FZF\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|([^|\s]+)\|(\d+)\|/g,
-        date = (t) => moment(t, "DD/MM/YY HH:mm").format("YYYY-MM-DD HH:mm"),
+        date = (m) =>
+          moment(
+            `${m[1]}/${m[2]}/${m[3].length == 2 ? "20" + m[3] : m[3]} ${m[4]}:${m[5]}`,
+            "D/M/YYYY H:mm",
+          ).format("YYYY-MM-DD HH:mm"),
         nombre = (t) => parseInt(t.replace(/\D/g, ""));
-      while ((m = reC.exec(texte))) chasses.push({ date: date(m[1]), terrain: nombre(m[2]) });
       while ((m = reF.exec(texte)))
-        floods.push({ date: date(m[1]), cible: m[2].trim(), terrain: nombre(m[3]) });
-      while ((m = reC0.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
-      while ((m = reF0.exec(texte)))
-        floods.push({ date: m[1], cible: m[2], terrain: parseInt(m[3]) });
+        floods.push({ date: date(m), cible: m[6].trim(), terrain: nombre(m[7]) });
+      // une ligne de flood contient aussi « date | … » : les chasses sont lues
+      // sur le texte privé des lignes de flood
+      let texteC = texte.replace(reF, "");
+      while ((m = reC.exec(texteC))) chasses.push({ date: date(m), terrain: nombre(m[6]) });
+      if (!chasses.length)
+        while ((m = reC0.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
+      if (!floods.length)
+        while ((m = reF0.exec(texte)))
+          floods.push({ date: m[1], cible: m[2], terrain: parseInt(m[3]) });
       return { chasses: chasses, floods: floods };
     });
   }
@@ -298,19 +314,39 @@ class PartageChasses {
    * @method afficherProfil
    */
   static afficherProfil(pseudo) {
+    let cible = pseudo.toLowerCase();
     PartageChasses.sujets()
       .then((sujets) => {
-        let lire = (type) => {
-          let id = sujets[`${type} | ${pseudo.toLowerCase()}`];
-          return id ? PartageChasses.lireSujet(id) : Promise.resolve({ chasses: [], floods: [] });
-        };
-        return Promise.all([lire("Chasses"), lire("Floods")]);
+        let idChasses = sujets[`Chasses | ${cible}`],
+          sujetsFloods = sujets.liste.filter((t) => t.type == "Floods");
+        // chasses du joueur affiché ; floods de tous les membres dirigés vers lui
+        // (lecture des sujets « Floods » par paquets de 4, à chaque affichage :
+        // une correction faite dans le forum est donc prise en compte)
+        let floods = [],
+          lirePaquet = (k) =>
+            k >= sujetsFloods.length
+              ? Promise.resolve()
+              : Promise.all(
+                  sujetsFloods.slice(k, k + 4).map((t) =>
+                    PartageChasses.lireSujet(t.id)
+                      .then((d) =>
+                        d.floods
+                          .filter((e) => e.cible.toLowerCase() == cible)
+                          .forEach((e) => floods.push({ ...e, lanceur: t.pseudo })),
+                      )
+                      .catch(() => {}),
+                  ),
+                ).then(() => lirePaquet(k + 4));
+        return Promise.all([
+          idChasses ? PartageChasses.lireSujet(idChasses).then((d) => d.chasses) : [],
+          lirePaquet(0).then(() => floods),
+        ]);
       })
-      .then(([c, f]) => {
+      .then(([chasses, floods]) => {
         let tableau = (titre, entrees, colonnes, cellules) => {
           let html = `<h3 class='o_partageTitre'>${titre}</h3>`;
           if (!entrees.length) return html + "<p class='centre'>Aucun partage en cours.</p>";
-          html += `<table class='centre' cellspacing='0'><tr class='gras'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
+          html += `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
           entrees.forEach((e, i) => {
             html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(e)
               .map((t) => `<td>${t}</td>`)
@@ -319,7 +355,7 @@ class PartageChasses {
           let total = numeral(entrees.reduce((t, e) => t + e.terrain, 0)).format();
           return (
             html +
-            `<tr class='gras o_syntheseTotal'><td>Total (${entrees.length})</td>${colonnes.length > 2 ? "<td></td>" : ""}<td>${total} cm²</td></tr></table>`
+            `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total} cm²</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`
           );
         };
         let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
@@ -327,24 +363,26 @@ class PartageChasses {
           maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
           enCours = (liste) =>
             liste.filter((e) => e.date >= maintenant).sort((a, b) => (a.date < b.date ? -1 : 1));
+        $("#o_chassesPartagees").remove();
         $(".boite_membre")
           .last()
           .after(
             `<div id='o_chassesPartagees' class='boite_membre'>` +
               tableau(
                 `Chasses en cours partagées avec la ${Utils.alliance}`,
-                enCours(c.chasses),
+                enCours(chasses),
                 ["Heure d'impact", "TdC chassé"],
                 (e) => [date(e), numeral(e.terrain).format() + " cm²"],
               ) +
+              "<div class='o_partageSeparation'></div>" +
               tableau(
-                `Floods en cours partagés avec la ${Utils.alliance}`,
-                enCours(f.floods),
-                ["Arrivée", "Cible", "TdC floodé (estimé)"],
+                `Floods en cours sur ${pseudo} partagés avec la ${Utils.alliance}`,
+                enCours(floods),
+                ["Arrivée", "TdC floodé (estimé)", "Lanceur"],
                 (e) => [
                   date(e),
-                  `<a href='Membre.php?Pseudo=${encodeURIComponent(e.cible)}'>${e.cible}</a>`,
                   numeral(e.terrain).format() + " cm²",
+                  `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a>`,
                 ],
               ) +
               "</div>",

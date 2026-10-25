@@ -15,6 +15,21 @@ let intervalleComptesARebours = null;
  *
  * @class Utils
  */
+// Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres → Affichages
+const AFFICHAGES_FZZZ = {
+  horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",
+  rentabilite: "Laboratoire et Construction : bandeaux « rentabilité du niveau supérieur »",
+  messagerieCouleurs: "Messagerie : couleurs des titres et icônes de copie",
+  messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
+  convoisSelection: "Convois : cases à cocher et copie des convois en cours",
+  trajet: "Page d'attaque : temps de trajet",
+  prevenirFlood: "Page d'attaque : case « Prévenir X du flood »",
+  syntheseChasses: "Ressources : synthèse des chasses en cours",
+  listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
+  floodsRecus: "Armée : floods en cours sur moi",
+  profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
+};
+
 class Utils {
   /**
    * Renvoie le serveur sur lequel joue le joueur.
@@ -218,6 +233,21 @@ class Utils {
    * @param {String} contenu HTML affiché une fois déplié
    */
   /**
+   * Fzzz : un affichage ajouté par l'extension est-il activé ? Tous le sont
+   * par défaut ; le joueur peut les couper dans Paramètres → Affichages.
+   *
+   * @static
+   * @method affichage
+   * @param {String} cle clé de AFFICHAGES_FZZZ
+   */
+  static affichage(cle) {
+    try {
+      return localStorage.getItem("fzzz_affichage_" + cle) != "0";
+    } catch (e) {
+      return true;
+    }
+  }
+  /**
    * Fzzz : encart repliable. Renvoie le HTML d'un titre cliquable (flèche
    * ▶/▼) suivi de son contenu, replié par défaut ; l'état ouvert/fermé est
    * mémorisé par clé dans le navigateur.
@@ -228,7 +258,8 @@ class Utils {
   static spoiler(titre, corps, cle, classeTitre = "") {
     let ouvert = false;
     try {
-      ouvert = localStorage.getItem("fzzz_spoiler_" + cle) == "1";
+      // déplié par défaut : seul un repli choisi par le joueur est mémorisé
+      ouvert = localStorage.getItem("fzzz_spoiler_" + cle) != "0";
     } catch (e) {}
     if (!Utils._spoilersActifs) {
       Utils._spoilersActifs = true;
@@ -249,6 +280,7 @@ class Utils {
    * Fzzz : bandeau « Estimer le niveau de rentabilité… » (voir plus bas).
    */
   static ajouterSpoilerRentabilite($ligne, id, contenu) {
+    if (!Utils.affichage("rentabilite")) return;
     $("#" + id).remove();
     $ligne.after(`
       <tr id='${id}' class='o_spoilerLigne'><td colspan='${$ligne.children("td").length || 4}'>

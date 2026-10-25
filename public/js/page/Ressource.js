@@ -74,6 +74,7 @@ class PageRessource {
    * @method syntheseChasses
    */
   syntheseChasses() {
+    if (!Utils.affichage("syntheseChasses")) return;
     let chasses = [];
     $("#boite_tdc span[id^='chasse_']").each((i, elt) => {
       let $ligne = $(elt).parent(),

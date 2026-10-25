@@ -318,7 +318,8 @@ class AttaqueLancee {
           capture: liste.find((a) => a.id == l.id) || null,
           annuler: $(l.elt).nextAll(`a[href$='annuler=${l.id}']`).first(),
         }));
-    if (!attaques.length) return;
+    // les captures restent synchronisées (partage des floods) même sans la liste
+    if (!attaques.length || !Utils.affichage("listeAttaques")) return;
     // Fzzz : une seule liste, dans l'ordre d'arrivée : # | Arrivée | Cible (tag
     // coloré) | Troupes (quantité, détail au survol) | Lieu | Copier | Partager
     let conteneur = $(lignes[lignes.length - 1].elt).parent(),

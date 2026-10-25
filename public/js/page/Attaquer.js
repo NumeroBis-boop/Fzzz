@@ -131,7 +131,7 @@ class PageAttaquer {
         `<div id="o_btnSynchro"><button id='o_synchro' class="o_button f_info" title="${titleSync}">Synchroniser</button><button id='o_sonder' class="o_button f_error" title="${titleSonde}">Sonder</button><button id='o_sonderDirect' class="o_button f_error" title="${titleSondeDirect}">Sonder direct</button></div>`,
       )
       .after(
-        `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">${PrevenirFlood.duree(monProfil.getTempsParcours2(this._cible))}</span></p><p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${Horloge.clic().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()).format("D MMM à HH[h]mm")}</span>).</p><p class="centre">${PrevenirFlood.caseHtml("o_prevenirArmee", this._cible.pseudo)}</p>`,
+        `${Utils.affichage("trajet") ? `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">${PrevenirFlood.duree(monProfil.getTempsParcours2(this._cible))}</span></p>` : ""}<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${Horloge.clic().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()).format("D MMM à HH[h]mm")}</span>).</p>${Utils.affichage("prevenirFlood") ? `<p class="centre">${PrevenirFlood.caseHtml("o_prevenirArmee", this._cible.pseudo)}</p>` : ""}`,
       );
     $("#o_synchro").click((e) => {
       e.preventDefault();
@@ -214,7 +214,7 @@ class PageAttaquer {
 			<tr><td>Antisonde (<span id="o_pourcentAttaque0">0</span>%)</td><td><input value='0' size='12' id='o_floodAntiSonde'/></td><td></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>
             <tr class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
             </table>
-            <p class='o_marginT15'>${PrevenirFlood.caseHtml("o_prevenirFloodLanceur", this._cible.pseudo)}</p>
+            ${Utils.affichage("prevenirFlood") ? `<p class='o_marginT15'>${PrevenirFlood.caseHtml("o_prevenirFloodLanceur", this._cible.pseudo)}</p>` : ""}
             <button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
             <p class="reduce left">* : place les unités restantes sur l'attaque selectionnée.</p>
             </fieldset>`);

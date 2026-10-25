@@ -1854,3 +1854,9 @@ tr.en_tete_message > td.td_coche {
   width: 1em;
   font-size: 0.8em;
 }
+.o_affichageFzzz {
+  display: block;
+  text-align: left;
+  margin: 3px 0;
+  cursor: pointer;
+}

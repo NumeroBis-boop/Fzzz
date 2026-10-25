@@ -350,6 +350,7 @@ class PartageChasses {
    * @method afficherArmee
    */
   static afficherArmee() {
+    if (!Utils.affichage("floodsRecus")) return;
     let moi = monProfil.pseudo,
       $titre = $("#centre *")
         .filter(
@@ -404,6 +405,7 @@ class PartageChasses {
    * @method afficherProfil
    */
   static afficherProfil(pseudo, terrain) {
+    if (!Utils.affichage("profilPartages")) return;
     let cible = pseudo.toLowerCase();
     PartageChasses.sujets()
       .then((sujets) => {

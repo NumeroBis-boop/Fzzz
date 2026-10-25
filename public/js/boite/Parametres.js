@@ -18,7 +18,7 @@ class BoiteParametre extends Boite {
     super(
       "o_boiteParametre",
       "Paramètres",
-      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre3'/><div id='o_tabsParametre4'/></div>`,
+      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre5'>Affichages</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre3'/><div id='o_tabsParametre5'/><div id='o_tabsParametre4'/></div>`,
     );
     /**
      *
@@ -64,7 +64,7 @@ class BoiteParametre extends Boite {
           },
         })
         .removeClass("ui-widget");
-      this.parametreStyle().parametreGeneral().apropos().css().event();
+      this.parametreStyle().parametreGeneral().affichages().apropos().css().event();
     }
   }
   /**
@@ -192,6 +192,32 @@ class BoiteParametre extends Boite {
             <p class='left reduce gras'>Replacer l'armée à l'arrivée sur la page Armée</p>
             ${monProfil.parametre[this._paramGeneral[7]].getForm()}
         </form>`);
+    return this;
+  }
+  /**
+   * Fzzz : une case par affichage ajouté par l'extension (AFFICHAGES_FZZZ),
+   * toutes cochées par défaut ; pris en compte au prochain chargement de page.
+   */
+  affichages() {
+    let cases = Object.entries(AFFICHAGES_FZZZ)
+      .map(
+        ([cle, libelle]) =>
+          `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelle}</label>`,
+      )
+      .join("");
+    $("#o_tabsParametre5").append(`<form>
+            <p class='left reduce gras'>Affichages ajoutés par Fzzz</p>
+            <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
+            ${cases}
+        </form>`);
+    $("#o_tabsParametre5 input[data-affichage]").on("change", (e) => {
+      try {
+        localStorage.setItem(
+          "fzzz_affichage_" + e.currentTarget.dataset.affichage,
+          e.currentTarget.checked ? "1" : "0",
+        );
+      } catch (err) {}
+    });
     return this;
   }
   /**

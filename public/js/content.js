@@ -444,7 +444,7 @@ const DATEPICKER_OPTION = {
     monProfil.getParametre();
     // heure du serveur, puis horloge à la seconde au-dessus de l'encart « S5 Pseudo »
     Horloge.initialiser();
-    Horloge.afficher();
+    if (Utils.affichage("horloge")) Horloge.afficher();
     // des qu'on les inos constructions/recherches et profil on affiches les outils
     Promise.all([
       monProfil.getConstruction(),

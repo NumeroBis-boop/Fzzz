@@ -32,6 +32,7 @@ class CommerceFzzz {
    * @method decorer
    */
   static decorer() {
+    if (!Utils.affichage("convoisSelection")) return;
     let $lignes = CommerceFzzz.lignes();
     if (!$lignes.length || $("#o_convoisOutils").length) return;
     $lignes.each((i, elt) => {

@@ -89,6 +89,7 @@ class MessagerieFzzz {
    * @method decorer
    */
   static decorer() {
+    if (!Utils.affichage("messagerieCouleurs")) return;
     $("tr.en_tete_message[id^='conversation_']")
       .not(".o_fzzz")
       .each((i, elt) => {
@@ -162,6 +163,7 @@ class MessagerieFzzz {
    * @method analyser
    */
   static analyser() {
+    if (!Utils.affichage("messagerieAnalyse")) return;
     let chasses = new Set();
     $("tr[id^='message_']")
       .not(".o_fzzzVu")

@@ -1944,3 +1944,134 @@ tr.en_tete_message > td.td_coche {
   font-style: italic;
   opacity: 0.85;
 }
+
+/* ==================================================================
+   Fzzz : affichage mobile (écran étroit, Firefox pour Android…)
+   Les tableaux larges défilent horizontalement dans leur cadre au lieu
+   d'élargir la page ; les rangées de boutons passent à la ligne.
+   ================================================================== */
+@media (max-width: 760px) {
+  /* tableaux ajoutés par Fzzz / Toolzzz : défilement horizontal */
+  .o_attaquesLancees,
+  #o_chassesPartagees table,
+  #o_syntheseChasses table,
+  #o_simulationFlood,
+  .o_bilanTable,
+  #o_allInfobulle table {
+    display: block;
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .o_attaquesLancees td,
+  .o_attaquesLancees th,
+  #o_chassesPartagees td {
+    padding: 1px 4px;
+  }
+  /* valeurs (dates, cm²) sur une ligne : le tableau défile si besoin */
+  #o_chassesPartagees td,
+  #o_floodsRecus td,
+  .o_attaquesLancees td {
+    white-space: nowrap;
+  }
+  /* encarts : jamais plus larges que l'écran */
+  .o_blocAttaques,
+  #o_chassesPartagees,
+  .o_partageSynthese,
+  #o_syntheseChasses,
+  #o_prepaFlood,
+  #o_partageAlliance,
+  .o_spoilerCadre,
+  .o_analyseLigne,
+  #o_toolbarOutiiil {
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+  }
+  .o_partageSynthese {
+    display: block;
+    padding: 4px 6px;
+  }
+  .o_spoilerCadre,
+  .o_spoilerBandeau,
+  .o_partageAvertissement {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  /* rangées de boutons : retour à la ligne */
+  #o_partageAlliance,
+  .o_attaquesBoutons,
+  .o_syntheseBoutons,
+  #o_convoisOutils,
+  #o_btnSynchro,
+  .o_analyseLigne {
+    flex-wrap: wrap !important;
+  }
+  #o_partageAlliance .o_button,
+  .o_attaquesBoutons .o_button,
+  .o_syntheseBoutons .o_button,
+  .o_attaquesLancees .o_button {
+    white-space: normal;
+  }
+  #o_btnSynchro,
+  #o_btnLancer {
+    display: block;
+    float: none !important;
+    text-align: center;
+  }
+  /* page Membres : le tableau défile dans son cadre, largeur fixe désactivée */
+  #tabMembresAlliance_wrapper {
+    width: auto !important;
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #tabMembresAlliance_wrapper .dt-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  #tabMembresAlliance_wrapper .dataTables_filter {
+    float: none;
+    text-align: left;
+  }
+  /* simulateur de Calystène (affichage d'origine) : défilement horizontal */
+  #CHS2_MainFrame {
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+  }
+  /* formulaires Toolzzz (lanceurs de chasse et de flood, page d'attaque) */
+  fieldset#o_prepaFlood,
+  #o_prepaChasse,
+  #o_formRessource {
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+  }
+  #o_formRessource table,
+  #o_prepaChasse table {
+    display: block;
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #o_floodTDCA,
+  #o_floodTDCB,
+  #o_simulationFlood input {
+    max-width: 6.5em;
+  }
+  #o_btnSynchro {
+    white-space: normal;
+    width: auto !important;
+  }
+  #o_btnSynchro .o_button,
+  #o_btnLancer input {
+    margin: 2px;
+  }
+  /* infobulle : sous le doigt, dans l'écran */
+  #o_allInfobulle {
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
+  }
+}

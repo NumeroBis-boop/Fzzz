@@ -122,6 +122,8 @@ class AllianceFzzz {
     // largeur commune : celle de la vue la plus large, pour que l'encart ne
     // change pas de taille d'une vue à l'autre (les colonnes se répartissent)
     let fixerLargeur = () => {
+      // écran étroit (mobile) : le tableau défile dans son cadre, pas de largeur fixe
+      if (window.matchMedia && window.matchMedia("(max-width: 760px)").matches) return;
       let $t = $("#tabMembresAlliance"),
         $w = $("#tabMembresAlliance_wrapper"),
         courante = sessionStorage.getItem("fzzz_vueMembres") || initiale,
@@ -185,7 +187,15 @@ class AllianceFzzz {
     api.rows()[0].forEach((r) => {
       connus[cellule(r, 3).text().trim()] = numeral(cellule(r, 5).text()).value() || 0;
     });
-    let sim = PartageChasses.simuler(d, connus);
+    let sim = PartageChasses.simuler(d, connus),
+      tactile = window.matchMedia && window.matchMedia("(hover: none)").matches,
+      // infobulle près du pointeur, sans sortir de l'écran (mobile)
+      placer = (x, y) => {
+        let largeur = $info.outerWidth(),
+          gauche = window.scrollX + 8,
+          droite = window.scrollX + document.documentElement.clientWidth - largeur - 8;
+        $info.css({ left: Math.max(gauche, Math.min(x + 16, droite)), top: y + 12 });
+      };
     api.rows()[0].forEach((r) => {
       let $tr = $(api.row(r).node()),
         pseudo = cellule(r, 3).text().trim(),
@@ -228,11 +238,25 @@ class AllianceFzzz {
           ? `<table cellspacing='0'>${lignes.join("")}</table>`
           : "<em>Aucune variation partagée en cours.</em>"
       }`;
-      $tr
-        .on("mouseenter", () => $info.html(html).show())
-        .on("mousemove", (e) => $info.css({ left: e.pageX + 16, top: e.pageY + 12 }))
-        .on("mouseleave", () => $info.hide());
+      // souris : au survol ; écran tactile (pas de survol) : au toucher de la ligne
+      if (tactile)
+        $tr.on("click", (e) => {
+          if ($(e.target).closest("a, button, input").length) return;
+          if ($info.is(":visible") && $info.data("ligne") === r) return $info.hide();
+          $info.html(html).data("ligne", r).show();
+          placer(e.pageX, e.pageY);
+        });
+      else
+        $tr
+          .on("mouseenter", () => $info.html(html).data("ligne", r).show())
+          .on("mousemove", (e) => placer(e.pageX, e.pageY))
+          .on("mouseleave", () => $info.hide());
     });
+    if (tactile)
+      $(document).on("click", (e) => {
+        if (!$(e.target).closest("#tabMembresAlliance tbody tr, #o_allInfobulle").length)
+          $info.hide();
+      });
     api.rows().invalidate("dom").draw(false);
     // les colonnes remplies ont pu élargir la vue « Floods et chasses »
     if (AllianceFzzz._fixerLargeur) AllianceFzzz._fixerLargeur();

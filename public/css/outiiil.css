@@ -1475,14 +1475,20 @@ center > div > #tabMembresAlliance {
 }
 
 /* Fzzz : messagerie */
-.intitule_message.o_titreConvoi {
-  color: #7a3db8 !important;
+.intitule_message.o_titreDefense {
+  color: #b42318 !important;
+}
+.intitule_message.o_titreAttaque {
+  color: #287a36 !important;
 }
 .intitule_message.o_titreChasse {
-  color: #77b5fe !important;
+  color: #9a5700 !important;
+}
+.intitule_message.o_titreConvoi {
+  color: #7137a8 !important;
 }
 .intitule_message.o_titreAutre {
-  color: #000000 !important;
+  color: #2864a0 !important;
 }
 .o_copierRapport {
   height: 14px;

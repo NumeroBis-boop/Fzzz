@@ -79,9 +79,14 @@ class MessagerieFzzz {
         // couleurs du jeu (rouge / vert), tout le reste en noir
         let classe = !c
           ? "o_titreAutre"
-          : { convoi: "o_titreConvoi", chasse: "o_titreChasse", conversation: "o_titreAutre" }[
-              c.nom
-            ];
+          : c.nom == "combat"
+            ? // en défense : on a été attaqué (vol, invasion, colonie perdue…)
+              /vol par|invasion|colonie perdue|conquis par|défense/i.test($titre.text())
+              ? "o_titreDefense"
+              : "o_titreAttaque"
+            : { convoi: "o_titreConvoi", chasse: "o_titreChasse", conversation: "o_titreAutre" }[
+                c.nom
+              ];
         if (classe) $titre.addClass(classe);
         $(
           `<img class='o_copierRapport' src='${IMG_COPIER}' title='Copier le rapport complet' alt='Copier'/>`,

@@ -42,6 +42,16 @@ class PageLaboratoire {
       // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
       this.titleBouclier().titleArmes().fdfArmes();
     });
+    // Rentabilité de l'étable à pucerons, aussi sous Communication avec les animaux
+    let $communication = $(".ligneAmelioration").filter((i, elt) =>
+      /communication avec les animaux/i.test($(elt).find("h2").text()),
+    );
+    if ($communication.length)
+      Utils.ajouterSpoilerRentabilite(
+        $communication,
+        "o_rentabiliteEtableLigne",
+        Utils.htmlRentabiliteEtable(),
+      );
     // Sauvegarde recherche AVANT le remplacement (saveRecherche lit $("#centre strong"))
     if (!Utils.comptePlus) this.plus();
     // ⚠️ Ordre : confirmationAnnuler AVANT tableauEvolution — la 1re ajoute le

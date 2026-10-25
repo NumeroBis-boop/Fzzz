@@ -140,12 +140,12 @@ class Horloge {
     if ($boite.css("position") == "static") $boite.css("position", "relative");
     $boite.css("overflow", "visible");
     $(`<div id='o_horloge'>
-        <span id='o_horlogeHeure'></span>
         <span class='o_horlogeLatence'>
           <button type='button' id='o_latenceMoins' title='Latence − 0,1 s'>−</button>
           <span id='o_latenceValeur' title='Latence : délai entre ton clic et sa prise en compte par le serveur. Elle est ajoutée à l’heure affichée et aux synchronisations d’attaque.'></span>
           <button type='button' id='o_latencePlus' title='Latence + 0,1 s'>+</button>
         </span>
+        <span id='o_horlogeHeure'></span>
       </div>`).prependTo($boite);
     // Le cadre visible de l'encart est dessiné par ses éléments internes, plus
     // larges que #boiteInfo lui-même : on mesure leur emprise réelle et on y
@@ -181,7 +181,6 @@ class Horloge {
       $("#o_horlogeHeure").css("font-size", "0.7em");
     };
     caler();
-    Horloge._copierCouleurs($boite);
     // recalage une fois les images et polices du jeu chargées
     $(window).on("load resize", caler);
     setTimeout(caler, 1000);
@@ -200,82 +199,6 @@ class Horloge {
       setTimeout(tic, 1000 - (Horloge.clic().valueOf() % 1000) + 5);
     };
     tic();
-  }
-  /**
-   * Reprend la couleur de fond du cadre « S5 Pseudo » : celle de l'élément de
-   * l'encart qui a un fond et la plus grande surface. Si ce fond est une image,
-   * on en échantillonne le centre. Le texte passe en clair ou en foncé selon
-   * la luminosité obtenue.
-   *
-   * @private
-   * @static
-   * @method _copierCouleurs
-   */
-  static _copierCouleurs($boite) {
-    let meilleur = null,
-      surface = 0;
-    $boite
-      .find("*")
-      .addBack()
-      .not("#o_horloge, #o_horloge *")
-      .each((i, elt) => {
-        let s = getComputedStyle(elt),
-          r = elt.getBoundingClientRect(),
-          a = r.width * r.height,
-          aFond =
-            s.backgroundImage != "none" || !/rgba\(.*,\s*0\)|transparent/.test(s.backgroundColor);
-        if (aFond && a > surface) {
-          surface = a;
-          meilleur = s;
-        }
-      });
-    if (!meilleur) return;
-    let appliquer = (couleur) => {
-      let m = couleur.match(/\d+(\.\d+)?/g);
-      if (!m) return;
-      let [r, v, b] = m.map(Number),
-        clair = (0.299 * r + 0.587 * v + 0.114 * b) / 255 > 0.55,
-        h = $("#o_horloge")[0];
-      h.style.setProperty("background", `rgb(${r}, ${v}, ${b})`, "important");
-      h.style.setProperty("color", clair ? "#3a2a0c" : "#f3ead2", "important");
-      h.style.setProperty("border-color", clair ? "#8b7440" : "rgba(255, 255, 255, 0.35)");
-      $("#o_horloge").toggleClass("o_horlogeSombre", !clair);
-    };
-    let url = meilleur.backgroundImage.match(/url\(["']?(.*?)["']?\)/);
-    if (!url) return appliquer(meilleur.backgroundColor);
-    // fond en image : couleur moyenne d'un carré au centre
-    let img = new Image();
-    img.onload = () => {
-      try {
-        let c = document.createElement("canvas"),
-          cote = 8;
-        c.width = img.naturalWidth;
-        c.height = img.naturalHeight;
-        let ctx = c.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        let d = ctx.getImageData(
-            Math.max(0, (c.width >> 1) - cote),
-            Math.max(0, (c.height >> 1) - cote),
-            cote * 2,
-            cote * 2,
-          ).data,
-          somme = [0, 0, 0],
-          n = 0;
-        for (let i = 0; i < d.length; i += 4)
-          if (d[i + 3] > 128) {
-            somme[0] += d[i];
-            somme[1] += d[i + 1];
-            somme[2] += d[i + 2];
-            n++;
-          }
-        if (n) appliquer(`rgb(${somme.map((x) => Math.round(x / n)).join(",")})`);
-        else appliquer(meilleur.backgroundColor);
-      } catch (e) {
-        appliquer(meilleur.backgroundColor);
-      }
-    };
-    img.onerror = () => appliquer(meilleur.backgroundColor);
-    img.src = url[1];
   }
   /**
    * @private

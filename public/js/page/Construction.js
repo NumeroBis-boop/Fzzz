@@ -257,18 +257,8 @@ class PageConstruction {
     });
   }
   /**
-   * Bandeau sous l'Étable à pucerons : rentabilité des niveaux suivants.
-   *
-   * Le niveau n exige Communication avec les animaux au niveau n + 2 ; les
-   * ouvrières sacrifiées (Cₙ) sont celles des niveaux de Communication qui
-   * manquent (80 × 2^(k−1) pour le niveau k). Chaque ouvrière disponible pour
-   * les convois transporte 10 + 0,5 × n ressources. Avec O ouvrières
-   * disponibles pour les convois (ouvrières − TdC exploité) :
-   *
-   *   ΔK = 0,5 × O − Cₙ × (10 + 0,5 × n)   rentable si ΔK > 0,
-   *   soit au moins Cₙ × (20 + n) + 1 ouvrières disponibles.
-   *
-   * Sur plusieurs niveaux, chaque sacrifice est déduit de O avant le suivant.
+   * Bandeau sous l'Étable à pucerons : rentabilité des niveaux suivants
+   * (voir Utils.htmlRentabiliteEtable).
    *
    * @private
    * @method rentabiliteEtable
@@ -277,46 +267,12 @@ class PageConstruction {
     let $ligne = $(".ligneAmelioration").filter((i, elt) =>
       /table à pucerons/i.test($(elt).find("h2").text()),
     );
-    if (!$ligne.length) return this;
-    let total = Utils.ouvrieres || 0,
-      tdc = Math.min(total, Utils.terrain || 0),
-      dispo = total - tdc,
-      niveau = monProfil.niveauConstruction[11] || 0,
-      communication = parseInt(monProfil.niveauRecherche[4]),
-      coutComm = (k) => 80 * Math.pow(2, k - 1),
-      capacite = (o, n) => o * (10 + 0.5 * n),
-      fmt = (n) => numeral(Math.round(n)).format(),
-      lignes = [],
-      o = dispo;
-    // niveau de Communication inconnu : on suppose le minimum requis aujourd'hui
-    if (isNaN(communication)) communication = niveau ? niveau + 2 : 0;
-    for (let k = 0, n = niveau + 1; k < 20; k++, n++) {
-      let requis = n + 2,
-        sacrifiees = 0;
-      for (let c = communication + 1; c <= requis; c++) sacrifiees += coutComm(c);
-      let gain = 0.5 * o - sacrifiees * (10 + 0.5 * n),
-        minimum = sacrifiees * (20 + n) + 1,
-        rentable = gain > 0;
-      lignes.push(`<tr><td class='left'>Étable ${n} <span class='small'>(Communication ${requis})</span></td>
-        <td class='right'>${fmt(sacrifiees)}</td>
-        <td class='right'>${fmt(capacite(Math.max(0, o - sacrifiees), n))}</td>
-        <td class='right ${rentable ? "green" : "red"}'>${gain >= 0 ? "+" : ""}${fmt(gain)}</td>
-        <td class='right ${rentable ? "green" : "red"}'>${rentable ? "rentable" : fmt(minimum - o) + " ouvrières"}</td></tr>`);
-      if (!rentable) break;
-      o -= sacrifiees;
-      communication = Math.max(communication, requis);
-    }
-    Utils.ajouterSpoilerRentabilite(
-      $ligne,
-      "o_rentabiliteEtableLigne",
-      `<p><strong>Ouvrières : ${fmt(total)}</strong> · exploitées sur le TdC : ${fmt(tdc)} ·
-        <strong>disponibles pour les convois : ${fmt(dispo)}</strong></p>
-      <p class='small'>Capacité de convoi actuelle (étable ${niveau}) : ${fmt(capacite(dispo, niveau))} ressources par convoi.</p>
-      <table cellspacing='0'>
-        <tr class='gras'><td class='left'>Niveau visé</td><td class='right'>Ouvrières sacrifiées</td><td class='right'>Capacité de convoi après</td><td class='right'>Gain de capacité</td><td class='right'>Il manque</td></tr>
-        ${lignes.join("")}
-      </table>`,
-    );
+    if ($ligne.length)
+      Utils.ajouterSpoilerRentabilite(
+        $ligne,
+        "o_rentabiliteEtableLigne",
+        Utils.htmlRentabiliteEtable(),
+      );
     return this;
   }
   /**

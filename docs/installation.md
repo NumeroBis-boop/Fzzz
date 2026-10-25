@@ -3,7 +3,7 @@
 Les archives à installer s'obtiennent de deux façons :
 
 - **Dernière version de `main`** : onglet **Actions** du dépôt, dernière exécution « Extension » réussie, section **Artifacts**, fichier `fzzz-extension` (connexion GitHub requise). Il contient les trois archives.
-- **Versions publiées** : page **Releases** (https://github.com/NumeroBis-boop/fzzz/releases). Pour publier une version : **Draft a new release**, tag `v0.4.0` par exemple, **Publish release**. Les archives sont jointes automatiquement quelques minutes plus tard.
+- **Versions publiées** : page **Releases** (https://github.com/NumeroBis-boop/fzzz/releases). Pour publier une version : **Draft a new release**, tag `v0.5.0` par exemple, **Publish release**. Les archives sont jointes automatiquement quelques minutes plus tard.
 
 | Fichier | Pour |
 |---|---|
@@ -17,7 +17,7 @@ Les archives à installer s'obtiennent de deux façons :
 2. Ouvre `chrome://extensions` (Edge : `edge://extensions`).
 3. Active le **Mode développeur** (interrupteur en haut à droite ; sur Edge, dans la colonne de gauche).
 4. Clique **Charger l'extension non empaquetée** et choisis le dossier décompressé, celui qui contient `manifest.json`.
-5. Ouvre ou recharge une page de `s5.fourmizzz.fr` : le badge d'heure serveur apparaît en bas à droite.
+5. Ouvre ou recharge une page de `s5.fourmizzz.fr` : l'heure serveur apparaît à côté de « S5 Pseudo », en haut de l'encart d'information.
 
 **Mise à jour** : décompresse la nouvelle version **dans le même dossier** (en remplaçant les fichiers), puis clique l'icône ↻ de Fzzz dans `chrome://extensions`.
 
@@ -58,12 +58,12 @@ Cette procédure par fichier est **à vérifier** sur ta version de Firefox Andr
 
 | Page | Ce qui doit apparaître |
 |---|---|
-| Toutes | Badge d'heure serveur en bas à droite (« rechargez une page » au tout premier chargement) |
-| Armée, Attaquer | `→ 19:56:57 (n° 1)` après chaque compte à rebours d'attaque |
+| Toutes | Heure serveur à côté de « S5 Pseudo », avec les boutons − et + (latence ±0,1 s) |
+| Armée, Attaquer | `→ 19:56:57 · RC 19h57 (n° 1)` après chaque compte à rebours d’attaque |
 | Ressources | Heure de retour à la seconde de chaque chasse |
 | Armée | Bloc « Chasse(s) en cours » et bloc « Rentabilité » (après une visite de Ressources) |
 | Laboratoire | Lignes Fzzz sous Bouclier, Armes et Communication |
-| Ennemies | Colonnes Trajet et Arrivée (exactes pour les joueurs dont tu as ouvert le profil) |
+| Ennemies | En haut : tes attaques en cours ; colonnes Trajet et Arrivée (exactes pour les joueurs dont tu as ouvert le profil) |
 | Profil d'un joueur | `→ arrivée HH:MM:SS` à côté du temps de trajet |
 
 Ordre conseillé pour la première utilisation : **ton propre profil**, Construction, Laboratoire, Ressources, Armée. L'extension mémorise alors tes coordonnées, tes niveaux et ton armée.

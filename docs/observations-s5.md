@@ -18,7 +18,7 @@ Chaque ligne indique ce qui a été observé, sur quelle page, et ce que cela co
 | Laboratoire : les 10 coûts du niveau suivant | Coûts = base × 2^(n−1), données Toolzzz exactes |
 | Laboratoire : les 10 temps du niveau suivant | t × 1,7^(n−1) × 0,9^6 (Salle d'analyse 6) ; Acide t = 10 000 s et Poison t = 50 000 s (Toolzzz : 2 800 et 3 200, faux) |
 | Champignonnière 17 : 595 612 / jour | Production = ⌊72 × 1,7^n⌋ (Toolzzz : 122 × 1,7^(n−1), −0,3 %) |
-| (9, 36) → Missyl (99, 17), VA 7 : 19 h 33 min 56 s (70 436 s), distance affichée 92 | Trajet = ⌊0,9^VA × 637 200 × (1 − e^(−d/350))⌋ avec d = 91,984 : valeur brute 70 436,32, **tronquée** (Toolzzz arrondit au supérieur : +1 s) |
+| (9, 36) → Missyl (99, 17), VA 7 : 70 436 s (brut 70 436,32) ; (9, 36) → Vegas (69, 28), VA 7 : 48 403 s | Trajet = 0,9^VA × 637 200 × (1 − e^(−d/350)), d euclidienne, **arrondi au plus proche** (les deux trajets le confirment ; troncature et arrondi supérieur sont exclus) |
 | Construction : coûts et temps des 13 bâtiments | Temps = t × 1,6^(n−1) × 0,9^Architecture (11), arrondi au plus proche ; coûts tronqués (Champignonnière 18 : 3 134 453,94 → 3 134 453) |
 | Couveuse 14 + Solarium 12 + Technique de ponte 12 | = 38, le bonus de ponte déduit de la file : confirmé |
 | Description de l'Étable à pucerons | +1 % de capacité de transport en pillage et +5 % en commerce par niveau (le tutoriel parlait de « 30 % + 1 % » de pillage : la description du bâtiment fait foi) |

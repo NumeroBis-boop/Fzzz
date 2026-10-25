@@ -1,40 +1,37 @@
 # Fiche 03 : rentabilité d'un niveau d'Armes, de Bouclier ou d'Étable à pucerons
 
-Statut : **affiché sur les pages Armée et Laboratoire (v0.3) ; gain de l'étable à pucerons à afficher (nécessite le pillage du joueur)**
+Statut : **implémentée (v0.5) selon les formules du joueur ; affichée au Laboratoire (et à l'Armée pour Armes et Bouclier)**
 
-## Critère retenu
+## Critère retenu (décision du joueur)
 
-Les ouvrières sacrifiées viennent du stock des convois et ne récoltaient rien (réponse du joueur). Leur vrai coût est donc le **temps de ponte** qu'elles ont demandé. Pendant ce temps, la reine aurait pu pondre des unités de combat.
+Seule compte la comparaison en **temps de ponte**. Les ouvrières sacrifiées viennent du stock des convois et ne récoltaient rien : aucune récolte perdue n'est comptée.
 
-Pour un niveau d'Armes ou de Bouclier :
+## Armes et Bouclier
 
-- **gain du niveau** = 10 % de la caractéristique de base de l'armée (vie pour Bouclier, attaque et défense pour Armes) ;
-- **gain de l'alternative** = unités pondables pendant le temps de ponte des ouvrières × caractéristique × (1 + 0,1 × niveau actuel). L'outil retient la meilleure unité **disponible sur le s5** ;
-- le niveau est rentable si son gain dépasse celui de la meilleure alternative.
+Pour le niveau visé n, avec Cₙ ouvrières sacrifiées (60 s de ponte de base chacune) et une unité de comparaison de temps de ponte tᵤ et de caractéristique cᵤ (hors bonus) :
 
-Nourriture, matériaux et temps de recherche sont affichés à côté, sans entrer dans le critère.
+> Sₙ = ⌈ Cₙ × 60 / tᵤ × cᵤ × (n + 9) ⌉
 
-C'est l'idée de Toolzzz, avec deux corrections :
+- H = caractéristique totale de l'armée **hors bonus** (attaque et défense pour Armes, vie pour Bouclier).
+- Rentable si **H ≥ Sₙ**. Sinon il manque max(0, Sₙ − H) HB.
+- Les bonus de ponte (Couveuse, Solarium, Technique de ponte) réduisent ouvrières et unités dans la même proportion : ils n'interviennent pas.
+- Unité de comparaison : par défaut la pondable au meilleur rendement (caractéristique par seconde de ponte) ; le joueur peut en choisir une autre, le choix est mémorisé.
 
-- Toolzzz appliquait le bonus de Bouclier aux dégâts des unités pondues ;
-- Toolzzz comparait seulement avec JS, Tank et TuE, au lieu de la meilleure unité.
+Exemples vérifiés par les tests : Armes 5 contre la JS = 14 530 HB ; Bouclier 9 contre la JSN = 589 824 HB.
 
 ## Étable à pucerons
 
-Le niveau n exige Communication avec les animaux au niveau n + 2.
+- Le niveau n exige Communication avec les animaux au niveau n + 2.
+- Cₙ = ouvrières des niveaux de Communication manquants : 560 pour l'étable 1 depuis zéro, puis 320 × 2^(n−1).
+- Capacité de convoi : 10 + 0,5 × n ressources par ouvrière.
+- O = ouvrières disponibles pour les convois (saisies au Laboratoire, préremplies avec ouvrières − TDC).
 
-**Coût du niveau** = étable (matériaux) + chaque niveau de Communication manquant, dont les ouvrières entraînent un temps de ponte.
+> ΔK = 0,5 × O − Cₙ × (10 + 0,5 n)   rentable si ΔK > 0 (pas à égalité), soit O ≥ Cₙ (20 + n) + 1
 
-**Gain journalier** = pillage du jour / (30 + n) + prélèvement de colonie / (20 + n). Il suppose que la limite « 1 ressource par point d'attaque survivant » ne bride pas le pillage. Le pillage et le prélèvement de colonie sont saisis par le joueur.
+Sur plusieurs niveaux, chaque sacrifice est déduit de O avant de tester le passage suivant.
 
 ## Données utilisées
 
 - **Armée totale** : garnison (page Armée) + chasses mémorisées (page Ressources) + attaques en cours.
-- **Bouclier et Armes** : page Armée.
-- **Bonus de ponte** : déduit du rythme de la file (boîte Compte+).
-
-## Hypothèses
-
-- Une seule file de ponte, partagée entre ouvrières et unités.
-- Alternatives : toutes les unités pondables, c'est-à-dire toutes sauf le Concierge d'élite et le Tank d'élite (obtenus par l'expérience).
+- **Niveaux** : pages Laboratoire et Armée.
 - Sur le Laboratoire, l'armée utilisée est la dernière armée totale vue sur la page Armée.

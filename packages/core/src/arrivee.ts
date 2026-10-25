@@ -51,6 +51,19 @@ export function concordeAvecMinuteAffichee(ms: number, affiche: string, fuseau =
   return Number(hh) === Number(m[1]) && Number(mm) === Number(m[2]);
 }
 
+/**
+ * Minute affichée par le RC : celle qui suit l'impact (17:23:12 → 17h24),
+ * sauf impact pile à la minute (17:23:00 → 17h23). Observation du joueur, s5.
+ */
+export function minuteRC(arriveeMs: number): number {
+  return Math.ceil(Math.floor(arriveeMs / 1000) / 60) * 60_000;
+}
+
+/** « 17h24 », au format des RC du jeu. */
+export function formaterMinuteRC(arriveeMs: number, fuseau = FUSEAU_SERVEUR): string {
+  return formaterHeure(minuteRC(arriveeMs), false, fuseau).replace(":", "h");
+}
+
 export function formaterDuree(secondes: number): string {
   const j = Math.floor(secondes / 86400);
   const h = Math.floor((secondes % 86400) / 3600);

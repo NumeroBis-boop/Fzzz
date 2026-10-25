@@ -7,10 +7,11 @@ export interface Coordonnees {
 
 export const SOURCE_TRAJET: Source = {
   statut: "verifie-s5",
-  origine: "⌊0,9^VA × 637 200 × (1 − e^(−d/350))⌋, d = distance euclidienne des coordonnées",
+  origine: "arrondi(0,9^VA × 637 200 × (1 − e^(−d/350))), d = distance euclidienne des coordonnées",
   note:
-    "Vérifié sur le s5 (2026-10-25) : (9, 36) → (99, 17), VA 7 : 70 436,32 → 70 436 s affichés. " +
-    "Toolzzz arrondit au supérieur (ceil), soit une seconde de trop.",
+    "Vérifié sur le s5 (2026-10-25), VA 7 : (9, 36) → (99, 17) : 70 436,32 → 70 436 s ; " +
+    "(9, 36) → (69, 28) : 48 402,69 → 48 403 s. Seul l'arrondi au plus proche colle aux deux " +
+    "(Toolzzz arrondit au supérieur : 70 437 pour le premier).",
 };
 
 /**
@@ -36,7 +37,7 @@ export function dureeTrajet(
   vitesseAttaque: number,
   p: ParametresTrajet = PARAMETRES_TRAJET_DEFAUT,
 ): number {
-  return Math.floor(0.9 ** vitesseAttaque * p.dureeMax * (1 - Math.exp(-dist / p.echelle)) + 1e-9);
+  return Math.round(0.9 ** vitesseAttaque * p.dureeMax * (1 - Math.exp(-dist / p.echelle)));
 }
 
 /**

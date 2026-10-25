@@ -7,12 +7,14 @@ describe("trajet", () => {
   it("reproduit la formule Toolzzz", () => {
     const d = distance({ x: 0, y: 0 }, { x: 30, y: 40 });
     expect(d).toBe(50);
-    expect(dureeTrajet(d, 0)).toBe(Math.floor(637200 * (1 - Math.exp(-50 / 350))));
+    expect(dureeTrajet(d, 0)).toBe(Math.round(637200 * (1 - Math.exp(-50 / 350))));
   });
 
   it("reproduit un trajet réel du s5 à la seconde", () => {
     // (9, 36) → (99, 17), VA 7 : 19 h 33 min 56 s affichés sur le profil
     expect(dureeTrajet(distance({ x: 9, y: 36 }, { x: 99, y: 17 }), 7)).toBe(70436);
+    // (9, 36) → (69, 28), VA 7 : 13 h 26 min 43 s affichés
+    expect(dureeTrajet(distance({ x: 9, y: 36 }, { x: 69, y: 28 }), 7)).toBe(48403);
   });
 
   it("retrouve la VA à partir d'une durée observée", () => {

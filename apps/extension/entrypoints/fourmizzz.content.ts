@@ -9,11 +9,9 @@ import {
   lireBonusChasse,
   lireChassesBoite,
   lireChassesEnCours,
-  coutNiveauPuceron,
   estimerSalleAnalyse,
+  formaterMinuteRC,
   lireLaboratoire,
-  rentabiliteArmes,
-  rentabiliteBouclier,
   lirePageArmee,
   lirePonteBoite,
   lireTableauEnnemie,
@@ -23,27 +21,28 @@ import {
   lirePageMembre,
   type Effectifs,
 } from "@fzzz/core";
-import { estimationHorloge, generationPage, initialiserHorloge, maintenantServeur } from "../src/horloge";
-import { bonusPonteConnu, lireProfil, majProfil, type ChasseMemorisee } from "../src/reglages";
-import { additionner, blocRentabilite, ligneRentabilite } from "../src/rentabilite";
-import { creerBadge, el, STYLE_ALERTE, STYLE_INFO } from "../src/ui";
+import { generationPage, initialiserHorloge, maintenantServeur } from "../src/horloge";
+import { bonusPonteConnu, lireProfil, majProfil, type AttaqueMemorisee, type ChasseMemorisee } from "../src/reglages";
+import { additionner, blocEtable, blocRentabilite, ligneSeuil } from "../src/rentabilite";
+import { creerHorloge, el, STYLE_ALERTE, STYLE_INFO } from "../src/ui";
 
 export default defineContentScript({
   matches: ["*://*.fourmizzz.fr/*"],
   runAt: "document_end",
   async main() {
     await initialiserHorloge();
-    afficherHorloge();
+    await afficherHorloge();
     await memoriserPonte();
 
     const page = location.pathname.toLowerCase();
     const params = new URLSearchParams(location.search);
     if (page === "/armee.php") {
-      await afficherArrivees(lireAttaquesEnCours(document));
+      await memoriserAttaques(await afficherArrivees(lireAttaquesEnCours(document)));
       await pageArmee();
     } else if (page === "/ennemie.php" && (params.has("Attaquer") || params.has("annuler"))) {
-      await afficherArrivees(lireAttaquesEnCours(document));
+      await memoriserAttaques(await afficherArrivees(lireAttaquesEnCours(document)));
     } else if (page === "/ennemie.php") {
+      await afficherMesAttaques();
       await afficherTrajets();
     } else if (page === "/ressources.php") {
       await pageRessources();
@@ -57,17 +56,25 @@ export default defineContentScript({
   },
 });
 
-function afficherHorloge(): void {
-  const badge = creerBadge();
+/**
+ * Horloge serveur dans l'encart « S5 Pseudo ». L'heure vient uniquement du
+ * serveur (en-têtes Date des pages chargées) ; le joueur peut la décaler par
+ * pas de 0,1 s pour compenser sa latence.
+ */
+async function afficherHorloge(): Promise<void> {
+  let latence = (await lireProfil()).latence ?? 0;
+  const horloge = creerHorloge({
+    valeur: () => latence,
+    ajuster: (delta) => {
+      latence = Math.round((latence + delta) / 100) * 100;
+      void majProfil({ latence });
+    },
+  });
   const tic = () => {
-    const now = maintenantServeur();
-    const est = estimationHorloge();
-    if (now === null || !est) {
-      badge.maj("--:--:--", "rechargez une page");
-    } else {
-      badge.maj(formaterHeure(now), `serveur ±${(est.incertitude / 1000).toFixed(1)} s`);
-    }
-    // Recale le tic sur le changement de seconde serveur.
+    const brut = maintenantServeur();
+    const now = brut === null ? null : brut + latence;
+    horloge.maj(now === null ? "--:--:--" : formaterHeure(now));
+    // Recale le tic sur le changement de seconde affiché.
     setTimeout(tic, now === null ? 1000 : 1000 - (now % 1000) + 5);
   };
   tic();
@@ -97,8 +104,11 @@ interface AvecArrivee {
   element: Element;
 }
 
-/** Ajoute l'heure serveur d'arrivée à la seconde et le rang d'arrivée. */
-async function afficherArrivees(mouvements: AvecArrivee[]): Promise<number | null> {
+/**
+ * Ajoute l'heure serveur d'arrivée à la seconde, la minute du RC (minute qui
+ * suit l'impact) et le rang d'arrivée.
+ */
+async function afficherArrivees<M extends AvecArrivee>(mouvements: M[]): Promise<{ ms: number; mouvements: M[] } | null> {
   if (mouvements.length === 0) return null;
   const g = await generation();
   if (!g) return null;
@@ -115,16 +125,53 @@ async function afficherArrivees(mouvements: AvecArrivee[]): Promise<number | nul
             ? `Heure serveur d'arrivée (${precision}). Les combats sont résolus dans l'ordre d'arrivée à la seconde.`
             : "L'heure calculée ne tombe pas dans la minute affichée par le jeu : horloge à recaler, rechargez la page.",
         },
-        ` → ${formaterHeure(t)} (n° ${rang + 1}${ok ? "" : ", à vérifier"})`,
+        ` → ${formaterHeure(t)} · RC ${formaterMinuteRC(t)} (n° ${rang + 1}${ok ? "" : ", à vérifier"})`,
       ),
     );
   });
-  return g.ms;
+  return { ms: g.ms, mouvements };
+}
+
+/** Les pages Armée et Attaquer listent toutes les attaques en cours : on remplace la liste mémorisée. */
+async function memoriserAttaques(r: { ms: number; mouvements: ReturnType<typeof lireAttaquesEnCours> } | null): Promise<void> {
+  if (!r) return;
+  const attaques: AttaqueMemorisee[] = r.mouvements.map((a) => ({
+    id: a.id,
+    cible: a.cible,
+    lieu: a.lieu,
+    arrivee: arrivee(r.ms, a.reste),
+    effectifs: a.effectifs,
+  }));
+  await majProfil({ attaques });
+}
+
+/** En haut de la page Ennemies : les attaques en cours mémorisées. */
+async function afficherMesAttaques(): Promise<void> {
+  const now = maintenantServeur() ?? Date.now();
+  const attaques = ((await lireProfil()).attaques ?? []).filter((a) => a.arrivee > now).sort((a, b) => a.arrivee - b.arrivee);
+  const ancre = document.querySelector("#centre table.simulateur");
+  if (!ancre || attaques.length === 0) return;
+  ancre.before(
+    el(
+      "div",
+      { style: "margin:8px auto;max-width:640px;text-align:left" },
+      el("h3", {}, "Mes attaques en cours (Fzzz)"),
+      ...attaques.map((a) =>
+        el(
+          "div",
+          {},
+          `- ${a.cible}${a.lieu ? ` (${a.lieu})` : ""} : arrivée `,
+          el("strong", {}, formaterHeure(a.arrivee)),
+          ` · RC ${formaterMinuteRC(a.arrivee)}`,
+        ),
+      ),
+    ),
+  );
 }
 
 async function pageRessources(): Promise<void> {
   const chasses = lireChassesEnCours(document);
-  const generationMs = await afficherArrivees(chasses);
+  const generationMs = (await afficherArrivees(chasses))?.ms ?? null;
   const bonus = lireBonusChasse(document);
   const memo: ChasseMemorisee[] | undefined =
     generationMs === null
@@ -175,12 +222,12 @@ async function pageArmee(): Promise<void> {
   }
 
   // Rentabilité sur l'armée totale : garnison + chasses mémorisées + attaques en cours.
-  if (armee.niveauBouclier !== null && armee.niveauArmes !== null && profil.niveauxPonte !== undefined) {
+  if (armee.niveauBouclier !== null && armee.niveauArmes !== null) {
     const enChasse: Effectifs[] = chasses.map((c) => c.effectifs);
     const enAttaque: Effectifs[] = lireAttaquesEnCours(document).map((a) => a.effectifs);
     const total = additionner(armee.troupes.terrain, armee.troupes.dome, armee.troupes.loge, ...enChasse, ...enAttaque);
     await majProfil({ armee: total, majArmee: Date.now() });
-    placer(blocRentabilite(total, { bouclier: armee.niveauBouclier, armes: armee.niveauArmes, ponte: profil.niveauxPonte }));
+    placer(await blocRentabilite(total, { bouclier: armee.niveauBouclier, armes: armee.niveauArmes }));
   }
 }
 
@@ -228,33 +275,24 @@ async function pageLaboratoire(): Promise<void> {
     const cellule = lignes.find((l) => l.cle === cle)?.ligne.querySelector(".desciption_amelioration");
     cellule?.append(el("div", { style: "margin-top:6px;font-size:0.9em" }, ...contenu));
   };
-  const ponte = profil.niveauxPonte;
-  const bouclier = recherches.bouclier;
-  const armes = recherches.armes;
+  const { bouclier, armes, communication } = recherches;
 
-  if (profil.armee && ponte !== undefined && bouclier !== undefined && armes !== undefined) {
-    const ctx = { effectifs: profil.armee, niveauBouclier: bouclier, niveauArmes: armes, niveauxPonte: ponte };
-    const a = rentabiliteArmes(ctx);
-    sous("bouclier", ligneRentabilite("Bouclier", rentabiliteBouclier(ctx), "PV"));
-    sous("armes", ligneRentabilite("Attaque", a.attaque, "att"), ligneRentabilite("Défense", a.defense, "déf"));
+  if (profil.armee && bouclier !== undefined && armes !== undefined) {
+    sous("bouclier", await ligneSeuil(profil.armee, "vie", bouclier, "Bouclier"));
+    sous("armes", await ligneSeuil(profil.armee, "att", armes, "Armes"), await ligneSeuil(profil.armee, "def", armes, "Armes"));
   } else {
     sous("bouclier", el("em", {}, "Fzzz : ouvrez la page Armée (et Ressources) pour calculer la rentabilité."));
   }
 
-  // Communication avec les animaux n débloque l'étable à pucerons n − 2.
-  const comm = recherches.communication;
-  if (comm !== undefined && ponte !== undefined) {
-    const etable = Math.max(0, comm + 1 - 2);
-    const c = coutNiveauPuceron(Math.max(0, etable - 1), comm, ponte);
-    sous(
-      "communication",
-      el(
-        "span",
-        { style: STYLE_INFO },
-        `Fzzz : le niveau ${comm + 1} débloque l'étable à pucerons niveau ${etable}. ` +
-          `Ses ${c.cout.ouvrieres.toLocaleString("fr-FR")} ouvrières représentent ${formaterDuree(c.tempsPonteOuvrieres)} de ponte.`,
-      ),
-    );
+  // Ouvrières disponibles pour les convois : dernière saisie, sinon ouvrières − TDC exploité.
+  const joueur = lireDonneesJoueur(document);
+  const parDefaut = profil.ouvrieresConvoi ?? (joueur ? Math.max(0, joueur.ouvrieres - joueur.tdc) : 0);
+  if (communication !== undefined) {
+    const bloc = blocEtable(parDefaut, profil.constructions?.etablePucerons ?? Math.max(0, communication - 2), communication);
+    bloc.querySelector("input")?.addEventListener("change", (e) => {
+      void majProfil({ ouvrieresConvoi: Number((e.target as HTMLInputElement).value) || 0 });
+    });
+    sous("communication", bloc);
   }
 }
 

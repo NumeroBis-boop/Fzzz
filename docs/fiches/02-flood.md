@@ -33,8 +33,11 @@ Données partagées, uniquement des **floods alliés saisis ou lancés via l'ext
 - heure d'arrivée (serveur) ;
 - TDC de l'attaquant et de la cible au lancement.
 
-## À trancher
+## Décisions (v0.5)
 
-- **Stockage** : Supabase avec connexion Discord, comme recommandé, ou autre ? Cela suppose un projet Supabase à ton nom.
-- **Preuve d'identité** (pseudo du jeu ↔ compte Discord) : code temporaire dans la description du profil en jeu.
-- **Limite connue** : les attaques des autres alliances et les chasses modifient les TDC pendant le flood. La simulation l'ignore ; l'interface doit le dire.
+- Hypothèses validées : 20 %, portée vérifiée à l'arrivée, arrondi à l'entier inférieur, bornes inclusives.
+- **Marge de 1 cm²** sur la prise limite, comme Toolzzz (le cœur garde 0 par défaut ; l'interface passera 1).
+- **Prise de TDC estimée** à afficher selon les attaques prévues et le TDC des deux joueurs.
+- Les TDC modifiés par d'autres attaques ou chasses pendant le flood ne sont pas simulés : **un avertissement suffit**.
+- **Stockage** : Supabase, accès réservé à un rôle Discord de l'alliance (pas de code dans le profil en jeu).
+- Les chasses en cours d'un allié s'afficheront sur son profil.

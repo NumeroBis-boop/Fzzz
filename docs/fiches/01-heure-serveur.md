@@ -1,11 +1,14 @@
 # Fiche 01 : heure serveur et heures d'arrivée
 
-Statut : **implémentée (v0.1), à tester en jeu**
+Statut : **implémentée (v0.5), à tester en jeu**
 
 ## Ce que fait l'extension
 
-- **Badge d'heure serveur**, en bas à droite de toutes les pages, à la seconde, avec sa précision (par exemple « ±0,2 s »).
-- **Arrivée à la seconde** de chaque attaque, sur Armée et sur Attaquer, à côté du compte à rebours. Les attaques sont aussi numérotées dans leur ordre d'arrivée, puisque les combats sont résolus dans cet ordre à la seconde.
+- **Heure serveur** à la seconde, à côté de « S5 Pseudo » dans l'encart d'information (badge en bas à droite si l'encart manque). Deux boutons − et + corrigent la latence par pas de 0,1 s ; le décalage choisi est mémorisé. La précision n'est pas affichée.
+- Chaque page se base sur l'heure réelle du serveur au moment où elle a été générée (en-tête `Date`).
+- **Arrivée à la seconde** de chaque attaque, sur Armée et sur Attaquer, à côté du compte à rebours. Les attaques sont aussi numérotées dans leur ordre d'arrivée, puisque les combats sont résolus dans cet ordre à la seconde. Comme Toolzzz, l'heure du RC suit : `→ 17:23:12 · RC 17h24 (n° 1)`.
+- **Heure du RC** : le RC est daté de la minute suivant l'impact (17h23:12 → 17h24) ; un impact à 17h23:00 pile donne 17h23.
+- **Page Ennemies** : en haut, les attaques en cours mémorisées depuis Armée et Attaquer.
 - **Chasses à la seconde** sur Ressources, et **rappel des chasses sur la page Armée**. La liste vue sur Ressources est mémorisée avec ses heures de retour exactes. Si la boîte Compte+ compte un autre nombre de chasses, la page Armée invite à rouvrir Ressources. Sans visite de Ressources, la page Armée se rabat sur la boîte Compte+, à la minute près.
 
 ## Méthode

@@ -8,6 +8,15 @@ export interface ChasseMemorisee {
   effectifs: Effectifs;
 }
 
+/** Attaque vue sur Armée ou Attaquer, avec son heure d'arrivée absolue (heure serveur, ms). */
+export interface AttaqueMemorisee {
+  id: string;
+  cible: string;
+  lieu: string | null;
+  arrivee: number;
+  effectifs: Effectifs;
+}
+
 /** Ce que l'extension retient des pages que le joueur a affichées. */
 export interface Profil {
   recherches?: Partial<Record<CleRecherche, number>>;
@@ -20,6 +29,11 @@ export interface Profil {
   /** Bonus de chasse lu sur Ressources.php. */
   vitesseChasse?: number;
   chasses?: ChasseMemorisee[];
+  attaques?: AttaqueMemorisee[];
+  /** Correction manuelle de l'horloge, en ms (pas de 100). */
+  latence?: number;
+  /** Ouvrières disponibles pour les convois, saisies au Laboratoire. */
+  ouvrieresConvoi?: number;
   /** Armée totale (garnison + chasses + attaques) vue sur la page Armée. */
   armee?: Effectifs;
   majArmee?: number;

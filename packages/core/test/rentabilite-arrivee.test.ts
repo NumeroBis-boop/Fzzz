@@ -1,45 +1,63 @@
 import { describe, expect, it } from "vitest";
 import {
-  coutNiveauPuceron,
-  gainJournalierPuceron,
-  rentabiliteArmes,
-  rentabiliteBouclier,
+  coutOuvrieresEtable,
+  meilleureUnite,
+  passageEtable,
+  planEtable,
+  rentabilite,
+  seuilRentabilite,
 } from "../src/rentabilite.js";
-import { arrivee, concordeAvecMinuteAffichee, formaterDuree, formaterHeure } from "../src/arrivee.js";
+import { arrivee, concordeAvecMinuteAffichee, formaterDuree, formaterHeure, formaterMinuteRC } from "../src/arrivee.js";
 
-describe("rentabilité", () => {
-  const ctx = { effectifs: { jsn: 10_000 }, niveauArmes: 9, niveauBouclier: 8, niveauxPonte: 0 };
-
-  it("compare le niveau de Bouclier à la ponte d'unités pendant le temps des ouvrières", () => {
-    const r = rentabiliteBouclier(ctx);
-    // Bouclier 9 : 80 × 2^8 = 20 480 ouvrières × 60 s = 1 228 800 s
-    expect(r.cout.ouvrieres).toBe(20_480);
-    expect(r.tempsPonteOuvrieres).toBe(1_228_800);
-    expect(r.gainNiveau).toBe(8_000); // 10 % de 80 000 PV de base
-    // Meilleure alternative en vie : JSN, 4 096 × 8 × 1,8 = 58 982 PV
-    expect(r.alternatives[0]).toMatchObject({ unite: "jsn", nombre: 4096 });
-    expect(r.rentable).toBe(false);
+describe("rentabilité Armes / Bouclier (règle du joueur)", () => {
+  it("reproduit l'exemple : Armes 5 avec des JS → 14 530 HB", () => {
+    // 1 280 × 60 / 740 × 10 × 14 = 14 529,7 → 14 530
+    expect(seuilRentabilite("att", 5, "js")).toBe(14530);
   });
 
-  it("devient rentable avec une grosse armée", () => {
-    const r = rentabiliteArmes({ ...ctx, effectifs: { jsn: 1_000_000 } });
-    expect(r.attaque.rentable).toBe(true);
+  it("décide sur H ≥ Sₙ et donne les HB manquants", () => {
+    const r = rentabilite({ js: 1453 }, "att", 4, "js");
+    expect(r).toMatchObject({ niveauVise: 5, total: 14530, seuil: 14530, manquant: 0, rentable: true });
+    expect(rentabilite({ js: 1452 }, "att", 4, "js")).toMatchObject({ manquant: 10, rentable: false });
   });
 
-  it("ajoute les niveaux de Communication requis pour l'étable", () => {
-    // Étable 0 → 1 : Communication 3 requise
-    const c = coutNiveauPuceron(0, 1, 0);
-    expect(c.niveauxCommunication).toEqual([2, 3]);
-    expect(c.cout.ouvrieres).toBe(160 + 320);
-    expect(c.cout.materiaux).toBe(1500 + 1000 + 2000);
-    // Déjà au niveau requis : rien à rechercher
-    expect(coutNiveauPuceron(4, 7, 0).niveauxCommunication).toEqual([]);
+  it("applique la même formule à la défense (Armes) et à la vie (Bouclier)", () => {
+    // Bouclier 9 en JSN : 20 480 × 60 / 300 × 8 × 18
+    expect(seuilRentabilite("vie", 9, "jsn")).toBe(589824);
+    expect(seuilRentabilite("def", 10, "tue")).toBe(Math.ceil((40960 * 60 * 55 * 19) / 2740));
   });
 
-  it("estime le gain journalier d'un niveau d'étable", () => {
-    // Étable 10 → 11 : capacité commerce × 1,55 / 1,5
-    expect(gainJournalierPuceron(10, { convois: 1_500_000 })).toBeCloseTo(50_000);
-    expect(gainJournalierPuceron(0, { pillage: 100_000 })).toBeCloseTo(1_000);
+  it("choisit par défaut l'unité pondable au meilleur rendement", () => {
+    expect(meilleureUnite("att")).toBe("tk");
+    expect(meilleureUnite("vie")).toBe("jsn");
+    expect(meilleureUnite("def")).toBe("tue");
+  });
+});
+
+describe("rentabilité Étable à pucerons (règle du joueur)", () => {
+  it("retrouve les coûts du modèle : 560 pour l'étable 1, puis 320 × 2^(n−1)", () => {
+    expect(coutOuvrieresEtable(1)).toBe(560);
+    expect(coutOuvrieresEtable(2)).toBe(640);
+    expect(coutOuvrieresEtable(3)).toBe(1280);
+    // Communication déjà au niveau 2 : seul le niveau 3 manque pour l'étable 1
+    expect(coutOuvrieresEtable(1, 2)).toBe(320);
+  });
+
+  it("reproduit l'exemple : étable 1 → 2 rentable dès 14 081 ouvrières", () => {
+    expect(passageEtable(14081, 1)).toMatchObject({ ouvrieresSacrifiees: 640, minimum: 14081, rentable: true });
+    // À égalité (ΔK = 0), le passage n'est pas rentable
+    expect(passageEtable(14080, 1).rentable).toBe(false);
+  });
+
+  it("enchaîne les passages en déduisant chaque sacrifice", () => {
+    const plan = planEtable(48936, 0, 2);
+    expect(plan.map((p) => [p.niveauVise, p.ouvrieresSacrifiees, p.rentable])).toEqual([
+      [1, 320, true],
+      [2, 640, true],
+      [3, 1280, true],
+      [4, 2560, false],
+    ]);
+    expect(plan[1]?.ouvrieresAvant).toBe(48936 - 320);
   });
 });
 
@@ -50,6 +68,12 @@ describe("arrivées", () => {
     expect(formaterHeure(a)).toBe("19:56:57");
     expect(concordeAvecMinuteAffichee(a, "19h56")).toBe(true);
     expect(concordeAvecMinuteAffichee(a, "19h57")).toBe(false);
+  });
+
+  it("date le RC à la minute qui suit l'impact, sauf impact pile", () => {
+    const base = Date.UTC(2026, 9, 20, 15, 23, 0); // 17:23:00 à Paris
+    expect(formaterMinuteRC(base + 12_000)).toBe("17h24");
+    expect(formaterMinuteRC(base)).toBe("17h23");
   });
 
   it("formate les durées", () => {

@@ -109,6 +109,7 @@ export default defineConfig({
           "js/boite/Rapport.js",
           "js/page/Alliance.js",
           "js/page/Armee.js",
+          "js/page/PrevenirFlood.js",
           "js/page/Attaquer.js",
           "js/page/Chat.js",
           "js/page/CommerceFzzz.js",

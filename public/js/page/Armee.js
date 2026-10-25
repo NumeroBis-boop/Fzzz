@@ -97,6 +97,9 @@ class PageArmee {
     let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
     if (floodFlag) sessionStorage.removeItem("outiiil_floodPuisReplacer");
     if (floodFlag || monProfil.parametre["replacerArmeeAuto"].valeur) this.replacerArmee(true);
+    // Fzzz : message « Prévenir X du flood » prêt, ouvert une fois l'armée replacée
+    // (un replacement recharge Armee.php, on repasse alors ici)
+    if (!this._replacementEnCours) PrevenirFlood.ouvrir();
     return this;
   }
   /**

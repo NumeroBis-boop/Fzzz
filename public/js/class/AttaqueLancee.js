@@ -161,6 +161,8 @@ class AttaqueLancee {
           .sort((a, b) => a.lancee - b.lancee),
         candidates = lignes.filter((l) => l.cible == cible && idsLies.indexOf(l.id) == -1),
         nb = Math.min(captures.length, candidates.length);
+      // aucune ligne libre (envoi refusé…) : slice(-0) renverrait toutes les captures
+      if (!nb) return;
       captures.slice(-nb).forEach((capture, i) => {
         let ligne = candidates[candidates.length - nb + i];
         capture.id = ligne.id;

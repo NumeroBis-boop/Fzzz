@@ -28,6 +28,7 @@ class PageMessagerie {
     MessagerieFzzz.decorer();
     MessagerieFzzz.observer(this);
     MessagerieFzzz.ranger();
+    PrevenirFlood.remplir();
     // Fzzz : l'analyse des rapports ouverts passe par MessagerieFzzz.observer
     // (boutons « Analyser »). analyseMessage() reposait sur l'événement
     // DOMNodeInserted, retiré de Chrome ; l'appeler en plus doublerait

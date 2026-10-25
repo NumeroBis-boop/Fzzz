@@ -661,7 +661,7 @@ const DATEPICKER_OPTION = {
             $(elt)
               .find("td:eq(5)")
               .after(
-                `<td class='centre'>${Utils.intToTime(Math.ceil(Math.pow(0.9, monProfil.niveauRecherche[6]) * 637200 * (1 - Math.exp(-(distance / 350)))))}</td>`,
+                `<td class='centre'>${Utils.intToTime(Math.round(Math.pow(0.9, monProfil.niveauRecherche[6]) * 637200 * (1 - Math.exp(-(distance / 350)))))}</td>`,
               );
           });
           break;

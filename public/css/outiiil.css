@@ -1711,3 +1711,13 @@ tr.en_tete_message > td.td_coche {
   padding: 3px 10px;
   font-size: 0.85em;
 }
+
+/* Fzzz : case « Prévenir X du flood » (page d'attaque) */
+.o_prevenirFlood {
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.o_prevenirFlood input {
+  vertical-align: middle;
+  margin: 0 3px 0 0;
+}

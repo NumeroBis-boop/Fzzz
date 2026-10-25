@@ -23,6 +23,10 @@ class PageMessagerie {
     // ajout des boutons pour les nouveaux messages
     if (!Utils.comptePlus) this.plus(0);
     this.couleurMessage();
+    // Fzzz : couleurs des convois et conversations, bouton de copie, rangement
+    MessagerieFzzz.decorer();
+    MessagerieFzzz.observer();
+    MessagerieFzzz.ranger();
     // Evenement lorsque de nouveaux elements sont affiches
     this.analyseMessage();
     return this;

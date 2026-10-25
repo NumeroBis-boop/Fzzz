@@ -234,10 +234,20 @@ class PageRessource {
         </label>
       </div>`,
     );
-    new LanceurBudget(this._armee, this._nbChasse).afficher($("#o_prepaChasse"));
+    // Budget de pertes : simulateur de Calystène d'origine avec son greffon CHS2B
+    // (lib/calystene-chs2), construit au premier choix puis placé sous le sélecteur
     let appliquer = (v) => {
+      if (v == "budget" && !$("#CHS2_MainFrame").length) {
+        try {
+          fzzzLancerCHS2();
+        } catch (e) {
+          console.error("[Fzzz] simulateur de Calystène :", e);
+          $.toast({ ...TOAST_ERROR, text: "Le simulateur de Calystène n'a pas pu démarrer." });
+        }
+        $("#CHS2_MainFrame").insertAfter("#o_choixLanceur");
+      }
       $("#o_prepaChasse").toggle(v == "standard");
-      $("#o_lanceurBudget").toggle(v == "budget");
+      $("#CHS2_MainFrame").toggle(v == "budget");
     };
     $("#o_choixLanceurSelect")
       .val(choix)

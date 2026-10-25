@@ -1478,8 +1478,11 @@ center > div > #tabMembresAlliance {
 .intitule_message.o_titreConvoi {
   color: #7a3db8 !important;
 }
-.intitule_message.o_titreConversation {
-  color: #1f3a7a !important;
+.intitule_message.o_titreChasse {
+  color: #000080 !important;
+}
+.intitule_message.o_titreAutre {
+  color: #000000 !important;
 }
 .o_copierRapport {
   height: 14px;

@@ -1,41 +1,41 @@
 # Fzzz
 
-Outils pour [Fourmizzz](https://s5.fourmizzz.fr) : calculateurs (trajet, flood, chasse, rentabilité), analyse de RC et extension navigateur (Firefox PC et Android, navigateurs Chromium).
+Extension navigateur pour [Fourmizzz](http://www.fourmizzz.fr) (serveur s5), pour Chrome, Edge, Brave et Firefox (PC et Android).
 
-## Structure
+Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-même fork et maintenance d'[Outiiil](https://github.com/Hraesvelg/Outiiil) (Hraesvelg). La base est celle de Toolzzz 3.12.3, que nous améliorons pour l'alliance.
 
-```
-packages/core     formules et analyseurs en TypeScript pur, testés (Vitest)
-apps/extension    extension WXT (Chrome MV3, Firefox PC et Android)
-docs/             règles de conformité et fiches de conception
-```
+## Différences avec Toolzzz
 
-Chaque formule déclare sa source et son niveau de confiance (`officiel`, `communaute`, `verifie-s5`, `hypothese`) : voir `packages/core/src/statut.ts`.
+- Nom, identifiant Firefox (`fzzz@numerobis-boop.github.io`) et liens propres : Fzzz peut être installé à côté de Toolzzz, mais **il faut désactiver l'un des deux**, sinon les deux s'injectent dans les mêmes pages.
+- **Conformité au règlement du s5** (voir [docs/conformite.md](docs/conformite.md)) :
+  - « Synchroniser » et « Sonder » n'envoient plus l'attaque tout seuls à la fin du compte à rebours. Ils affichent le décompte, puis mettent en évidence le bouton Lancer : **le clic final appartient au joueur**.
+  - L'actualisation automatique du chat (une requête toutes les 5 s) est retirée.
 
-## Développement
+## Installer
 
-```bash
-pnpm install
-pnpm test
-pnpm typecheck
-```
+Voir [docs/installation.md](docs/installation.md).
 
-## Installer l'extension
-
-Voir [docs/installation.md](docs/installation.md). Les archives prêtes à installer sont publiées sur la page Releases du dépôt.
-
-Pour construire soi-même :
+## Développer
 
 ```bash
-pnpm install
-pnpm --filter @fzzz/extension zip           # Chrome, Edge, Brave…
-pnpm --filter @fzzz/extension zip:firefox   # Firefox + archive des sources
+bun install
+bun run dev            # Chrome, rechargement automatique
+bun run dev:firefox
+bun run compile        # vérification TypeScript
+bun run format         # formatage (oxfmt)
+bun run zip && bun run zip:firefox
 ```
 
-## Règlement
+L'architecture (scripts déclarés à la main dans `wxt.config.ts`, ordre de chargement, contraintes MV3) est décrite dans [CLAUDE.md](CLAUDE.md) et [CONTRIBUTING.md](CONTRIBUTING.md).
 
-L'extension suit le principe du règlement : l'optimisation est autorisée, pas l'automatisation. Voir [docs/conformite.md](docs/conformite.md).
+Pour récupérer les corrections de Toolzzz : `git fetch toolzzz master && git merge toolzzz/master` (remote `toolzzz` = https://github.com/GuiEpi/toolzzz.git). L'historique de Toolzzz est conservé dans celui de Fzzz, les fusions restent donc simples.
+
+L'ancienne version de Fzzz (0.5, écrite de zéro) est archivée dans la branche `archive/fzzz-0.5`. Ses formules vérifiées sur le s5 sont résumées dans [docs/observations-s5.md](docs/observations-s5.md).
 
 ## Crédits et licence
 
-Les formules et données de jeu proviennent en partie de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), fork d'[Outiiil](https://github.com/Hraesvelg/Outiiil) (Hraesvelg), et des outils de Calystène. Ces projets sont sous GPL-3.0. Fzzz l'est aussi : voir [LICENSE](LICENSE).
+- Projet original : [Outiiil](https://github.com/Hraesvelg/Outiiil) par Hraesvelg
+- Fork maintenu : [Toolzzz](https://github.com/GuiEpi/toolzzz) par GuiEpi
+- Fzzz : NumeroBis-boop
+
+[GPL-3.0](LICENSE), conformément à la licence des projets d'origine.

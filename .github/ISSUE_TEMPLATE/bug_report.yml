@@ -1,0 +1,73 @@
+name: Signaler un bug
+description: Quelque chose ne fonctionne pas comme prévu dans Toolzzz
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps de signaler ce bug. Renseigne au maximum les champs ci-dessous pour faciliter la résolution.
+  - type: input
+    id: version
+    attributes:
+      label: Version de Toolzzz
+      description: Visible dans l'onglet « À propos » de la fenêtre Paramètres.
+      placeholder: "ex. 3.0.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Navigateur
+      options:
+        - Chrome / Chromium
+        - Firefox
+        - Edge
+        - Autre
+    validations:
+      required: true
+  - type: input
+    id: browser_version
+    attributes:
+      label: Version du navigateur
+      placeholder: "ex. 132"
+  - type: input
+    id: page
+    attributes:
+      label: Page Fourmizzz concernée
+      description: URL ou nom de la page (ex. /Reine.php, page Armée, popup d'attaque, …).
+      placeholder: "ex. /Reine.php"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      description: Liste précisément ce que tu as fait juste avant de voir le bug.
+      placeholder: |
+        1. Aller sur …
+        2. Cliquer sur …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportement observé
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Captures d'écran
+      description: Glisse les images directement dans ce champ.
+  - type: textarea
+    id: console
+    attributes:
+      label: Erreurs dans la console
+      description: Ouvre F12 → Console et copie ici les éventuelles erreurs.
+      render: shell

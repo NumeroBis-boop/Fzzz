@@ -11,19 +11,19 @@ Principe du règlement : **« L'optimisation est autorisée, pas l'automatisatio
 
 ## Ce qu'il interdit (C1, C2, E3)
 
-| Interdit | Conséquence pour l'extension |
-|---|---|
-| Maintenir la session au-delà de 30 min | Aucune requête périodique vers le jeu, pas même un `HEAD` pour l'heure serveur |
-| Reconnexion automatique | Jamais de stockage d'identifiants |
-| Actions de jeu sans intervention humaine | Chaque envoi part d'un clic ; pas de minuterie qui lance une attaque à l'heure H |
-| Récolte régulière d'informations sans intervention | Pas de lecture de pages en arrière-plan ; les données publiques viennent de l'API officielle |
-| Fonctions équivalentes au Compte+ pour un joueur sans Compte+ | **À vérifier** : liste des fonctions Compte+ du s5 nécessaire |
+| Interdit                                                                  | Conséquence pour l'extension                                                                     |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Maintenir la session au-delà de 30 min                                    | Aucune requête périodique vers le jeu, pas même un `HEAD` pour l'heure serveur                   |
+| Reconnexion automatique                                                   | Jamais de stockage d'identifiants                                                                |
+| Actions de jeu sans intervention humaine                                  | Chaque envoi part d'un clic ; pas de minuterie qui lance une attaque à l'heure H                 |
+| Récolte régulière d'informations sans intervention                        | Pas de lecture de pages en arrière-plan ; les données publiques viennent de l'API officielle     |
+| Fonctions équivalentes au Compte+ pour un joueur sans Compte+             | **À vérifier** : liste des fonctions Compte+ du s5 nécessaire                                    |
 | Publier une armée ou un RC (chat général, description d'alliance, profil) | La copie de RC vise le forum ou le chat d'alliance, ou l'outil partagé ; jamais un espace public |
 
 ## Règles de conception qui en découlent
 
 1. **Un clic, une intention.** Un clic peut déclencher une suite d'envois (multi-flood autorisé), mais rien ne part sans clic.
-2. **Lecture passive uniquement.** L'extension lit les pages que le joueur affiche, et les en-têtes HTTP de ces mêmes pages. Elle n'émet aucune requête de lecture vers le jeu.
+2. **Pas de lecture sans intervention.** Toute requête vers le jeu part d'une page que le joueur ouvre ou d'un clic du joueur ; jamais de minuterie ni de lecture périodique. (Fzzz 0.5 n'émettait aucune requête ; la base Toolzzz lit certaines pages du jeu au chargement ou au clic, ce que la modération a validé « à l'image de Toolzzz ».)
 3. **Synchronisation externe = ce qui est affiché.** Le partage d'alliance n'envoie que des données lues sur une page ouverte par le joueur (attaques lancées, page Armée).
 4. **API officielle** pour les TDC et coordonnées des autres joueurs.
 
@@ -31,3 +31,21 @@ Principe du règlement : **« L'optimisation est autorisée, pas l'automatisatio
 
 - Liste des fonctions Compte+ du s5, pour ne pas les reproduire.
 - La synchronisation de l'heure de lancement d'un flood (« attendre la bonne seconde puis envoyer ») : si l'envoi part automatiquement après un délai, il n'y a plus de clic final. **Décision : l'extension affiche un compte à rebours, le joueur clique.**
+
+## Audit de la base Toolzzz 3.12.3 (Fzzz 1.0, 2026-10-25)
+
+Toutes les requêtes et minuteries de `public/js` (hors bibliothèques) ont été relues.
+
+| Fonction                                                                                                      | Déclenchement                                                   | Décision                                                                                |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| « Synchroniser », « Sonder » (page Attaquer)                                                                  | clic, puis **clic automatique sur Lancer** à la fin du décompte | **Modifié** : le décompte reste, le bouton Lancer est mis en évidence, le joueur clique |
+| Actualisation automatique du chat                                                                             | case « auto » : 40 requêtes, une toutes les 5 s                 | **Retiré** (requêtes périodiques qui maintiennent la session)                           |
+| Multi-flood, flood multi-cibles, multi-chasse, ponte, annulation groupée, replacement de l'armée              | un clic, puis une suite d'envois espacés                        | Conservé (enchaînement à l'initiative du joueur, autorisé par C2)                       |
+| Lectures de Armée, Ressources, Construction, Laboratoire, Membre, classement d'alliance                       | ouverture d'une page ou clic                                    | Conservé (aucune répétition périodique)                                                 |
+| Utilitaire d'alliance stocké dans le forum d'alliance                                                         | clic                                                            | Conservé                                                                                |
+| File d'attente des requêtes (`Requetes.js`) : nouvel essai si le jeu répond « une autre action est en cours » | après une requête refusée, 8 essais au plus                     | Conservé                                                                                |
+| Comptes à rebours, `incrementTime`                                                                            | affichage local, sans requête                                   | Conservé                                                                                |
+
+Point ouvert : la boîte « Compte+ » de Toolzzz reprend des affichages du Compte+ (règle E3, fonctions équivalentes au Compte+). La modération a validé le projet « à l'image de Toolzzz » ; à surveiller si le règlement évolue.
+
+Point ouvert : la synchronisation vise une arrivée à la seconde 0, calculée avec l'horloge du PC et non celle du serveur. Avec un clic humain, l'arrivée glisse de quelques secondes. Or le RC est daté de la minute suivant l'impact : 17h23:00 donne 17h23, mais 17h23:01 donne 17h24. Il faudra viser une seconde de marge et utiliser l'heure serveur.

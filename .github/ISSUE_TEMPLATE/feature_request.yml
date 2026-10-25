@@ -1,0 +1,33 @@
+name: Proposer une fonctionnalité
+description: Suggérer une nouvelle fonctionnalité ou une amélioration
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci pour ta suggestion. Décris ton idée le plus précisément possible pour qu'on puisse en discuter.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Quel problème ça résoudrait ?
+      description: Quelle frustration ou limitation actuelle motive cette demande ?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution envisagée
+      description: Comment tu imagines la fonctionnalité dans Toolzzz ?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+      description: D'autres approches que tu as considérées ?
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte additionnel
+      description: Captures d'écran, mockups, exemples d'autres outils, …

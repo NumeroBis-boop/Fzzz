@@ -1,10 +1,32 @@
 {
   "name": "fzzz",
+  "version": "1.0.0",
   "private": true,
-  "license": "GPL-3.0-only",
+  "description": "Extension pour www.fourmizzz.fr.",
+  "type": "module",
   "scripts": {
-    "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "compile": "tsc --noEmit",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "postinstall": "wxt prepare",
+    "prepare": "husky"
   },
-  "packageManager": "pnpm@10.28.0"
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.0",
+    "oxfmt": "^0.55.0",
+    "typescript": "^6.0.0",
+    "vite": "^8.3.0",
+    "web-ext": "^10.6.0",
+    "wxt": "^0.21.4"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx,jsx,css,scss,less,html,json,jsonc,md,mdx,yml,yaml}": "oxfmt --no-error-on-unmatched-pattern"
+  }
 }

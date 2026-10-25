@@ -331,9 +331,17 @@ class PartageChasses {
                   sujetsFloods.slice(k, k + 4).map((t) =>
                     PartageChasses.lireSujet(t.id)
                       .then((d) =>
-                        d.floods
-                          .filter((e) => e.cible.toLowerCase() == cible)
-                          .forEach((e) => floods.push({ ...e, lanceur: t.pseudo })),
+                        d.floods.forEach((e) => {
+                          // vers le joueur : perte ; depuis le joueur : prise
+                          let vers = e.cible.toLowerCase() == cible,
+                            depuis = t.pseudo.toLowerCase() == cible;
+                          if (vers != depuis)
+                            floods.push({
+                              ...e,
+                              lanceur: t.pseudo,
+                              delta: vers ? -e.terrain : e.terrain,
+                            });
+                        }),
                       )
                       .catch(() => {}),
                   ),
@@ -353,12 +361,19 @@ class PartageChasses {
               .map((t) => `<td>${t}</td>`)
               .join("")}</tr>`;
           });
-          let total = numeral(entrees.reduce((t, e) => t + e.terrain, 0)).format();
+          let somme = entrees.reduce((t, e) => t + (e.delta != null ? e.delta : e.terrain), 0),
+            total = entrees.some((e) => e.delta != null)
+              ? signe(somme)
+              : `${numeral(somme).format()} cm²`;
           return (
             html +
-            `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total} cm²</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`
+            `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total}</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`
           );
         };
+        // « +2 340 cm² » en vert, « −2 340 cm² » en rouge
+        function signe(v, unite = " cm²") {
+          return `<span class='${v >= 0 ? "o_varPos" : "o_varNeg"}'>${v >= 0 ? "+" : "−"}${numeral(Math.abs(v)).format()}${unite}</span>`;
+        }
         let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
           // en cours : impact pas encore passé (heure du serveur)
           maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
@@ -369,21 +384,19 @@ class PartageChasses {
         enCours(chasses).forEach(
           (e) => (variations[e.date] = (variations[e.date] || 0) + e.terrain),
         );
-        enCours(floods).forEach(
-          (e) => (variations[e.date] = (variations[e.date] || 0) - e.terrain),
-        );
+        enCours(floods).forEach((e) => (variations[e.date] = (variations[e.date] || 0) + e.delta));
         let synthese = "";
         if (Object.keys(variations).length && terrain > 0) {
           let tdc = terrain,
             lignes = [
-              `<tr><td>${Horloge.serveur().format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td></tr>`,
+              `<tr><td>${Horloge.serveur().format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td></td></tr>`,
             ];
           Object.keys(variations)
             .sort()
             .forEach((d) => {
               tdc += variations[d];
               lignes.push(
-                `<tr><td>${moment(d, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td></tr>`,
+                `<tr><td>${moment(d, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${signe(variations[d], "")})</td></tr>`,
               );
             });
           synthese =
@@ -405,13 +418,13 @@ class PartageChasses {
             ) +
             "<div class='o_partageSeparation'></div>" +
             tableau(
-              `Floods en cours sur ${pseudo} partagés avec la ${Utils.alliance}`,
+              `Floods en cours depuis ou vers ${pseudo} partagés avec la ${Utils.alliance}`,
               enCours(floods),
-              ["Arrivée", "TdC floodé (estimé)", "Lanceur"],
+              ["Arrivée", "TdC (estimé)", "Lanceur → cible"],
               (e) => [
                 date(e),
-                numeral(e.terrain).format() + " cm²",
-                `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a>`,
+                signe(e.delta),
+                `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a> → <a href='Membre.php?Pseudo=${encodeURIComponent(e.cible)}'>${e.cible}</a>`,
               ],
             ) +
             synthese +

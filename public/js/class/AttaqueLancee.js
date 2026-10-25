@@ -347,12 +347,20 @@ class AttaqueLancee {
     conteneur.append(html);
     AttaqueLancee.colorerTags($(`#${id}`));
     // « Partager TOUS mes floods » sous la ligne « Attaque(s) en cours … » du jeu
-    let bouton = `<div class="o_attaquesBoutons"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button></div>`,
+    let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button></div>`,
       $compte = $("#centre *")
         .filter((k, e) => !e.children.length && /Attaque\(s\) en cours/.test(e.textContent))
         .first();
-    if ($compte.length) $compte.after(bouton);
-    else $(`#${id}`).before(bouton);
+    if ($compte.length) {
+      // les sauts de ligne du jeu sous le compteur creusaient un grand vide
+      let n = $compte[0].nextSibling;
+      while (n && (n.nodeName == "BR" || (n.nodeType == 3 && !n.textContent.trim()))) {
+        let suivant = n.nextSibling;
+        if (n.nodeName == "BR") n.parentNode.removeChild(n);
+        n = suivant;
+      }
+      $compte.after(bouton);
+    } else $(`#${id}`).before(bouton);
     // compteur et lien Annuler natifs : déplacés dans le tableau (compteur masqué).
     // Pour une attaque capturée on connaît l'heure de lancement : le lien
     // est retiré dès que la fenêtre d'annulation du jeu est passée.

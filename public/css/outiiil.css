@@ -1630,3 +1630,15 @@ tr.en_tete_message > td.td_coche {
 .o_grapheActions {
   text-align: center;
 }
+
+/* Fzzz : tableau du bilan de chasse et diagramme étoile côte à côte */
+.o_bilanCorps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.o_bilanRadar {
+  width: 260px;
+  height: 240px;
+}

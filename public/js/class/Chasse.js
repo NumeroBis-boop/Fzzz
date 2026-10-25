@@ -212,7 +212,16 @@ class Chasse {
       ].filter(Boolean),
       ligne = (libelle, a, b, xp = "") =>
         `<tr><td class='left'>${libelle}</td><td class='right'>${fmt(a)}</td><td class='right'>${Utils.variation(b - a, a)}</td><td class='right'>${fmt(b)}</td><td class='right o_bilanXp'>${xp}</td></tr>`,
+      // diagramme étoile FdF / vie / défense / CdF (capacité de flood = nombre
+      // d'unités), dessiné par MessagerieFzzz.radars()
+      radar = JSON.stringify({
+        fdf: [av.getBaseAtt(), ap.getBaseAtt()],
+        vie: [av.getBaseVie(), ap.getBaseVie()],
+        def: [av.getBaseDef(), ap.getBaseDef()],
+        cdf: [av.getSommeUnite(), ap.getSommeUnite()],
+      }),
       html = `<div class='o_bilanChasse'><p class='o_bilanEntete'>${entete.join(" · ")}</p>
+        <div class='o_bilanCorps'>
         <table class='o_bilanTable' cellspacing='0'>
         <tr class='gras'><td></td><td class='right'>Avant</td><td class='right'>Chasses</td><td class='right'>Après</td><td class='right' title="Part des unités de ce type montées en XP">XP</td></tr>`;
     html += ligne(IMG_ATT, av.getBaseAtt(), ap.getBaseAtt());
@@ -233,7 +242,7 @@ class Chasse {
           ap.unite[i],
           this._xp[i] ? pct(this._xp[i], av.unite[i]) : "",
         );
-    return html + "</table></div>";
+    return html + `</table><div class='o_bilanRadar' data-radar='${radar}'></div></div></div>`;
   }
   /**
    *

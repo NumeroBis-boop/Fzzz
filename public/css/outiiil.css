@@ -1367,6 +1367,8 @@ center > div > #tabMembresAlliance {
   color: #3a2a0c !important;
   font-family: inherit;
   text-shadow: none !important;
+  white-space: nowrap;
+  gap: 10px;
   z-index: 10;
 }
 #o_horloge #o_horlogeHeure {
@@ -1410,8 +1412,13 @@ center > div > #tabMembresAlliance {
 }
 
 /* Fzzz : extension sous la ligne Armes du Laboratoire */
+#o_fdfArmesLigne > td {
+  padding: 0 !important;
+}
 #o_fdfArmes {
-  margin: 0 10px 8px 10px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 8px 0;
   padding: 6px 10px;
   border: 1px solid #8b7440;
   border-top: none;

@@ -147,12 +147,35 @@ class Horloge {
           <button type='button' id='o_latencePlus' title='Latence + 0,1 s'>+</button>
         </span>
       </div>`).prependTo($boite);
-    // largeur de l'encart, posée explicitement : les styles du jeu sur les div
-    // de la colonne faisaient déborder l'horloge à gauche
-    let caler = () =>
-      $("#o_horloge").css({ width: $boite.outerWidth() + "px", right: "auto", float: "none" });
+    // Le cadre visible de l'encart est dessiné par ses éléments internes, plus
+    // larges que #boiteInfo lui-même : on mesure leur emprise réelle et on y
+    // cale l'horloge (largeur minimale ; elle s'élargit si son contenu dépasse).
+    let caler = () => {
+      let boite = $boite[0].getBoundingClientRect(),
+        gauche = boite.left,
+        droite = boite.right;
+      $boite
+        .find("*")
+        .not("#o_horloge, #o_horloge *")
+        .each((i, elt) => {
+          let r = elt.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) {
+            gauche = Math.min(gauche, r.left);
+            droite = Math.max(droite, r.right);
+          }
+        });
+      $("#o_horloge").css({
+        left: gauche - boite.left + "px",
+        width: "auto",
+        minWidth: droite - gauche + "px",
+        right: "auto",
+        float: "none",
+      });
+    };
     caler();
-    $(window).on("resize", caler);
+    // recalage une fois les images et polices du jeu chargées
+    $(window).on("load resize", caler);
+    setTimeout(caler, 1000);
     let regler = (delta) => (e) => {
       // l'encart est cliquable (lien vers le profil) : le clic s'arrête ici
       e.preventDefault();

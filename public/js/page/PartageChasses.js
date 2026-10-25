@@ -141,10 +141,20 @@ class PartageChasses {
         chasses = [],
         floods = [],
         m,
-        reC = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
-        reF = /FZF\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|([^|\s]+)\|(\d+)\|/g;
-      while ((m = reC.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
+        D = "(\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d)",
+        N = "([\\d \\u00a0\\u202f]+) cm²",
+        reC = new RegExp(`${D} \\| ${N}`, "g"),
+        reF = new RegExp(`${D} \\| ([^|\\n]+?) \\| ${N}`, "g"),
+        // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF
+        reC0 = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
+        reF0 = /FZF\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|([^|\s]+)\|(\d+)\|/g,
+        date = (t) => moment(t, "DD/MM/YY HH:mm").format("YYYY-MM-DD HH:mm"),
+        nombre = (t) => parseInt(t.replace(/\D/g, ""));
+      while ((m = reC.exec(texte))) chasses.push({ date: date(m[1]), terrain: nombre(m[2]) });
       while ((m = reF.exec(texte)))
+        floods.push({ date: date(m[1]), cible: m[2].trim(), terrain: nombre(m[3]) });
+      while ((m = reC0.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
+      while ((m = reF0.exec(texte)))
         floods.push({ date: m[1], cible: m[2], terrain: parseInt(m[3]) });
       return { chasses: chasses, floods: floods };
     });
@@ -177,9 +187,7 @@ class PartageChasses {
             .concat(nouvelles)
             .sort((a, b) => (a.date < b.date ? 1 : -1))
             .slice(0, PARTAGE_MAX_ENTREES),
-          message =
-            `${type == "Chasses" ? "Chasses partagées" : "Floods partagés"} par ${pseudo} avec Fzzz (mis à jour à chaque partage, ne pas modifier).\n\n` +
-            toutes.map((e) => PartageChasses._ligne(type, e)).join("\n"),
+          message = toutes.map((e) => PartageChasses._ligne(type, e)).join("\n"),
           q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
         return (
           idSujet
@@ -201,8 +209,8 @@ class PartageChasses {
   static _ligne(type, e) {
     let date = moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm");
     return type == "Chasses"
-      ? `${date} : ${numeral(e.terrain).format()} cm²${e.unites ? " (" + e.unites + ")" : ""} FZC|${e.date}|${e.terrain}|`
-      : `${date} : ${numeral(e.terrain).format()} cm² sur ${e.cible} FZF|${e.date}|${e.cible}|${e.terrain}|`;
+      ? `${date} | ${numeral(e.terrain).format()} cm²`
+      : `${date} | ${e.cible} | ${numeral(e.terrain).format()} cm²`;
   }
   /**
    * Bouton : désactivé pendant l'envoi, puis bilan.
@@ -252,7 +260,6 @@ class PartageChasses {
       groupes.map((g) => ({
         date: g.impact.format("YYYY-MM-DD HH:mm"),
         terrain: g.terrain,
-        unites: (g.unites || "").replace(/\.$/, ""),
       })),
     );
   }
@@ -301,8 +308,8 @@ class PartageChasses {
       })
       .then(([c, f]) => {
         let tableau = (titre, entrees, colonnes, cellules) => {
-          let html = `<h3>${titre}</h3>`;
-          if (!entrees.length) return html + "<p class='centre'>Aucun partage.</p>";
+          let html = `<h3 class='o_partageTitre'>${titre}</h3>`;
+          if (!entrees.length) return html + "<p class='centre'>Aucun partage en cours.</p>";
           html += `<table class='centre' cellspacing='0'><tr class='gras'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
           entrees.forEach((e, i) => {
             html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(e)
@@ -315,20 +322,24 @@ class PartageChasses {
             `<tr class='gras o_syntheseTotal'><td>Total (${entrees.length})</td>${colonnes.length > 2 ? "<td></td>" : ""}<td>${total} cm²</td></tr></table>`
           );
         };
-        let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm");
+        let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
+          // en cours : impact pas encore passé (heure du serveur)
+          maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+          enCours = (liste) =>
+            liste.filter((e) => e.date >= maintenant).sort((a, b) => (a.date < b.date ? -1 : 1));
         $(".boite_membre")
           .last()
           .after(
             `<div id='o_chassesPartagees' class='boite_membre'>` +
               tableau(
-                `Chasses partagées avec la ${Utils.alliance}`,
-                c.chasses,
+                `Chasses en cours partagées avec la ${Utils.alliance}`,
+                enCours(c.chasses),
                 ["Heure d'impact", "TdC chassé"],
                 (e) => [date(e), numeral(e.terrain).format() + " cm²"],
               ) +
               tableau(
-                `Floods partagés avec la ${Utils.alliance}`,
-                f.floods,
+                `Floods en cours partagés avec la ${Utils.alliance}`,
+                enCours(f.floods),
                 ["Arrivée", "Cible", "TdC floodé (estimé)"],
                 (e) => [
                   date(e),

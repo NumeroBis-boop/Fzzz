@@ -1359,7 +1359,7 @@ center > div > #tabMembresAlliance {
   justify-content: space-between;
   box-sizing: border-box !important;
   margin: 0 0 6px 0 !important;
-  padding: 2px 8px !important;
+  padding: 2px 6px !important;
   background: #d7c384 !important;
   border: 1px solid #8b7440;
   border-radius: 6px;
@@ -1368,11 +1368,12 @@ center > div > #tabMembresAlliance {
   font-family: inherit;
   text-shadow: none !important;
   white-space: nowrap;
-  gap: 10px;
+  gap: 0.4em;
+  overflow: hidden;
   z-index: 10;
 }
 #o_horloge #o_horlogeHeure {
-  font-size: 22px;
+  font-size: 1em;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
@@ -1384,22 +1385,22 @@ center > div > #tabMembresAlliance {
 #o_horloge .o_horlogeLatence {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 12px;
+  gap: 0.2em;
+  font-size: 0.6em;
   white-space: nowrap;
   color: #3a2a0c !important;
 }
 #o_horloge .o_horlogeLatence button {
-  width: 18px;
-  height: 18px;
+  width: 1.5em;
+  height: 1.5em;
   margin: 0;
   padding: 0;
   border: 1px solid #8b7440;
   border-radius: 3px;
   background: #f1e6c2;
   color: #3a2a0c;
-  font-size: 13px;
-  line-height: 15px;
+  font-size: 1em;
+  line-height: 1em;
   cursor: pointer;
 }
 #o_horloge .o_horlogeLatence button:hover {
@@ -1407,7 +1408,7 @@ center > div > #tabMembresAlliance {
 }
 #o_horloge #o_latenceValeur {
   display: inline-block;
-  min-width: 42px;
+  min-width: 3.4em;
   text-align: center;
 }
 
@@ -1425,6 +1426,28 @@ center > div > #tabMembresAlliance {
   border-radius: 0 0 6px 6px;
   background: #d7c384;
   color: #3a2a0c;
+}
+#o_fdfArmesBandeau {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 8px 0;
+  padding: 5px 10px;
+  border: 1px solid #8b7440;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  background: #d7c384;
+  color: #3a2a0c;
+  font-weight: bold;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+#o_fdfArmesBandeau:hover {
+  background: #cfb978;
+}
+#o_fdfArmesBandeau.o_ouvert {
+  margin-bottom: 0;
+  border-radius: 0;
 }
 #o_fdfArmes p {
   margin: 0 0 4px 0;

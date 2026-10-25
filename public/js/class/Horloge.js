@@ -164,13 +164,18 @@ class Horloge {
             droite = Math.max(droite, r.right);
           }
         });
-      $("#o_horloge").css({
+      let $h = $("#o_horloge").css({
         left: gauche - boite.left + "px",
-        width: "auto",
-        minWidth: droite - gauche + "px",
+        width: droite - gauche + "px",
+        minWidth: 0,
         right: "auto",
         float: "none",
       });
+      // police réduite jusqu'à ce que l'heure et la latence tiennent dans le cadre
+      for (let taille = 20; taille >= 10; taille--) {
+        $h.css("font-size", taille + "px");
+        if ($h[0].scrollWidth <= $h[0].clientWidth) break;
+      }
     };
     caler();
     // recalage une fois les images et polices du jeu chargées

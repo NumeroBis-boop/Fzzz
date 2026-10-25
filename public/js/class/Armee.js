@@ -531,18 +531,44 @@ class Armee {
     return donnees;
   }
   /**
+   * Lance une chasse avec un jeton de sécurité neuf : le jeu n'accepte chaque
+   * jeton qu'une fois, réutiliser celui de la première chasse faisait refuser
+   * toutes les suivantes. Résout le texte de la réponse ("" en cas d'échec).
+   *
+   * @static
+   * @method posterChasse
+   * @param {Integer} terrainChasse
+   * @param {Array} unites nombre par unité, ordre d'Armee.unite
+   * @return {Promise<String>}
+   */
+  static posterChasse(terrainChasse, unites) {
+    return Promise.resolve($.ajax({ url: location.origin + "/AcquerirTerrain.php", cache: false }))
+      .then((page) => {
+        // id="t" est à la fois la table principale et l'input du jeton : on vise l'input
+        let jeton = Utils.parseHtml(page).find("input[name='t']");
+        if (!jeton.attr("name")) throw new Error("jeton introuvable");
+        return $.post(
+          location.origin + "/AcquerirTerrain.php",
+          Armee.donneesChasse(
+            terrainChasse,
+            unites,
+            jeton.attr("name") + "=" + jeton.attr("value"),
+          ),
+        );
+      })
+      .then((data) => String(data))
+      .catch(() => "");
+  }
+  /**
    * Envoie une chasse.
    *
    * @private
    * @method envoyerChasse
    * @param {Integer} indice
-   * @param {String} securite
    */
-  envoyerChasse(terrainChasse, nbChasse, indice, intervalle, securite) {
+  envoyerChasse(terrainChasse, nbChasse, indice, intervalle) {
     if (indice < nbChasse) {
-      let donnees = Armee.donneesChasse(terrainChasse, this._repartition[indice], securite);
-      // Requete
-      $.post(location.origin + "/AcquerirTerrain.php", donnees, (data) => {
+      Armee.posterChasse(terrainChasse, this._repartition[indice]).then((data) => {
         if (data.indexOf("La chasse est lancée.") > -1) {
           TroupesDehors.enregistrerChasse(this._repartition[indice]);
           $("#o_simulationChasse tr:eq(" + (indice + 1) + ")").html(
@@ -553,7 +579,7 @@ class Armee {
             `<td class='red'>${indice + 1}</td><td colspan='14' class='red'>La chasse n'a pas pu être lancée.</td>`,
           );
         setTimeout(() => {
-          this.envoyerChasse(terrainChasse, nbChasse, ++indice, intervalle, securite);
+          this.envoyerChasse(terrainChasse, nbChasse, ++indice, intervalle);
         }, intervalle);
       });
     } else // on a fini, on recharge la page

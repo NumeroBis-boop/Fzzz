@@ -287,22 +287,8 @@ class PageRessource {
         let terrainChasse = $("#o_chasseTDCRep").spinner("value"),
           nbChasse = $("#o_chasseNbr").spinner("value"),
           intervalle = $("#o_chasseInt").val() * 1000;
-        $.ajax({
-          url: location.origin + "/AcquerirTerrain.php",
-        }).then((data) => {
-          let parsed = Utils.parseHtml(data);
-          // AcquerirTerrain.php a un id="t" sur la <table> principale ET sur l'<input> du token CSRF.
-          // find("#t:last") matche aussi la table (qui n'a ni name ni value), donc on cible
-          // explicitement l'input via [name='t'] pour récupérer le bon token.
-          let tokenInput = parsed.find("input[name='t']");
-          this._armee.envoyerChasse(
-            terrainChasse,
-            nbChasse,
-            0,
-            intervalle,
-            tokenInput.attr("name") + "=" + tokenInput.attr("value"),
-          );
-        });
+        // chaque chasse relit un jeton neuf (Armee.posterChasse)
+        this._armee.envoyerChasse(terrainChasse, nbChasse, 0, intervalle);
       } else
         $.toast({
           ...TOAST_ERROR,

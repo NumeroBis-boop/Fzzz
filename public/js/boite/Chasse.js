@@ -703,20 +703,14 @@ class BoiteChasse extends Boite {
     $("#o_scLancer").prop("disabled", true);
     $("#o_scForm").css({ opacity: 0.6, "pointer-events": "none" });
     $("#o_scLancerInfo").html("<em>Lancement en cours, restez sur la page…</em>");
-    $.ajax({ url: location.origin + "/AcquerirTerrain.php" }).then(
-      (data) => {
-        // id="t" est à la fois la table principale et l'input du jeton : on vise l'input
-        let jeton = Utils.parseHtml(data).find("input[name='t']");
-        this._envoyerChasse(s, 0, jeton.attr("name") + "=" + jeton.attr("value"));
-      },
-      () => this._finLancement(0, s.nombre),
-    );
+    // chaque chasse relit un jeton neuf (Armee.posterChasse)
+    this._envoyerChasse(s, 0);
   }
   /**
    * @private
    * @method _envoyerChasse
    */
-  _envoyerChasse(s, i, securite) {
+  _envoyerChasse(s, i) {
     if (i >= s.nombre) return this._finLancement(i, s.nombre);
     let marquer = (ok) => {
       if (ok) TroupesDehors.enregistrerChasse(s.chasses[i].unites);
@@ -724,15 +718,11 @@ class BoiteChasse extends Boite {
         .addClass(ok ? "green" : "red")
         .find("td:first")
         .text(`${ok ? "✓" : "✗"} ${i + 1}`);
-      if (ok) setTimeout(() => this._envoyerChasse(s, i + 1, securite), 2000);
+      if (ok) setTimeout(() => this._envoyerChasse(s, i + 1), 2000);
       else this._finLancement(i, s.nombre);
     };
-    $.post(
-      location.origin + "/AcquerirTerrain.php",
-      Armee.donneesChasse(s.terrain, s.chasses[i].unites, securite),
-    ).then(
-      (data) => marquer(data.indexOf("La chasse est lancée.") > -1),
-      () => marquer(false),
+    Armee.posterChasse(s.terrain, s.chasses[i].unites).then((data) =>
+      marquer(data.indexOf("La chasse est lancée.") > -1),
     );
   }
   /**

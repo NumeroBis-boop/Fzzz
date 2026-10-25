@@ -150,8 +150,13 @@ class PartageChasses {
         D = "(\\d{1,2})/(\\d{1,2})/(\\d{2,4})\\s+(\\d{1,2})[:hH](\\d{2})",
         N = "(\\d[\\d \\u00a0\\u202f.]*)\\s*cm",
         reC = new RegExp(`${D}\\s*\\|\\s*${N}`, "g"),
-        // flood : « date | cible | cm² » suivi, depuis 1.18.5, de « | #id d'attaque »
-        reF = new RegExp(`${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*${N}²?(?:\\s*\\|\\s*#(\\d+))?`, "g"),
+        // flood : « date | cible | [unités envoyées |] prise cm² [| TdC relevé] [| #id] »
+        // (unités et TdC relevé depuis 1.19 ; numéro d'attaque depuis 1.18.5)
+        U = "(\\d[\\d \\u00a0\\u202f.]*)\\s*unit[ée]s?",
+        reF = new RegExp(
+          `${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*(?:${U}\\s*\\|\\s*)?${N}²?(?:\\s*\\|\\s*TdC\\s*(\\d[\\d \\u00a0\\u202f.]*))?(?:\\s*\\|\\s*#(\\d+))?`,
+          "g",
+        ),
         // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF, lus seulement
         // si le sujet n'a aucune ligne au format actuel
         reC0 = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
@@ -166,8 +171,10 @@ class PartageChasses {
         floods.push({
           date: date(m),
           cible: m[6].trim(),
-          terrain: nombre(m[7]),
-          id: m[8] ? parseInt(m[8]) : null,
+          unites: m[7] ? nombre(m[7]) : null,
+          terrain: nombre(m[8]),
+          tdcCible: m[9] ? nombre(m[9]) : null,
+          id: m[10] ? parseInt(m[10]) : null,
         });
       // une ligne de flood contient aussi « date | … » : les chasses sont lues
       // sur le texte privé des lignes de flood
@@ -250,7 +257,7 @@ class PartageChasses {
     let date = moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm");
     return type == "Chasses"
       ? `${date} | ${numeral(e.terrain).format()} cm²`
-      : `${date} | ${e.cible} | ${numeral(e.terrain).format()} cm²${e.id ? ` | #${e.id}` : ""}`;
+      : `${date} | ${e.cible} | ${e.unites ? numeral(e.unites).format() + " unités | " : ""}${numeral(e.terrain).format()} cm²${e.tdcCible ? ` | TdC ${numeral(e.tdcCible).format()}` : ""}${e.id ? ` | #${e.id}` : ""}`;
   }
   /**
    * Bouton : désactivé pendant l'envoi, puis bilan.
@@ -315,61 +322,198 @@ class PartageChasses {
       $bouton,
       "Floods",
       captures
-        .filter(
-          (c) =>
-            c &&
-            c.arrivee &&
-            /terrain/i.test(c.lieu || "") &&
-            c.terrainDepart != null &&
-            c.terrainCible != null &&
-            c.terrainDepart > c.terrainCible,
-        )
-        .map((c) => ({
-          // minute du RC (celle où le terrain change), comme le tableau des attaques
-          date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
-          cible: c.cible,
-          terrain: c.terrainDepart - c.terrainCible,
-          id: c.id,
-        })),
+        .filter((c) => c && c.arrivee && /terrain/i.test(c.lieu || ""))
+        .map((c) => {
+          let unites = Object.values(c.unite || {}).reduce((t, n) => t + (n || 0), 0),
+            estimee =
+              c.terrainDepart != null && c.terrainCible != null
+                ? c.terrainDepart - c.terrainCible
+                : null;
+          return {
+            // minute du RC (celle où le terrain change), comme le tableau des attaques
+            date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
+            cible: c.cible,
+            // unités envoyées et prise estimée au lancement (règle des 20 %) ;
+            // les synthèses recalculent la prise à l'impact (PartageChasses.simuler)
+            unites: unites || null,
+            terrain: estimee != null ? estimee : unites,
+            // TdC de la cible connu au lancement (profil ou saisie du lanceur de flood)
+            tdcCible: c.terrainConnu || c.terrainDepart || null,
+            id: c.id,
+          };
+        })
+        .filter((e) => e.terrain > 0),
     );
   }
   /**
-   * Floods partagés depuis ou vers un joueur, lus dans les sujets « Floods » de
-   * tous les membres (par paquets de 4) : delta < 0 pour une perte (flood
-   * reçu), > 0 pour une prise (flood envoyé).
+   * Lit dans le forum les chasses (des joueurs demandés, ou de tous) et les
+   * floods de tous les membres, par paquets de 4 sujets.
    *
-   * @private
-   * @param {Array} sujetsFloods [{pseudo, id}]
-   * @param {String} cible pseudo en minuscules
+   * @static
+   * @method charger
+   * @param {Array|null} chassesDe pseudos dont lire les chasses (null : tous)
+   * @return {Promise<Object>} {chasses: {pseudo minuscule: [...]}, floods: [... avec lanceur]}
    */
-  static _floods(sujetsFloods, cible) {
-    let floods = [],
-      lirePaquet = (k) =>
-        k >= sujetsFloods.length
-          ? Promise.resolve()
-          : Promise.all(
-              sujetsFloods.slice(k, k + 4).map((t) =>
-                PartageChasses.lireSujet(t.id)
-                  .then((d) =>
-                    d.floods.forEach((e) => {
-                      // vers le joueur : perte ; depuis le joueur : prise
-                      let vers = e.cible.toLowerCase() == cible,
-                        depuis = t.pseudo.toLowerCase() == cible;
-                      if (vers != depuis)
-                        floods.push({
-                          ...e,
-                          lanceur: t.pseudo,
-                          delta: vers ? -e.terrain : e.terrain,
-                        });
-                    }),
-                  )
-                  .catch(() => {}),
-              ),
-            ).then(() => lirePaquet(k + 4));
-    return lirePaquet(0).then(() => floods);
+  static charger(chassesDe = null) {
+    return PartageChasses.sujets().then((sujets) => {
+      let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
+        liste = sujets.liste.filter(
+          (t) => t.type == "Floods" || !voulus || voulus.includes(t.pseudo.toLowerCase()),
+        ),
+        d = { chasses: {}, floods: [] },
+        lirePaquet = (k) =>
+          k >= liste.length
+            ? Promise.resolve()
+            : Promise.all(
+                liste.slice(k, k + 4).map((t) =>
+                  PartageChasses.lireSujet(t.id)
+                    .then((r) => {
+                      if (t.type == "Chasses") d.chasses[t.pseudo.toLowerCase()] = r.chasses;
+                      else r.floods.forEach((e) => d.floods.push({ ...e, lanceur: t.pseudo }));
+                    })
+                    .catch(() => {}),
+                ),
+              ).then(() => lirePaquet(k + 4));
+      return lirePaquet(0).then(() => d);
+    });
   }
   /**
-   * Armee.php : floods en cours sur le joueur, au-dessus de « Troupes en Garnison ».
+   * Rejoue dans l'ordre d'arrivée les chasses et floods partagés à venir, en
+   * suivant le TdC de chaque joueur concerné, pour estimer la prise réelle de
+   * chaque flood à l'impact :
+   *  - prise = min(unités envoyées, ⌊20 % du TdC de la cible à l'impact⌋) ;
+   *  - aucune prise si, à l'impact, la cible n'est plus à portée du lanceur
+   *    (TdC entre 50 % + 1 et 300 % − 1 de celui du lanceur, la règle de
+   *    lancement du jeu ; c'est l'« opti-flood raté ») ;
+   *  - TdC connus : ceux de la page (paramètre `connus`), sinon, pour une
+   *    cible, le TdC relevé au lancement du flood le plus récent sur elle ;
+   *    sans TdC connu pour la cible, la prise estimée au lancement est gardée.
+   * À minute égale : les chasses d'abord, puis les floods dans l'ordre d'envoi.
+   *
+   * @static
+   * @method simuler
+   * @param {Object} d résultat de charger()
+   * @param {Object} connus {pseudo: TdC actuel}
+   * @return {Object} {evenements: [...], depart: {pseudo minuscule: TdC}}
+   */
+  static simuler(d, connus = {}) {
+    let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+      tdc = {},
+      releve = {};
+    for (let p in connus) if (connus[p] > 0) tdc[p.toLowerCase()] = connus[p];
+    d.floods.forEach((f) => {
+      let c = f.cible.toLowerCase();
+      if (f.tdcCible > 0 && (!releve[c] || (f.id || 0) >= releve[c].id))
+        releve[c] = { id: f.id || 0, tdc: f.tdcCible };
+    });
+    for (let c in releve) if (tdc[c] == null) tdc[c] = releve[c].tdc;
+    let depart = { ...tdc },
+      evts = [];
+    for (let p in d.chasses)
+      (d.chasses[p] || []).forEach((e) =>
+        evts.push({ type: "chasse", date: e.date, joueur: p, terrain: e.terrain, id: 0 }),
+      );
+    d.floods.forEach((f) => evts.push({ ...f, type: "flood", id: f.id || 0 }));
+    evts = evts
+      .filter((e) => e.date >= maintenant)
+      .sort((a, b) =>
+        a.date < b.date
+          ? -1
+          : a.date > b.date
+            ? 1
+            : a.type != b.type
+              ? a.type == "chasse"
+                ? -1
+                : 1
+              : a.id - b.id,
+      );
+    evts.forEach((e) => {
+      if (e.type == "chasse") {
+        e.prise = e.terrain;
+        if (tdc[e.joueur] != null) tdc[e.joueur] += e.terrain;
+        e.tdcApres = tdc[e.joueur];
+        return;
+      }
+      let c = e.cible.toLowerCase(),
+        l = e.lanceur.toLowerCase(),
+        tc = tdc[c],
+        tl = tdc[l],
+        envoi = e.unites != null ? e.unites : e.terrain;
+      e.tdcCibleAvant = tc;
+      if (tc == null) {
+        // TdC de la cible inconnu : prise estimée au lancement
+        e.prise = e.terrain;
+        e.statut = "inconnu";
+      } else if (tl != null && (tc < tl * 0.5 + 1 || tc > tl * 3 - 1)) {
+        e.prise = 0;
+        e.statut = "portee";
+      } else {
+        let plafond = Math.floor(tc * 0.2);
+        e.prise = Math.min(envoi, plafond);
+        e.statut = envoi > plafond ? "plafond" : "ok";
+      }
+      if (tc != null) tdc[c] = tc - e.prise;
+      if (tl != null) tdc[l] = tl + e.prise;
+      e.tdcCibleApres = tdc[c];
+      e.tdcLanceurApres = tdc[l];
+    });
+    return { evenements: evts, depart: depart };
+  }
+  /**
+   * Variations à venir d'un joueur d'après une simulation : une ligne par
+   * chasse ou par flood (même à la même minute), dans l'ordre.
+   *
+   * @static
+   * @method chronologie
+   * @return {Array} [{date, delta, unites, autre, statut, flood}]
+   */
+  static chronologie(sim, pseudo) {
+    let p = pseudo.toLowerCase(),
+      lignes = [];
+    sim.evenements.forEach((e) => {
+      if (e.type == "chasse") {
+        if (e.joueur == p)
+          lignes.push({ date: e.date, delta: e.prise, autre: "Chasse", flood: false });
+        return;
+      }
+      let vers = e.cible.toLowerCase() == p,
+        depuis = e.lanceur.toLowerCase() == p;
+      if (vers == depuis) return;
+      lignes.push({
+        date: e.date,
+        delta: vers ? -e.prise : e.prise,
+        unites: e.unites,
+        autre: vers ? e.lanceur : e.cible,
+        lanceur: e.lanceur,
+        cible: e.cible,
+        statut: e.statut,
+        flood: true,
+      });
+    });
+    return lignes;
+  }
+  /**
+   * Prise signée et colorée, avec la raison quand elle diffère des unités
+   * envoyées : « (20 %) » plafonnée, « hors portée », « ~ » estimée au lancement.
+   *
+   * @static
+   * @method libellePrise
+   */
+  static libellePrise(v, unite = " cm²") {
+    let html =
+      v.delta == 0
+        ? `<span>0${unite}</span>`
+        : `<span class='${v.delta > 0 ? "o_varPos" : "o_varNeg"}'>${v.delta > 0 ? "+" : "−"}${v.statut == "inconnu" ? "~" : ""}${numeral(Math.abs(v.delta)).format()}${unite}</span>`;
+    if (v.statut == "plafond") html += " <small class='o_priseNote'>(20 %)</small>";
+    else if (v.statut == "portee")
+      html +=
+        " <small class='o_priseNote' title='À l&#39;impact, la cible n&#39;est plus à portée (50 % à 300 % du TdC du lanceur) : opti-flood raté'>(hors portée)</small>";
+    return html;
+  }
+  /**
+   * Armee.php : floods en cours sur le joueur, au-dessus de « Troupes en
+   * Garnison » : unités envoyées et TdC qu'ils prendront à l'impact
+   * (simulation avec le TdC actuel du joueur et ses chasses partagées).
    *
    * @static
    * @method afficherArmee
@@ -388,26 +532,23 @@ class PartageChasses {
         .first();
     if (!moi || !$titre.length) return;
     let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
-    PartageChasses.sujets()
-      .then((sujets) =>
-        PartageChasses._floods(
-          sujets.liste.filter((t) => t.type == "Floods"),
-          moi.toLowerCase(),
-        ),
-      )
-      .then((floods) => {
-        let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-          recus = floods
-            .filter((e) => e.delta < 0 && e.date >= maintenant)
-            .sort((a, b) => (a.date < b.date ? -1 : 1)),
+    PartageChasses.charger([moi])
+      .then((d) => {
+        let sim = PartageChasses.simuler(d, { [moi]: Utils.terrain }),
+          recus = PartageChasses.chronologie(sim, moi).filter(
+            (v) => v.flood && v.delta <= 0 && v.cible.toLowerCase() == moi.toLowerCase(),
+          ),
           html = "";
         if (!recus.length) html += "<p>Aucun flood partagé en cours sur toi.</p>";
         else {
-          html += `<table class='o_attaquesLancees o_maxWidth centre' cellspacing='0'><thead><tr><th>#</th><th>Arrivée</th><th>TdC (estimé)</th><th>Lanceur</th></tr></thead><tbody>`;
-          recus.forEach((e, i) => {
-            html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td><td>${moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td><span class='o_varNeg'>−${numeral(e.terrain).format()} cm²</span></td><td><a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a></td></tr>`;
+          html += `<table class='o_attaquesLancees o_maxWidth centre' cellspacing='0'><thead><tr><th>#</th><th>Arrivée</th><th>Unités envoyées</th><th>TdC perdu (estimé)</th><th>Lanceur</th></tr></thead><tbody>`;
+          recus.forEach((v, i) => {
+            html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${v.unites != null ? numeral(v.unites).format() : "?"}</td><td>${PartageChasses.libellePrise(v)}</td><td><a href='Membre.php?Pseudo=${encodeURIComponent(v.lanceur)}'>${v.lanceur}</a></td></tr>`;
           });
-          html += `<tr class='o_syntheseTotal'><td></td><td>Total (${recus.length})</td><td><span class='o_varNeg'>−${numeral(recus.reduce((t, e) => t + e.terrain, 0)).format()} cm²</span></td><td></td></tr></tbody></table>`;
+          let unites = recus.reduce((t, v) => t + (v.unites || 0), 0),
+            perte = recus.reduce((t, v) => t + v.delta, 0);
+          html += `<tr class='o_syntheseTotal'><td></td><td>Total (${recus.length})</td><td>${numeral(unites).format()}</td><td>${PartageChasses.libellePrise({ delta: perte })}</td><td></td></tr></tbody></table>
+            <p class='reduce'><em>Prise estimée à l'impact : au plus 20 % de ton TdC à ce moment, rien si tu sors de la portée du lanceur.</em></p>`;
         }
         $("#o_floodsRecus").remove();
         $ancre.before(
@@ -424,80 +565,52 @@ class PartageChasses {
       .catch(() => {});
   }
   /**
-   * Page membre : chasses et floods partagés par le joueur consulté.
+   * Page membre : chasses et floods partagés du joueur consulté, et évolution
+   * de son TdC (unités envoyées et prise estimée à l'impact pour chaque flood).
    *
    * @static
    * @method afficherProfil
    */
   static afficherProfil(pseudo, terrain) {
     if (!Utils.affichage("profilPartages")) return;
-    let cible = pseudo.toLowerCase();
-    PartageChasses.sujets()
-      .then((sujets) => {
-        let idChasses = sujets[`Chasses | ${cible}`],
-          sujetsFloods = sujets.liste.filter((t) => t.type == "Floods");
-        // chasses du joueur affiché ; floods de tous les membres dirigés vers lui
-        // (lecture des sujets « Floods » par paquets de 4, à chaque affichage :
-        // une correction faite dans le forum est donc prise en compte)
-        return Promise.all([
-          idChasses ? PartageChasses.lireSujet(idChasses).then((d) => d.chasses) : [],
-          PartageChasses._floods(sujetsFloods, cible),
-        ]);
-      })
-      .then(([chasses, floods]) => {
-        let tableau = (titre, entrees, colonnes, cellules) => {
-          let titreHtml = `<h3 class='o_partageTitre'>${titre} (${entrees.length})</h3>`;
-          if (!entrees.length) return titreHtml + "<p class='centre'>Aucun partage en cours.</p>";
-          let html =
-            titreHtml +
-            `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
-          entrees.forEach((e, i) => {
-            html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(e)
-              .map((t) => `<td>${t}</td>`)
-              .join("")}</tr>`;
-          });
-          let somme = entrees.reduce((t, e) => t + (e.delta != null ? e.delta : e.terrain), 0),
-            total = entrees.some((e) => e.delta != null)
-              ? signe(somme)
-              : `${numeral(somme).format()} cm²`;
-          return (
-            html +
-            `<tr class='o_syntheseTotal'><td>Total (${entrees.length})</td><td>${total}</td>${colonnes.length > 2 ? "<td></td>" : ""}</tr></table>`
-          );
-        };
-        // « +2 340 cm² » en vert, « −2 340 cm² » en rouge
-        function signe(v, unite = " cm²") {
-          return `<span class='${v >= 0 ? "o_varPos" : "o_varNeg"}'>${v >= 0 ? "+" : "−"}${numeral(Math.abs(v)).format()}${unite}</span>`;
-        }
-        let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
-          // en cours : impact pas encore passé (heure du serveur)
-          maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-          enCours = (liste) =>
-            liste.filter((e) => e.date >= maintenant).sort((a, b) => (a.date < b.date ? -1 : 1));
-        // synthèse : TdC du joueur après chaque minute où il varie (chasse +, flood −)
-        // une ligne par chasse ou par flood, même à la même minute (multi-flood)
-        let variations = enCours(chasses)
-          .map((e) => ({ date: e.date, delta: e.terrain, autre: "Chasse" }))
-          .concat(
-            enCours(floods).map((e) => ({
-              date: e.date,
-              delta: e.delta,
-              autre: e.delta < 0 ? e.lanceur : e.cible,
-              id: e.id || 0,
-            })),
-          )
-          // à minute égale : dans l'ordre d'envoi (numéro d'attaque)
-          .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.id || 0) - (b.id || 0)));
+    // chasses du joueur affiché (et les miennes, qui comptent pour mes floods) ;
+    // floods de tous les membres : à chaque affichage, une correction faite dans
+    // le forum est prise en compte
+    PartageChasses.charger([pseudo, monProfil.pseudo])
+      .then((d) => {
+        let connus = { [pseudo]: terrain };
+        if (monProfil.pseudo && Utils.terrain) connus[monProfil.pseudo] = Utils.terrain;
+        let sim = PartageChasses.simuler(d, connus),
+          vars = PartageChasses.chronologie(sim, pseudo),
+          chasses = vars.filter((v) => !v.flood),
+          floods = vars.filter((v) => v.flood),
+          date = (v) => moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
+          lien = (p) => `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}'>${p}</a>`,
+          tableau = (titre, lignes, colonnes, cellules, total) => {
+            let html = `<h3 class='o_partageTitre'>${titre} (${lignes.length})</h3>`;
+            if (!lignes.length) return html + "<p class='centre'>Aucun partage en cours.</p>";
+            html += `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
+            lignes.forEach((v, i) => {
+              html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(v)
+                .map((t) => `<td>${t}</td>`)
+                .join("")}</tr>`;
+            });
+            return (
+              html +
+              `<tr class='o_syntheseTotal'>${total.map((t) => `<td>${t}</td>`).join("")}</tr></table>`
+            );
+          };
         let synthese = "";
-        if (variations.length && terrain > 0) {
+        if (vars.length && terrain > 0) {
           let tdc = terrain,
             lignes = [
-              `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td></tr>`,
+              `<tr class='o_partageEntete'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Avec</td></tr>`,
+              `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
             ];
-          variations.forEach((v) => {
+          vars.forEach((v) => {
             tdc += v.delta;
             lignes.push(
-              `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${signe(v.delta, "")})</td><td class='o_allInfoCible'>${v.autre}</td></tr>`,
+              `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${v.autre}</td></tr>`,
             );
           });
           synthese =
@@ -505,9 +618,11 @@ class PartageChasses {
             `<div class='o_partageSynthese'>` +
             `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
               <table class='centre' cellspacing='0'>${lignes.join("")}</table>
-              <p class='o_partageAvertissement'><em>En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p>` +
+              <p class='o_partageAvertissement'><em>Prise de chaque flood estimée à l'impact : au plus 20 % du TdC de la cible à ce moment, rien si la cible n'est plus à portée du lanceur. En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p>` +
             "</div>";
         }
+        let unitesFloods = floods.reduce((t, v) => t + (v.unites || 0), 0),
+          netFloods = floods.reduce((t, v) => t + v.delta, 0);
         $("#o_chassesPartagees").remove();
         // entre le bloc « Action » et la suite de la page
         let $action = $(".boite_membre").filter((i, e) => /^\s*Action/.test($(e).text()));
@@ -518,19 +633,30 @@ class PartageChasses {
               `Chasses et floods en cours partagés avec la ${Utils.alliance}`,
               tableau(
                 `Chasses en cours partagées avec la ${Utils.alliance}`,
-                enCours(chasses),
+                chasses,
                 ["Heure d'impact", "TdC chassé"],
-                (e) => [date(e), numeral(e.terrain).format() + " cm²"],
+                (v) => [date(v), numeral(v.delta).format() + " cm²"],
+                [
+                  `Total (${chasses.length})`,
+                  numeral(chasses.reduce((t, v) => t + v.delta, 0)).format() + " cm²",
+                ],
               ) +
                 "<div class='o_partageSeparation'></div>" +
                 tableau(
                   `Floods en cours depuis ou vers ${pseudo} partagés avec la ${Utils.alliance}`,
-                  enCours(floods),
-                  ["Arrivée", "TdC (estimé)", "Lanceur → cible"],
-                  (e) => [
-                    date(e),
-                    signe(e.delta),
-                    `<a href='Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}'>${e.lanceur}</a> → <a href='Membre.php?Pseudo=${encodeURIComponent(e.cible)}'>${e.cible}</a>`,
+                  floods,
+                  ["Arrivée", "Unités envoyées", "TdC pris (estimé)", "Lanceur → cible"],
+                  (v) => [
+                    date(v),
+                    v.unites != null ? numeral(v.unites).format() : "?",
+                    PartageChasses.libellePrise(v),
+                    `${lien(v.lanceur)} → ${lien(v.cible)}`,
+                  ],
+                  [
+                    `Total (${floods.length})`,
+                    numeral(unitesFloods).format(),
+                    PartageChasses.libellePrise({ delta: netFloods }),
+                    "",
                   ],
                 ) +
                 synthese,

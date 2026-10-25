@@ -1888,13 +1888,16 @@ tr.en_tete_message > td.td_coche {
 }
 #tabMembresAlliance .o_allCol0,
 #tabMembresAlliance .o_allCol1,
-#tabMembresAlliance .o_allCol3 {
+#tabMembresAlliance .o_allCol2,
+#tabMembresAlliance .o_allCol4 {
   white-space: nowrap;
   /* DataTables fige des largeurs en ligne à l'initialisation : on les écrase */
   width: 1% !important;
 }
 #tabMembresAlliance th.o_allCol0,
-#tabMembresAlliance th.o_allCol3 {
+#tabMembresAlliance th.o_allCol1,
+#tabMembresAlliance th.o_allCol2,
+#tabMembresAlliance th.o_allCol4 {
   white-space: normal;
 }
 #tabMembresAlliance .o_allRang {
@@ -1924,7 +1927,8 @@ tr.en_tete_message > td.td_coche {
 }
 #tabMembresAlliance.o_allMesure .o_allCol0,
 #tabMembresAlliance.o_allMesure .o_allCol1,
-#tabMembresAlliance.o_allMesure .o_allCol3 {
+#tabMembresAlliance.o_allMesure .o_allCol2,
+#tabMembresAlliance.o_allMesure .o_allCol4 {
   width: auto !important;
 }
 #o_allInfobulle .o_allInfoCible {
@@ -1933,4 +1937,10 @@ tr.en_tete_message > td.td_coche {
 #o_chassesPartagees .o_allInfoCible {
   font-style: italic;
   padding-left: 6px;
+}
+/* Fzzz : précision sur une prise de flood (plafond des 20 %, hors portée) */
+.o_priseNote {
+  font-size: 0.8em;
+  font-style: italic;
+  opacity: 0.85;
 }

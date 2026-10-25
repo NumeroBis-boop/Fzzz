@@ -6,7 +6,8 @@
 // colonnes ajoutées en fin de ligne au tableau des membres
 const ALLIANCE_COLONNES_FZZZ = [
   "Prochaine<br/>variation",
-  "Montant",
+  "Unités<br/>envoyées",
+  "TdC<br/>(estimé)",
   "Joueur cible",
   "TdC<br/>final",
 ];
@@ -36,7 +37,7 @@ class AllianceFzzz {
     $t.find("tbody tr").each((i, tr) => $(tr).find("td:eq(2)").addClass("o_allRang"));
     $t.find("tbody tr").each((i, tr) => {
       $(tr).append(
-        `<td class='o_allVar o_allCol0' data-order='99999999'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allCible o_allCol2'></td><td class='o_allFinal o_allCol3' data-order='0'></td>`,
+        `<td class='o_allVar o_allCol0' data-order='99999999'>…</td><td class='o_allUnites o_allCol1' data-order='0'></td><td class='o_allMontant o_allCol2' data-order='0'></td><td class='o_allCible o_allCol3'></td><td class='o_allFinal o_allCol4' data-order='0'></td>`,
       );
     });
     // ligne des totaux (pied fusionné sur toutes les colonnes) déplacée sous le
@@ -62,7 +63,8 @@ class AllianceFzzz {
     let api = $("#tabMembresAlliance").DataTable(),
       // nombre de colonnes lu dans les réglages : columns() sans sélecteur plante en 1.10.16
       n = api.settings()[0].aoColumns.length,
-      fzzz = [n - 4, n - 3, n - 2, n - 1],
+      k = ALLIANCE_COLONNES_FZZZ.length,
+      fzzz = [...Array(k).keys()].map((i) => n - k + i),
       trajet = avecTrajet ? [9, 10] : [],
       // colonne de numérotation du jeu (1, 2, 3…) : masquée dans toutes les vues
       numero = [0, 1].find((c) =>
@@ -153,64 +155,14 @@ class AllianceFzzz {
    * @private
    */
   static _charger(api) {
-    PartageChasses.sujets()
-      .then((sujets) => {
-        let chasses = {},
-          floods = [],
-          liste = sujets.liste,
-          lirePaquet = (k) =>
-            k >= liste.length
-              ? Promise.resolve()
-              : Promise.all(
-                  liste.slice(k, k + 4).map((t) =>
-                    PartageChasses.lireSujet(t.id)
-                      .then((d) => {
-                        if (t.type == "Chasses") chasses[t.pseudo.toLowerCase()] = d.chasses;
-                        else d.floods.forEach((e) => floods.push({ ...e, lanceur: t.pseudo }));
-                      })
-                      .catch(() => {}),
-                  ),
-                ).then(() => lirePaquet(k + 4));
-        return lirePaquet(0).then(() => ({ chasses: chasses, floods: floods }));
-      })
+    PartageChasses.charger()
       .then((d) => AllianceFzzz._remplir(api, d))
       .catch(() => {
         let n = api.settings()[0].aoColumns.length;
-        api.rows()[0].forEach((r) => $(api.cell(r, n - 4).node()).text("—"));
+        api
+          .rows()[0]
+          .forEach((r) => $(api.cell(r, n - ALLIANCE_COLONNES_FZZZ.length).node()).text("—"));
       });
-  }
-  /**
-   * Variations futures d'un joueur, regroupées par minute :
-   * [{date, delta, autres: [libellés]}], dans l'ordre.
-   *
-   * @static
-   * @method variations
-   */
-  static variations(pseudo, d) {
-    let p = pseudo.toLowerCase(),
-      maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-      evts = [];
-    (d.chasses[p] || []).forEach((e) =>
-      evts.push({ date: e.date, delta: e.terrain, autre: "Chasse" }),
-    );
-    d.floods.forEach((e) => {
-      let vers = e.cible.toLowerCase() == p,
-        depuis = e.lanceur.toLowerCase() == p;
-      if (vers == depuis) return;
-      // flood envoyé : la cible ; flood reçu : le lanceur
-      evts.push({
-        date: e.date,
-        delta: vers ? -e.terrain : e.terrain,
-        autre: vers ? e.lanceur : e.cible,
-        id: e.id,
-      });
-    });
-    // une ligne par chasse ou par flood, même à la même minute (multi-flood) :
-    // chaque montant envoyé reste visible
-    return evts
-      .filter((e) => e.date >= maintenant)
-      .map((e) => ({ date: e.date, delta: e.delta, autres: [e.autre], id: e.id || 0 }))
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
   }
   /**
    * @private
@@ -226,37 +178,49 @@ class AllianceFzzz {
     if (!$info.length) $info = $("<div id='o_allInfobulle'></div>").appendTo("body").hide();
     // cellules lues par l'API : celles des colonnes masquées ne sont pas dans la page
     let n = api.settings()[0].aoColumns.length,
-      cellule = (r, c) => $(api.cell(r, c).node());
+      k = ALLIANCE_COLONNES_FZZZ.length,
+      cellule = (r, c) => $(api.cell(r, c).node()),
+      connus = {};
+    // TdC actuels des membres (tableau du jeu) : base de la simulation des prises
+    api.rows()[0].forEach((r) => {
+      connus[cellule(r, 3).text().trim()] = numeral(cellule(r, 5).text()).value() || 0;
+    });
+    let sim = PartageChasses.simuler(d, connus);
     api.rows()[0].forEach((r) => {
       let $tr = $(api.row(r).node()),
         pseudo = cellule(r, 3).text().trim(),
-        terrain = numeral(cellule(r, 5).text()).value() || 0,
-        vars = AllianceFzzz.variations(pseudo, d),
+        terrain = connus[pseudo],
+        vars = PartageChasses.chronologie(sim, pseudo),
         final = terrain + vars.reduce((t, v) => t + v.delta, 0),
         p = vars[0];
-      cellule(r, n - 4)
+      cellule(r, n - k)
         .attr("data-order", p ? moment(p.date, "YYYY-MM-DD HH:mm").unix() : 99999999)
         .toggleClass("o_allVide", !p)
         .html(p ? moment(p.date, "YYYY-MM-DD HH:mm").format("DD/MM HH:mm") : "—");
-      cellule(r, n - 3)
+      cellule(r, n - k + 1)
+        .attr("data-order", p && p.flood && p.unites != null ? p.unites : 0)
+        .toggleClass("o_allVide", !(p && p.flood))
+        .html(p && p.flood ? (p.unites != null ? numeral(p.unites).format() : "?") : "—");
+      cellule(r, n - k + 2)
         .attr("data-order", p ? p.delta : 0)
         .toggleClass("o_allVide", !p)
-        .html(p ? AllianceFzzz._signe(p.delta) : "—");
-      cellule(r, n - 2)
+        .html(p ? PartageChasses.libellePrise(p, "") : "—");
+      cellule(r, n - k + 3)
         .toggleClass("o_allVide", !p)
-        .html(p ? p.autres.join(", ") : "—");
+        .html(p ? p.autre : "—");
       cellule(r, n - 1)
         .attr("data-order", final)
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
       let tdc = terrain,
         lignes = [
-          `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td></tr>`,
+          `<tr class='gras'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Avec</td></tr>`,
+          `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
         ];
       vars.forEach((v) => {
         tdc += v.delta;
         lignes.push(
-          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>(${AllianceFzzz._signe(v.delta)})</td><td class='o_allInfoCible'>${v.autres.join(", ")}</td></tr>`,
+          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${v.autre}</td></tr>`,
         );
       });
       let html = `<div class='gras'>${pseudo}</div>${

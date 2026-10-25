@@ -82,6 +82,9 @@ class AttaqueLancee {
         // pas encore — sinon du terrain connu au lancement
         terrainDepart: null,
         terrainCible: null,
+        // Fzzz : TdC de la cible connu au lancement (profil, ou valeur saisie
+        // dans le lanceur de flood), avant toute estimation enchaînée
+        terrainConnu: options.terrain > 0 ? options.terrain : null,
       },
       precedente = liste
         .filter((a) => a.cible == cible && a.terrainCible != null)
@@ -330,7 +333,7 @@ class AttaqueLancee {
       // type="button" obligatoire : sur la page Attaquer ce bloc est dans le
       // formulaire de lancement du jeu, un <button> nu le soumettrait
       html = `<table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">
-        <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Troupes</th><th>Lieu</th><th></th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Unités envoyées</th><th>Lieu</th><th title="Au plus 20 % du TdC de la cible à l'impact, d'après le TdC connu au lancement et tes attaques précédentes sur elle">TdC pris (estimé)</th><th></th><th></th></tr></thead>
         <tbody>`;
     attaques.forEach((a, i) => {
       html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
@@ -338,6 +341,7 @@ class AttaqueLancee {
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
         <td>${AttaqueLancee.lieu(a) || "?"}</td>
+        <td>${AttaqueLancee.priseEstimee(a)}</td>
         <td><button type="button" class="o_button o_attaqueCopier" data-i="${i}">Copier le détail</button></td>
         <td><button type="button" class="o_button f_info o_attaquePartager" data-i="${i}">Partager ce flood avec la ${tag}</button><span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span><span id="${id}Reste${i}" style="display:none;"></span></td></tr>`;
     });
@@ -436,6 +440,18 @@ class AttaqueLancee {
         // courante est la réponse du POST de lancement, un reload le rejouerait
         .finally(() => location.replace(location.pathname + location.search));
     });
+  }
+  /**
+   * Fzzz : TdC que l'attaque prendra (règle des 20 %, estimée au lancement),
+   * « — » hors terrain de chasse, « ? » si le TdC de la cible était inconnu.
+   */
+  static priseEstimee(a) {
+    let c = a.capture;
+    if (!/terrain/i.test(AttaqueLancee.lieu(a) || "")) return "—";
+    if (!c || c.terrainDepart == null || c.terrainCible == null) return "?";
+    let prise = c.terrainDepart - c.terrainCible,
+      unites = Object.values(c.unite || {}).reduce((t, n) => t + (n || 0), 0);
+    return `${numeral(prise).format()}${prise < unites ? " <small class='o_priseNote'>(20 %)</small>" : ""}`;
   }
   /**
    * Nombre total d'unités envoyées (« 2 111 »), « ? » si inconnu.

@@ -163,7 +163,7 @@ class MessagerieFzzz {
    * @private
    * @static
    */
-  static _bloc(id, libelle, contenu) {
+  static _bloc(id, libelle, contenu, aLOuverture = null) {
     let $bloc = $(`<div id='${id}' class='o_analyseRapport'>
         <button type='button' class='o_button f_info o_analyseBouton'>${libelle}</button>
         <div class='o_analyseContenu' style='display:none'>${contenu}</div>
@@ -171,7 +171,8 @@ class MessagerieFzzz {
     $bloc.find(".o_analyseBouton").on("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      $bloc.find(".o_analyseContenu").toggle();
+      let $contenu = $bloc.find(".o_analyseContenu").toggle();
+      if (aLOuverture && $contenu.is(":visible")) aLOuverture($bloc);
     });
     return $bloc;
   }
@@ -196,6 +197,7 @@ class MessagerieFzzz {
       }
       vues.push(chasse.toHTMLBilan());
       bilan.ajoute(chasse);
+      HistoriqueChasses.enregistrer($(elt).closest("tr[id^='message_']"), chasse);
     });
     $("#o_analyseChasses_" + conv).remove();
     if (!vues.length) return;
@@ -211,17 +213,20 @@ class MessagerieFzzz {
         .join("")}</select>`;
     }
     let contenu =
+        `<div class='o_analyseLigne'><div class='o_analyseGauche'>` +
         choix +
         vues
           .map(
             (v, k) =>
               `<div class='o_analyseVue'${k == vues.length - 1 ? "" : " style='display:none'"}>${v}</div>`,
           )
-          .join(""),
+          .join("") +
+        `</div><div class='o_analyseDroite'><div id='o_grapheChasses_${conv}' class='o_grapheChasses'></div><div class='o_grapheActions'></div></div></div>`,
       $bloc = MessagerieFzzz._bloc(
         "o_analyseChasses_" + conv,
         n > 1 ? `Analyser les ${n} chasses` : "Analyser la chasse",
         contenu,
+        ($b) => HistoriqueChasses.afficher($b, "o_grapheChasses_" + conv),
       );
     $messages.last().append($bloc);
     $bloc.find(".o_analyseChoix").on("change", (e) => {
@@ -405,6 +410,190 @@ class MessagerieFzzz {
     });
     $zone.on("click", (e) => {
       if (e.target === $zone[0]) $zone.remove();
+    });
+  }
+}
+
+/**
+ * Historique local des chasses analysées (par serveur) et graphe des pertes
+ * par million de cm² chassés sur les 15 dernières.
+ *
+ * Chaque chasse ouverte dans la messagerie est mémorisée. Pour compléter
+ * l'historique, un bouton charge, au clic du joueur, les rapports de chasse
+ * listés dans la messagerie, comme le jeu le fait à l'ouverture d'une
+ * conversation.
+ *
+ * @class HistoriqueChasses
+ */
+class HistoriqueChasses {
+  static get NOMBRE() {
+    return 15;
+  }
+  static get cle() {
+    return `fzzz_historiqueChasses_${Utils.serveur}`;
+  }
+  /**
+   * {chasses: {idMessage: {id, date, terrain, pertes}}, conversations: [ids lues]}
+   */
+  static charger() {
+    let h = null;
+    try {
+      h = JSON.parse(localStorage.getItem(HistoriqueChasses.cle));
+    } catch (e) {}
+    return h && h.chasses ? h : { chasses: {}, conversations: [] };
+  }
+  static sauver(h) {
+    // on garde les 60 chasses les plus récentes
+    let ids = Object.keys(h.chasses)
+      .map(Number)
+      .sort((a, b) => b - a);
+    ids.slice(60).forEach((id) => delete h.chasses[id]);
+    h.conversations = h.conversations.slice(-200);
+    try {
+      localStorage.setItem(HistoriqueChasses.cle, JSON.stringify(h));
+    } catch (e) {}
+  }
+  /**
+   * Mémorise une chasse analysée ; `$message` est sa ligne tr[id^='message_'].
+   */
+  static enregistrer($message, chasse, h = null) {
+    let id = parseInt(($message.attr("id") || "").replace(/\D/g, ""));
+    if (!id || !chasse.terrain) return;
+    let sauver = !h;
+    h = h || HistoriqueChasses.charger();
+    let date = $message
+      .find(".expe")
+      .text()
+      .match(/(\d{2}\/\d{2}\/\d{2}) à (\d{2}h\d{2})/);
+    h.chasses[id] = {
+      id,
+      date: date ? `${date[1].slice(0, 5)} ${date[2]}` : "",
+      terrain: chasse.terrain,
+      pertes: chasse.pertes,
+    };
+    if (sauver) HistoriqueChasses.sauver(h);
+  }
+  /**
+   * Les N dernières chasses, de la plus ancienne à la plus récente.
+   */
+  static dernieres(h = HistoriqueChasses.charger()) {
+    return Object.values(h.chasses)
+      .filter((c) => c.terrain > 0)
+      .sort((a, b) => a.id - b.id)
+      .slice(-HistoriqueChasses.NOMBRE);
+  }
+  /**
+   * Dessine le graphe et, s'il manque des chasses, le bouton pour compléter.
+   */
+  static afficher($bloc, idGraphe) {
+    let chasses = HistoriqueChasses.dernieres(),
+      $actions = $bloc.find(".o_grapheActions").empty();
+    if (chasses.length < 2)
+      $("#" + idGraphe).html(
+        "<p class='small'>Il faut au moins deux chasses pour tracer l'évolution.</p>",
+      );
+    else HistoriqueChasses._dessiner(idGraphe, chasses);
+    let aCharger = HistoriqueChasses._conversationsACharger();
+    if (chasses.length < HistoriqueChasses.NOMBRE && aCharger.length)
+      $(
+        `<button type='button' class='o_button'>Charger les chasses précédentes (${chasses.length}/${HistoriqueChasses.NOMBRE})</button>`,
+      )
+        .appendTo($actions)
+        .on("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          $(e.currentTarget).prop("disabled", true).text("Chargement…");
+          HistoriqueChasses.completer(aCharger).then(() =>
+            HistoriqueChasses.afficher($bloc, idGraphe),
+          );
+        });
+  }
+  /**
+   * Conversations de chasse de la liste pas encore lues, des plus récentes aux plus anciennes.
+   */
+  static _conversationsACharger() {
+    let lues = HistoriqueChasses.charger().conversations;
+    return $("tr.en_tete_message[id^='conversation_']")
+      .filter((i, elt) => {
+        let c = MessagerieFzzz.categorie($(elt));
+        return c && c.nom == "chasse";
+      })
+      .map((i, elt) => parseInt($(elt).attr("id").replace(/\D/g, "")))
+      .get()
+      .filter((id) => lues.indexOf(id) == -1)
+      .sort((a, b) => b - a);
+  }
+  /**
+   * Charge les conversations une par une jusqu'à avoir assez de chasses.
+   */
+  static completer(conversations) {
+    let suite = Promise.resolve();
+    conversations.forEach((idConv) => {
+      suite = suite.then(() => {
+        let h = HistoriqueChasses.charger();
+        if (HistoriqueChasses.dernieres(h).length >= HistoriqueChasses.NOMBRE) return;
+        return Promise.resolve(
+          $.post(location.origin + "/messagerie.php", {
+            traitement: "afficher",
+            conversation: idConv,
+          }),
+        )
+          .then((html) => {
+            $("<table>")
+              .html(html)
+              .find("tr[id^='message_']")
+              .each((i, elt) => {
+                let chasse = new Chasse($(elt).find(".message").first().text());
+                try {
+                  if (chasse.analyse()) HistoriqueChasses.enregistrer($(elt), chasse, h);
+                } catch (e) {}
+              });
+            h.conversations.push(idConv);
+            HistoriqueChasses.sauver(h);
+          })
+          .catch(() => {});
+      });
+    });
+    return suite;
+  }
+  /**
+   * Courbe des pertes par million de cm² (Highcharts, fourni avec Toolzzz).
+   */
+  static _dessiner(idGraphe, chasses) {
+    let ratio = (c) => Math.round((c.pertes * 1e6) / c.terrain),
+      moyenne = Math.round(chasses.reduce((s, c) => s + ratio(c), 0) / chasses.length);
+    Highcharts.chart(idGraphe, {
+      chart: { type: "line", height: 260, backgroundColor: "transparent", spacing: [6, 6, 6, 6] },
+      title: {
+        text: `Pertes par M cm² chassés — ${chasses.length} dernières chasses`,
+        style: { fontSize: "13px", fontWeight: "bold" },
+      },
+      credits: { enabled: false },
+      legend: { enabled: false },
+      xAxis: {
+        categories: chasses.map((c, i) => c.date || "#" + (i + 1)),
+        labels: { rotation: -45, style: { fontSize: "10px" } },
+      },
+      yAxis: {
+        title: { text: "pertes / M cm²" },
+        min: 0,
+        plotLines: [
+          {
+            value: moyenne,
+            color: "#7a6a3a",
+            dashStyle: "Dash",
+            width: 1,
+            label: { text: `moyenne ${numeral(moyenne).format()}`, style: { fontSize: "10px" } },
+          },
+        ],
+      },
+      tooltip: {
+        formatter: function () {
+          let c = chasses[this.point.index];
+          return `<b>${this.x}</b><br/>${numeral(this.y).format()} pertes / M cm²<br/>${numeral(c.terrain).format()} cm², ${numeral(c.pertes).format()} pertes`;
+        },
+      },
+      series: [{ name: "Pertes / M cm²", color: "#9A5700", data: chasses.map(ratio) }],
     });
   }
 }

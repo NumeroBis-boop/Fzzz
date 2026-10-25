@@ -1609,3 +1609,21 @@ tr.en_tete_message > td.td_coche {
 .o_analyseRapport .o_analyseChoix {
   margin-bottom: 4px;
 }
+
+/* Fzzz : bilan de chasse à gauche, graphe des pertes à droite */
+.o_analyseLigne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+.o_analyseGauche {
+  flex: 0 0 auto;
+}
+.o_analyseDroite {
+  flex: 1 1 280px;
+  min-width: 280px;
+}
+.o_grapheActions {
+  text-align: center;
+}

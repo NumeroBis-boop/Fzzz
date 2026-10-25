@@ -55,6 +55,15 @@ class Chasse {
     return this._armeeAp;
   }
   /**
+   * Fzzz : terrain conquis (cm²) et unités perdues.
+   */
+  get terrain() {
+    return this._terrain;
+  }
+  get pertes() {
+    return this._armeeAv.getSommeUnite() - this._armeePe.getSommeUnite();
+  }
+  /**
    * Calcule le niveau d'armes en fonction des degats.
    *
    * @private
@@ -149,7 +158,9 @@ class Chasse {
       // terrain conquis et nourriture ramenée, s'ils figurent dans le rapport
       let nombre = (m) => (m ? parseInt(m[1].replace(/[^0-9]/g, "")) || 0 : 0);
       this._terrain = nombre(this._rc.match(/([\d   .]+)\s*cm²/));
-      this._nourriture = nombre(this._rc.match(/([\d   .]+)\s*(?:de\s+)?nourriture/i));
+      this._nourriture =
+        nombre(this._rc.match(/([\d   .]+)\s*(?:de\s+)?nourriture/i)) ||
+        nombre(this._rc.match(/rapportent\s+([\d   .]+)/i));
       this._armeePe = this.retirePerte(this._armeeAv);
       this._armeeAp = this.ajouteXP(this._armeePe);
       return true;

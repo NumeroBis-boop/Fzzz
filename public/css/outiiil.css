@@ -1865,3 +1865,24 @@ tr.en_tete_message > td.td_coche {
   font-size: 1.05em;
   margin: 6px 0;
 }
+
+/* Fzzz : page Membres de l'alliance */
+.o_allVueActive {
+  font-weight: bold;
+  text-decoration: underline;
+}
+#o_allInfobulle {
+  position: absolute;
+  z-index: 10000;
+  background: #f4e6c3;
+  border: 1px solid #8b7440;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.85em;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+#o_allInfobulle td {
+  padding: 0 6px;
+  white-space: nowrap;
+}

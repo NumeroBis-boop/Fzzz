@@ -159,6 +159,7 @@ class PageAlliance {
         textOverflow: "ellipsis",
         overflow: "hidden",
       });
+      AllianceFzzz.colonnes();
       $("#tabMembresAlliance").DataTable({
         bInfo: false,
         bPaginate: false,
@@ -182,33 +183,9 @@ class PageAlliance {
     } else {
       this.tableau();
     }
-    // Bouton Synchroniser — disponible dans tous les cas (bootstrap si pas de cache,
-    // refresh sinon). Recharge la page après sync pour que le tableau pick up les coords.
-    // Sans autre bouton, DataTables peut ne pas créer le conteneur : on le crée.
-    if (!$("#tabMembresAlliance_wrapper .dt-buttons").length)
-      $("#tabMembresAlliance_wrapper").prepend("<div class='dt-buttons'></div>");
-    $("#tabMembresAlliance_wrapper .dt-buttons").prepend(
-      `<a id='o_syncCarteAlliance' class='dt-button' href='#'><span>Synchroniser</span></a>`,
-    );
-    $("#o_syncCarteAlliance").click((e) => {
-      e.preventDefault();
-      const $btn = $("#o_syncCarteAlliance");
-      // la classe ne bloquait que l'apparence : un second clic relançait tout
-      if ($btn.hasClass("disabled")) return false;
-      $btn.addClass("disabled").find("span").text("Synchronisation…");
-      this._fetchAndCacheCoords((faits, total) =>
-        $btn.find("span").text(`Synchronisation… (${faits}/${total})`),
-      )
-        .then(() => location.reload())
-        .catch((err) => {
-          $btn.removeClass("disabled").find("span").text("Synchroniser");
-          $.toast({
-            ...TOAST_ERROR,
-            text: err.message || "Erreur de synchronisation.",
-          });
-        });
-      return false;
-    });
+    // Fzzz : vues Temps de trajet (ancien « Synchroniser ») / Reset / Floods et
+    // chasses en cours, et évolution du TdC au survol (AllianceFzzz)
+    AllianceFzzz.installer((progres) => this._fetchAndCacheCoords(progres), !!hasCache);
     return this;
   }
   /**
@@ -223,6 +200,7 @@ class PageAlliance {
       textOverflow: "ellipsis",
       overflow: "hidden",
     });
+    AllianceFzzz.colonnes();
     $("#tabMembresAlliance").DataTable({
       bInfo: false,
       bPaginate: false,

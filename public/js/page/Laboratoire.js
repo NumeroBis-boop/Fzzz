@@ -181,30 +181,16 @@ class PageLaboratoire {
             <td class='right'>${manque ? numeral(nombre).format() + " " + NOM_RAC_UNITE[u] : "—"}</td></tr>`;
         })
         .join("");
-    $("#o_fdfArmesLigne").remove();
-    $ligne.after(`
-      <tr id='o_fdfArmesLigne'><td colspan='${$ligne.children("td").length || 4}'>
-        <div id='o_fdfArmesCadre'>
-        <div id='o_fdfArmesBandeau'><span class='o_fleche'>▶</span> Estimer le niveau de rentabilité du niveau supérieur</div>
-        <div id='o_fdfArmes' style='display:none'>
-          <p><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
-            <span class='small' title="Garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée totale)</span></p>
-          <table cellspacing='0'>
-            <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>FdF HB manquante</td><td class='right'>Unités à pondre</td></tr>
-            ${lignes}
-          </table>
-        </div>
-        </div>
-      </td></tr>`);
-    // bandeau en spoiler, replié par défaut
-    $("#o_fdfArmesBandeau").click((e) => {
-      let ouvert = !$("#o_fdfArmes").is(":visible");
-      $("#o_fdfArmes").toggle(ouvert);
-      $(e.currentTarget)
-        .toggleClass("o_ouvert", ouvert)
-        .find(".o_fleche")
-        .text(ouvert ? "▼" : "▶");
-    });
+    Utils.ajouterSpoilerRentabilite(
+      $ligne,
+      "o_fdfArmesLigne",
+      `<p><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
+        <span class='small' title="Garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée totale)</span></p>
+      <table cellspacing='0'>
+        <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>FdF HB manquante</td><td class='right'>Unités à pondre</td></tr>
+        ${lignes}
+      </table>`,
+    );
     return this;
   }
   /**

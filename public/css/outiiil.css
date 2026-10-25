@@ -1413,11 +1413,12 @@ center > div > #tabMembresAlliance {
   text-align: center;
 }
 
-/* Fzzz : extension sous la ligne Armes du Laboratoire, en spoiler */
-#o_fdfArmesLigne > td {
+/* Fzzz : bandeau « Estimer le niveau de rentabilité du niveau supérieur »
+   sous une ligne du Laboratoire ou de la Construction (Utils.ajouterSpoilerRentabilite) */
+.o_spoilerLigne > td {
   padding: 0 !important;
 }
-#o_fdfArmesCadre {
+.o_spoilerCadre {
   box-sizing: border-box;
   width: 100%;
   margin: 0 0 8px 0;
@@ -1427,29 +1428,29 @@ center > div > #tabMembresAlliance {
   color: #3a2a0c;
   overflow: hidden;
 }
-#o_fdfArmesBandeau {
+.o_spoilerBandeau {
   padding: 5px 10px;
   font-weight: bold;
   text-align: left;
   cursor: pointer;
   user-select: none;
 }
-#o_fdfArmesBandeau:hover {
+.o_spoilerBandeau:hover {
   background: #cfb978;
 }
-#o_fdfArmesBandeau.o_ouvert {
+.o_spoilerBandeau.o_ouvert {
   border-bottom: 1px solid #8b7440;
 }
-#o_fdfArmes {
+.o_spoilerContenu {
   padding: 6px 10px;
 }
-#o_fdfArmes p {
+.o_spoilerContenu p {
   margin: 0 0 4px 0;
   text-align: left;
 }
-#o_fdfArmes table {
+.o_spoilerContenu table {
   width: 100%;
 }
-#o_fdfArmes td {
+.o_spoilerContenu td {
   padding: 1px 6px;
 }

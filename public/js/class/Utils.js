@@ -207,6 +207,36 @@ class Utils {
     return Utils.minuteRC(moment(depart).add(temps, "s"));
   }
   /**
+   * Ajoute sous une ligne de Laboratoire ou de Construction un bandeau
+   * « Estimer le niveau de rentabilité du niveau supérieur », replié par
+   * défaut, qui déplie `contenu` au clic. La ligne du jeu reste intacte.
+   *
+   * @static
+   * @method ajouterSpoilerRentabilite
+   * @param {Object} $ligne ligne .ligneAmelioration du jeu
+   * @param {String} id identifiant de la ligne ajoutée
+   * @param {String} contenu HTML affiché une fois déplié
+   */
+  static ajouterSpoilerRentabilite($ligne, id, contenu) {
+    $("#" + id).remove();
+    $ligne.after(`
+      <tr id='${id}' class='o_spoilerLigne'><td colspan='${$ligne.children("td").length || 4}'>
+        <div class='o_spoilerCadre'>
+          <div class='o_spoilerBandeau'><span class='o_fleche'>▶</span> Estimer le niveau de rentabilité du niveau supérieur</div>
+          <div class='o_spoilerContenu' style='display:none'>${contenu}</div>
+        </div>
+      </td></tr>`);
+    $(`#${id} .o_spoilerBandeau`).click((e) => {
+      let $contenu = $(`#${id} .o_spoilerContenu`),
+        ouvert = !$contenu.is(":visible");
+      $contenu.toggle(ouvert);
+      $(e.currentTarget)
+        .toggleClass("o_ouvert", ouvert)
+        .find(".o_fleche")
+        .text(ouvert ? "▼" : "▶");
+    });
+  }
+  /**
    * Le RC est daté de la minute qui suit l'impact, à la seconde près :
    * 17h23:12 → 17h24, et 17h23:00 pile → 17h23.
    *

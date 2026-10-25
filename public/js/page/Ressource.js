@@ -58,9 +58,103 @@ class PageRessource {
     if (!Utils.comptePlus) this.plus();
     // Affectation automatique des ouvrières (tous comptes)
     this.affectation();
+    // Fzzz : synthèse des chasses en cours par minute d'impact
+    this.syntheseChasses();
     // Bouton "Annuler toutes les chasses" si au moins une est en cours
     this.boutonAnnulerChasses();
     return this;
+  }
+  /**
+   * Fzzz : synthèse des chasses en cours par minute d'impact. Les chasses qui
+   * arrivent sur des minutes consécutives (13h05, 13h06, 13h07…) forment un
+   * seul groupe, affiché à la minute la plus tardive. Pour chaque groupe :
+   * heure d'impact, TdC chassé et unités mises en chasse (détail au survol).
+   *
+   * @private
+   * @method syntheseChasses
+   */
+  syntheseChasses() {
+    let chasses = [];
+    $("#boite_tdc span[id^='chasse_']").each((i, elt) => {
+      let $ligne = $(elt).parent(),
+        secondes = parseInt($ligne.nextAll("script").first().text().split("(")[1]),
+        terrain = numeral(($ligne.text().match(/conquérir\s+([\d\s ]+)\s*cm/) || [])[1]).value(),
+        details = $ligne.nextAll("small").first().text(),
+        troupes =
+          (details.match(/Troupes en chasses?\s*:\s*([^\n]+?)\.?\s*(?:Arrivée|$)/i) || [])[1] || "",
+        libelle = details.match(/Arrivée à (\d+)h(\d+)/i);
+      if (isNaN(secondes)) return;
+      // minute d'impact : celle qu'affiche le jeu (« Arrivée à 02h59 »), placée
+      // au jour le plus proche de l'arrivée calculée ; sinon l'arrivée calculée
+      let arrivee = Horloge.serveur().add(secondes, "s"),
+        impact = arrivee.clone().startOf("minute");
+      if (libelle) {
+        impact = arrivee
+          .clone()
+          .hours(parseInt(libelle[1]))
+          .minutes(parseInt(libelle[2]))
+          .startOf("minute");
+        let ecart = impact.diff(arrivee, "hours", true);
+        if (ecart > 12) impact.subtract(1, "day");
+        else if (ecart < -12) impact.add(1, "day");
+      }
+      let unites = {};
+      troupes.split(",").forEach((morceau) => {
+        let m = morceau.trim().match(/^([\d\s ]+)\s+(.+)$/);
+        if (m) unites[m[2].trim()] = numeral(m[1]).value();
+      });
+      chasses.push({ impact: impact, terrain: terrain || 0, unites: unites });
+    });
+    if (!chasses.length) return;
+    chasses.sort((a, b) => a.impact - b.impact);
+    let groupes = [];
+    chasses.forEach((c) => {
+      let dernier = groupes[groupes.length - 1];
+      if (dernier && c.impact.diff(dernier.impact, "minutes") <= 1) {
+        dernier.impact = c.impact;
+        dernier.chasses.push(c);
+      } else groupes.push({ impact: c.impact, chasses: [c] });
+    });
+    let somme = (liste) => {
+        let terrain = 0,
+          unites = {};
+        liste.forEach((c) => {
+          terrain += c.terrain;
+          // singulier et pluriel (« 1 Tank », « 3 Tanks ») sous la même clé
+          for (let nom in c.unites) {
+            let cle = nom.toLowerCase().replace(/s\b/g, "");
+            if (!unites[cle]) unites[cle] = { nom: nom, nb: 0 };
+            unites[cle].nb += c.unites[nom];
+            // forme plurielle (la plus longue) pour l'affichage
+            if (nom.length > unites[cle].nom.length) unites[cle].nom = nom;
+          }
+        });
+        let detail = Object.values(unites),
+          total = detail.reduce((t, u) => t + u.nb, 0);
+        return {
+          terrain: terrain,
+          total: total,
+          detail: detail.map((u) => `${numeral(u.nb).format()} ${u.nom}`).join(", "),
+        };
+      },
+      ligne = (libelle, liste, classe) => {
+        let s = somme(liste);
+        return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td title="${s.detail}">${numeral(s.total).format()}</td></tr>`;
+      },
+      aujourdhui = Horloge.serveur(),
+      html = `<div id='o_syntheseChasses' class='o_marginT15'><table class='o_maxWidth centre' cellspacing='0'>
+        <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>Unités mises en chasse</td></tr>`;
+    groupes.forEach((g, i) => {
+      html += ligne(
+        g.impact.isSame(aujourdhui, "day")
+          ? g.impact.format("HH[h]mm")
+          : g.impact.format("D MMM HH[h]mm"),
+        g.chasses,
+        i % 2 ? "" : "ligne_paire",
+      );
+    });
+    if (groupes.length > 1) html += ligne("Total", chasses, "gras o_syntheseTotal");
+    $("#boite_tdc").append(html + "</table></div>");
   }
   /**
    * Ajoute un bouton "Annuler toutes les chasses" dans la boîte de chasse en cours.

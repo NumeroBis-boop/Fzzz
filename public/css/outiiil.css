@@ -1721,3 +1721,14 @@ tr.en_tete_message > td.td_coche {
   vertical-align: middle;
   margin: 0 3px 0 0;
 }
+
+/* Fzzz : synthèse des chasses en cours (Ressources.php) */
+#o_syntheseChasses td {
+  padding: 2px 8px;
+}
+#o_syntheseChasses td[title] {
+  cursor: help;
+}
+.o_syntheseTotal td {
+  border-top: 1px solid currentColor;
+}

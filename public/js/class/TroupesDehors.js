@@ -112,11 +112,13 @@ class TroupesDehors {
       envois = chasses.filter((t) => !t.id).sort((a, b) => a.lancee - b.lancee),
       candidates = lignes.filter((l) => idsLies.indexOf(l.id) == -1),
       nb = Math.min(envois.length, candidates.length);
-    envois.slice(-nb).forEach((envoi, i) => {
-      let ligne = candidates[candidates.length - nb + i];
-      envoi.id = ligne.id;
-      envoi.retour = ligne.retour;
-    });
+    // slice(-0) renverrait tous les envois : rien à lier sans ligne libre
+    if (nb)
+      envois.slice(-nb).forEach((envoi, i) => {
+        let ligne = candidates[candidates.length - nb + i];
+        envoi.id = ligne.id;
+        envoi.retour = ligne.retour;
+      });
     liste = liste.filter((t) =>
       t.type != "chasse"
         ? true

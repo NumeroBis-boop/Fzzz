@@ -1861,6 +1861,7 @@ tr.en_tete_message > td.td_coche {
   cursor: pointer;
 }
 #o_chassesPartagees .o_partageSpoiler {
+  color: #000000;
   font-size: 1.05em;
   margin: 6px 0;
 }

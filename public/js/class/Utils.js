@@ -259,7 +259,9 @@ class Utils {
     let ouvert = false;
     try {
       // déplié par défaut : seul un repli choisi par le joueur est mémorisé
-      ouvert = localStorage.getItem("fzzz_spoiler_" + cle) != "0";
+      // (clé « spoiler2 » : les états enregistrés quand les encarts étaient
+      // repliés par défaut, en 1.16, sont ignorés)
+      ouvert = localStorage.getItem("fzzz_spoiler2_" + cle) != "0";
     } catch (e) {}
     if (!Utils._spoilersActifs) {
       Utils._spoilersActifs = true;
@@ -270,7 +272,7 @@ class Utils {
         $c.toggle(ouvrir);
         $t.find(".o_spoilerFleche").text(ouvrir ? "▼" : "▶");
         try {
-          localStorage.setItem("fzzz_spoiler_" + $t.data("spoiler"), ouvrir ? "1" : "0");
+          localStorage.setItem("fzzz_spoiler2_" + $t.data("spoiler"), ouvrir ? "1" : "0");
         } catch (err) {}
       });
     }

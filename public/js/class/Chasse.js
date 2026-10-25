@@ -212,14 +212,10 @@ class Chasse {
       ].filter(Boolean),
       ligne = (libelle, a, b, xp = "") =>
         `<tr><td class='left'>${libelle}</td><td class='right'>${fmt(a)}</td><td class='right'>${Utils.variation(b - a, a)}</td><td class='right'>${fmt(b)}</td><td class='right o_bilanXp'>${xp}</td></tr>`,
-      // diagramme étoile FdF / vie / défense / CdF (capacité de flood = nombre
-      // d'unités), dessiné par MessagerieFzzz.radars()
-      radar = JSON.stringify({
-        fdf: [av.getBaseAtt(), ap.getBaseAtt()],
-        vie: [av.getBaseVie(), ap.getBaseVie()],
-        def: [av.getBaseDef(), ap.getBaseDef()],
-        cdf: [av.getSommeUnite(), ap.getSommeUnite()],
-      }),
+      // humeur du chien : content (et un peu idiot) si la FdF a augmenté,
+      // triste si elle a baissé
+      fdfHausse = ap.getBaseAtt() >= av.getBaseAtt(),
+      chien = `<img class='o_bilanChien' src='${chrome.runtime.getURL(fdfHausse ? "images/chien_content.svg" : "images/chien_triste.svg")}' alt='${fdfHausse ? "Chien content" : "Chien triste"}' title='FdF ${fdfHausse ? "en hausse" : "en baisse"} : ${numeral(ap.getBaseAtt() - av.getBaseAtt()).format("+0,0")}'/>`,
       html = `<div class='o_bilanChasse'><p class='o_bilanEntete'>${entete.join(" · ")}</p>
         <div class='o_bilanCorps'>
         <table class='o_bilanTable' cellspacing='0'>
@@ -242,7 +238,7 @@ class Chasse {
           ap.unite[i],
           this._xp[i] ? pct(this._xp[i], av.unite[i]) : "",
         );
-    return html + `</table><div class='o_bilanRadar' data-radar='${radar}'></div></div></div>`;
+    return html + `</table>${chien}</div></div>`;
   }
   /**
    *

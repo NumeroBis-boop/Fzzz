@@ -227,90 +227,11 @@ class MessagerieFzzz {
         "o_analyseChasses_" + conv,
         n > 1 ? `Analyser les ${n} chasses` : "Analyser la chasse",
         contenu,
-        ($b) => {
-          MessagerieFzzz.radars($b);
-          HistoriqueChasses.afficher($b, "o_grapheChasses_" + conv);
-        },
+        ($b) => HistoriqueChasses.afficher($b, "o_grapheChasses_" + conv),
       );
     $messages.last().append($bloc);
     $bloc.find(".o_analyseChoix").on("change", (e) => {
       $bloc.find(".o_analyseVue").hide().eq(parseInt(e.currentTarget.value)).show();
-      MessagerieFzzz.radars($bloc);
-    });
-  }
-  /**
-   * Diagrammes étoile des bilans visibles : FdF, vie, défense et CdF, chacun
-   * en % de sa valeur avant la chasse (avant = 100 %), l'échelle resserrée
-   * autour de 100 % pour rendre visibles des variations de quelques %.
-   *
-   * @static
-   * @method radars
-   */
-  static radars($zone) {
-    $zone.find(".o_bilanRadar:visible:not([data-fait])").each((i, elt) => {
-      let d = JSON.parse(elt.dataset.radar),
-        cles = ["fdf", "vie", "def", "cdf"],
-        axes = ["FdF", "Vie", "Déf", "CdF"],
-        apres = cles.map((k) => (d[k][0] ? (d[k][1] * 100) / d[k][0] : 100)),
-        // échelle ajustée aux valeurs (et à 100 %) pour occuper tout le rayon
-        bas = Math.min(100, ...apres),
-        haut = Math.max(100, ...apres),
-        marge = Math.max(0.3, (haut - bas) * 0.35);
-      elt.setAttribute("data-fait", "1");
-      Highcharts.chart(elt, {
-        chart: {
-          polar: true,
-          type: "line",
-          height: 240,
-          width: 260,
-          backgroundColor: "transparent",
-          spacing: [4, 4, 4, 4],
-        },
-        title: {
-          text: "Après / avant (pointillés = 100 %)",
-          style: { fontSize: "11px", fontWeight: "normal" },
-        },
-        credits: { enabled: false },
-        legend: { enabled: false },
-        pane: { size: "88%" },
-        xAxis: {
-          categories: axes,
-          tickmarkPlacement: "on",
-          lineWidth: 0,
-          labels: { style: { fontSize: "12px", fontWeight: "bold" } },
-        },
-        yAxis: {
-          gridLineInterpolation: "polygon",
-          min: bas - marge,
-          max: haut + marge,
-          tickPositions: [bas - marge, 100, haut + marge],
-          // graduations masquées : valeurs exactes au survol
-          labels: { enabled: false },
-        },
-        tooltip: {
-          formatter: function () {
-            let k = cles[this.point.index],
-              v = d[k][1] - d[k][0];
-            return `<b>${axes[this.point.index]}</b><br/>avant ${numeral(d[k][0]).format()}<br/>après ${numeral(d[k][1]).format()} (${v >= 0 ? "+" : ""}${numeral(v).format()}, ${(this.y - 100).toFixed(1).replace(".", ",")} %)`;
-          },
-        },
-        series: [
-          {
-            name: "Avant",
-            data: [100, 100, 100, 100],
-            color: "#8b7440",
-            dashStyle: "Dash",
-            marker: { enabled: false },
-            enableMouseTracking: false,
-          },
-          {
-            name: "Après",
-            color: "#3a2a0c",
-            data: apres.map((v) => ({ y: v, color: v >= 100 ? "#287A36" : "#B42318" })),
-            marker: { radius: 5 },
-          },
-        ],
-      });
     });
   }
   /**

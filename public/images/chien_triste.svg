@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <title>Chien triste</title>
+  <!-- oreilles tombantes -->
+  <path d="M48 60 C22 66 18 130 36 150 C50 140 56 110 60 74 Z" fill="#8a5a2b"/>
+  <path d="M152 60 C178 66 182 130 164 150 C150 140 144 110 140 74 Z" fill="#8a5a2b"/>
+  <!-- tête -->
+  <ellipse cx="100" cy="104" rx="58" ry="58" fill="#e8c38f"/>
+  <ellipse cx="126" cy="88" rx="20" ry="18" fill="#c99a5e"/>
+  <!-- sourcils tristes -->
+  <path d="M60 78 Q74 76 88 64" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M112 64 Q126 76 140 78" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- yeux mi-clos qui regardent en bas -->
+  <ellipse cx="76" cy="90" rx="13" ry="10" fill="#fff" stroke="#3a2a0c" stroke-width="2"/>
+  <path d="M63 88 Q76 82 89 88" fill="#e8c38f" stroke="#3a2a0c" stroke-width="2"/>
+  <circle cx="76" cy="94" r="5" fill="#3a2a0c"/>
+  <ellipse cx="124" cy="90" rx="13" ry="10" fill="#fff" stroke="#3a2a0c" stroke-width="2"/>
+  <path d="M111 88 Q124 82 137 88" fill="#c99a5e" stroke="#3a2a0c" stroke-width="2"/>
+  <circle cx="124" cy="94" r="5" fill="#3a2a0c"/>
+  <!-- larme -->
+  <path d="M70 104 Q64 118 70 124 Q76 118 70 104 Z" fill="#7fc4ff" stroke="#3f8fd0" stroke-width="1.5"/>
+  <!-- museau -->
+  <ellipse cx="100" cy="132" rx="32" ry="22" fill="#f5dcb4"/>
+  <ellipse cx="100" cy="118" rx="11" ry="8" fill="#3a2a0c"/>
+  <ellipse cx="96" cy="116" rx="3" ry="2" fill="#7a6a5a"/>
+  <!-- bouche à l'envers -->
+  <path d="M82 148 Q100 136 118 148" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M100 126 L100 140" stroke="#3a2a0c" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- petit nuage gris -->
+  <ellipse cx="160" cy="28" rx="20" ry="11" fill="#9aa3ad"/>
+  <ellipse cx="146" cy="32" rx="13" ry="9" fill="#9aa3ad"/>
+  <path d="M150 42 L146 52 M160 42 L156 54 M170 42 L166 52" stroke="#5a8fd0" stroke-width="2" stroke-linecap="round"/>
+</svg>

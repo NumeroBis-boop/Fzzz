@@ -28,6 +28,13 @@ class Chasse {
      *
      */
     this._armeeAp = new Armee();
+    /**
+     * Fzzz : terrain conquis, nourriture ramenée et unités montées en XP
+     * (nombre par type d'origine, ordre d'Armee.unite).
+     */
+    this._terrain = 0;
+    this._nourriture = 0;
+    this._xp = new Array(14).fill(0);
   }
   /**
    *
@@ -121,6 +128,7 @@ class Chasse {
         qteXP = parseInt(tmp[i].replace(/ /g, ""));
       res.unite[uniteXP - 1] -= qteXP;
       res.unite[tableXP[uniteXP]] += qteXP;
+      if (uniteXP > 0) this._xp[uniteXP - 1] += qteXP;
     }
     return res;
   }
@@ -138,6 +146,10 @@ class Chasse {
       })
     ) {
       this._armeeAv.parseArmee(this._rc.split("Troupes en attaque : ")[1].split(".")[0]);
+      // terrain conquis et nourriture ramenée, s'ils figurent dans le rapport
+      let nombre = (m) => (m ? parseInt(m[1].replace(/[^0-9]/g, "")) || 0 : 0);
+      this._terrain = nombre(this._rc.match(/([\d   .]+)\s*cm²/));
+      this._nourriture = nombre(this._rc.match(/([\d   .]+)\s*(?:de\s+)?nourriture/i));
       this._armeePe = this.retirePerte(this._armeeAv);
       this._armeeAp = this.ajouteXP(this._armeePe);
       return true;
@@ -156,8 +168,61 @@ class Chasse {
       this._armeeAv.unite[i] += chasse.armeeAv.unite[i];
       this._armeePe.unite[i] += chasse.armeePe.unite[i];
       this._armeeAp.unite[i] += chasse.armeeAp.unite[i];
+      this._xp[i] += chasse._xp[i];
     }
+    this._terrain += chasse._terrain;
+    this._nourriture += chasse._nourriture;
     return this;
+  }
+  /**
+   * Fzzz : bilan compact d'une ou plusieurs chasses (messagerie) — en-tête
+   * (terrain, pertes, nourriture, pertes par million de cm², perte HOF), puis
+   * FdF, défense, vie et unités avant / variation (valeur et %) / après, et la
+   * part de chaque unité montée en XP.
+   *
+   * @method toHTMLBilan
+   * @return {String} HTML
+   */
+  toHTMLBilan() {
+    let fmt = (n) => numeral(n).format(),
+      av = this._armeeAv,
+      ap = this._armeeAp,
+      pertes = av.getSommeUnite() - this._armeePe.getSommeUnite(),
+      xpTotal = this._xp.reduce((s, n) => s + n, 0),
+      pct = (n, d) => (d ? ((n * 100) / d).toFixed(2).replace(".", ",") + " %" : ""),
+      entete = [
+        this._terrain ? `<b>${fmt(this._terrain)}</b> cm²` : "",
+        `<span class='o_varNeg'>${fmt(pertes)}</span> pertes`,
+        this._nourriture ? `<b>${fmt(this._nourriture)}</b> nourriture` : "",
+        this._terrain
+          ? `<b>${fmt(Math.round((pertes * 1e6) / this._terrain))}</b> pertes / M cm²`
+          : "",
+        `perte HOF <b>${Utils.intToTime(av.getTemps(0) - this._armeePe.getTemps(0))}</b>`,
+      ].filter(Boolean),
+      ligne = (libelle, a, b, xp = "") =>
+        `<tr><td class='left'>${libelle}</td><td class='right'>${fmt(a)}</td><td class='right'>${Utils.variation(b - a, a)}</td><td class='right'>${fmt(b)}</td><td class='right o_bilanXp'>${xp}</td></tr>`,
+      html = `<div class='o_bilanChasse'><p class='o_bilanEntete'>${entete.join(" · ")}</p>
+        <table class='o_bilanTable' cellspacing='0'>
+        <tr class='gras'><td></td><td class='right'>Avant</td><td class='right'>Chasses</td><td class='right'>Après</td><td class='right' title="Part des unités de ce type montées en XP">XP</td></tr>`;
+    html += ligne(IMG_ATT, av.getBaseAtt(), ap.getBaseAtt());
+    html += ligne(IMG_DEF, av.getBaseDef(), ap.getBaseDef());
+    html += ligne(IMG_VIE, av.getBaseVie(), ap.getBaseVie());
+    html += ligne(
+      "<img height='18' class='o_vAlign' src='images/icone/fourmi.png'/>",
+      av.getSommeUnite(),
+      ap.getSommeUnite(),
+      pct(xpTotal, av.getSommeUnite()),
+    );
+    html += "<tr class='o_bilanSeparation'><td colspan='5'></td></tr>";
+    for (let i = 0; i < 14; i++)
+      if (av.unite[i] || ap.unite[i])
+        html += ligne(
+          `<span class='o_bilanUnite'>${NOM_RAC_UNITE[i + 1]}</span>`,
+          av.unite[i],
+          ap.unite[i],
+          this._xp[i] ? pct(this._xp[i], av.unite[i]) : "",
+        );
+    return html + "</table></div>";
   }
   /**
    *

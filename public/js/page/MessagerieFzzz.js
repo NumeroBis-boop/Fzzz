@@ -182,8 +182,7 @@ class MessagerieFzzz {
     let conv = $entete.attr("id").match(/\d+/)[0],
       $messages = $entete.nextUntil("tr.en_tete_message").find("tr[id^='message_'] .message"),
       bilan = new Chasse(""),
-      lignes = "",
-      nombre = 0;
+      vues = [];
     $messages.each((i, elt) => {
       let chasse = new Chasse($(elt).text());
       try {
@@ -191,35 +190,38 @@ class MessagerieFzzz {
       } catch (e) {
         return;
       }
-      lignes += chasse.toHTMLBoite(false);
+      vues.push(chasse.toHTMLBilan());
       bilan.ajoute(chasse);
-      nombre++;
     });
     $("#o_analyseChasses_" + conv).remove();
-    if (!nombre) return;
-    let entete =
-        "<tr class='gras'><td colspan='2'>Avant</td><td colspan='2'>Evolution</td><td colspan='2'>Résultat</td></tr>",
+    if (!vues.length) return;
+    let n = vues.length,
       choix = "";
-    if (nombre > 1) {
-      for (let i = 0; i < nombre; i++) choix += `<option value='${i}'>Chasse ${i + 1}</option>`;
-      choix = `<tr><td colspan='6'><select class='o_analyseChoix'>${choix}<option value='${nombre}' selected>Bilan</option></select></td></tr>`;
+    if (n > 1) {
+      vues.push(bilan.toHTMLBilan());
+      choix = `<select class='o_analyseChoix'>${vues
+        .map(
+          (v, k) =>
+            `<option value='${k}'${k == n ? " selected" : ""}>${k == n ? "Bilan" : "Chasse " + (k + 1)}</option>`,
+        )
+        .join("")}</select>`;
     }
-    let table = `<table class='o_maxWidth'>${entete}${nombre > 1 ? lignes + bilan.toHTMLBoite(true) : lignes.replace(/ style='display:none'/g, "")}${choix}</table>`,
+    let contenu =
+        choix +
+        vues
+          .map(
+            (v, k) =>
+              `<div class='o_analyseVue'${k == vues.length - 1 ? "" : " style='display:none'"}>${v}</div>`,
+          )
+          .join(""),
       $bloc = MessagerieFzzz._bloc(
         "o_analyseChasses_" + conv,
-        nombre > 1 ? `Analyser les ${nombre} chasses` : "Analyser la chasse",
-        table,
+        n > 1 ? `Analyser les ${n} chasses` : "Analyser la chasse",
+        contenu,
       );
     $messages.last().append($bloc);
-    $bloc.find("table tr:even").css("background-color", monProfil.parametre["couleur2"].valeur);
-    // 4 lignes par chasse, le bilan en dernier
     $bloc.find(".o_analyseChoix").on("change", (e) => {
-      let n = parseInt(e.currentTarget.value),
-        $lignes = $bloc.find("table tr").slice(1, -1);
-      $lignes
-        .hide()
-        .slice(n * 4, n * 4 + 4)
-        .show();
+      $bloc.find(".o_analyseVue").hide().eq(parseInt(e.currentTarget.value)).show();
     });
   }
   /**

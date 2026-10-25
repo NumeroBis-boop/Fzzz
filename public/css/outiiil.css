@@ -1563,3 +1563,43 @@ tr.en_tete_message > td.td_coche {
   color: #b00020 !important;
   font-weight: bold;
 }
+
+/* Fzzz : bilan compact des chasses (messagerie) */
+.o_bilanChasse .o_bilanEntete {
+  margin: 2px 0 4px 0;
+  text-align: left;
+}
+.o_bilanChasse .o_bilanEntete img {
+  height: 14px;
+  vertical-align: middle;
+}
+.o_bilanTable {
+  border-collapse: collapse;
+}
+.o_bilanTable td {
+  padding: 0 8px !important;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.o_bilanTable td img {
+  height: 16px;
+  width: auto;
+  vertical-align: middle;
+}
+.o_bilanTable tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.05);
+}
+.o_bilanTable .o_bilanSeparation td {
+  height: 4px;
+  border-top: 1px solid #8b7440;
+}
+.o_bilanTable .o_bilanUnite {
+  color: #555;
+  font-weight: bold;
+}
+.o_bilanTable .o_bilanXp {
+  color: #555;
+}
+.o_analyseRapport .o_analyseChoix {
+  margin-bottom: 4px;
+}

@@ -654,9 +654,6 @@ select:required {
   height: 34px;
   margin: 5px 7px;
 }
-#o_toolbarOutiiil .o_toolbarItem #o_itemPonte {
-  background-position: 0 -2px;
-}
 #o_toolbarOutiiil .o_toolbarItem #o_itemChasse {
   background-position: -97px -42px;
 }
@@ -724,20 +721,6 @@ select:required {
 }
 .o_close b:nth-child(4) {
   right: -2px;
-}
-
-/* Lanceur de ponte */
-#o_boitePonte table tr {
-  height: 25px;
-}
-#o_boitePonte table tr td:nth-child(1) {
-  width: 90px;
-}
-#o_boitePonte table tr td:nth-child(2) {
-  width: 60px;
-}
-#o_boitePonte table tr td:last-child {
-  width: 40px;
 }
 
 /* Chasse - Combat */
@@ -1363,4 +1346,23 @@ center > div > #tabMembresAlliance {
 .o_synchroPret {
   outline: 3px solid #b00020;
   outline-offset: 2px;
+}
+
+/* Fzzz : horloge au-dessus de l'encart « S5 Pseudo » */
+#o_horloge {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 6px;
+  padding: 3px 0;
+  background: rgba(40, 40, 40, 0.85);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  text-align: center;
+  pointer-events: auto;
 }

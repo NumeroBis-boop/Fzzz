@@ -357,14 +357,6 @@ const EFFET = [
 const METHODE_FLOOD = ["Standard", "Optimisée", "Uniforme", "Dégressive"];
 const LIEU = { TERRAIN: 0, DOME: 1, LOGE: 2 };
 const LIBELLE_LIEU = ["Terrain de Chasse", "fourmilière", "Loge Impériale"];
-const ETAT_COMMANDE = {
-  Nouvelle: 0,
-  "En attente": 1,
-  "En cours": 2,
-  Annulée: 3,
-  Terminée: 4,
-  Supprimée: 5,
-};
 const MOIS_FR = [
   "Janvier",
   "Février",
@@ -450,6 +442,8 @@ const DATEPICKER_OPTION = {
     monProfil = new Joueur({ pseudo: $("#pseudo").text() });
     // chargement des parametre
     monProfil.getParametre();
+    // horloge à la seconde au-dessus de l'encart « S5 Pseudo »
+    Horloge.afficher();
     // des qu'on les inos constructions/recherches et profil on affiches les outils
     Promise.all([
       monProfil.getConstruction(),
@@ -636,10 +630,6 @@ const DATEPICKER_OPTION = {
         case uri == "/alliance.php" && location.search == "":
         case uri == "/chat.php":
           page = new PageChat();
-          page.executer();
-          break;
-        case location.href.indexOf("/alliance.php?forum_menu") > 0:
-          page = new PageForum();
           page.executer();
           break;
         case location.href.indexOf("/alliance.php?Membres") > 0:

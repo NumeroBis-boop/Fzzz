@@ -109,7 +109,7 @@ class PageRessource {
 			<tr class='ligne_paire'><td>Terrain à l'arrivée</td><td><input value='${Utils.terrain > 1000000 ? 1000000 : Utils.terrain}' size='21' id='o_chasseTDCDep'/></td><td></td></tr>
 			<tr><td>Nombre de chasse</td><td><input value='0' size='21' id='o_chasseNbr'/></td><td><input id='o_chasseNbrAuto' type='checkbox' checked='checked' name='optionAuto'/><label for='o_chasseNbrAuto'>Auto</label></td></tr>
 			<tr class='ligne_paire'><td>Terrain par chasse</td><td><input value='0' size='21' id='o_chasseTDCRep'/></td><td><input id='o_chasseTDCRepAuto' type='checkbox' checked='checked' name='optionAuto'/><label for='o_chasseTDCRepAuto'>Auto</label></td></tr>
-			<tr><td>Difficulté</td><td><select id='o_chasseDiff' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse...'><option value='1' class='black'>${RATIO_CHASSE[0].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[0] >= 0.2 ? (100 * REPLIQUE_CHASSE[0]).toFixed(2) + "%" : "< 20%"}</option><option value='2' class='black'>${RATIO_CHASSE[1].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[1] >= 0.2 ? (100 * REPLIQUE_CHASSE[1]).toFixed(2) + "%" : "< 20%"}</option><option value='3' class='black'>${RATIO_CHASSE[2].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[2] >= 0.2 ? (100 * REPLIQUE_CHASSE[2]).toFixed(2) + "%" : "< 20%"}</option><option value='4' class='black'>${RATIO_CHASSE[3].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[3] >= 0.2 ? (100 * REPLIQUE_CHASSE[3]).toFixed(2) + "%" : "< 20%"}</option><option value='5' class='red'>${RATIO_CHASSE[4].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[4] >= 0.2 ? (100 * REPLIQUE_CHASSE[4]).toFixed(2) + "%" : "< 20%"}</option><option value='6' class='red'>${RATIO_CHASSE[5].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[5] >= 0.2 ? (100 * REPLIQUE_CHASSE[5]).toFixed(2) + "%" : "< 20%"}</option><option value='6.5' class='orange'>${RATIO_CHASSE[6].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[6] >= 0.2 ? (100 * REPLIQUE_CHASSE[6]).toFixed(2) + "%" : "< 20%"}</option><option value='7' class='orange'>${RATIO_CHASSE[7].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[7] >= 0.2 ? (100 * REPLIQUE_CHASSE[7]).toFixed(2) + "%" : "< 20%"}</option><option value='7.5' class='orange'>${RATIO_CHASSE[8].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[8] >= 0.2 ? (100 * REPLIQUE_CHASSE[8]).toFixed(2) + "%" : "< 20%"}</option><option value='8' class='green'>${RATIO_CHASSE[9].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[9] >= 0.2 ? (100 * REPLIQUE_CHASSE[9]).toFixed(2) + "%" : "< 20%"}</option><option value='8.5' class='green'>${RATIO_CHASSE[10].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[10] >= 0.2 ? (100 * REPLIQUE_CHASSE[10]).toFixed(2) + "%" : "< 20%"}</option><option value='9' class='green' selected>${RATIO_CHASSE[11].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[11] >= 0.2 ? (100 * REPLIQUE_CHASSE[11]).toFixed(2) + "%" : "< 20%"}</option><option value='10' class='green'>${RATIO_CHASSE[12].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[12] >= 0.2 ? (100 * REPLIQUE_CHASSE[12]).toFixed(2) + "%" : "< 20%"}</option></select></td><td></td></tr>
+			<tr><td>Difficulté</td><td><select id='o_chasseDiff' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse...'><option value='1' class='black'>${RATIO_CHASSE[0].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[0] >= 0.2 ? (100 * REPLIQUE_CHASSE[0]).toFixed(2) + "%" : "< 20%"}</option><option value='2' class='black'>${RATIO_CHASSE[1].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[1] >= 0.2 ? (100 * REPLIQUE_CHASSE[1]).toFixed(2) + "%" : "< 20%"}</option><option value='3' class='black'>${RATIO_CHASSE[2].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[2] >= 0.2 ? (100 * REPLIQUE_CHASSE[2]).toFixed(2) + "%" : "< 20%"}</option><option value='4' class='black'>${RATIO_CHASSE[3].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[3] >= 0.2 ? (100 * REPLIQUE_CHASSE[3]).toFixed(2) + "%" : "< 20%"}</option><option value='5' class='red'>${RATIO_CHASSE[4].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[4] >= 0.2 ? (100 * REPLIQUE_CHASSE[4]).toFixed(2) + "%" : "< 20%"}</option><option value='6' class='red'>${RATIO_CHASSE[5].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[5] >= 0.2 ? (100 * REPLIQUE_CHASSE[5]).toFixed(2) + "%" : "< 20%"}</option><option value='6.5' class='orange'>${RATIO_CHASSE[6].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[6] >= 0.2 ? (100 * REPLIQUE_CHASSE[6]).toFixed(2) + "%" : "< 20%"}</option><option value='7' class='orange'>${RATIO_CHASSE[7].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[7] >= 0.2 ? (100 * REPLIQUE_CHASSE[7]).toFixed(2) + "%" : "< 20%"}</option><option value='7.5' class='orange'>${RATIO_CHASSE[8].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[8] >= 0.2 ? (100 * REPLIQUE_CHASSE[8]).toFixed(2) + "%" : "< 20%"}</option><option value='8' class='green'>${RATIO_CHASSE[9].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[9] >= 0.2 ? (100 * REPLIQUE_CHASSE[9]).toFixed(2) + "%" : "< 20%"}</option><option value='8.5' class='green'>${RATIO_CHASSE[10].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[10] >= 0.2 ? (100 * REPLIQUE_CHASSE[10]).toFixed(2) + "%" : "< 20%"}</option><option value='9' class='green' selected>${RATIO_CHASSE[11].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[11] >= 0.2 ? (100 * REPLIQUE_CHASSE[11]).toFixed(2) + "%" : "< 20%"}</option><option value='10' class='green'>${RATIO_CHASSE[12].toFixed(1)} → Rep10% : ${REPLIQUE_CHASSE[12] >= 0.2 ? (100 * REPLIQUE_CHASSE[12]).toFixed(2) + "%" : "< 20%"}</option></select></td><td id='o_chasseDiffInfo' class='small'></td></tr>
 			<tr class='ligne_paire'><td>Garder des JSN</td><td><input value='0' size='21' id='o_chasseJSN'/></td><td>max : ${numeral(this._armee.nbrJSN).format()}</td></tr>
 			<tr><td>Intervalle entre les chasses</td><td><select id='o_chasseInt' title='Intervalle entre les chasses'><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></td><td></td></tr>
 			<tr class='ligne_paire'><td>Date d'arrivée souhaitée</td><td><input value='' size='21' id='o_chasseDateArrivee' placeholder='JJ-MM-AAAA HH:mm'/></td><td>Terrain par chasse suggéré : <span id='o_chasseDateArriveeTdc' class='gras'>—</span> <button type='button' id='o_chasseDateArriveeApply' disabled>Appliquer</button></td></tr>
@@ -300,6 +300,12 @@ class PageRessource {
       // Sync la dropdown Difficulté sur le ratio de référence réellement atteint
       // (plus bas que celui sélectionné si l'armée ne peut pas le tenir, ou si
       // le nombre et le terrain sont fixés à la main).
+      this._majDifficultesAccessibles(
+        simu,
+        tdcArrivee,
+        parseFloat($("#o_chasseDiff").val()),
+        autoNb && autoTerrain,
+      );
       let computed = String(RATIO_CHASSE[simu.indexRef]);
       if ($("#o_chasseDiff").val() !== computed) {
         $("#o_chasseDiff").val(computed);
@@ -307,6 +313,33 @@ class PageRessource {
       }
       this.mettreAjourPertesTdc();
     }
+  }
+  /**
+   * Grise les difficultés que l'armée ne peut pas tenir et dit pourquoi la
+   * liste change de valeur. Même une chasse de 1 cm² a une difficulté
+   * minimale, qui croît avec le TdC (formule de Calystene) : au-delà de
+   * attaque / difficulté minimale, aucun nombre ni aucun terrain ne tient le
+   * ratio, et la liste redescendait sans explication.
+   *
+   * @private
+   * @method _majDifficultesAccessibles
+   * @param {Object} simu résultat de la simulation
+   * @param {Number} tdcArrivee TdC à l'arrivée des chasses
+   * @param {Number} choisi ratio sélectionné avant la synchronisation
+   * @param {Boolean} auto nombre et terrain calculés par le lanceur
+   */
+  _majDifficultesAccessibles(simu, tdcArrivee, choisi, auto) {
+    let max = simu.attArmee / SimulationChasse.difficulte(Math.max(1, tdcArrivee), 1),
+      info = "";
+    $("#o_chasseDiff option").each((i, elt) => {
+      $(elt).prop("disabled", auto && RATIO_CHASSE[i] > max + 0.0001);
+    });
+    if (!auto) info = "Nombre ou terrain fixé : la difficulté en découle.";
+    else if (max < RATIO_CHASSE[RATIO_CHASSE.length - 1])
+      info =
+        (choisi > max + 0.0001 ? `Difficulté ${choisi} impossible. ` : "") +
+        `Max : ${numeral(max).format("0.00")} avec cette armée (une chasse de 1 cm²).`;
+    $("#o_chasseDiffInfo").text(info);
   }
   /**
    * Met à jour la couleur de la dropdown Difficulté selon le seuil de ratio.

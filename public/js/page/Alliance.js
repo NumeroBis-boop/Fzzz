@@ -4,16 +4,6 @@
  **********************************************************************/
 
 /**
- * Bouton DataTables « Copie simple » du tableau des membres. Pas d'action : la
- * copie est faite par Clipboard, délégué sur la classe (voir executer()).
- */
-const BOUTON_COPIE_SIMPLE = {
-  text: "Copie simple",
-  className: "o_copieMembresSimple",
-  action: () => {},
-};
-
-/**
  * Classe de fonction pour la page /alliance.php.
  *
  * @class PageAlliance
@@ -26,12 +16,7 @@ class PageAlliance {
      */
     this._alliance = new Alliance({ tag: Utils.alliance });
     /**
-     * Connexion à l'utilitaire.
-     */
-    this._utilitaire = new PageForum();
-    /**
-     * Grade natif du jeu par pseudo, relevé avant tout écrasement par un rang
-     * SDC : la carte propose les deux comme filtres distincts.
+     * Grade natif du jeu par pseudo, proposé comme filtre sur la carte.
      */
     this._gradesNatifs = {};
     /**
@@ -43,17 +28,6 @@ class PageAlliance {
    *
    */
   executer() {
-    // Délégué sur le document : le bouton est créé plus tard par DataTables
-    // (parfois après la réponse asynchrone de l'utilitaire).
-    let copieSimple = new Clipboard(".o_copieMembresSimple", {
-      text: () => this.texteCopieSimple(),
-    });
-    copieSimple.on("success", () => {
-      $.toast({ ...TOAST_SUCCESS, text: "Les membres ont été copiés dans le presse papier." });
-    });
-    copieSimple.on("error", () => {
-      $.toast({ ...TOAST_ERROR, text: "Une erreur a été rencontrée, la copie a échoué." });
-    });
     // Si le tableau des membres est déjà rendu, on enrichit directement.
     // Sinon, on observe `#alliance` pour réagir dès que le tableau apparaît
     // (rendu async sur certaines variantes de la page). Si aucun des deux
@@ -73,23 +47,6 @@ class PageAlliance {
       observer.observe($("#alliance")[0], { childList: true });
     }
     return this;
-  }
-  /**
-   * Texte de « Copie simple » : titre, ligne vide, en-tête puis une ligne par
-   * membre, colonnes séparées par des tabulations et lignes par CRLF.
-   *
-   * @method texteCopieSimple
-   * @return {String}
-   */
-  texteCopieSimple() {
-    return [
-      `${Utils.serveur} | Membres ${Utils.alliance}`,
-      "",
-      ["", "", "Rang", "Pseudo", "", "Terrain", "", "Technologie", "Fourmiliere", "", "", ""].join(
-        "\t",
-      ),
-      ...this._lignesCopieSimple,
-    ].join("\r\n");
   }
   /**
    * Affiche les modifications du tableau des membres.
@@ -117,32 +74,6 @@ class PageAlliance {
     $(".simulateur table[class='ligne_paire'] tr:eq(2) td:eq(3)").append(
       ` (${$("img[alt='Colonisé']").length})`,
     );
-    // Lignes brutes pour « Copie simple », relevées avant que le tableau ne
-    // soit enrichi (icônes, rang SDC, colonnes Tdt/Retour).
-    this._lignesCopieSimple = $("#tabMembresAlliance tr:gt(0)")
-      .map((i, elt) => {
-        const cellule = (n) =>
-          $(elt)
-            .find(`td:eq(${n})`)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
-        return [
-          "",
-          cellule(1),
-          cellule(2),
-          cellule(3),
-          "",
-          cellule(5),
-          "",
-          cellule(7),
-          cellule(8),
-          "",
-          "",
-          "",
-        ].join("\t");
-      })
-      .get();
     // ajout des totaux de l'alliance
     let tmpJoueurs = {};
     $("#tabMembresAlliance tr:gt(0)").each((i, elt) => {
@@ -153,9 +84,7 @@ class PageAlliance {
         terrain: terrain,
         fourmiliere: ~~$(elt).find("td:eq(8)").text(),
         technologie: ~~$(elt).find("td:eq(7)").text(),
-        // grade natif du jeu — fallback affiché tant qu'aucun rang SDC n'est saisi,
-        // et backfillé dans les sujets créés par « Actualiser l'alliance ».
-        // Les "/" sont remplacés : le titre du sujet forum est parsé avec " / ".
+        // grade natif du jeu
         rang: $(elt).find("td:eq(2)").text().trim().replace(/\//g, "-"),
       });
       this._gradesNatifs[pseudo] = tmpJoueurs[pseudo].rang;
@@ -171,33 +100,18 @@ class PageAlliance {
     $("#tabMembresAlliance").append(
       `<tfoot class='${Object.keys(this._alliance.joueurs).length % 2 ? "ligne_paire" : ""}'><tr class='gras centre'><td colspan='12'>Terrain : <span id='totalTerrain'>${numeral(this._alliance.calculTerrain()).format()}</span> cm² | Fourmilière : ${numeral(this._alliance.calculFourmiliere()).format()} | Technologie : ${numeral(this._alliance.calculTechnologie()).format()}.</td></tr></tfoot>`,
     );
-    // Recupération des données de l'utilitaire sinon on met en forme le tableau directement
     $("#tabMembresAlliance tr:first").remove();
     $("#tabMembresAlliance").prepend(
       `<thead><tr class='alt'><th></th><th></th><th>Rang</th><th>Pseudo</th><th></th><th>Terrain</th><th></th><th><span style='padding-right:10px'>Technologie</span></th><th><span style='padding-right:10px'>Fourmiliere</span></th><th colspan='2'>Etat</th><th></th></tr></thead>`,
     );
 
-    // Si on dispose d'un utilitaire pour la gestion des membres
-    if (monProfil.parametre["forumMembre"].valeur) {
-      // recuperation des commandes sur l'utilitaire
-      this._utilitaire.consulterSection(monProfil.parametre["forumMembre"].valeur).then(
-        (data) => {
-          if (this._utilitaire.chargerJoueur(data)) this.traitementUtilitaire();
-        },
-        (jqXHR, textStatus, errorThrown) => {
-          $.toast({
-            ...TOAST_ERROR,
-            text: "Une erreur réseau a été rencontrée lors de la récupération des membres.",
-          });
-        },
-      );
-    } else this.tableauAvecCarteCache();
+    this.tableauAvecCarteCache();
     return this;
   }
   /**
    * Variante de tableau() qui utilise le cache local de la Carte de l'alliance
    * (rempli via le bouton "Charger / Actualiser") pour ajouter les colonnes
-   * Tdt + Retour aux alliances qui n'ont pas le SDC chef-bootstrappé.
+   * Tdt + Retour.
    * Si pas de cache → fallback sur tableau() basique.
    *
    * @method tableauAvecCarteCache
@@ -250,7 +164,7 @@ class PageAlliance {
         bPaginate: false,
         bAutoWidth: false,
         dom: "Bfrti",
-        buttons: ["colvis", "copyHtml5", BOUTON_COPIE_SIMPLE, "csvHtml5", "excelHtml5"],
+        buttons: [],
         order: [],
         stripeClasses: ["", "alt"],
         responsive: true,
@@ -259,7 +173,6 @@ class PageAlliance {
           infoEmpty: "Aucun enregistrement",
           infoFiltered: "(Filtré par _MAX_ enregistrements)",
           search: "Rechercher : ",
-          buttons: { colvis: "Colonne", copy: "Copier" },
         },
         columnDefs: [
           { type: "quantite-grade", targets: 5 },
@@ -271,6 +184,9 @@ class PageAlliance {
     }
     // Bouton Synchroniser — disponible dans tous les cas (bootstrap si pas de cache,
     // refresh sinon). Recharge la page après sync pour que le tableau pick up les coords.
+    // Sans autre bouton, DataTables peut ne pas créer le conteneur : on le crée.
+    if (!$("#tabMembresAlliance_wrapper .dt-buttons").length)
+      $("#tabMembresAlliance_wrapper").prepend("<div class='dt-buttons'></div>");
     $("#tabMembresAlliance_wrapper .dt-buttons").prepend(
       `<a id='o_syncCarteAlliance' class='dt-button' href='#'><span>Synchroniser</span></a>`,
     );
@@ -312,7 +228,7 @@ class PageAlliance {
       bPaginate: false,
       bAutoWidth: false,
       dom: "Bfrti",
-      buttons: ["colvis", "copyHtml5", BOUTON_COPIE_SIMPLE, "csvHtml5", "excelHtml5"],
+      buttons: [],
       order: [],
       stripeClasses: ["", "alt"],
       responsive: true,
@@ -321,282 +237,10 @@ class PageAlliance {
         infoEmpty: "Aucun enregistrement",
         infoFiltered: "(Filtré par _MAX_ enregistrements)",
         search: "Rechercher : ",
-        buttons: { colvis: "Colonne", copy: "Copier" },
       },
       columnDefs: [
         { type: "quantite-grade", targets: 5 },
         { sortable: false, targets: [0, 1, 4, 6, 10, 11] },
-      ],
-    });
-    return this;
-  }
-  /**
-   * Ajout des infos du SDC.
-   *
-   * @private
-   * @method traitementUtilitaire
-   */
-  traitementUtilitaire() {
-    for (let pseudo in this._utilitaire.alliance.joueurs) {
-      // si la clé est une clé du tableau des memres
-      if (this._alliance.joueurs.hasOwnProperty(pseudo)) {
-        this._alliance.joueurs[pseudo].x = this._utilitaire.alliance.joueurs[pseudo].x;
-        this._alliance.joueurs[pseudo].y = this._utilitaire.alliance.joueurs[pseudo].y;
-        this._alliance.joueurs[pseudo].id = this._utilitaire.alliance.joueurs[pseudo].id;
-        this._alliance.joueurs[pseudo].sujetForum =
-          this._utilitaire.alliance.joueurs[pseudo].sujetForum;
-        // on ne remplace le grade natif que si un rang SDC a réellement été saisi
-        if (this._utilitaire.alliance.joueurs[pseudo].rang) {
-          this._alliance.joueurs[pseudo].rang = this._utilitaire.alliance.joueurs[pseudo].rang;
-          this._alliance.joueurs[pseudo].ordreRang =
-            this._utilitaire.alliance.joueurs[pseudo].ordreRang;
-        }
-      }
-    }
-    // On retraicie les colonnes des niveaux
-    $("#tabMembresAlliance th:eq(1)").after(`<th>Grade</th>`);
-    $("#tabMembresAlliance th:eq(9)").after(`<th>Tdt</th><th>Retour</th>`);
-    $("#tabMembresAlliance tfoot td:eq(0)").attr("colspan", 15);
-    // On compléte les données
-    $("#tabMembresAlliance tr:gt(0):lt(-1)").each((i, elt) => {
-      let pseudo = $(elt).find("td:eq(3)").text();
-      // si nous avons les coordonnées on affiche les tempts de trajet
-      $(elt)
-        .find("td:eq(1)")
-        .after(
-          `<td align="center">${this._alliance.joueurs.hasOwnProperty(pseudo) ? this._libelleRang(this._alliance.joueurs[pseudo].rang, this._alliance.joueurs[pseudo].ordreRang) : Utils.alliance}</td>`,
-        );
-      $(elt)
-        .find("td:eq(9)")
-        .after(
-          this._alliance.joueurs[pseudo].x != -1 && this._alliance.joueurs[pseudo].y != -1
-            ? `<td>${Utils.intToTime(monProfil.getTempsParcours2(this._alliance.joueurs[pseudo]))}</td><td>${Utils.roundMinute(monProfil.getTempsParcours2(this._alliance.joueurs[pseudo])).format("D MMM à HH[h]mm")}</td>`
-            : `<td>N/C</td><td>N/C</td>`,
-        );
-      // si on est chef de l'alliance on peut modifier les rangs et que le joueur est dans l'utilitaire
-      if (
-        $("img[src='images/crayon.gif']").length &&
-        this._alliance.joueurs.hasOwnProperty(pseudo)
-      ) {
-        $(elt)
-          .find("td:eq(0)")
-          .append(
-            `<a id="o_rang${this._alliance.joueurs[pseudo].id}" href=""><img src="${IMG_UTILITY}" alt="rang"/></a>`,
-          );
-        $("#o_rang" + this._alliance.joueurs[pseudo].id).click((e) => {
-          let boiteForm = new BoiteRang(this._alliance.joueurs[pseudo], this._utilitaire, this);
-          boiteForm.afficher();
-          return false;
-        });
-      }
-    });
-    this.tableauUtilitaire().optionAdmin();
-    // la carte profite aussi des coordonnées partagées
-    this._carteDepuisSdc();
-    return this;
-  }
-  /**
-   *
-   */
-  optionAdmin() {
-    // si on est chef de l'alliance on peut mettre à jour les membres
-    if ($("img[src='images/crayon.gif']").length) {
-      $("#tabMembresAlliance_wrapper .dt-buttons").prepend(
-        `<a id="o_actualiserAlliance" class="dt-button" href="#"><span>Actualiser l'alliance</span></a>`,
-      );
-      $("#o_actualiserAlliance").click((e) => {
-        // un seul clic à la fois : les profils partent un par un (cf.
-        // class/Requetes.js), ce qui peut prendre un moment sur une grosse alliance
-        let bouton = $(e.currentTarget);
-        if (bouton.hasClass("disabled")) return false;
-        let promiseJoueur = new Array(),
-          pseudoJoueur = new Array();
-        // fiches d'anciens membres, supprimées après confirmation
-        this.supprimerAnciensMembres();
-        // si coordonnée inconnu on va les chercher
-        for (let joueur in this._alliance.joueurs) {
-          // si le joueur n'est pas connu dans l'utilitaire
-          if (!this._utilitaire.alliance.joueurs.hasOwnProperty(joueur))
-            this._utilitaire.alliance.joueurs[joueur] = this._alliance.joueurs[joueur];
-          // si ses coordonnées ne sont pas connues (0 / 0 compris : c'est ce
-          // qu'enregistraient les versions qui ne lisaient pas le lien carte.php de s5)
-          let { x, y } = this._utilitaire.alliance.joueurs[joueur];
-          if ((x == -1 && y == -1) || (x == 0 && y == 0)) {
-            promiseJoueur.push(this._utilitaire.alliance.joueurs[joueur].getProfil());
-            pseudoJoueur.push(joueur);
-          }
-        }
-        let faits = 0,
-          progression = () =>
-            bouton.find("span").text(`Actualisation… (${faits}/${promiseJoueur.length})`);
-        bouton.addClass("disabled").css("opacity", 0.6);
-        progression();
-        promiseJoueur = promiseJoueur.map((p) =>
-          Promise.resolve(p).then((html) => {
-            faits++;
-            progression();
-            return html;
-          }),
-        );
-        // on recup les profils de tout les joueurs
-        Promise.all(promiseJoueur)
-          .then((values) => {
-            let promiseForum = new Array(),
-              joueur = null;
-            for (let i = 0; i < values.length; i++) {
-              joueur = this._utilitaire.alliance.joueurs[pseudoJoueur[i]];
-              joueur.chargerProfil(values[i]);
-              // on enregistre
-              if (!joueur.sujetForum)
-                promiseForum.push(
-                  this._utilitaire.creerSujet(
-                    joueur.toUtilitaire(),
-                    " ",
-                    monProfil.parametre["forumMembre"].valeur,
-                  ),
-                );
-            }
-            // on creer les sujets pour les membres qui n'en disposent pas
-            return Promise.all(promiseForum).then((values) => {
-              $.toast({ ...TOAST_SUCCESS, text: "la mise à jour c'est correctement effectuée." });
-              this.actualiserMembre();
-            });
-          })
-          .catch(() => {
-            // sans ce catch, un échec laissait le bouton sans réaction et sans message
-            bouton
-              .removeClass("disabled")
-              .css("opacity", "")
-              .find("span")
-              .text("Actualiser l'alliance");
-            $.toast({
-              ...TOAST_ERROR,
-              text: "La mise à jour a échoué (réseau ou serveur). Réessayez dans un instant.",
-            });
-          });
-        return false;
-      });
-    }
-    return this;
-  }
-  /**
-   * Supprime du SDC les fiches des joueurs qui ont quitté l'alliance (sujets
-   * de la section Toolzzz_Membre dont le pseudo n'est plus dans le tableau des
-   * membres), après confirmation : une suppression sur le forum ne s'annule pas.
-   *
-   * @private
-   * @method supprimerAnciensMembres
-   */
-  supprimerAnciensMembres() {
-    // tableau vide ou mal chargé : on ne supprime rien plutôt que tout
-    if (!Object.keys(this._alliance.joueurs).length) return;
-    let partis = Object.keys(this._utilitaire.alliance.joueurs).filter(
-      (pseudo) =>
-        !this._alliance.joueurs.hasOwnProperty(pseudo) &&
-        this._utilitaire.alliance.joueurs[pseudo].sujetForum,
-    );
-    if (
-      !partis.length ||
-      !confirm(
-        `${partis.length} ancien${partis.length > 1 ? "s" : ""} membre${partis.length > 1 ? "s ont" : " a"} encore une fiche dans le SDC : ${partis.join(", ")}.\n\nSupprimer ${partis.length > 1 ? "ces fiches" : "cette fiche"} du forum ?`,
-      )
-    )
-      return;
-    this._utilitaire
-      .supprimerSujets(
-        partis.map((pseudo) => this._utilitaire.alliance.joueurs[pseudo].sujetForum),
-        monProfil.parametre["forumMembre"].valeur,
-      )
-      .then(
-        () => {
-          partis.forEach((pseudo) => delete this._utilitaire.alliance.joueurs[pseudo]);
-          $.toast({
-            ...TOAST_SUCCESS,
-            text: `${partis.length} fiche${partis.length > 1 ? "s" : ""} d'ancien${partis.length > 1 ? "s" : ""} membre${partis.length > 1 ? "s" : ""} supprimée${partis.length > 1 ? "s" : ""}.`,
-          });
-        },
-        () => $.toast({ ...TOAST_ERROR, text: "La suppression des fiches a échoué." }),
-      );
-  }
-  /**
-   *
-   */
-  actualiserMembre() {
-    $("#tabMembresAlliance").DataTable().destroy();
-    // mise à jour de l'alliance
-    for (let pseudo in this._utilitaire.alliance.joueurs) {
-      // si la clé est une clé du tableau des membres
-      if (this._alliance.joueurs.hasOwnProperty(pseudo)) {
-        this._alliance.joueurs[pseudo].x = this._utilitaire.alliance.joueurs[pseudo].x;
-        this._alliance.joueurs[pseudo].y = this._utilitaire.alliance.joueurs[pseudo].y;
-        this._alliance.joueurs[pseudo].id = this._utilitaire.alliance.joueurs[pseudo].id;
-        // on ne remplace le grade natif que si un rang SDC a réellement été saisi
-        if (this._utilitaire.alliance.joueurs[pseudo].rang) {
-          this._alliance.joueurs[pseudo].rang = this._utilitaire.alliance.joueurs[pseudo].rang;
-          this._alliance.joueurs[pseudo].ordreRang =
-            this._utilitaire.alliance.joueurs[pseudo].ordreRang;
-        }
-      }
-    }
-    $("#tabMembresAlliance tr:gt(0):lt(-1)").each((i, elt) => {
-      let pseudo = $(elt).find("td:eq(4)").text();
-      $(elt)
-        .find("td:eq(2)")
-        .text(
-          this._alliance.joueurs.hasOwnProperty(pseudo)
-            ? this._libelleRang(
-                this._alliance.joueurs[pseudo].rang,
-                this._alliance.joueurs[pseudo].ordreRang,
-              )
-            : Utils.alliance,
-        );
-      $(elt)
-        .find("td:eq(10)")
-        .text(Utils.intToTime(monProfil.getTempsParcours2(this._alliance.joueurs[pseudo])));
-      $(elt)
-        .find("td:eq(11)")
-        .text(
-          Utils.roundMinute(monProfil.getTempsParcours2(this._alliance.joueurs[pseudo])).format(
-            "D MMM à HH[h]mm",
-          ),
-        );
-    });
-    this.tableauUtilitaire().optionAdmin();
-    return this;
-  }
-  /**
-   * Ajoute le tri.
-   *
-   * @private
-   * @method tableauUtilitaire
-   */
-  tableauUtilitaire() {
-    $("#tabMembresAlliance th:eq(8), #tabMembresAlliance th:eq(9)").css({
-      maxWidth: "50px",
-      textOverflow: "ellipsis",
-      overflow: "hidden",
-    });
-    $("#tabMembresAlliance").DataTable({
-      bInfo: false,
-      bPaginate: false,
-      bAutoWidth: false,
-      dom: "Bfrti",
-      order: [],
-      stripeClasses: ["", "alt"],
-      buttons: ["colvis", "copyHtml5", BOUTON_COPIE_SIMPLE, "csvHtml5", "excelHtml5"],
-      responsive: true,
-      language: {
-        zeroRecords: "Aucun joueur trouvé",
-        info: "Page _PAGE_ de _PAGES_",
-        infoEmpty: "Aucun enregistrement",
-        infoFiltered: "(Filtré par _MAX_ enregistrements)",
-        search: "Rechercher : ",
-        buttons: { colvis: "Colonne", copy: "Copier" },
-      },
-      columnDefs: [
-        { type: "quantite-grade", targets: 6 },
-        { visible: false, targets: [3, 8, 9] },
-        { sortable: false, targets: [0, 1, 5, 7, 12, 13, 14] },
       ],
     });
     return this;
@@ -623,13 +267,11 @@ class PageAlliance {
         <div id='o_carteAllianceChart' style='height:800px;margin-top:15px;display:none;'></div>
         <div id='o_carteChaine' class='o_marginT15' style='display:none;'>
           <div class='centre gras'>Chaîne entre plus proches voisins</div>
-          <p class='reduce'>Ordre de passage qui minimise le temps de trajet total entre les membres affichés : chacun envoie au suivant. Les joueurs décochés dans les filtres sont exclus. L'ordre SDC suit plutôt les rangs et priorités saisis par les chefs, pour comparer. Temps sans amélioration de Vitesse d'attaque.</p>
+          <p class='reduce'>Ordre de passage qui minimise le temps de trajet total entre les membres affichés : chacun envoie au suivant. Les joueurs décochés dans les filtres sont exclus. Temps sans amélioration de Vitesse d'attaque.</p>
           <div class='centre o_marginT15'>
-            <label>Ordre <select id='o_chaineOrdre'><option value=''>Le plus court</option><option value='sdc'>SDC (rang puis priorité)</option></select></label>
-            <label style='margin-left:12px;'>Départ <select id='o_chaineDepart'></select></label>
+            <label>Départ <select id='o_chaineDepart'></select></label>
             <label style='margin-left:12px;'><input type='checkbox' id='o_chaineTracer'/> Tracer sur la carte</label>
             <button id='o_chaineCopier' class='o_button f_success' style='margin-left:12px;'>Copier pour le forum</button>
-            <button id='o_chaineNumeroter' class='o_button f_info' style='margin-left:8px;display:none;' title='Écrit la place de chacun dans la chaîne comme priorité de sa fiche SDC, rang par rang, le dernier de la chaîne étant le 1'>Numéroter dans le SDC</button>
           </div>
           <table id='o_chaineListe' class='o_maxWidth centre o_marginT15' cellspacing='0'></table>
         </div>
@@ -722,64 +364,6 @@ class PageAlliance {
       }
       return { members, timestamp };
     });
-  }
-  /**
-   * Alimente la carte avec les coordonnées partagées du SDC (section
-   * Toolzzz_Membre), pour que tous les membres d'une alliance équipée voient la
-   * carte sans charger un seul profil. Les positions du cache local (lues sur
-   * les profils, donc à jour) restent prioritaires ; le SDC complète les
-   * membres qui n'y sont pas. On part des membres actuels de l'alliance : un
-   * ancien membre resté dans le cache n'est plus affiché.
-   *
-   * @private
-   * @method _carteDepuisSdc
-   */
-  _carteDepuisSdc() {
-    if (!$("#o_carteAlliance").length) return;
-    let cache = {},
-      depuisCache = 0,
-      depuisSdc = 0,
-      connu = (x, y) => x > -1 && y > -1 && !(x == 0 && y == 0),
-      donnees = null;
-    try {
-      donnees = JSON.parse(
-        localStorage.getItem(`outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`),
-      );
-    } catch (e) {
-      donnees = null;
-    }
-    ((donnees && donnees.members) || []).forEach((m) => {
-      if (connu(m.x, m.y)) cache[m.pseudo] = m;
-    });
-    let membres = Object.values(this._alliance.joueurs)
-      .map((j) => {
-        if (cache[j.pseudo]) {
-          depuisCache++;
-          return { ...cache[j.pseudo], terrain: j.terrain || cache[j.pseudo].terrain || 0 };
-        }
-        // les fiches du SDC donnent les coordonnées en texte (titre du sujet)
-        let x = Number(j.x),
-          y = Number(j.y);
-        if (connu(x, y)) {
-          depuisSdc++;
-          return { pseudo: j.pseudo, x, y, terrain: j.terrain || 0 };
-        }
-        return null;
-      })
-      .filter(Boolean);
-    // Aucune position nouvelle : la carte du cache reste, mais ses filtres ont
-    // été construits avant l'arrivée du SDC, donc sans les rangs. On les
-    // reconstruit pour faire apparaître les rangs SDC (et l'ordre SDC de la chaîne).
-    if (!depuisSdc) {
-      if (this._carteMembres) this._renderCarte(this._carteMembres);
-      return;
-    }
-    this._renderCarte(membres);
-    if (depuisCache) this._afficherAge(donnees.timestamp);
-    $("#o_carteAllianceStatus").text(
-      (depuisCache ? $("#o_carteAllianceStatus").text() + " · " : "") +
-        `${depuisSdc} position${depuisSdc > 1 ? "s" : ""} issue${depuisSdc > 1 ? "s" : ""} du SDC`,
-    );
   }
   /**
    * Refresh de la Carte (UI Carte + render Highcharts).
@@ -1029,7 +613,6 @@ class PageAlliance {
     }
     return {
       grades: f.grades || [],
-      rangs: f.rangs || [],
       joueurs: f.joueurs || [],
     };
   }
@@ -1056,23 +639,7 @@ class PageAlliance {
     return this._gradesNatifs[pseudo] || "Sans grade";
   }
   /**
-   * Rang SDC d'un membre, ou une chaîne vide si l'alliance n'utilise pas le
-   * SDC ou si rien n'a été saisi pour lui.
-   *
-   * @private
-   * @method _rangSdcDe
-   */
-  _rangSdcDe(pseudo) {
-    // `alliance` vaut null tant que la section SDC n'a pas été chargée, et le
-    // reste si l'alliance n'utilise pas l'utilitaire
-    let alliance = this._utilitaire.alliance,
-      joueur = alliance && alliance.joueurs ? alliance.joueurs[pseudo] : null;
-    return (joueur && joueur.rang) || "";
-  }
-  /**
-   * Applique la sélection à une liste de membres. Un membre sans rang SDC
-   * n'est jamais masqué par le filtre des rangs — sinon toute alliance
-   * n'utilisant pas le SDC verrait sa carte se vider.
+   * Applique la sélection à une liste de membres.
    *
    * @private
    * @method _filtrerMembres
@@ -1080,17 +647,12 @@ class PageAlliance {
   _filtrerMembres(membres) {
     let f = this._filtres;
     return membres.filter((m) => {
-      let rang = this._rangSdcDe(m.pseudo);
-      return (
-        f.grades.indexOf(this._gradeDe(m.pseudo)) == -1 &&
-        (!rang || f.rangs.indexOf(rang) == -1) &&
-        f.joueurs.indexOf(m.pseudo) == -1
-      );
+      return f.grades.indexOf(this._gradeDe(m.pseudo)) == -1 && f.joueurs.indexOf(m.pseudo) == -1;
     });
   }
   /**
-   * Construit le bloc de filtres : une case par grade, une par rang SDC quand
-   * l'alliance en a, et la liste dépliable des joueurs.
+   * Construit le bloc de filtres : une case par grade et la liste dépliable
+   * des joueurs.
    *
    * @private
    * @method _construireFiltres
@@ -1121,9 +683,6 @@ class PageAlliance {
       grades = [...new Set(membres.map((m) => this._gradeDe(m.pseudo)))].sort(
         parEffectif(this._gradeDe),
       ),
-      rangs = [...new Set(membres.map((m) => this._rangSdcDe(m.pseudo)).filter((r) => r))].sort(
-        parEffectif(this._rangSdcDe),
-      ),
       pseudos = membres.map((m) => m.pseudo).sort(),
       cases = (liste, classe, accesseur) =>
         liste
@@ -1132,7 +691,7 @@ class PageAlliance {
               `<label title='${esc(v)}'><input type='checkbox' class='${classe}' data-i='${i}'/> ${lisible(v)}${accesseur ? ` <span class='reduce'>(${compte(v, accesseur)})</span>` : ""}</label>`,
           )
           .join("");
-    this._filtresValeurs = { grades: grades, rangs: rangs, joueurs: pseudos };
+    this._filtresValeurs = { grades: grades, joueurs: pseudos };
     // un grade unique par membre ne regroupe rien : on le signale plutôt que
     // d'afficher une liste de grades qui double celle des joueurs
     let partages = grades.filter((g) => compte(g, this._gradeDe) > 1).length;
@@ -1148,12 +707,6 @@ class PageAlliance {
       `${partages ? "" : `<p class='left small'><em>Chaque membre a un grade différent dans cette alliance : la liste des joueurs sera sans doute plus pratique.</em></p>`}
         <div>${cases(grades, "o_filtreGrade", this._gradeDe)}</div>`,
     );
-    if (rangs.length)
-      html += section(
-        "o_filtreRangs",
-        "Rangs SDC",
-        `<div>${cases(rangs, "o_filtreRang", this._rangSdcDe)}</div>`,
-      );
     html += section(
       "o_filtreJoueurs",
       "Joueurs",
@@ -1167,12 +720,10 @@ class PageAlliance {
         $(elt).prop("checked", exclus.indexOf(valeurs[$(elt).data("i")]) == -1);
       });
     poser("o_filtreGrade", grades, this._filtres.grades);
-    poser("o_filtreRang", rangs, this._filtres.rangs);
     poser("o_filtreJoueur", pseudos, this._filtres.joueurs);
     let afficherMasques = () => {
       let libelle = (n) => (n ? `(${n} masqué${n > 1 ? "s" : ""})` : "");
       $("#o_filtreGradesMasques").text(libelle(this._filtres.grades.length));
-      $("#o_filtreRangsMasques").text(libelle(this._filtres.rangs.length));
       $("#o_filtreJoueursMasques").text(libelle(this._filtres.joueurs.length));
     };
     afficherMasques();
@@ -1184,7 +735,6 @@ class PageAlliance {
           .get();
       this._filtres = {
         grades: lire("o_filtreGrade", grades),
-        rangs: lire("o_filtreRang", rangs),
         joueurs: lire("o_filtreJoueur", pseudos),
       };
       this._sauverFiltres();
@@ -1223,7 +773,7 @@ class PageAlliance {
     } catch (e) {
       o = {};
     }
-    return { ordre: o.ordre || "", depart: o.depart || "", tracer: !!o.tracer };
+    return { depart: o.depart || "", tracer: !!o.tracer };
   }
   /**
    * @private
@@ -1249,7 +799,6 @@ class PageAlliance {
     $("#o_chaineTracer").prop("checked", this._optionsChaine.tracer);
     let redessiner = () => {
       this._optionsChaine = {
-        ordre: $("#o_chaineOrdre").val() || "",
         depart: $("#o_chaineDepart").val() || "",
         tracer: $("#o_chaineTracer").prop("checked"),
       };
@@ -1257,8 +806,7 @@ class PageAlliance {
       if (this._carteMembres)
         this._dessinerCarte(this._filtrerMembres(this._carteMembres), this._carteMembres.length);
     };
-    $("#o_chaineOrdre, #o_chaineDepart, #o_chaineTracer").on("change", redessiner);
-    $("#o_chaineNumeroter").click(() => this._numeroterChaine());
+    $("#o_chaineDepart, #o_chaineTracer").on("change", redessiner);
     let copie = new Clipboard("#o_chaineCopier", { text: () => this._texteChaine() });
     copie.on("success", () => {
       $.toast({ ...TOAST_SUCCESS, text: "La chaîne a été copiée dans le presse papier." });
@@ -1338,48 +886,6 @@ class PageAlliance {
     };
   }
   /**
-   * Rang SDC et priorité dans la chaîne d'un membre, ex. « Grenier 2 ». La
-   * priorité 0 (ou vide) n'est pas affichée : c'est la valeur par défaut, celle
-   * des membres hors chaîne comme les chasseurs.
-   *
-   * @private
-   * @method _libelleRang
-   */
-  _libelleRang(rang, priorite) {
-    let p = String(priorite ?? "").trim();
-    return rang ? rang + (p && p != "0" ? " " + p : "") : "";
-  }
-  /**
-   * Ordre SDC : par rang (ordre alphabétique) puis par priorité décroissante,
-   * la priorité 1 étant le bout de la chaîne. Les membres sans priorité
-   * (chasseurs…) ou sans rang ne font pas partie de la chaîne prévue : ils
-   * passent à la fin.
-   *
-   * @private
-   * @method _chaineSdc
-   */
-  _chaineSdc(membres) {
-    let joueurs = (this._utilitaire.alliance && this._utilitaire.alliance.joueurs) || {},
-      cle = (m) => {
-        let j = joueurs[m.pseudo] || {},
-          p = parseFloat(j.ordreRang);
-        return { rang: j.rang || "", priorite: p > 0 ? p : Infinity };
-      };
-    return this._chaineDepuisOrdre(
-      [...membres].sort((a, b) => {
-        let ca = cle(a),
-          cb = cle(b);
-        return (
-          (ca.priorite == Infinity) - (cb.priorite == Infinity) ||
-          !ca.rang - !cb.rang ||
-          ca.rang.localeCompare(cb.rang) ||
-          (ca.priorite == cb.priorite ? 0 : ca.priorite > cb.priorite ? -1 : 1) ||
-          a.pseudo.localeCompare(b.pseudo)
-        );
-      }),
-    );
-  }
-  /**
    * Départ libre : on essaie chaque membre comme départ et on garde la chaîne
    * la plus courte, orientée du bas vers le haut de la carte (la parcourir dans
    * un sens ou dans l'autre prend le même temps).
@@ -1409,19 +915,7 @@ class PageAlliance {
     $("#o_carteChaine").show();
     let pseudos = membres.map((m) => m.pseudo).sort((a, b) => a.localeCompare(b)),
       // sans départ choisi (ou s'il n'est plus affiché), départ libre
-      depart = membres.find((m) => m.pseudo === this._optionsChaine.depart),
-      joueursSdc = (this._utilitaire.alliance && this._utilitaire.alliance.joueurs) || {},
-      // l'ordre SDC n'a de sens que si des rangs ont été saisis
-      avecRangs = membres.some((m) => joueursSdc[m.pseudo] && joueursSdc[m.pseudo].rang),
-      sdc = avecRangs && this._optionsChaine.ordre === "sdc";
-    $("#o_chaineOrdre option[value='sdc']").prop("disabled", !avecRangs);
-    $("#o_chaineOrdre").val(sdc ? "sdc" : "");
-    $("#o_chaineDepart").prop("disabled", sdc);
-    // numéroter n'a de sens que pour une chaîne calculée, et seuls les chefs
-    // peuvent modifier les fiches (même condition que l'icône de rang)
-    $("#o_chaineNumeroter").toggle(
-      !sdc && avecRangs && membres.length > 1 && $("img[src='images/crayon.gif']").length > 0,
-    );
+      depart = membres.find((m) => m.pseudo === this._optionsChaine.depart);
     $("#o_chaineDepart").html(
       `<option value=''>Le plus court (départ libre)</option>` +
         pseudos
@@ -1441,22 +935,15 @@ class PageAlliance {
       return null;
     }
     $("#o_chaineCopier").prop("disabled", false);
-    let chaine = (this._chaine = sdc
-        ? this._chaineSdc(membres)
-        : depart
-          ? this._calculerChaine(membres, depart)
-          : this._chaineLaPlusCourte(membres)),
-      rangDe = (m) => {
-        let j = joueursSdc[m.pseudo];
-        return j ? this._libelleRang(j.rang, j.ordreRang) : "";
-      },
+    let chaine = (this._chaine = depart
+        ? this._calculerChaine(membres, depart)
+        : this._chaineLaPlusCourte(membres)),
       n = chaine.ordre.length,
       lien = (m) =>
         `<a href='Membre.php?Pseudo=${m.pseudo}'>${$("<div>").text(m.pseudo).html()}</a>`,
       lignes = chaine.ordre.map((m, k) => {
         let vers = chaine.ordre[k + 1];
-        let rang = rangDe(m);
-        return `<tr><td>${k + 1}</td><td>${lien(m)}${m.isMe ? " <em>(toi)</em>" : ""}${rang ? ` <span class='reduce'>(${$("<div>").text(rang).html()})</span>` : ""}</td><td>${m.x} / ${m.y}</td>
+        return `<tr><td>${k + 1}</td><td>${lien(m)}${m.isMe ? " <em>(toi)</em>" : ""}</td><td>${m.x} / ${m.y}</td>
           <td>${vers ? lien(vers) : "—"}</td><td>${vers ? Utils.intToTime(chaine.etapes[k]) : "—"}</td></tr>`;
       });
     $("#o_chaineListe").html(
@@ -1466,90 +953,7 @@ class PageAlliance {
       </tbody>`,
     );
     $("#o_chaineListe tr:even").css("background-color", monProfil.parametre["couleur2"].valeur);
-    chaine.sdc = sdc;
     return chaine;
-  }
-  /**
-   * Écrit l'ordre de la chaîne affichée comme priorité dans les fiches SDC,
-   * rang par rang, en partant de la fin : le dernier passeur de la chaîne
-   * devient Passeur 1, celui d'avant Passeur 2, etc. Le rang n'est pas modifié,
-   * et les membres sans rang SDC sont ignorés. Seules les fiches qui changent
-   * sont réécrites.
-   *
-   * @private
-   * @method _numeroterChaine
-   */
-  _numeroterChaine() {
-    let bouton = $("#o_chaineNumeroter");
-    if (!this._chaine || bouton.prop("disabled")) return;
-    let joueurs = (this._utilitaire.alliance && this._utilitaire.alliance.joueurs) || {},
-      compteurs = {},
-      ignores = [],
-      changements = [];
-    // la priorité 1 est le bout de la chaîne : on numérote depuis la fin
-    [...this._chaine.ordre].reverse().forEach((m) => {
-      let j = joueurs[m.pseudo];
-      if (!j || !j.rang || !j.sujetForum) return ignores.push(m.pseudo);
-      let n = (compteurs[j.rang] = (compteurs[j.rang] || 0) + 1);
-      if (String(j.ordreRang ?? "").trim() !== String(n)) changements.push({ joueur: j, n: n });
-    });
-    changements.reverse();
-    if (!changements.length) {
-      $.toast({ ...TOAST_INFO, text: "Les priorités du SDC suivent déjà cette chaîne." });
-      return;
-    }
-    let lignes = changements.map(
-      (c) =>
-        `${c.joueur.pseudo} : ${this._libelleRang(c.joueur.rang, c.joueur.ordreRang) || c.joueur.rang} → ${c.joueur.rang} ${c.n}`,
-    );
-    if (
-      !confirm(
-        `Mettre à jour ${changements.length} fiche${changements.length > 1 ? "s" : ""} du SDC ?\n\n${lignes.join("\n")}` +
-          (ignores.length ? `\n\nIgnorés (pas de rang SDC) : ${ignores.join(", ")}` : ""),
-      )
-    )
-      return;
-    let libelle = bouton.text(),
-      faits = 0;
-    bouton.prop("disabled", true).text(`Mise à jour… (0/${changements.length})`);
-    // une fiche après l'autre, et arrêt à la première erreur
-    changements
-      .reduce(
-        (suite, c) =>
-          suite.then(() => {
-            let ancien = c.joueur.ordreRang;
-            c.joueur.ordreRang = c.n;
-            return Promise.resolve(
-              this._utilitaire.modifierSujet(c.joueur.toUtilitaire(), " ", c.joueur.sujetForum),
-            ).then(
-              () => {
-                let membre = this._alliance.joueurs[c.joueur.pseudo];
-                if (membre) membre.ordreRang = c.n;
-                bouton.text(`Mise à jour… (${++faits}/${changements.length})`);
-              },
-              (e) => {
-                c.joueur.ordreRang = ancien;
-                throw e;
-              },
-            );
-          }),
-        Promise.resolve(),
-      )
-      .then(
-        () => $.toast({ ...TOAST_SUCCESS, text: "Priorités du SDC mises à jour." }),
-        () =>
-          $.toast({
-            ...TOAST_ERROR,
-            text: `La mise à jour s'est arrêtée après ${faits} fiche${faits > 1 ? "s" : ""} sur ${changements.length}.`,
-          }),
-      )
-      .then(() => {
-        bouton.prop("disabled", false).text(libelle);
-        if (faits) {
-          this.actualiserMembre();
-          this._dessinerCarte(this._filtrerMembres(this._carteMembres), this._carteMembres.length);
-        }
-      });
   }
   /**
    * Texte de la chaîne pour le forum, une étape par ligne.
@@ -1566,7 +970,7 @@ class PageAlliance {
           `${k + 1}. ${c.ordre[k].pseudo} → ${c.ordre[k + 1].pseudo} (${Utils.intToTime(t)})`,
       );
     return (
-      `Chaîne de ${n} joueurs${c.sdc ? " (ordre SDC)" : ""} :\n${lignes.join("\n")}\n` +
+      `Chaîne de ${n} joueurs :\n${lignes.join("\n")}\n` +
       `Temps cumulé ${Utils.intToTime(c.total)}, plus longue étape ${Utils.intToTime(c.max)} (sans Vitesse d'attaque)`
     );
   }

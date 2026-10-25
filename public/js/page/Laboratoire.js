@@ -40,7 +40,7 @@ class PageLaboratoire {
     this._armee.getArmee().then((data) => {
       this._armee.chargeData(data);
       // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
-      this.titleBouclier().titleArmes();
+      this.titleBouclier().titleArmes().fdfArmes();
     });
     // Sauvegarde recherche AVANT le remplacement (saveRecherche lit $("#centre strong"))
     if (!Utils.comptePlus) this.plus();
@@ -100,11 +100,11 @@ class PageLaboratoire {
       (TEMPS_UNITE[0] * Math.pow(0.9, monProfil.getTDP()));
     let apportPonteJS = Math.round(
       parseInt(tOuv / (TEMPS_UNITE[4] * Math.pow(0.9, monProfil.getTDP()))) *
-        (10 + (10 * monProfil.niveauRecherche[1]) / 10),
+        (10 + (10 * monProfil.niveauRecherche[2]) / 10),
     );
     let apportPonteTk = Math.round(
       parseInt(tOuv / (TEMPS_UNITE[11] * Math.pow(0.9, monProfil.getTDP()))) *
-        (55 + (55 * monProfil.niveauRecherche[1]) / 10),
+        (55 + (55 * monProfil.niveauRecherche[2]) / 10),
     );
     let attABSupp = this._armee.getTotalAtt(monProfil.niveauRecherche[2] + 1);
     let bLigneGrasJS = attAB + apportPonteJS >= attABSupp ? true : false;
@@ -113,7 +113,7 @@ class PageLaboratoire {
     let defAB = this._armee.getTotalDef(monProfil.niveauRecherche[2]);
     let apportPonteTuE = Math.round(
       parseInt(tOuv / (TEMPS_UNITE[14] * Math.pow(0.9, monProfil.getTDP()))) *
-        (55 + (55 * monProfil.niveauRecherche[1]) / 10),
+        (55 + (55 * monProfil.niveauRecherche[2]) / 10),
     );
     let defABSupp = this._armee.getTotalDef(monProfil.niveauRecherche[2] + 1);
     let bLigneGrasTuE = defAB + apportPonteTuE >= defABSupp ? true : false;
@@ -134,6 +134,57 @@ class PageLaboratoire {
         content: title,
         tooltipClass: "ui-tooltip-brown ui-tooltip-lightBrown",
       });
+    return this;
+  }
+  /**
+   * Sous Armes : FdF hors bonus (HB) de l'armée, FdF HB requise pour que le
+   * niveau suivant rapporte autant que la ponte de JS, d'Artilleuses ou de
+   * Tanks pendant le temps de ponte des ouvrières sacrifiées, et ce qu'il manque.
+   *
+   *   Sₙ = ⌈Cₙ × 60 / tᵤ × aᵤ × (n + 9)⌉, rentable si FdF HB ≥ Sₙ
+   *
+   * n = niveau visé, Cₙ = ouvrières du niveau (lues sur la page), tᵤ et aᵤ =
+   * temps de ponte et attaque de base de l'unité. Les bonus de ponte
+   * (Couveuse, Solarium, Technique de ponte) touchent ouvrières et unités de
+   * la même façon : ils s'annulent.
+   *
+   * @private
+   * @method fdfArmes
+   */
+  fdfArmes() {
+    let $ligne = $(".ligneAmelioration:eq(2)"),
+      ouvrieres = numeral($ligne.find(".ouvriere").text()).value(),
+      niveau = monProfil.niveauRecherche[2] + 1;
+    if (!$ligne.length || !ouvrieres || isNaN(niveau)) return this;
+    // garnison (Armee.php) + troupes parties en chasse ou en attaque
+    let dehors = TroupesDehors.total(),
+      unites = this._armee.unite.map((n, i) => n + (dehors[i] || 0)),
+      fdf = unites.reduce((s, n, i) => s + n * ATT_UNITE[i + 1], 0),
+      // calcul entier exact, arrondi supérieur à la fin
+      seuil = (u) =>
+        Number(
+          (BigInt(ouvrieres) * 60n * BigInt(ATT_UNITE[u]) * BigInt(niveau + 9) +
+            BigInt(TEMPS_UNITE[u]) -
+            1n) /
+            BigInt(TEMPS_UNITE[u]),
+        ),
+      lignes = [4, 8, 11]
+        .map((u) => {
+          let s = seuil(u),
+            manque = Math.max(0, s - fdf);
+          return `<tr><td class='left'>${NOM_UNITES[u]}</td><td class='right'>${numeral(s).format()}</td>
+            <td class='right ${manque ? "red" : "green"}'>${manque ? numeral(manque).format() : "rentable"}</td></tr>`;
+        })
+        .join("");
+    $ligne.find(".desciption_amelioration").append(`
+      <div id='o_fdfArmes' class='o_marginT15'>
+        <p class='left'><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
+          <span class='small' title="Garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée totale)</span></p>
+        <table class='o_maxWidth' cellspacing='0'>
+          <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>Il manque</td></tr>
+          ${lignes}
+        </table>
+      </div>`);
     return this;
   }
   /**

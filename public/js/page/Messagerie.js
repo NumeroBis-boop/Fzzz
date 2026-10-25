@@ -15,10 +15,6 @@ class PageMessagerie {
      * Liste des messages analysés.
      */
     this._messagesOuvert = {};
-    /**
-     * Connexion à l'utilitaire.
-     */
-    this._utilitaire = new PageForum();
   }
   /**
    *
@@ -26,21 +22,7 @@ class PageMessagerie {
   executer() {
     // ajout des boutons pour les nouveaux messages
     if (!Utils.comptePlus) this.plus(0);
-    // recupération des joueurs de l'utilitaire
-    if (monProfil.parametre["forumMembre"].valeur) {
-      // recuperation des commandes sur l'utilitaire
-      this._utilitaire.consulterSection(monProfil.parametre["forumMembre"].valeur).then(
-        (data) => {
-          if (this._utilitaire.chargerJoueur(data)) this.couleurMessageUtilitaire();
-        },
-        (jqXHR, textStatus, errorThrown) => {
-          $.toast({
-            ...TOAST_ERROR,
-            text: "Une erreur réseau a été rencontrée lors de la récupération des membres.",
-          });
-        },
-      );
-    } else this.couleurMessage();
+    this.couleurMessage();
     // Evenement lorsque de nouveaux elements sont affiches
     this.analyseMessage();
     return this;
@@ -385,42 +367,6 @@ class PageMessagerie {
         titre.includes("Rebellion réussie")
       )
         $(elt).find("td:eq(3)").children().addClass("green");
-    });
-    return this;
-  }
-  /**
-   *
-   */
-  couleurMessageUtilitaire() {
-    $("tr[id^='conversation_']").each((i, elt) => {
-      let titre = $(elt).find("td:eq(3) .intitule_message").text(),
-        color = "";
-      // une colonie perdue est toujours rouge
-      // Attaque échouée contre xXx : votre armée...
-      if (
-        titre.includes("Colonie perdue") ||
-        titre.includes("conquis par") ||
-        titre.includes("Attaque échouée contre") ||
-        titre.includes("Rebellion échouée")
-      )
-        color = "red";
-      // Colonie conquise est toujours verte
-      // Butin chez Verratti : ...
-      // Attaque réussie contre xXx : votre armée...
-      else if (
-        titre.includes("Colonie conquise") ||
-        titre.includes("Butin chez") ||
-        titre.includes("Attaque réussie contre") ||
-        titre.includes("Rebellion réussie")
-      )
-        color = "green";
-      // Vol par XxX : .
-      // Invasion de xXx: votre armée
-      else if (titre.includes("Vol par") || titre.includes("Invasion"))
-        color = this._utilitaire.alliance.joueurs.hasOwnProperty(titre.split(" ")[2])
-          ? "green"
-          : "red";
-      if (color) $(elt).find("td:eq(3)").children().addClass(color);
     });
     return this;
   }

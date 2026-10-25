@@ -18,7 +18,7 @@ class BoiteParametre extends Boite {
     super(
       "o_boiteParametre",
       "Paramètres",
-      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre2'>Utilitaire</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre2'/><div id='o_tabsParametre3'/><div id='o_tabsParametre4'/></div>`,
+      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre3'/><div id='o_tabsParametre4'/></div>`,
     );
     /**
      *
@@ -34,10 +34,6 @@ class BoiteParametre extends Boite {
       "boiteShow",
       "boiteHide",
     ];
-    /**
-     *
-     */
-    this._paramUtilitaire = ["forumCommande", "forumMembre"];
     /**
      *
      */
@@ -68,7 +64,7 @@ class BoiteParametre extends Boite {
           },
         })
         .removeClass("ui-widget");
-      this.parametreStyle().parametreUtilitaire().parametreGeneral().apropos().css().event();
+      this.parametreStyle().parametreGeneral().apropos().css().event();
     }
   }
   /**
@@ -120,7 +116,6 @@ class BoiteParametre extends Boite {
   event() {
     super.event();
     for (let param of this._paramStyle) monProfil.parametre[param].ajouterEvent();
-    for (let param of this._paramUtilitaire) monProfil.parametre[param].ajouterEvent();
     for (let param of this._paramGeneral) monProfil.parametre[param].ajouterEvent();
     // le curseur de ratio n'a de sens qu'en mode Ratio
     $("#affectationRessource")
@@ -171,26 +166,6 @@ class BoiteParametre extends Boite {
             <p class='left reduce gras'>Effets d'animation à l'ouverture et fermeture des boîtes</p>
             ${effets}
         </form>`);
-    return this;
-  }
-  /**
-   *
-   */
-  parametreUtilitaire() {
-    let content = ``;
-    for (let param of this._paramUtilitaire) content += monProfil.parametre[param].getForm();
-    // max-width sur le bloc texte : sans ça, le long paragraphe pousse la boîte à grandir
-    // pendant le drag (la boîte n'a pas de max-width et son layout est recalculé en
-    // continu, ce qui déclenche un effet "s'agrandit sans cesse").
-    $("#o_tabsParametre2").append(`
-      <p class='left reduce gras' style='margin-left:10px;'>Saisissez les identifiants des sujets de votre utilitaire<span class="cliquable2" style="font-size:0.8em; font-weight:normal;" onclick="spoilerId('o_paramUtilitaireInfo');"> En savoir plus ?</span></p>
-      <div id='o_paramUtilitaireInfo' class='o_marginT15 left reduce' style='display:none; max-width:500px; word-wrap:break-word; margin-left:auto; margin-right:auto;'>
-        <p>Ces deux champs pointent vers les sections cachées du forum d'alliance (<b>Toolzzz_Commande</b> et <b>Toolzzz_Membre</b>, ou les anciens noms <b>Outiiil_Commande</b>/<b>Outiiil_Membre</b> si l'alliance a préparé son forum à l'époque d'Outiiil) qui servent de stockage partagé pour les fonctionnalités d'utilitaire d'alliance : assignations d'attaques, ordres collectifs, et coordonnées des membres (colonnes Tdt / Retour dans la liste des membres).</p>
-        <p>Tu n'as <b>pas besoin de les remplir à la main</b> dans la majorité des cas. L'extension les auto-détecte quand tu visites le forum de ton alliance, à condition que les sections existent. C'est le chef d'alliance qui les crée via le bouton <em>Préparer le forum pour un SDC</em> dans le forum.</p>
-        <p>Modifie ici <b>uniquement si</b> l'auto-détection a échoué, après un reset des paramètres, ou si ton chef t'a communiqué les IDs directement.</p>
-      </div>
-      <form>${content}</form>
-    `);
     return this;
   }
   /**

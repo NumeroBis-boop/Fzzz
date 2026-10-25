@@ -10,6 +10,11 @@ Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-m
 - **Conformité au règlement du s5** (voir [docs/conformite.md](docs/conformite.md)) :
   - « Synchroniser » et « Sonder » n'envoient plus l'attaque tout seuls à la fin du compte à rebours. Ils affichent le décompte, puis mettent en évidence le bouton Lancer : **le clic final appartient au joueur**.
   - L'actualisation automatique du chat (une requête toutes les 5 s) est retirée.
+- **Retiré** : l'utilitaire d'alliance (stockage partagé dans le forum : commandes de convois, rangs et fiches SDC, onglet « Utilitaire » des paramètres), le lanceur de ponte de la barre d'outils, et les boutons Colonne, Copier, Copie simple, CSV et Excel de la liste des membres (seul « Synchroniser » reste).
+- **Ajouté** :
+  - horloge à la seconde (heure du PC) au-dessus de l'encart « S5 Pseudo » ;
+  - au Laboratoire, sous Armes : FdF hors bonus de l'armée, FdF HB requise pour que le niveau suivant soit rentable face à la ponte de JS, d'Artilleuses ou de Tanks, et ce qu'il manque ;
+  - lanceur de chasses : les difficultés que l'armée ne peut pas tenir sont grisées, avec le maximum possible.
 
 ## Installer
 

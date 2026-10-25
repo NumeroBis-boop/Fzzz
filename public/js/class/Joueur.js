@@ -122,9 +122,6 @@ class Joueur {
       0,
       EFFET,
     );
-    // parametres utilitaires
-    this._parametre["forumCommande"] = new Parametre("forumCommande", "Commande", "input");
-    this._parametre["forumMembre"] = new Parametre("forumMembre", "Membre", "input");
     // parametres armée
     this._parametre["methodeFlood"] = new Parametre(
       "methodeFlood",
@@ -376,21 +373,6 @@ class Joueur {
    */
   get parametre() {
     return this._parametre;
-  }
-  /**
-   *
-   */
-  toUtilitaire() {
-    return (
-      this._pseudo +
-      " / " +
-      this._id +
-      " / " +
-      this._x +
-      " / " +
-      this._y +
-      (this._rang ? " / " + this._rang + " / " + this._ordreRang : "")
-    );
   }
   /**
    *

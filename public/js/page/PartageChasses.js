@@ -199,7 +199,7 @@ class PartageChasses {
    * @private
    */
   static _ligne(type, e) {
-    let date = moment(e.date, "YYYY-MM-DD HH:mm").format("D MMM YYYY à HH[h]mm");
+    let date = moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm");
     return type == "Chasses"
       ? `${date} : ${numeral(e.terrain).format()} cm²${e.unites ? " (" + e.unites + ")" : ""} FZC|${e.date}|${e.terrain}|`
       : `${date} : ${numeral(e.terrain).format()} cm² sur ${e.cible} FZF|${e.date}|${e.cible}|${e.terrain}|`;
@@ -315,7 +315,7 @@ class PartageChasses {
             `<tr class='gras o_syntheseTotal'><td>Total (${entrees.length})</td>${colonnes.length > 2 ? "<td></td>" : ""}<td>${total} cm²</td></tr></table>`
           );
         };
-        let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("D MMM YYYY à HH[h]mm");
+        let date = (e) => moment(e.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm");
         $(".boite_membre")
           .last()
           .after(

@@ -10,12 +10,6 @@
  * @constructor
  * @extends Rapport
  */
-/**
- * Fzzz : GIF du bilan de chasse, chargés depuis Tenor (FdF en hausse / en baisse).
- */
-const GIF_CHIEN_CONTENT = "https://media.tenor.com/JVz2IWZgSncAAAAM/dumb-dog-dog-dancing.gif";
-const GIF_CHIEN_TRISTE = "https://media.tenor.com/OXAMthjEqm4AAAA1/dog-scroll.webp";
-
 class Chasse {
   constructor(rc) {
     /**
@@ -218,10 +212,10 @@ class Chasse {
       ].filter(Boolean),
       ligne = (libelle, a, b, xp = "", classe = "") =>
         `<tr${classe ? ` class='${classe}'` : ""}><td class='left'>${libelle}</td><td class='right'>${fmt(a)}</td><td class='right'>${Utils.variation(b - a, a)}</td><td class='right'>${fmt(b)}</td><td class='right o_bilanXp'>${xp}</td></tr>`,
-      // humeur du chien : GIF Tenor affiché depuis Tenor (pas embarqué dans
-      // l'extension), dessin local en repli s'il ne charge pas
+      // humeur du toutou (SVG animés de l'extension, aucun site tiers) :
+      // niais mais heureux si la FdF a augmenté, en larmes sinon
       fdfHausse = ap.getBaseAtt() >= av.getBaseAtt(),
-      chien = `<img class='o_bilanChien' src='${fdfHausse ? GIF_CHIEN_CONTENT : GIF_CHIEN_TRISTE}' data-repli='${chrome.runtime.getURL(fdfHausse ? "images/chien_content.svg" : "images/chien_triste.svg")}' alt='${fdfHausse ? "Chien content" : "Chien triste"}' title='FdF ${fdfHausse ? "en hausse" : "en baisse"} : ${numeral(ap.getBaseAtt() - av.getBaseAtt()).format("+0,0")}' referrerpolicy='no-referrer'/>`,
+      chien = `<img class='o_bilanChien' src='${chrome.runtime.getURL(fdfHausse ? "images/chien_content.svg" : "images/chien_triste.svg")}' alt='${fdfHausse ? "Toutou heureux" : "Toutou en larmes"}' title='FdF ${fdfHausse ? "en hausse" : "en baisse"} : ${numeral(ap.getBaseAtt() - av.getBaseAtt()).format("+0,0")}'/>`,
       html = `<div class='o_bilanChasse'><p class='o_bilanEntete'>${entete.join(" · ")}</p>
         <div class='o_bilanCorps'>
         <table class='o_bilanTable' cellspacing='0'>

@@ -1,34 +1,94 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <title>Chien content (et un peu idiot)</title>
-  <!-- oreilles qui volent -->
-  <path d="M42 62 C10 40 8 95 30 112 C40 98 46 82 52 70 Z" fill="#8a5a2b"/>
-  <path d="M158 62 C190 36 196 92 172 108 C162 96 154 82 148 70 Z" fill="#8a5a2b"/>
-  <!-- tête -->
-  <ellipse cx="100" cy="100" rx="62" ry="58" fill="#e8c38f"/>
-  <!-- tache sur l'œil -->
-  <ellipse cx="128" cy="80" rx="22" ry="20" fill="#c99a5e"/>
-  <!-- yeux qui louchent : tailles différentes, pupilles vers le nez -->
-  <circle cx="74" cy="80" r="16" fill="#fff" stroke="#3a2a0c" stroke-width="2"/>
-  <circle cx="82" cy="84" r="7" fill="#3a2a0c"/>
-  <circle cx="84" cy="81" r="2" fill="#fff"/>
-  <circle cx="128" cy="78" r="11" fill="#fff" stroke="#3a2a0c" stroke-width="2"/>
-  <circle cx="121" cy="73" r="5" fill="#3a2a0c"/>
-  <circle cx="122" cy="71" r="1.5" fill="#fff"/>
-  <!-- sourcils en l'air -->
-  <path d="M58 58 Q72 48 88 56" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M116 60 Q128 50 142 58" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <!-- museau -->
-  <ellipse cx="100" cy="122" rx="34" ry="24" fill="#f5dcb4"/>
-  <ellipse cx="100" cy="106" rx="11" ry="8" fill="#3a2a0c"/>
-  <ellipse cx="96" cy="104" rx="3" ry="2" fill="#7a6a5a"/>
-  <!-- grand sourire de travers -->
-  <path d="M72 122 Q100 152 130 118" stroke="#3a2a0c" stroke-width="3" fill="#7a2a1a" stroke-linecap="round"/>
-  <!-- langue qui pend sur le côté -->
-  <path d="M104 134 C102 156 112 170 122 166 C132 162 128 146 122 132 Z" fill="#e8607a" stroke="#b03a52" stroke-width="2"/>
-  <path d="M114 140 L118 160" stroke="#b03a52" stroke-width="2" stroke-linecap="round"/>
-  <!-- goutte de bave -->
-  <path d="M84 132 Q80 146 84 150 Q88 146 84 132 Z" fill="#bfe3ff" stroke="#7fb0d8" stroke-width="1"/>
-  <!-- étoiles de joie -->
-  <path d="M28 30 l4 8 8 1 -6 5 2 8 -8 -4 -8 4 2 -8 -6 -5 8 -1 Z" fill="#f6c343"/>
-  <path d="M168 24 l3 6 6 1 -4 4 1 6 -6 -3 -6 3 1 -6 -4 -4 6 -1 Z" fill="#f6c343"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220">
+  <title>Toutou niais mais heureux</title>
+  <defs>
+    <radialGradient id="tete" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#f7d6a3"/>
+      <stop offset="1" stop-color="#e2b071"/>
+    </radialGradient>
+    <radialGradient id="joue" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff8fa3" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ff8fa3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- petits cœurs qui s'envolent -->
+  <g fill="#ff6b8a">
+    <path d="M30 70 c-6 -8 -16 0 -8 8 l8 8 8 -8 c8 -8 -2 -16 -8 -8 z">
+      <animateTransform attributeName="transform" type="translate" values="0 10; -4 -30" dur="2.4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite"/>
+    </path>
+    <path d="M188 60 c-5 -7 -13 0 -7 7 l7 7 7 -7 c6 -7 -2 -14 -7 -7 z">
+      <animateTransform attributeName="transform" type="translate" values="0 14; 6 -26" dur="2.9s" begin="0.8s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.9s" begin="0.8s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- tout le toutou sautille -->
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="0 4; 0 -8; 0 4" dur="0.7s" repeatCount="indefinite"/>
+
+    <!-- épaules -->
+    <path d="M52 214 C52 176 78 160 110 160 C142 160 168 176 168 214 Z" fill="#e2b071"/>
+    <path d="M90 214 C90 190 98 176 110 176 C122 176 130 190 130 214 Z" fill="#fbe7c6"/>
+    <!-- collier -->
+    <path d="M70 172 Q110 192 150 172" stroke="#d6453d" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <circle cx="110" cy="188" r="7" fill="#f6c343" stroke="#b8860b" stroke-width="2"/>
+
+    <!-- la tête se dandine -->
+    <g>
+      <animateTransform attributeName="transform" type="rotate" values="-7 110 120; 7 110 120; -7 110 120" dur="1.4s" repeatCount="indefinite"/>
+
+      <!-- oreilles qui battent -->
+      <path d="M58 78 C26 62 14 110 30 136 C40 150 54 132 60 112 C64 98 66 88 58 78 Z" fill="#9a6633">
+        <animateTransform attributeName="transform" type="rotate" values="0 60 82; -20 60 82; 0 60 82" dur="0.7s" repeatCount="indefinite"/>
+      </path>
+      <path d="M162 78 C194 62 206 110 190 136 C180 150 166 132 160 112 C156 98 154 88 162 78 Z" fill="#9a6633">
+        <animateTransform attributeName="transform" type="rotate" values="0 160 82; 20 160 82; 0 160 82" dur="0.7s" repeatCount="indefinite"/>
+      </path>
+
+      <!-- tête -->
+      <ellipse cx="110" cy="112" rx="64" ry="58" fill="url(#tete)"/>
+      <ellipse cx="140" cy="92" rx="24" ry="22" fill="#cf9555" opacity="0.85"/>
+      <!-- touffe sur le crâne -->
+      <path d="M98 58 Q104 44 110 56 Q116 42 122 58" fill="#e2b071" stroke="#c78f4f" stroke-width="2"/>
+
+      <!-- sourcils très hauts -->
+      <path d="M66 70 Q80 58 96 68" stroke="#5a3a1a" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M126 66 Q140 54 154 64" stroke="#5a3a1a" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+      <!-- yeux qui louchent : un grand, un petit, pupilles en désaccord -->
+      <circle cx="84" cy="94" r="19" fill="#fff" stroke="#3a2a0c" stroke-width="2.5"/>
+      <circle cx="92" cy="100" r="9" fill="#2a1a0a"/>
+      <circle cx="95" cy="96" r="3" fill="#fff"/>
+      <circle cx="140" cy="90" r="13" fill="#fff" stroke="#3a2a0c" stroke-width="2.5"/>
+      <circle cx="134" cy="84" r="6" fill="#2a1a0a"/>
+      <circle cx="136" cy="82" r="2" fill="#fff"/>
+
+      <!-- joues roses -->
+      <circle cx="66" cy="128" r="14" fill="url(#joue)"/>
+      <circle cx="156" cy="124" r="14" fill="url(#joue)"/>
+
+      <!-- museau -->
+      <ellipse cx="110" cy="134" rx="40" ry="28" fill="#fbe7c6"/>
+      <path d="M98 114 Q110 106 122 114 Q122 126 110 130 Q98 126 98 114 Z" fill="#2a1a0a"/>
+      <ellipse cx="105" cy="114" rx="4" ry="2.5" fill="#8a7a6a"/>
+
+      <!-- grand sourire béat -->
+      <path d="M78 134 Q110 176 144 130 Q112 150 78 134 Z" fill="#6b1f1f" stroke="#3a2a0c" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M90 140 L96 146 M128 138 L122 145" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- langue qui pend et se balance -->
+      <g>
+        <animateTransform attributeName="transform" type="rotate" values="-10 116 150; 14 116 150; -10 116 150" dur="0.7s" repeatCount="indefinite"/>
+        <path d="M104 148 C100 172 108 190 120 188 C132 186 134 168 128 146 Z" fill="#f2708a" stroke="#c0405a" stroke-width="2"/>
+        <path d="M116 152 L118 178" stroke="#c0405a" stroke-width="2" stroke-linecap="round"/>
+      </g>
+
+      <!-- goutte de bave qui tombe -->
+      <path d="M86 150 Q81 162 86 167 Q91 162 86 150 Z" fill="#cfeeff" stroke="#8fc4e8" stroke-width="1.2">
+        <animateTransform attributeName="transform" type="translate" values="0 0; 0 26" dur="1.6s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;1;0" dur="1.6s" repeatCount="indefinite"/>
+      </path>
+    </g>
+  </g>
 </svg>

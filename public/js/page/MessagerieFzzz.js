@@ -230,11 +230,6 @@ class MessagerieFzzz {
         ($b) => HistoriqueChasses.afficher($b, "o_grapheChasses_" + conv),
       );
     $messages.last().append($bloc);
-    // GIF injoignable : dessin local à la place
-    $bloc.find("img.o_bilanChien").on("error", (e) => {
-      if (e.currentTarget.dataset.repli && e.currentTarget.src != e.currentTarget.dataset.repli)
-        e.currentTarget.src = e.currentTarget.dataset.repli;
-    });
     $bloc.find(".o_analyseChoix").on("change", (e) => {
       $bloc.find(".o_analyseVue").hide().eq(parseInt(e.currentTarget.value)).show();
     });

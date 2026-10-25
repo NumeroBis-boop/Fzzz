@@ -1,32 +1,101 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <title>Chien triste</title>
-  <!-- oreilles tombantes -->
-  <path d="M48 60 C22 66 18 130 36 150 C50 140 56 110 60 74 Z" fill="#8a5a2b"/>
-  <path d="M152 60 C178 66 182 130 164 150 C150 140 144 110 140 74 Z" fill="#8a5a2b"/>
-  <!-- tête -->
-  <ellipse cx="100" cy="104" rx="58" ry="58" fill="#e8c38f"/>
-  <ellipse cx="126" cy="88" rx="20" ry="18" fill="#c99a5e"/>
-  <!-- sourcils tristes -->
-  <path d="M60 78 Q74 76 88 64" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M112 64 Q126 76 140 78" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <!-- yeux mi-clos qui regardent en bas -->
-  <ellipse cx="76" cy="90" rx="13" ry="10" fill="#fff" stroke="#3a2a0c" stroke-width="2"/>
-  <path d="M63 88 Q76 82 89 88" fill="#e8c38f" stroke="#3a2a0c" stroke-width="2"/>
-  <circle cx="76" cy="94" r="5" fill="#3a2a0c"/>
-  <ellipse cx="124" cy="90" rx="13" ry="10" fill="#fff" stroke="#3a2a0c" stroke-width="2"/>
-  <path d="M111 88 Q124 82 137 88" fill="#c99a5e" stroke="#3a2a0c" stroke-width="2"/>
-  <circle cx="124" cy="94" r="5" fill="#3a2a0c"/>
-  <!-- larme -->
-  <path d="M70 104 Q64 118 70 124 Q76 118 70 104 Z" fill="#7fc4ff" stroke="#3f8fd0" stroke-width="1.5"/>
-  <!-- museau -->
-  <ellipse cx="100" cy="132" rx="32" ry="22" fill="#f5dcb4"/>
-  <ellipse cx="100" cy="118" rx="11" ry="8" fill="#3a2a0c"/>
-  <ellipse cx="96" cy="116" rx="3" ry="2" fill="#7a6a5a"/>
-  <!-- bouche à l'envers -->
-  <path d="M82 148 Q100 136 118 148" stroke="#3a2a0c" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M100 126 L100 140" stroke="#3a2a0c" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- petit nuage gris -->
-  <ellipse cx="160" cy="28" rx="20" ry="11" fill="#9aa3ad"/>
-  <ellipse cx="146" cy="32" rx="13" ry="9" fill="#9aa3ad"/>
-  <path d="M150 42 L146 52 M160 42 L156 54 M170 42 L166 52" stroke="#5a8fd0" stroke-width="2" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220">
+  <title>Toutou qui pleure à torrents</title>
+  <defs>
+    <radialGradient id="tete" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#ead2ab"/>
+      <stop offset="1" stop-color="#c9a172"/>
+    </radialGradient>
+    <linearGradient id="eau" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fdcff"/>
+      <stop offset="1" stop-color="#3f9be0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- nuage de pluie -->
+  <g>
+    <ellipse cx="166" cy="26" rx="26" ry="13" fill="#8e98a3"/>
+    <ellipse cx="148" cy="30" rx="16" ry="11" fill="#8e98a3"/>
+    <ellipse cx="184" cy="31" rx="14" ry="10" fill="#8e98a3"/>
+    <g stroke="#4f8fd8" stroke-width="2.5" stroke-linecap="round">
+      <line x1="150" y1="44" x2="147" y2="54">
+        <animateTransform attributeName="transform" type="translate" values="0 0; -3 14" dur="0.6s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0" dur="0.6s" repeatCount="indefinite"/>
+      </line>
+      <line x1="166" y1="44" x2="163" y2="54">
+        <animateTransform attributeName="transform" type="translate" values="0 0; -3 14" dur="0.6s" begin="0.2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0" dur="0.6s" begin="0.2s" repeatCount="indefinite"/>
+      </line>
+      <line x1="182" y1="44" x2="179" y2="54">
+        <animateTransform attributeName="transform" type="translate" values="0 0; -3 14" dur="0.6s" begin="0.4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0" dur="0.6s" begin="0.4s" repeatCount="indefinite"/>
+      </line>
+    </g>
+  </g>
+
+  <!-- flaque de larmes qui grandit -->
+  <ellipse cx="110" cy="208" rx="70" ry="9" fill="#7cc4f5" opacity="0.8">
+    <animate attributeName="rx" values="62;90;62" dur="2.2s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- épaules affaissées -->
+  <path d="M58 214 C58 182 82 168 110 168 C138 168 162 182 162 214 Z" fill="#c9a172"/>
+  <path d="M92 214 C92 194 100 182 110 182 C120 182 128 194 128 214 Z" fill="#f0dfc0"/>
+
+  <!-- la tête tremble de sanglots -->
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="-1.5 0; 1.5 1; -1.5 0" dur="0.25s" repeatCount="indefinite"/>
+
+    <!-- longues oreilles tombantes -->
+    <path d="M56 82 C30 88 24 150 40 176 C52 188 62 160 64 128 C66 108 66 92 56 82 Z" fill="#8a5a2b"/>
+    <path d="M164 82 C190 88 196 150 180 176 C168 188 158 160 156 128 C154 108 154 92 164 82 Z" fill="#8a5a2b"/>
+
+    <!-- tête -->
+    <ellipse cx="110" cy="116" rx="60" ry="56" fill="url(#tete)"/>
+    <ellipse cx="136" cy="100" rx="22" ry="20" fill="#b98a55" opacity="0.8"/>
+
+    <!-- sourcils désespérés (pointes intérieures relevées) -->
+    <path d="M64 92 Q78 90 94 76" stroke="#4a3010" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M126 76 Q142 90 156 92" stroke="#4a3010" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- yeux fermés très fort -->
+    <path d="M70 104 Q82 94 96 104" stroke="#2a1a0a" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M124 104 Q138 94 150 104" stroke="#2a1a0a" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M70 104 L66 100 M96 104 L100 100 M124 104 L120 100 M150 104 L154 100" stroke="#2a1a0a" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- museau -->
+    <ellipse cx="110" cy="140" rx="36" ry="25" fill="#f0dfc0"/>
+    <path d="M100 122 Q110 115 120 122 Q120 132 110 135 Q100 132 100 122 Z" fill="#2a1a0a"/>
+    <ellipse cx="106" cy="122" rx="3.5" ry="2" fill="#7a6a5a"/>
+
+    <!-- bouche qui hurle de chagrin (tremblote) -->
+    <ellipse cx="110" cy="152" rx="14" ry="10" fill="#5a1717" stroke="#2a1a0a" stroke-width="2.5">
+      <animate attributeName="ry" values="9;12;9" dur="0.5s" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="110" cy="157" rx="8" ry="4" fill="#e8607a"/>
+  </g>
+
+  <!-- torrents de larmes : deux cascades qui coulent en continu -->
+  <g fill="none" stroke="url(#eau)" stroke-linecap="round">
+    <path d="M74 104 C56 112 44 140 40 206" stroke-width="10" stroke-dasharray="14 7">
+      <animate attributeName="stroke-dashoffset" values="0;-42" dur="0.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M146 104 C164 112 176 140 180 206" stroke-width="10" stroke-dasharray="14 7">
+      <animate attributeName="stroke-dashoffset" values="0;-42" dur="0.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M80 106 C68 120 62 150 62 204" stroke-width="5" stroke-dasharray="8 9" opacity="0.8">
+      <animate attributeName="stroke-dashoffset" values="0;-34" dur="0.45s" repeatCount="indefinite"/>
+    </path>
+    <path d="M140 106 C152 120 158 150 158 204" stroke-width="5" stroke-dasharray="8 9" opacity="0.8">
+      <animate attributeName="stroke-dashoffset" values="0;-34" dur="0.45s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <!-- éclaboussures -->
+  <g fill="#7cc4f5">
+    <circle cx="36" cy="200" r="3">
+      <animateTransform attributeName="transform" type="translate" values="0 0; -8 -12; -12 0" dur="0.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="184" cy="200" r="3">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 8 -12; 12 0" dur="0.8s" begin="0.3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
 </svg>

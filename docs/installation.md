@@ -1,7 +1,9 @@
 # Installer Fzzz
 
-Chaque version est publiée sur la page **Releases** du dépôt :
-https://github.com/NumeroBis-boop/fzzz/releases
+Les archives à installer s'obtiennent de deux façons :
+
+- **Dernière version de `main`** : onglet **Actions** du dépôt, dernière exécution « Extension » réussie, section **Artifacts**, fichier `fzzz-extension` (connexion GitHub requise). Il contient les trois archives.
+- **Versions publiées** : page **Releases** (https://github.com/NumeroBis-boop/fzzz/releases). Pour publier une version : **Draft a new release**, tag `v0.4.0` par exemple, **Publish release**. Les archives sont jointes automatiquement quelques minutes plus tard.
 
 | Fichier | Pour |
 |---|---|

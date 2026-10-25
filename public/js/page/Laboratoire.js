@@ -137,9 +137,11 @@ class PageLaboratoire {
     return this;
   }
   /**
-   * Sous Armes : FdF hors bonus (HB) de l'armée, FdF HB requise pour que le
-   * niveau suivant rapporte autant que la ponte de JS, d'Artilleuses ou de
-   * Tanks pendant le temps de ponte des ouvrières sacrifiées, et ce qu'il manque.
+   * Extension sous la ligne Armes (la ligne du jeu reste intacte) : FdF hors
+   * bonus (HB) de l'armée, FdF HB requise pour que le niveau suivant rapporte
+   * autant que la ponte de JS, d'Artilleuses ou de Tanks pendant le temps de
+   * ponte des ouvrières sacrifiées, ce qu'il manque, et le nombre d'unités de
+   * chaque sorte qui comblerait ce manque.
    *
    *   Sₙ = ⌈Cₙ × 60 / tᵤ × aᵤ × (n + 9)⌉, rentable si FdF HB ≥ Sₙ
    *
@@ -171,20 +173,26 @@ class PageLaboratoire {
       lignes = [4, 8, 11]
         .map((u) => {
           let s = seuil(u),
-            manque = Math.max(0, s - fdf);
+            manque = Math.max(0, s - fdf),
+            // unités de cette sorte (attaque HB aᵤ chacune) qui combleraient le manque
+            nombre = Math.ceil(manque / ATT_UNITE[u]);
           return `<tr><td class='left'>${NOM_UNITES[u]}</td><td class='right'>${numeral(s).format()}</td>
-            <td class='right ${manque ? "red" : "green"}'>${manque ? numeral(manque).format() : "rentable"}</td></tr>`;
+            <td class='right ${manque ? "red" : "green"}'>${manque ? numeral(manque).format() : "rentable"}</td>
+            <td class='right'>${manque ? numeral(nombre).format() + " " + NOM_RAC_UNITE[u] : "—"}</td></tr>`;
         })
         .join("");
-    $ligne.find(".desciption_amelioration").append(`
-      <div id='o_fdfArmes' class='o_marginT15'>
-        <p class='left'><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
-          <span class='small' title="Garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée totale)</span></p>
-        <table class='o_maxWidth' cellspacing='0'>
-          <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>Il manque</td></tr>
-          ${lignes}
-        </table>
-      </div>`);
+    $("#o_fdfArmesLigne").remove();
+    $ligne.after(`
+      <tr id='o_fdfArmesLigne'><td colspan='${$ligne.children("td").length || 4}'>
+        <div id='o_fdfArmes'>
+          <p><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
+            <span class='small' title="Garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée totale)</span></p>
+          <table cellspacing='0'>
+            <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>FdF HB manquante</td><td class='right'>Unités à pondre</td></tr>
+            ${lignes}
+          </table>
+        </div>
+      </td></tr>`);
     return this;
   }
   /**

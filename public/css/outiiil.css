@@ -1348,46 +1348,84 @@ center > div > #tabMembresAlliance {
   outline-offset: 2px;
 }
 
-/* Fzzz : horloge au-dessus de l'encart « S5 Pseudo » */
+/* Fzzz : horloge au-dessus de l'encart « S5 Pseudo ». La largeur est posée
+   en JS sur celle de l'encart ; !important protège des styles du jeu. */
 #o_horloge {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  margin-bottom: 6px;
-  padding: 3px 0;
-  background: rgba(40, 40, 40, 0.85);
+  position: absolute !important;
+  bottom: 100% !important;
+  left: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box !important;
+  margin: 0 0 6px 0 !important;
+  padding: 2px 8px !important;
+  background: #d7c384 !important;
+  border: 1px solid #8b7440;
   border-radius: 6px;
-  color: #fff;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.45);
+  color: #3a2a0c !important;
+  font-family: inherit;
+  text-shadow: none !important;
+  z-index: 10;
+}
+#o_horloge #o_horlogeHeure {
   font-size: 22px;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
-  text-align: center;
-  pointer-events: auto;
+  color: #3a2a0c !important;
 }
 #o_horloge.o_horlogePC #o_horlogeHeure {
   opacity: 0.6;
 }
 #o_horloge .o_horlogeLatence {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 11px;
-  font-weight: normal;
-  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
   white-space: nowrap;
+  color: #3a2a0c !important;
 }
 #o_horloge .o_horlogeLatence button {
   width: 18px;
   height: 18px;
+  margin: 0;
   padding: 0;
-  line-height: 16px;
+  border: 1px solid #8b7440;
+  border-radius: 3px;
+  background: #f1e6c2;
+  color: #3a2a0c;
+  font-size: 13px;
+  line-height: 15px;
   cursor: pointer;
+}
+#o_horloge .o_horlogeLatence button:hover {
+  background: #fff6dc;
 }
 #o_horloge #o_latenceValeur {
   display: inline-block;
   min-width: 42px;
   text-align: center;
+}
+
+/* Fzzz : extension sous la ligne Armes du Laboratoire */
+#o_fdfArmes {
+  margin: 0 10px 8px 10px;
+  padding: 6px 10px;
+  border: 1px solid #8b7440;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  background: #d7c384;
+  color: #3a2a0c;
+}
+#o_fdfArmes p {
+  margin: 0 0 4px 0;
+  text-align: left;
+}
+#o_fdfArmes table {
+  width: 100%;
+}
+#o_fdfArmes td {
+  padding: 1px 6px;
 }

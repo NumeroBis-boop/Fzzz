@@ -147,6 +147,12 @@ class Horloge {
           <button type='button' id='o_latencePlus' title='Latence + 0,1 s'>+</button>
         </span>
       </div>`).prependTo($boite);
+    // largeur de l'encart, posée explicitement : les styles du jeu sur les div
+    // de la colonne faisaient déborder l'horloge à gauche
+    let caler = () =>
+      $("#o_horloge").css({ width: $boite.outerWidth() + "px", right: "auto", float: "none" });
+    caler();
+    $(window).on("resize", caler);
     let regler = (delta) => (e) => {
       // l'encart est cliquable (lien vers le profil) : le clic s'arrête ici
       e.preventDefault();

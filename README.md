@@ -14,7 +14,7 @@ Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-m
 - **Ajouté** :
   - horloge à la seconde **sur l'heure du serveur** au-dessus de l'encart « S5 Pseudo », avec une **latence** réglable par pas de 0,1 s (boutons − et +, mémorisée). L'heure du serveur est déduite de l'en-tête HTTP `Date` des pages déjà chargées (permission `webRequest`, en lecture seule) : aucune requête supplémentaire vers le jeu. L'heure serveur + latence sert aux outils de synchronisation : « Synchroniser » et « Sonder » (compte à rebours au dixième), heures de retour et de RC, « Lancer à » de la boîte Combat ;
   - temps de trajet arrondis au plus proche, comme le jeu (Toolzzz arrondissait au supérieur : 1 s d'écart possible) ; minute du RC selon la règle du jeu (impact à hh:mm:00 pile → hh:mm) ;
-  - au Laboratoire, sous Armes : FdF hors bonus de l'armée, FdF HB requise pour que le niveau suivant soit rentable face à la ponte de JS, d'Artilleuses ou de Tanks, et ce qu'il manque ;
+  - au Laboratoire, dans une extension sous la ligne Armes : FdF hors bonus de l'armée, FdF HB requise pour que le niveau suivant soit rentable face à la ponte de JS, d'Artilleuses ou de Tanks, FdF HB manquante et nombre d'unités à pondre ;
   - lanceur de chasses : les difficultés que l'armée ne peut pas tenir sont grisées, avec le maximum possible.
 
 ## Installer

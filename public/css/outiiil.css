@@ -1782,10 +1782,15 @@ tr.en_tete_message > td.td_coche {
 }
 
 /* Fzzz : chasses et floods partagés (page membre) */
+#o_chassesPartagees,
+#o_chassesPartagees table {
+  font: inherit;
+}
 #o_chassesPartagees .o_partageTitre {
   color: #287a36;
-  font-size: 1.25em;
-  margin: 12px 0 6px 0;
+  font-family: inherit;
+  font-size: 1em;
+  margin: 10px 0 4px 0;
 }
 #o_chassesPartagees td {
   padding: 2px 22px;
@@ -1803,10 +1808,22 @@ tr.en_tete_message > td.td_coche {
   display: inline-block;
   border: 1px solid #287a36;
   border-radius: 4px;
-  padding: 4px 18px 6px 18px;
+  padding: 6px 18px;
   background: rgba(255, 255, 255, 0.25);
+}
+#o_chassesPartagees .o_partageSynthese .o_partageTitre {
+  margin: 0 0 4px 0;
 }
 #o_chassesPartagees .o_partageAvertissement {
   font-size: 0.85em;
   margin: 4px 0 0 0;
+}
+.o_attaquesLancees .o_button {
+  margin: 0;
+  padding: 1px 6px;
+  font-size: 0.8em;
+}
+.o_attaqueAnnuler a {
+  margin-left: 6px;
+  font-size: 0.85em;
 }

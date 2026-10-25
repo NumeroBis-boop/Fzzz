@@ -301,7 +301,8 @@ class PartageChasses {
             c.terrainDepart > c.terrainCible,
         )
         .map((c) => ({
-          date: moment(c.arrivee).format("YYYY-MM-DD HH:mm"),
+          // minute du RC (celle où le terrain change), comme le tableau des attaques
+          date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
           cible: c.cible,
           terrain: c.terrainDepart - c.terrainCible,
         })),
@@ -375,7 +376,7 @@ class PartageChasses {
         if (Object.keys(variations).length && terrain > 0) {
           let tdc = terrain,
             lignes = [
-              `<tr><td>${Horloge.serveur().format("DD/MM")} maintenant</td><td>${numeral(tdc).format()} cm²</td></tr>`,
+              `<tr><td>${Horloge.serveur().format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td></tr>`,
             ];
           Object.keys(variations)
             .sort()

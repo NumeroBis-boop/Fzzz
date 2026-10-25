@@ -598,25 +598,26 @@ class Combat {
 			<tr><td></td><td colspan='2' class='gras'>Bilan unités</td></tr>`;
     for (let i = 0; i < 14; i++) {
       if (this._armeeAv.unite[i] || this._armeeEnnemieAv.unite[i] || this._armeeAp.unite[i]) {
-        let diff1 = this._armeeAp.unite[i] - this._armeeAv.unite[i];
-        html += `<tr><td>${NOM_UNITE[i + 1]}</td><td>${numeral(this._armeeAp.unite[i]).format()} (${(diff1 > 0 ? "+" : "") + numeral(diff1).format()})</td><td>${numeral(this._armeeEnnemieAp.unite[i]).format()} (${numeral(this._armeeEnnemieAp.unite[i] - this._armeeEnnemieAv.unite[i]).format()})</td></tr>`;
+        let diff1 = this._armeeAp.unite[i] - this._armeeAv.unite[i],
+          diff2 = this._armeeEnnemieAp.unite[i] - this._armeeEnnemieAv.unite[i];
+        html += `<tr><td>${NOM_UNITE[i + 1]}</td><td>${numeral(this._armeeAp.unite[i]).format()} ${Utils.variation(diff1, this._armeeAv.unite[i])}</td><td>${numeral(this._armeeEnnemieAp.unite[i]).format()} ${Utils.variation(diff2, this._armeeEnnemieAv.unite[i], true)}</td></tr>`;
       }
     }
     html += `<tr><td></td><td colspan='2' class='gras'>Bilan Perte</td></tr>
-			<tr><td><img width='35' class='o_vAlign' src='images/icone/icone_ouvriere.png' alt='nb_unite'/></td><td>${numeral(this._armeePe.getSommeUnite()).format()} (${numeral(this._armeePe.getSommeUnite() - this._armeeAv.getSommeUnite()).format()})</td><td>${numeral(this._armeeEnnemieAp.getSommeUnite()).format()} (${numeral(this._armeeEnnemieAp.getSommeUnite() - this._armeeEnnemieAv.getSommeUnite()).format()})</td></tr>
-			<tr><td>${IMG_VIE}</td><td>${numeral(this._armeePe.getBaseVie()).format()} (${numeral(this._armeePe.getBaseVie() - this._armeeAv.getBaseVie()).format()})</td><td>${numeral(this._armeeEnnemieAp.getBaseVie()).format()} (${numeral(this._armeeEnnemieAp.getBaseVie() - this._armeeEnnemieAv.getBaseVie()).format()})</td></tr>
-			<tr><td>${IMG_ATT}</td><td>${numeral(this._armeePe.getBaseAtt()).format()} (${numeral(this._armeePe.getBaseAtt() - this._armeeAv.getBaseAtt()).format()})</td><td>${numeral(this._armeeEnnemieAp.getBaseAtt()).format()} (${numeral(this._armeeEnnemieAp.getBaseAtt() - this._armeeEnnemieAv.getBaseAtt()).format()})</td></tr>
-			<tr><td>${IMG_DEF}</td><td>${numeral(this._armeePe.getBaseDef()).format()} (${numeral(this._armeePe.getBaseDef() - this._armeeAv.getBaseDef()).format()})</td><td>${numeral(this._armeeEnnemieAp.getBaseDef()).format()} (${numeral(this._armeeEnnemieAp.getBaseDef() - this._armeeEnnemieAv.getBaseDef()).format()})</td></tr>
-			<tr><td><img width='18' class='o_vAlign' src='images/icone/horloge.png'/></td><td>${Utils.intToTime(this._armeeAv.getTemps(0) - this._armeePe.getTemps(0))}</td><td>${Utils.intToTime(this._armeeEnnemieAv.getTemps(0) - this._armeeEnnemieAp.getTemps(0))}</td></tr>
+			<tr><td><img width='35' class='o_vAlign' src='images/icone/icone_ouvriere.png' alt='nb_unite'/></td><td>${numeral(this._armeePe.getSommeUnite()).format()} ${Utils.variation(this._armeePe.getSommeUnite() - this._armeeAv.getSommeUnite(), this._armeeAv.getSommeUnite())}</td><td>${numeral(this._armeeEnnemieAp.getSommeUnite()).format()} ${Utils.variation(this._armeeEnnemieAp.getSommeUnite() - this._armeeEnnemieAv.getSommeUnite(), this._armeeEnnemieAv.getSommeUnite(), true)}</td></tr>
+			<tr><td>${IMG_VIE}</td><td>${numeral(this._armeePe.getBaseVie()).format()} ${Utils.variation(this._armeePe.getBaseVie() - this._armeeAv.getBaseVie(), this._armeeAv.getBaseVie())}</td><td>${numeral(this._armeeEnnemieAp.getBaseVie()).format()} ${Utils.variation(this._armeeEnnemieAp.getBaseVie() - this._armeeEnnemieAv.getBaseVie(), this._armeeEnnemieAv.getBaseVie(), true)}</td></tr>
+			<tr><td>${IMG_ATT}</td><td>${numeral(this._armeePe.getBaseAtt()).format()} ${Utils.variation(this._armeePe.getBaseAtt() - this._armeeAv.getBaseAtt(), this._armeeAv.getBaseAtt())}</td><td>${numeral(this._armeeEnnemieAp.getBaseAtt()).format()} ${Utils.variation(this._armeeEnnemieAp.getBaseAtt() - this._armeeEnnemieAv.getBaseAtt(), this._armeeEnnemieAv.getBaseAtt(), true)}</td></tr>
+			<tr><td>${IMG_DEF}</td><td>${numeral(this._armeePe.getBaseDef()).format()} ${Utils.variation(this._armeePe.getBaseDef() - this._armeeAv.getBaseDef(), this._armeeAv.getBaseDef())}</td><td>${numeral(this._armeeEnnemieAp.getBaseDef()).format()} ${Utils.variation(this._armeeEnnemieAp.getBaseDef() - this._armeeEnnemieAv.getBaseDef(), this._armeeEnnemieAv.getBaseDef(), true)}</td></tr>
+			<tr><td><img width='18' class='o_vAlign' src='images/icone/horloge.png'/></td><td class='o_varNeg'>${Utils.intToTime(this._armeeAv.getTemps(0) - this._armeePe.getTemps(0))}</td><td class='o_varPos'>${Utils.intToTime(this._armeeEnnemieAv.getTemps(0) - this._armeeEnnemieAp.getTemps(0))}</td></tr>
 			<tr><td>Temps HOF</td><td colspan='2'>${Utils.intToTime(this._armeeAv.getTemps(0) - this._armeePe.getTemps(0) + (this._armeeEnnemieAv.getTemps(0) - this._armeeEnnemieAp.getTemps(0)))}</td></tr>`;
     if (this._armeePe.getBaseAtt() != this._armeeAp.getBaseAtt()) {
       let diff1 = this._armeeAp.getBaseVie() - this._armeeAv.getBaseVie(),
         diff2 = this._armeeAp.getBaseAtt() - this._armeeAv.getBaseAtt(),
         diff3 = this._armeeAp.getBaseDef() - this._armeeAv.getBaseDef();
       html += `<tr><td colspan='3' class='gras'>Bilan XP</td></tr>
-				<tr><td colspan='3'>${IMG_VIE} ${(diff1 > 0 ? "+" : "") + numeral(diff1).format()}</td></tr>
-				<tr><td colspan='3'>${IMG_ATT} ${(diff2 > 0 ? "+" : "") + numeral(diff2).format()}</td></tr>
-				<tr><td colspan='3'>${IMG_DEF} ${(diff3 > 0 ? "+" : "") + numeral(diff3).format()}</td></tr>`;
+				<tr><td colspan='3'>${IMG_VIE} ${Utils.variation(diff1, this._armeeAv.getBaseVie())}</td></tr>
+				<tr><td colspan='3'>${IMG_ATT} ${Utils.variation(diff2, this._armeeAv.getBaseAtt())}</td></tr>
+				<tr><td colspan='3'>${IMG_DEF} ${Utils.variation(diff3, this._armeeAv.getBaseDef())}</td></tr>`;
     }
     return html;
   }

@@ -1553,3 +1553,13 @@ tr.en_tete_message > td.td_coche {
 .o_analyseRapport .o_analyseSonde {
   margin-top: 6px;
 }
+
+/* Fzzz : variations dans les analyses de RC (favorable / défavorable au joueur) */
+.o_varPos {
+  color: #1d7a1d !important;
+  font-weight: bold;
+}
+.o_varNeg {
+  color: #b00020 !important;
+  font-weight: bold;
+}

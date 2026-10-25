@@ -293,6 +293,26 @@ class Utils {
       </table>`;
   }
   /**
+   * Variation « +1 234 (+5,2 %) » colorée : vert si elle est favorable au
+   * joueur, rouge sinon. `inverse` pour les stats de l'ennemi, dont une baisse
+   * est favorable.
+   *
+   * @static
+   * @method variation
+   * @param {Number} diff écart
+   * @param {Number} base valeur de départ
+   * @param {Boolean} inverse vrai si une baisse est favorable
+   * @return {String} HTML
+   */
+  static variation(diff, base, inverse = false) {
+    let signe = diff > 0 ? 1 : diff < 0 ? -1 : 0,
+      classe = (inverse ? -signe : signe) > 0 ? "o_varPos" : signe ? "o_varNeg" : "",
+      // pourcentage calculé ici : le format « % » de numeral est faux en français
+      p = base ? (diff / base) * 100 : 0,
+      pct = base ? ` (${p > 0 ? "+" : ""}${p.toFixed(1).replace(".", ",")} %)` : "";
+    return `<span class='${classe}'>${numeral(diff).format("+0,0")}${pct}</span>`;
+  }
+  /**
    * Le RC est daté de la minute qui suit l'impact, à la seconde près :
    * 17h23:12 → 17h24, et 17h23:00 pile → 17h23.
    *

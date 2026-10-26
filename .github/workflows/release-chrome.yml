@@ -12,6 +12,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      # publication sur le Chrome Web Store seulement si ses clés sont configurées
+      HAS_CWS: ${{ secrets.CHROME_EXTENSION_ID != '' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -26,16 +29,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify tag matches manifest version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Version
+        id: version
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
           MANIFEST_VERSION=$(node -p "require('./package.json').version")
-          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
-            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($MANIFEST_VERSION)."
-            echo "Bump package.json and wxt.config.ts before tagging."
-            exit 1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+              echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($MANIFEST_VERSION)."
+              exit 1
+            fi
           fi
+          echo "version=$MANIFEST_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Typecheck
         run: bun run compile
@@ -43,8 +48,10 @@ jobs:
       - name: Build & zip (Chrome)
         run: bun run zip
 
+      # Chrome n'accepte les mises à jour automatiques que depuis le Chrome Web
+      # Store : la fiche peut être « non répertoriée » (installable par lien seulement).
       - name: Submit to Chrome Web Store
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.HAS_CWS == 'true'
         # Chrome Web Store API v2 (service account); v1 shuts down on 15 Oct 2026.
         env:
           CHROME_API_VERSION: v2
@@ -53,14 +60,13 @@ jobs:
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
           CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           bun run wxt submit \
-            --chrome-zip ".output/toolzzz-${VERSION}-chrome.zip"
+            --chrome-zip ".output/fzzz-${{ steps.version.outputs.version }}-chrome.zip"
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: |
-            .output/toolzzz-*-chrome.zip
+            .output/fzzz-*-chrome.zip

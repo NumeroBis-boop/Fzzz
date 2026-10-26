@@ -94,7 +94,12 @@ Note: oxfmt's `.ts` config loader used to break in CI on Node 20 (version-check 
 
 ## Release pipeline
 
-Releasing is split into two independent workflows that both trigger on `v*.*.*` tag push (and `workflow_dispatch`):
+Releasing is split into two independent workflows that both trigger on `v*.*.*` tag push and on `workflow_dispatch` (version read from `package.json`, release `vX.Y.Z` created by the workflow):
+
+- **Firefox auto-update (Fzzz)**: `release-firefox.yml` signs the build as **unlisted** on AMO with `web-ext sign` (secrets `FIREFOX_JWT_ISSUER` / `FIREFOX_JWT_SECRET`), then attaches `fzzz-X.Y.Z.xpi` and `updates.json` to the release. `browser_specific_settings.gecko.update_url` points to `https://github.com/NumeroBis-boop/Fzzz/releases/latest/download/updates.json`: never change this URL (installed copies keep the one they were installed with). The release must stay marked _latest_.
+- **Chrome**: the CWS submission step only runs when `CHROME_EXTENSION_ID` is set; otherwise the workflow only attaches the zip.
+
+Inherited Toolzzz description:
 
 - `.github/workflows/release-chrome.yml` builds the Chrome zip, submits it to the Chrome Web Store, and attaches the Chrome zip to the GitHub Release.
 - `.github/workflows/release-firefox.yml` builds the Firefox zip, submits it (with the sources zip) to AMO, and attaches the Firefox zip + sources zip to the GitHub Release.

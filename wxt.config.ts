@@ -31,6 +31,11 @@ export default defineConfig({
       gecko: {
         id: "fzzz@numerobis-boop.github.io",
         strict_min_version: "142.0",
+        // Mises à jour automatiques de la version auto-distribuée (signée par
+        // AMO en « non listée ») : Firefox consulte ce fichier, publié avec
+        // chaque release GitHub par release-firefox.yml. Adresse figée : les
+        // installations existantes gardent celle de la version installée.
+        update_url: "https://github.com/NumeroBis-boop/Fzzz/releases/latest/download/updates.json",
         data_collection_permissions: {
           required: ["none"],
         },

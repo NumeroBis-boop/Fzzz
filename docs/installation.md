@@ -44,14 +44,32 @@ La version minimale de Firefox est la 142 (PC et Android), comme Toolzzz.
 
 ## Firefox Android
 
-1. Fais signer l'extension (ci-dessus) pour obtenir le `.xpi`, et copie-le sur le téléphone.
-2. Dans Firefox Android : **Paramètres → À propos de Firefox**, touche le logo 5 fois pour activer le menu de débogage.
-3. **Paramètres → Installer un module depuis un fichier**, puis choisis le `.xpi`.
+1. Récupère le `.xpi` signé de la dernière version : page **Releases** du dépôt, fichier `fzzz-<version>.xpi`. Télécharge-le sur le téléphone.
+2. Dans Firefox : **Paramètres → À propos de Firefox**, touche le logo 5 fois pour activer le menu de débogage.
+3. **Paramètres → Installer une extension depuis un fichier** (_Install Extension from File_), puis choisis le `.xpi`.
 
-Cette procédure par fichier est **à vérifier** sur ta version de Firefox Android. Une publication listée sur addons.mozilla.org l'évite.
+## Mises à jour automatiques
+
+Une fois installé depuis un `.xpi` publié par le workflow (version 1.21 ou plus), Firefox se met à jour tout seul : il consulte régulièrement `updates.json` (adresse `update_url` du manifeste, environ une fois par jour) et installe la nouvelle version sans action du joueur. Pour forcer la vérification : `about:addons` → roue dentée → **Rechercher des mises à jour**. Sur Android, ce mécanisme est **à vérifier** (la documentation Mozilla ne le précise pas pour les extensions installées depuis un fichier).
+
+Chrome n'accepte de mise à jour automatique que depuis le Chrome Web Store : une fiche **non répertoriée** (visible seulement avec le lien) suffit. Une extension chargée depuis un dossier décompressé ne se met jamais à jour seule.
+
+### Mise en place (une fois, par le mainteneur)
+
+1. Clés d'API Mozilla : https://addons.mozilla.org/developers/addon/api/key/ → **Générer de nouveaux identifiants**.
+2. Dans le dépôt GitHub : **Settings → Secrets and variables → Actions → New repository secret** :
+   - `FIREFOX_JWT_ISSUER` : l'« émetteur JWT » (`user:…`) ;
+   - `FIREFOX_JWT_SECRET` : le « secret JWT ».
+3. Chrome (facultatif, 5 $ une fois) : compte développeur du Chrome Web Store, première mise en ligne à la main avec la visibilité **Non répertorié**, puis les secrets `CHROME_EXTENSION_ID`, `CHROME_PUBLISHER_ID`, `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`, `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` (voir `CLAUDE.md`). Sans eux, le workflow Chrome publie seulement le zip dans la release.
+
+### Publier une mise à jour
+
+1. Monter la version dans `package.json` et pousser sur `main`.
+2. GitHub → **Actions** → **Release (Firefox)** → **Run workflow** (et **Release (Chrome)** si le Store est configuré). Pousser un tag `vX.Y.Z` fait la même chose.
+3. Le workflow fait signer la version par Mozilla (non listée : pas de fiche publique), crée la release `vX.Y.Z` avec le `.xpi` signé et `updates.json` : les Firefox installés la récupèrent à leur prochaine vérification.
 
 ## Publication automatique sur les boutiques
 
-Les workflows `release-chrome.yml` et `release-firefox.yml` (hérités de Toolzzz) publient sur le Chrome Web Store et sur addons.mozilla.org quand un tag `v*.*.*` est poussé. Ils demandent des secrets GitHub (liste dans `CLAUDE.md`, section « Release pipeline ») : sans eux, ils échouent sans rien publier.
+Les workflows `release-chrome.yml` et `release-firefox.yml` se lancent sur un tag `v*.*.*` ou à la main (« Run workflow », version de `package.json`). Firefox : signature non listée sur addons.mozilla.org et mises à jour par `updates.json` (ci-dessus). Chrome : Chrome Web Store si ses clés sont configurées. Ils demandent des secrets GitHub (liste dans `CLAUDE.md`, section « Release pipeline ») : sans eux, ils échouent sans rien publier.
 
 En cas de souci : clic droit sur la page → Inspecter → onglet Console, puis copie les lignes en rouge.

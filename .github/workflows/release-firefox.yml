@@ -1,5 +1,12 @@
 name: Release (Firefox)
 
+# Publie une version Firefox auto-distribuée, mise à jour automatiquement :
+#  1. signature « non listée » par addons.mozilla.org (pas de fiche publique) ;
+#  2. release GitHub vX.Y.Z avec le .xpi signé et updates.json ;
+#  3. les Firefox installés lisent update_url (wxt.config.ts), qui pointe vers
+#     le updates.json de la dernière release, et installent la nouvelle version.
+# Déclenchement : push d'un tag vX.Y.Z, ou « Run workflow » (version de package.json).
+
 on:
   push:
     tags:
@@ -26,16 +33,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify tag matches manifest version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Version
+        id: version
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
           MANIFEST_VERSION=$(node -p "require('./package.json').version")
-          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
-            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($MANIFEST_VERSION)."
-            echo "Bump package.json and wxt.config.ts before tagging."
-            exit 1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+              echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($MANIFEST_VERSION)."
+              exit 1
+            fi
           fi
+          echo "version=$MANIFEST_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Typecheck
         run: bun run compile
@@ -43,24 +52,48 @@ jobs:
       - name: Build & zip (Firefox)
         run: bun run zip:firefox
 
-      - name: Submit to AMO
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Sign on AMO (unlisted)
         env:
-          FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
-          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
-          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
-          FIREFOX_CHANNEL: listed
+          WEB_EXT_API_KEY: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          bun run wxt submit \
-            --firefox-zip ".output/toolzzz-${VERSION}-firefox.zip" \
-            --firefox-sources-zip ".output/toolzzz-${VERSION}-sources.zip"
+          V="${{ steps.version.outputs.version }}"
+          npx --yes web-ext@8 sign \
+            --channel=unlisted \
+            --source-dir=.output/firefox-mv3 \
+            --upload-source-code=".output/fzzz-${V}-sources.zip" \
+            --artifacts-dir=signed \
+            --approval-timeout=1800000
+          XPI=$(ls signed/*.xpi | head -n 1)
+          mv "$XPI" ".output/fzzz-${V}.xpi"
+
+      - name: Update manifest for Firefox (updates.json)
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          cat > .output/updates.json <<JSON
+          {
+            "addons": {
+              "fzzz@numerobis-boop.github.io": {
+                "updates": [
+                  {
+                    "version": "${V}",
+                    "update_link": "https://github.com/NumeroBis-boop/Fzzz/releases/download/v${V}/fzzz-${V}.xpi"
+                  }
+                ]
+              }
+            }
+          }
+          JSON
+          node -e "JSON.parse(require('fs').readFileSync('.output/updates.json','utf8'))"
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ steps.version.outputs.version }}
+          make_latest: true
           generate_release_notes: true
           files: |
-            .output/toolzzz-*-firefox.zip
-            .output/toolzzz-*-sources.zip
+            .output/fzzz-*.xpi
+            .output/updates.json
+            .output/fzzz-*-firefox.zip
+            .output/fzzz-*-sources.zip

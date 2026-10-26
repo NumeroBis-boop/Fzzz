@@ -330,6 +330,70 @@ class PartageChasses {
       .finally(() => $bouton && $bouton.prop("disabled", false));
   }
   /**
+   * Retire des floods (numéros d'attaque) du sujet « Floods » du joueur ; les
+   * entrées passées sont purgées au passage, comme lors d'un partage.
+   *
+   * @static
+   * @method retirerFloods
+   * @return {Promise}
+   */
+  static retirerFloods(ids, $bouton) {
+    let pseudo = monProfil.pseudo,
+      titre = `Floods | ${pseudo}`;
+    if ($bouton) $bouton.prop("disabled", true);
+    return PartageChasses.sujets()
+      .then((sujets) => {
+        let idSujet = sujets[`Floods | ${pseudo.toLowerCase()}`];
+        if (!idSujet) return 0;
+        return PartageChasses.lireSujet(idSujet).then((d) => {
+          let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+            gardes = d.floods.filter((e) => e.date >= maintenant && !ids.includes(e.id)),
+            retires = d.floods.filter((e) => ids.includes(e.id)).length,
+            // un sujet ne peut pas être vide : ligne neutre, ignorée à la lecture
+            message =
+              gardes
+                .sort((a, b) =>
+                  a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0),
+                )
+                .map((e) => PartageChasses._ligne("Floods", e))
+                .join("\n") || "Aucun flood en cours.",
+            q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
+          return PartageChasses._xajax(
+            "envoiEditTopic",
+            `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
+          ).then(() => retires);
+        });
+      })
+      .then((n) => {
+        PartageChasses.oublierFloodsPartages(ids);
+        AttaqueLancee.majPartages();
+        $.toast({
+          ...TOAST_SUCCESS,
+          text: n
+            ? `${n} flood${n > 1 ? "s retirés" : " retiré"} du forum de la ${Utils.alliance}.`
+            : "Ce flood n'était plus dans le forum.",
+        });
+      })
+      .catch(() =>
+        $.toast({
+          ...TOAST_ERROR,
+          text: "Retrait impossible : le forum de l'alliance n'a pas pu être lu ou modifié.",
+        }),
+      )
+      .finally(() => $bouton && $bouton.prop("disabled", false));
+  }
+  /**
+   * @static
+   * @method oublierFloodsPartages
+   */
+  static oublierFloodsPartages(ids) {
+    let liste = PartageChasses.floodsPartages();
+    ids.forEach((id) => delete liste[id]);
+    try {
+      localStorage.setItem(CLE_FLOODS_PARTAGES, JSON.stringify(liste));
+    } catch (e) {}
+  }
+  /**
    * Numéros des attaques déjà publiées dans le sujet « Floods » du joueur :
    * {id: date du marquage (ms)}. Tenu à jour à chaque partage depuis ce
    * navigateur, et sur la page Armée d'après la lecture du forum.

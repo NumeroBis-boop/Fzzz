@@ -362,7 +362,7 @@ class AttaqueLancee {
     );
     AttaqueLancee.colorerTags($(`#${id}`));
     // « Partager TOUS mes floods » sous la ligne « Attaque(s) en cours … » du jeu
-    let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button></div>`,
+    let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button></div>`,
       $compte = $("#centre *")
         .filter((k, e) => !e.children.length && /Attaque\(s\) en cours/.test(e.textContent))
         .first();
@@ -410,12 +410,30 @@ class AttaqueLancee {
         "Attaque copiée dans le presse-papier.",
       );
     });
-    $(`#${id} .o_attaquePartager`).on("click", (e) =>
+    // délégués : les boutons Partager / Retirer sont remplacés l'un par l'autre
+    $(`#${id}`).on("click", ".o_attaquePartager", (e) =>
       PartageChasses.partagerFloods(
         [attaques[parseInt(e.currentTarget.dataset.i)].capture],
         $(e.currentTarget),
       ),
     );
+    $(`#${id}`).on("click", ".o_attaqueRetirer", (e) => {
+      if (!confirm(`Retirer ce flood du forum de la ${Utils.alliance || "l'alliance"} ?`)) return;
+      PartageChasses.retirerFloods([parseInt(e.currentTarget.dataset.id)], $(e.currentTarget));
+    });
+    $(`#${id}RetirerTout`).on("click", (e) => {
+      let ids = $(`#${id} .o_attaqueRetirer`)
+        .map((i, b) => parseInt(b.dataset.id))
+        .get();
+      if (!ids.length) return;
+      if (
+        !confirm(
+          `Retirer ${ids.length} flood${ids.length > 1 ? "s" : ""} du forum de la ${Utils.alliance || "l'alliance"} ?`,
+        )
+      )
+        return;
+      PartageChasses.retirerFloods(ids, $(e.currentTarget));
+    });
     $(`#${id}PartagerTout`).on("click", (e) =>
       PartageChasses.partagerFloods(
         attaques.map((a) => a.capture),
@@ -455,13 +473,23 @@ class AttaqueLancee {
   static majPartages() {
     let partages = PartageChasses.floodsPartages(),
       tag = Utils.echapper(Utils.alliance || "l'alliance");
+    // partagé : « Partagé ✓ » et bouton Retirer ; retiré : bouton Partager
     $(".o_attaquePartager").each((i, bouton) => {
       if (partages[bouton.dataset.id])
         $(bouton).replaceWith(
-          `<span class="o_attaquePartage" title="Déjà publié dans le forum de la ${tag}">Partagé ✓</span>`,
+          `<span class="o_attaquePartageBloc"><span class="o_attaquePartage" title="Déjà publié dans le forum de la ${tag}">Partagé ✓</span><button type="button" class="o_button o_attaqueRetirer" data-i="${bouton.dataset.i}" data-id="${bouton.dataset.id}" title="Retirer ce flood du forum de la ${tag}">Retirer</button></span>`,
         );
     });
-    let reste = $(".o_attaquePartager").length;
+    $(".o_attaqueRetirer").each((i, bouton) => {
+      if (!partages[bouton.dataset.id])
+        $(bouton)
+          .closest(".o_attaquePartageBloc")
+          .replaceWith(
+            `<button type="button" class="o_button f_info o_attaquePartager" data-i="${bouton.dataset.i}" data-id="${bouton.dataset.id}" title="Partager ce flood avec la ${tag}">Partager</button>`,
+          );
+    });
+    let reste = $(".o_attaquePartager").length,
+      retirables = $(".o_attaqueRetirer").length;
     $("#o_attaquesLanceesPartagerTout")
       .prop("disabled", !reste)
       .text(
@@ -469,7 +497,9 @@ class AttaqueLancee {
           ? `Partager TOUS mes floods avec la ${Utils.alliance || "l'alliance"}`
           : `Tous mes floods sont partagés avec la ${Utils.alliance || "l'alliance"} ✓`,
       );
+    $("#o_attaquesLanceesRetirerTout").toggle(retirables > 0);
   }
+
   /**
    * Fzzz : TdC que l'attaque prendra (règle des 20 %, estimée au lancement),
    * « — » hors terrain de chasse, « ? » si le TdC de la cible était inconnu.

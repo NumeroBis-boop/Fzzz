@@ -58,5 +58,6 @@ L'ancienne version de Fzzz (0.5, écrite de zéro) est archivée dans la branche
 - Projet original : [Outiiil](https://github.com/Hraesvelg/Outiiil) par Hraesvelg
 - Fork maintenu : [Toolzzz](https://github.com/GuiEpi/toolzzz) par GuiEpi
 - Fzzz : NumeroBis-boop
+- Thème jQuery UI « humanity » (paquet npm `jquery-ui-themes` 1.12.0, jQuery Foundation, licence MIT), embarqué dans `public/css/lib/`
 
 [GPL-3.0](LICENSE), conformément à la licence des projets d'origine.

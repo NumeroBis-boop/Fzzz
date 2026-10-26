@@ -86,6 +86,7 @@ Firefox exposes `chrome.*` as an alias for `browser.*`, so `chrome.runtime.*` wo
 
 oxfmt (Rust-based, Prettier-compatible output) is configured via `.oxfmtrc.json`. Key points:
 
+- **`public/css/lib/` is excluded** too: vendored jQuery UI « humanity » theme (from npm `jquery-ui-themes` 1.12.0), linked by `content.js` from the extension (`chrome.runtime.getURL`) instead of code.jquery.com, so Fzzz makes no third-party request.
 - **`public/js/lib/` is excluded** — vendored upstream code (jQuery, Highcharts, DataTables, etc.) must not be reformatted. This ties into the AMO requirement for non-minified, auditable sources and preserves the `__outiiil_safeParseAttr` patch in `jquery-datetimepicker_1.6.3.js`.
 - **Pre-commit hook** (husky + lint-staged, config in `package.json`) auto-formats staged files on `git commit`. Installed automatically via the `prepare` script when contributors run `bun install`.
 - **CI** (`.github/workflows/ci.yml`) runs `format:check` + `compile` on every push and PR to `main`. Unformatted code fails the check and blocks merge (if branch protection is enabled).

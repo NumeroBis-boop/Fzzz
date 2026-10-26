@@ -413,7 +413,9 @@ const DATEPICKER_OPTION = {
   if ($(".boite_connexion_titre:first").text() != "Connexion") {
     // Modification du theme jquery humanity
     $("head").append(
-      "<link rel='stylesheet' href='https://code.jquery.com/ui/1.12.1/themes/humanity/jquery-ui.min.css'/>",
+      // Fzzz : thème jQuery UI « humanity » embarqué (paquet npm jquery-ui-themes 1.12.0,
+      // MIT) au lieu de code.jquery.com : aucune requête vers un site tiers
+      `<link rel='stylesheet' href='${chrome.runtime.getURL("css/lib/jquery-ui-humanity/jquery-ui.min.css")}'/>`,
     );
     // Chargement du language francais
     numeral.locale("fr");

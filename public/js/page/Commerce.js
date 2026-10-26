@@ -97,6 +97,9 @@ class PageCommerce {
     let listeConvoi = new Array(),
       nombres = new Array();
     $("#centre > strong").each((i, elt) => {
+      // seules les lignes de convoi (« … dans 1h 02m ») sont lues : un autre
+      // message en gras du jeu faisait échouer toute la page
+      if (!/\bdans\b/.test($(elt).text()) || !/\d/.test($(elt).text().split("dans")[0])) return;
       // Affichage du retour des convois
       if ($(elt).next().text().indexOf("Retour") == -1)
         $(elt).after(

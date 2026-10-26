@@ -223,7 +223,7 @@ class Utils {
    * @return {Integer} le nombre de seconde correspondant la chaine.
    */
   static timeToInt(val) {
-    let regexp = new RegExp("((\\d+)J ?)?\s*((\\d+)h ?)?\s*((\\d+)m ?)?\s*((\\d+)s)?\s*", "i"),
+    let regexp = new RegExp("((\\d+)J ?)?\\s*((\\d+)h ?)?\\s*((\\d+)m ?)?\\s*((\\d+)s)?\\s*", "i"),
       duree = 0,
       sec,
       minute,
@@ -347,7 +347,7 @@ class Utils {
    *
    * @static
    * @method ouvrieresTotales
-   * @return {Promise} {total, reine, duree (ms), raison}
+   * @return {Promise} {total, reine, raison}
    */
   static ouvrieresTotales() {
     let lire = ($page) => {
@@ -363,14 +363,10 @@ class Utils {
         return Promise.resolve(defaut(e.message));
       }
     }
-    let debut = Date.now();
     return Promise.resolve($.get(location.origin + "/Reine.php")).then(
       (html) => {
         try {
-          let total = lire(Utils.parseHtml(html)),
-            duree = Date.now() - debut;
-          Utils.dureeReine = duree;
-          return { total: total, reine: true, duree: duree };
+          return { total: lire(Utils.parseHtml(html)), reine: true };
         } catch (e) {
           return defaut(e.message);
         }
@@ -384,18 +380,6 @@ class Utils {
               : `erreur ${(jqXHR && jqXHR.status) || "réseau"}`,
         ),
     );
-  }
-  /**
-   * Durée moyenne (ms) d'une lecture de Reine.php, mesurée (moyenne glissante).
-   *
-   * @static
-   */
-  static get dureeReine() {
-    return parseInt(localStorage.getItem("fzzz_dureeReine")) || 0;
-  }
-  static set dureeReine(ms) {
-    let m = Utils.dureeReine;
-    localStorage.setItem("fzzz_dureeReine", String(Math.round(m ? 0.7 * m + 0.3 * ms : ms)));
   }
   /**
    * Bandeau de rentabilité de l'Étable : la page Reine est lue au chargement,
@@ -429,7 +413,7 @@ class Utils {
    * @param {Object} ouvrieres {total, reine} (voir ouvrieresTotales)
    * @return {String} HTML
    */
-  static htmlRentabiliteEtable({ total, reine, duree = null, raison = "" }) {
+  static htmlRentabiliteEtable({ total, reine, raison = "" }) {
     let tdc = Math.min(total, Utils.terrain || 0),
       dispo = total - tdc,
       niveau = monProfil.niveauConstruction[11] || 0,
@@ -437,7 +421,6 @@ class Utils {
       coutComm = (k) => 80 * Math.pow(2, k - 1),
       capacite = (o, n) => o * (10 + 0.5 * n),
       fmt = (n) => numeral(Math.round(n)).format(),
-      secondes = (ms) => (ms / 1000).toFixed(1).replace(".", ","),
       lignes = [],
       o = dispo;
     // niveau de Communication inconnu : on suppose le minimum requis aujourd'hui
@@ -460,11 +443,7 @@ class Utils {
     }
     return `<p><strong>Ouvrières : ${fmt(total)}</strong>${
       reine
-        ? ` <span class='small'>(page Reine, convois en cours compris${
-            duree != null
-              ? `, lue au chargement en ${secondes(duree)} s, moyenne ${secondes(Utils.dureeReine)} s`
-              : ""
-          })</span>`
+        ? ""
         : ` <span class='small red'>(Reine.php illisible${raison ? ` : ${Utils.echapper(raison)}` : ""} ; ouvrières en convoi non comptées)</span>`
     } · exploitées sur le TdC : ${fmt(tdc)} ·
         <strong>disponibles pour les convois : ${fmt(dispo)}</strong></p>
@@ -695,8 +674,10 @@ class Utils {
     sessionStorage.removeItem(key);
     let y = null;
     if (saved) {
-      let parsed = JSON.parse(saved);
-      if (Date.now() - parsed.t < 5000) y = parsed.y;
+      try {
+        let parsed = JSON.parse(saved);
+        if (Date.now() - parsed.t < 5000) y = parsed.y;
+      } catch (e) {}
     }
     window.addEventListener("pagehide", () => {
       sessionStorage.setItem(key, JSON.stringify({ y: window.scrollY, t: Date.now() }));
@@ -795,6 +776,8 @@ class Utils {
    * @return L'affichage du contenue de l'id est incrementé d'une seconde.
    */
   static incrementTime(time, id, idRound = "") {
+    // élément retiré de la page : la mise à jour s'arrête
+    if (!document.getElementById(id)) return;
     let retour = Horloge.clic().add(time, "s");
     $("#" + id).text(retour.format("D MMM à HH[h]mm[m]ss[s]"));
     if (idRound)

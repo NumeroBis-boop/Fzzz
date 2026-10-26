@@ -111,6 +111,8 @@ class Boite {
     $(".o_close b:nth-child(4)").css("border-right-color", monProfil.parametre["couleur1"].valeur);
     $(".o_close")
       .css("background-color", monProfil.parametre["couleur2"].valeur)
+      // css() est rappelé à chaque ouverture : sans off(), les survols s'empilaient
+      .off("mouseenter mouseleave")
       .hover(
         (e) => {
           $(e.currentTarget).animate({ "background-color": "#bb3333" }, 400);
@@ -130,6 +132,32 @@ class Boite {
       "color",
       monProfil.parametre["couleurTexte"].valeur,
     );
+    return this;
+  }
+  /**
+   * Couleurs des onglets des boîtes (Chasse, Combat, Paramètres) et survol des
+   * liens d'onglet en couleur de texte à demi transparente.
+   *
+   * @method cssOnglets
+   */
+  cssOnglets() {
+    let texte = monProfil.parametre["couleurTexte"].valeur,
+      m = String(texte).match(/#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i),
+      // couleur saisie autrement qu'en #rrggbb : pas de survol coloré
+      survol = m
+        ? "rgba(" + [...m.slice(1).map((h) => parseInt(h, 16)), 0.5].join(",") + ")"
+        : "inherit";
+    $(".o_tabs .ui-widget-header .ui-tabs-anchor").css(
+      "background-color",
+      monProfil.parametre["couleur2"].valeur,
+    );
+    $(".o_content a").unbind("mouseenter mouseleave").css("color", texte);
+    $(".o_content li:not(.ui-state-active) a").css("color", "inherit");
+    $(".o_content li:not(.ui-state-active):not(.ui-state-disabled) a").hover(
+      (e) => $(e.currentTarget).css("color", survol),
+      (e) => $(e.currentTarget).css("color", "inherit"),
+    );
+    $(".o_content .ui-state-disabled a").css({ cursor: "not-allowed", "pointer-events": "all" });
     return this;
   }
   /**

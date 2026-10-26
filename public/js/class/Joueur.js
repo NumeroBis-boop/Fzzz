@@ -21,11 +21,11 @@ class Joueur {
     /**
      * abscisse du joueur
      */
-    this._x = parametres["x"] || -1;
+    this._x = parametres["x"] ?? -1;
     /**
      * ordonnée du joueur
      */
-    this._y = parametres["y"] || -1;
+    this._y = parametres["y"] ?? -1;
     /**
      *
      */
@@ -484,7 +484,7 @@ class Joueur {
    */
   getProfil() {
     return $.ajax({
-      url: location.origin + "/Membre.php?Pseudo=" + this._pseudo,
+      url: location.origin + "/Membre.php?Pseudo=" + encodeURIComponent(this._pseudo),
     });
   }
   /**
@@ -680,7 +680,7 @@ class Joueur {
    */
   getLigneRadar(radar, id, indice) {
     let cellTerrain = this.estAttaquable()
-      ? `<a class="gras ${this._mv ? "blue_light" : ""} href="/ennemie.php?Attaquer=${this._id}&lieu=1">${numeral(this._terrain).format()}</a>`
+      ? `<a class="gras ${this._mv ? "blue_light" : ""}" href="/ennemie.php?Attaquer=${this._id}&lieu=1">${numeral(this._terrain).format()}</a>`
       : `<span ${this._mv ? `class="blue_light" title="En vacances"` : ""}>${numeral(this._terrain).format()}</span>`;
     $(id).append(
       `<tr id="o_item_${indice}" class="lien"><td><a id="o_maj_${this._id}" class='o_actualiser' href=""><img src="${IMG_ACTUALISER}" alt="rang" height="20"/></a></td><td id="o_nom_${this._id}" class="left" title=""><a class="gras ${this._mv ? "blue_light" : ""}" href="Membre.php?Pseudo=${this._pseudo}">${this._pseudo}</a></td><td id="o_terrain_${this._id}" class="right reduce" title="">${cellTerrain}</td></tr>`,
@@ -747,7 +747,7 @@ class Joueur {
       let diff = this._terrain - oldTerrain,
         changed = false,
         cellTerrain = this.estAttaquable()
-          ? `<a class="gras ${this._mv ? "blue_light" : ""} href="/ennemie.php?Attaquer=${this._id}&lieu=1">${numeral(this._terrain).format()}</a>`
+          ? `<a class="gras ${this._mv ? "blue_light" : ""}" href="/ennemie.php?Attaquer=${this._id}&lieu=1">${numeral(this._terrain).format()}</a>`
           : `<span ${this._mv ? `class="blue_light" title="En vacances"` : ""}>${numeral(this._terrain).format()}</span>`;
       if (oldMV != this._mv) {
         $("#o_terrain_" + this._id).html(cellTerrain);

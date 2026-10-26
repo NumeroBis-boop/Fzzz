@@ -39,7 +39,10 @@ class PageProfil {
     this._profil.mv = $(".boite_membre table:eq(0) tr:eq(0) td:eq(0)")
       .text()
       .includes("Joueur en vacances");
-    this._profil.id = $("a[href^='commerce.php?ID=']").attr("href").match(/\d+/g)[0];
+    // lien commerce absent (son propre profil, page inattendue) : id inconnu
+    this._profil.id = (($("a[href^='commerce.php?ID=']").attr("href") || "").match(/\d+/) || [
+      -1,
+    ])[0];
     this._profil.terrain = numeral($(".tableau_score tr:eq(1) td:eq(1)").text()).value();
     // Fzzz : chasses partagées par ce joueur (forum de l'alliance)
     PartageChasses.afficherProfil(this._profil.pseudo, this._profil.terrain);

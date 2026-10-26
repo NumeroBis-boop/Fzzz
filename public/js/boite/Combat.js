@@ -52,39 +52,7 @@ class BoiteCombat extends Boite {
     $(
       "#o_resultatCombat tr:even, .o_tabs .ui-widget-header .ui-tabs-anchor, #o_calculatriceCombat tr:even, .o_mfResultatCible tr:even, #o_calcSondeRecap tbody tr:even, #o_calcAttaque tbody tr:even, #o_calcAttaque thead tr",
     ).css("background-color", monProfil.parametre["couleur2"].valeur);
-    $(".o_tabs .ui-widget-header .ui-tabs-anchor").css(
-      "background-color",
-      monProfil.parametre["couleur2"].valeur,
-    );
-    $(".o_content a")
-      .unbind("mouseenter mouseleave")
-      .css("color", monProfil.parametre["couleurTexte"].valeur);
-    $(".o_content li:not(.ui-state-active) a").css("color", "inherit");
-    let matches = monProfil.parametre["couleurTexte"].valeur.match(
-      /#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i,
-    );
-    $(".o_content li:not(.ui-state-active):not(.ui-state-disabled) a").hover(
-      (e) => {
-        $(e.currentTarget).css(
-          "color",
-          "rgba(" +
-            matches
-              .slice(1)
-              .map((m) => {
-                return parseInt(m, 16);
-              })
-              .concat("0.5") +
-            ")",
-        );
-      },
-      (e) => {
-        $(e.currentTarget).css("color", "inherit");
-      },
-    );
-    $(".o_content .ui-state-disabled a").css({
-      cursor: "not-allowed",
-      "pointer-events": "all",
-    });
+    this.cssOnglets();
     return this;
   }
   /**
@@ -117,8 +85,15 @@ class BoiteCombat extends Boite {
   eventAnalyser() {
     // event Analyse
     $("#o_rcCombat").on("input", (e) => {
-      let combat = new Combat({ RC: e.currentTarget.value });
-      if (combat.analyse()) {
+      let combat = new Combat({ RC: e.currentTarget.value }),
+        analyse = false;
+      // rapport tronqué ou atypique : l'analyse lève une exception
+      try {
+        analyse = combat.analyse();
+      } catch (err) {
+        analyse = false;
+      }
+      if (analyse) {
         $("#o_resultatCombat").html(combat.toHTMLBoite());
         let sonde = combat.analyseSonde();
         if (sonde) this.afficherCalcAttaque(sonde);
@@ -1423,6 +1398,15 @@ class BoiteCombat extends Boite {
         () => this._mfEnvoyerAttaqueSuivante(cible, securite, indices, k + 1, onComplete),
         1000,
       );
+    }).fail(() => {
+      // pas de réponse (réseau, jeu occupé) : séquence arrêtée, sans renvoi
+      this._mfMarquerAttaque(cible.pseudo, i, false);
+      $.toast({
+        ...TOAST_ERROR,
+        hideAfter: false,
+        text: `Multi-flood interrompu sur ${cible.pseudo} : le jeu n'a pas répondu. Vérifie tes attaques en cours avant de relancer.`,
+      });
+      $("#o_mfLancer").text("Lancer ces attaques");
     });
   }
   /**

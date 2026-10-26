@@ -146,8 +146,10 @@ class PageReine {
       $("#cout_nombre" + i).text(numeral(nombre).format());
       $("#nombre_de_ponte" + i).attr("value", nombre);
       $("#cout_temps" + i).text(
+        // durée de ponte de `nombre` unités (l'ancienne écriture `(a, nombre)`
+        // affichait `nombre` secondes)
         Utils.intToTime(
-          (nombre * (TEMPS_UNITE[i == "" ? 0 : i] * Math.pow(0.9, monProfil.getTDP())), nombre),
+          nombre * (TEMPS_UNITE[i == "" ? 0 : i] * Math.pow(0.9, monProfil.getTDP())),
         ),
       );
       $("#cout_nourriture" + i).text(e.currentTarget.value);

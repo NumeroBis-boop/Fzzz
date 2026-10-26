@@ -781,7 +781,7 @@ class PageRessource {
       $("input[name=choixOuvriere][value=rien]")
         .closest("label")
         .before(
-          `<label title="Répartir les ouvrières entre nourriture et matériaux selon une part fixe, refaite à chaque consultation de la page (Fzzz)"><input type="radio" name="choixOuvriere" value="rien" id="o_ratioRadio"> Ratio</label> `,
+          `<label title="Répartir les ouvrières entre nourriture et matériaux selon une part fixe, préparée à chaque consultation de la page : clique sur Valider pour l'enregistrer (Fzzz)"><input type="radio" name="choixOuvriere" value="rien" id="o_ratioRadio"> Ratio</label> `,
         );
       // L'exclusion mutuelle des radios se fait par formulaire propriétaire, pas
       // par position dans le DOM : inséré dynamiquement, notre radio n'en a
@@ -808,8 +808,8 @@ class PageRessource {
       $("input[name=choixOuvriere]").closest("tr").after(ligneRatio);
     } else
       $("#ChangeRessource").parent().parent().before(`<tr>
-            <td><span class="text"><img src="images/icone/favicon.gif" height="16"> Affectation des ouvrières lors de la consultation de la page : </span></td>
-            <td style="white-space:nowrap;"><label><input type="radio" name="o_choixOuvriere" value="nourriture" ${affection == 2 ? 'checked="checked"' : ""}><img alt="nourritures" src="images/icone/icone_pomme.png" height="18" title="Nourriture"></label>
+            <td><span class="text"><img src="images/icone/favicon.gif" height="16"> Affectation des ouvrières préparée à l'ouverture de la page : </span></td>
+            <td class="o_affectationChoix" style="white-space:nowrap;"><label><input type="radio" name="o_choixOuvriere" value="nourriture" ${affection == 2 ? 'checked="checked"' : ""}><img alt="nourritures" src="images/icone/icone_pomme.png" height="18" title="Nourriture"></label>
             <label><input type="radio" name="o_choixOuvriere" value="materiaux" ${affection == 1 ? 'checked="checked"' : ""}> <img alt="materiaux" src="images/icone/icone_bois.png" height="17" title="Materiaux"></label>
             <label title="Répartir les ouvrières entre nourriture et matériaux selon une part fixe, conservée après une chasse ou un flood"><input type="radio" name="o_choixOuvriere" value="ratio" ${affection == 3 ? 'checked="checked"' : ""}> Ratio</label>
             <label><input type="radio" name="o_choixOuvriere" value="rien" ${affection == 0 ? 'checked="checked"' : ""}> <img alt="rien" src="images/croix.gif" height="23" title="Pas d'affectation automatique"></label>

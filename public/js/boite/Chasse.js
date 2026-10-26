@@ -62,36 +62,7 @@ class BoiteChasse extends Boite {
     $(
       "#o_resultatChasse tr:even, .o_tabs .ui-widget-header .ui-tabs-anchor, #o_bestiaireTable tr:even, #o_scDetails tr:even, #o_scPertes tr:even, #o_scRepartition tr:even, #o_scAutresTdc tr:even",
     ).css("background-color", monProfil.parametre["couleur2"].valeur);
-    $(".o_tabs .ui-widget-header .ui-tabs-anchor").css(
-      "background-color",
-      monProfil.parametre["couleur2"].valeur,
-    );
-    $(".o_content a")
-      .unbind("mouseenter mouseleave")
-      .css("color", monProfil.parametre["couleurTexte"].valeur);
-    $(".o_content li:not(.ui-state-active) a").css("color", "inherit");
-    let matches = monProfil.parametre["couleurTexte"].valeur.match(
-      /#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i,
-    );
-    $(".o_content li:not(.ui-state-active):not(.ui-state-disabled) a").hover(
-      (e) => {
-        $(e.currentTarget).css(
-          "color",
-          "rgba(" +
-            matches
-              .slice(1)
-              .map((m) => {
-                return parseInt(m, 16);
-              })
-              .concat("0.5") +
-            ")",
-        );
-      },
-      (e) => {
-        $(e.currentTarget).css("color", "inherit");
-      },
-    );
-    $(".o_content .ui-state-disabled a").css({ cursor: "not-allowed", "pointer-events": "all" });
+    this.cssOnglets();
     return this;
   }
   /**
@@ -128,7 +99,14 @@ class BoiteChasse extends Boite {
       for (let i = 0; i < chasses.length; i++) {
         if (chasses[i]) {
           chasse = new Chasse(chasses[i]);
-          if (chasse.analyse()) {
+          let analyse = false;
+          // rapport tronqué ou atypique : l'analyse lève une exception
+          try {
+            analyse = chasse.analyse();
+          } catch (err) {
+            analyse = false;
+          }
+          if (analyse) {
             html += chasse.toHTMLBoite(false);
             bilan.ajoute(chasse);
           } else {
@@ -274,7 +252,7 @@ class BoiteChasse extends Boite {
     });
     $("#o_scPlacement").click(() => {
       if (this._reel) this._placerArmee();
-      else this._chargerEtatReel().then(() => this._placerArmee());
+      else this._chargerEtatReel().then(() => this._reel && this._placerArmee());
       return false;
     });
     $("#o_scCopier").click(() => {
@@ -583,19 +561,23 @@ class BoiteChasse extends Boite {
    */
   _chargerEtatReel() {
     let armee = new Armee();
-    return Promise.all([
-      armee.getArmee(),
-      $.ajax({ url: location.origin + "/Ressources.php" }),
-    ]).then(([htmlArmee, htmlRessources]) => {
-      armee.chargeData(htmlArmee);
-      let enCours =
-        Utils.parseHtml(htmlRessources)
-          .find("#boite_tdc")
-          .text()
-          .split(/- Vos chasseuses vont conquérir/g).length - 1;
-      this._reel = { armee, places: monProfil.niveauRecherche[5] + 1 - enCours };
-      this._actualiserEtatLancement();
-    });
+    return Promise.all([armee.getArmee(), $.ajax({ url: location.origin + "/Ressources.php" })])
+      .then(([htmlArmee, htmlRessources]) => {
+        armee.chargeData(htmlArmee);
+        let enCours =
+          Utils.parseHtml(htmlRessources)
+            .find("#boite_tdc")
+            .text()
+            .split(/- Vos chasseuses vont conquérir/g).length - 1;
+        this._reel = { armee, places: monProfil.niveauRecherche[5] + 1 - enCours };
+        this._reelErreur = false;
+        this._actualiserEtatLancement();
+      })
+      .catch(() => {
+        // lecture impossible : le lancement reste bloqué, avec la raison
+        this._reelErreur = true;
+        this._actualiserEtatLancement();
+      });
   }
   /**
    * Terrain par chasse qui fait rentrer les chasses à l'heure demandée si elles
@@ -642,7 +624,12 @@ class BoiteChasse extends Boite {
       r = this._reel,
       fmt = (n) => numeral(n).format(),
       raisons = [];
-    if (!r) return ["Chargement de votre armée…"];
+    if (!r)
+      return [
+        this._reelErreur
+          ? "Votre armée n'a pas pu être lue : rouvrez l'onglet Simuler pour réessayer."
+          : "Chargement de votre armée…",
+      ];
     s.p.unites.forEach((n, u) => {
       if (n > r.armee.unite[u])
         raisons.push(

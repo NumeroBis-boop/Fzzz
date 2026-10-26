@@ -1524,7 +1524,9 @@ center > div > #tabMembresAlliance {
   text-shadow: none !important;
 }
 .o_copierRapport {
-  height: 14px;
+  /* taille fixée : le style mobile du jeu étirait l'icône (60 px de large) */
+  width: 14px !important;
+  height: 14px !important;
   margin-left: 4px;
   vertical-align: middle;
   cursor: pointer;
@@ -1718,7 +1720,8 @@ tr.en_tete_message > td.td_coche {
   cursor: pointer;
 }
 .o_convoiCopier {
-  height: 14px;
+  width: 14px !important;
+  height: 14px !important;
   vertical-align: middle;
   cursor: pointer;
   opacity: 0.75;
@@ -2077,5 +2080,36 @@ tr.en_tete_message > td.td_coche {
   #o_allInfobulle {
     max-width: calc(100vw - 16px);
     box-sizing: border-box;
+  }
+  /* messagerie : titres sur plusieurs lignes, la liste ne dépasse plus l'écran */
+  tr.en_tete_message > td.td_objet {
+    white-space: normal;
+  }
+  tr.en_tete_message .intitule_message {
+    display: inline;
+    max-width: none;
+    white-space: normal;
+  }
+  tr.en_tete_message > td.td_participants {
+    white-space: normal;
+  }
+  tr.en_tete_message > td.td_coche img.o_copierRapport {
+    display: block;
+    margin: 2px 0 0 0;
+  }
+  /* Ressources : choix d'affectation des ouvrières sur plusieurs lignes */
+  td.o_affectationChoix,
+  td:has(> label > #o_ratioRadio) {
+    white-space: normal !important;
+  }
+  /* boîtes d'outils (Chasse, Combat, Paramètres) : dans l'écran, contenu défilant */
+  .o_content {
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
+  }
+  .o_content .ui-tabs-panel {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

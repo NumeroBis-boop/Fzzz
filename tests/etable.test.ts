@@ -19,7 +19,7 @@ describe("Utils.htmlRentabiliteEtable", () => {
     const t = bandeau({ total: 70481, reine: true });
     expect(t).toContain("Ouvrières : 70 481");
     expect(t).toContain("disponibles pour les convois : 51 386");
-    expect(t).toContain("convois en cours compris");
+    expect(t).not.toContain("illisible");
   });
 
   test("étable 11 : 327 680 ouvrières sacrifiées, il en manque 10 106 695", () => {

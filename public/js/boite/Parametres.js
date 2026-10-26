@@ -75,36 +75,7 @@ class BoiteParametre extends Boite {
    */
   css() {
     super.css();
-    $(".o_tabs .ui-widget-header .ui-tabs-anchor").css(
-      "background-color",
-      monProfil.parametre["couleur2"].valeur,
-    );
-    $(".o_content a")
-      .unbind("mouseenter mouseleave")
-      .css("color", monProfil.parametre["couleurTexte"].valeur);
-    $(".o_content li:not(.ui-state-active) a").css("color", "inherit");
-    let matches = monProfil.parametre["couleurTexte"].valeur.match(
-      /#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i,
-    );
-    $(".o_content li:not(.ui-state-active):not(.ui-state-disabled) a").hover(
-      (e) => {
-        $(e.currentTarget).css(
-          "color",
-          "rgba(" +
-            matches
-              .slice(1)
-              .map((m) => {
-                return parseInt(m, 16);
-              })
-              .concat("0.5") +
-            ")",
-        );
-      },
-      (e) => {
-        $(e.currentTarget).css("color", "inherit");
-      },
-    );
-    $(".o_content .ui-state-disabled a").css({ cursor: "not-allowed", "pointer-events": "all" });
+    this.cssOnglets();
     return this;
   }
   /**
@@ -175,7 +146,7 @@ class BoiteParametre extends Boite {
     // L'affectation auto Toolzzz vit dans PageRessource.affectation(), pour
     // tous les comptes : en C+ le jeu propose nativement Matériaux /
     // Nourriture, le mode Ratio reste un apport de l'extension.
-    let blocAffectation = `<p class='left reduce gras'>L'affectation sera automatique lors de la consultation de la page ressource</p>
+    let blocAffectation = `<p class='left reduce gras'>À l'ouverture de la page Ressources, la répartition est préparée dans le formulaire du jeu : clique sur Valider pour l'enregistrer</p>
          <p class='left small'><em>Ratio : les ouvrières suivent la part choisie, même après une chasse ou un flood.${Utils.comptePlus ? " En Compte+, l'activer sur la page Ressources coupe l'affectation automatique du jeu." : ""}</em></p>
          ${monProfil.parametre[this._paramGeneral[0]].getForm()}
          ${monProfil.parametre[this._paramGeneral[8]].getForm()}`;
@@ -189,7 +160,7 @@ class BoiteParametre extends Boite {
             <p class='left reduce gras'>Nombre d'unités à conserver lors d'un flood (réserve)</p>
             <p class='left small'><em>Coche « Suivre antisondes » pour synchroniser automatiquement la réserve avec la somme des antisondes (terrain + dôme).</em></p>
             ${monProfil.parametre[this._paramGeneral[5]].getForm() + monProfil.parametre[this._paramGeneral[6]].getForm()}
-            <p class='left reduce gras'>Replacer l'armée à l'arrivée sur la page Armée</p>
+            <p class='left reduce gras'>À l'ouverture de la page Armée, signaler une armée à replacer (bouton mis en évidence, tu cliques)</p>
             ${monProfil.parametre[this._paramGeneral[7]].getForm()}
         </form>`);
     return this;
@@ -239,7 +210,7 @@ class BoiteParametre extends Boite {
       <p class='left reduce'>Fork de <a href='https://github.com/GuiEpi/toolzzz' target='_blank' rel='noopener'>Toolzzz</a> (GuiEpi), lui-même fork d'<a href='https://github.com/Hraesvelg/Outiiil' target='_blank' rel='noopener'>Outiiil</a> (Hraesvelg), sous licence <a href='${repo}/blob/main/LICENSE' target='_blank' rel='noopener'>GPL-3.0</a>.</p>
       <hr class='o_marginT15' style='border:0; border-top:1px dashed currentColor; opacity:0.35;'/>
       <p class='left reduce gras'>Réinitialiser les paramètres</p>
-      <p class='left small'><em>Remet toutes les options (couleurs, dock, flood, antisondes, replacer auto, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
+      <p class='left small'><em>Remet toutes les options (couleurs, dock, flood, antisondes, signalement de l'armée à replacer, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
       <button id='o_resetParametres' class='o_button f_error'>Réinitialiser</button>
     `);
     $("#o_majFzzz").on("click", (e) => {

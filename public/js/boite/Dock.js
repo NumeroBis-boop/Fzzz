@@ -49,17 +49,27 @@ class Dock {
     // mediaQuery pour réagir aussi quand on traverse le breakpoint à chaud.
     Dock._mql.addEventListener("change", () => Dock.appliquerPosition());
     // selon la pref on cache l'element
+    // Barre masquée : elle apparaît quand la souris approche du bord. Sur écran
+    // tactile (pas de survol), elle resterait introuvable : elle est affichée.
     if (monProfil.parametre["dockVisible"].valeur == "0") {
-      $(document).mousemove((e) => {
-        if (Dock.estEnBas()) {
-          if ($(window).height() - e.pageY < 60) $("#o_toolbarOutiiil").slideDown(500);
-          else $("#o_toolbarOutiiil").slideUp(500);
-        } else {
-          if ($(window).width() - e.pageX < 60)
-            $("#o_toolbarOutiiil").show("slide", { direction: "right" }, 500);
-          else $("#o_toolbarOutiiil").hide("slide", { direction: "right" }, 500);
-        }
-      });
+      if (!window.matchMedia("(hover: hover)").matches) $("#o_toolbarOutiiil").show();
+      else {
+        let visible = false;
+        $(document).mousemove((e) => {
+          let proche = Dock.estEnBas()
+            ? $(window).height() - e.clientY < 60
+            : $(window).width() - e.clientX < 60;
+          // une animation par changement d'état, pas une par mouvement de souris
+          if (proche == visible) return;
+          visible = proche;
+          if (Dock.estEnBas())
+            $("#o_toolbarOutiiil").stop(true, true)[proche ? "slideDown" : "slideUp"](500);
+          else
+            $("#o_toolbarOutiiil")
+              .stop(true, true)
+              [proche ? "show" : "hide"]("slide", { direction: "right" }, 500);
+        });
+      }
     }
     // evenement sur le clic d'un item de la boite d'outil
     $(".o_toolbarItem").click((e) => {
@@ -112,4 +122,5 @@ class Dock {
     return Dock._mql.matches || monProfil.parametre["dockPosition"].valeur == "1";
   }
 }
-Dock._mql = window.matchMedia("(max-width: 768px)");
+// même seuil que le bloc mobile de outiiil.css
+Dock._mql = window.matchMedia("(max-width: 760px)");

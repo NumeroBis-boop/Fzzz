@@ -614,7 +614,7 @@ class BoiteComptePlus {
       $("#boiteComptePlus table tr:eq(5)").attr("title", table);
       this._compteARebours("Convoi", this._startConvoi, this._convoi[0].exp, "_convoi");
     } else {
-      $("#o_resteConvoi").text("Aucune convoi");
+      $("#o_resteConvoi").text("Aucun convoi");
       Utils.arreterTime("o_tempsConvoi");
       $("#o_tempsConvoi").text("");
       $("#o_progressConvoi").progressbar({ value: 0 }).removeClass("highlight_success");

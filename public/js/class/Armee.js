@@ -106,7 +106,9 @@ class Armee {
    * @param {Integer} lieu 1 terrain de chasse, 2 dôme, 3 loge ; 0 pour tous
    */
   chargeData(html, lieu = 0) {
-    $(html)
+    // DOMParser : $(html) créait les <img> de la page (une requête d'image
+    // par icône à chaque lecture d'Armee.php)
+    Utils.parseHtml(html)
       .find(".simulateur tr[align='center']:lt(14)")
       .each((i, elt) => {
         let label = $(elt).find(".pas_sur_telephone").text();
@@ -169,7 +171,7 @@ class Armee {
     );
     let unite4 = new RegExp("(\\bpil?\\b)|(Pillards?)|(\\bs\\b)|(Soldates?)|(Soldiers?)", "gi");
     let unite5 = new RegExp(
-      "(\\pro?\\b)|(Protectrons?)|(\\bc\\b)|(Concierges?)|(doorkeepers?)",
+      "(\\bpro?\\b)|(Protectrons?)|(\\bc\\b)|(Concierges?)|(doorkeepers?)",
       "gi",
     );
     let unite6 = new RegExp(
@@ -187,7 +189,7 @@ class Armee {
     );
     let unite10 = new RegExp("(\\bnu?\\b)|(Nucleotrons?)|(\\bta\\b)|(\\btk\\b)|(Tanks?)", "gi");
     let unite11 = new RegExp("(\\btae\\b)|(\\btke\\b)|(Tanks? d')|(Tanks? d’)|(Top tanks?)", "gi");
-    let unite12 = new RegExp("(\\bche?\\b)|(Chevaliers?)(\\btu\\b)|(Tueuses?)|(Killers?)", "gi");
+    let unite12 = new RegExp("(\\bche?\\b)|(Chevaliers?)|(\\btu\\b)|(Tueuses?)|(Killers?)", "gi");
     let unite13 = new RegExp(
       "(\\bpa?\\b)|(Paladins?)|(\\btue\\b)|(Tueuses? d'?)|(Tueuses? d’?)|(Top killers?)",
       "gi",
@@ -845,6 +847,16 @@ class Armee {
           setTimeout(() => {
             this.envoyerFlood(idCible, ++indice, securite);
           }, 1000);
+        }).fail(() => {
+          // pas de réponse (réseau, jeu occupé) : on s'arrête, sans renvoyer
+          // une attaque peut-être déjà partie
+          $("#o_simulationFlood tr:eq(" + (indice + 2) + ")").addClass("red");
+          $("#o_lanceFlood").text("Flood interrompu");
+          $.toast({
+            ...TOAST_ERROR,
+            hideAfter: false,
+            text: `Flood interrompu à l'attaque ${indice + 1} : le jeu n'a pas répondu. Vérifie tes attaques en cours avant de relancer.`,
+          });
         });
       } else // on passe à l'attaque suivante
       this.envoyerFlood(idCible, ++indice, securite);

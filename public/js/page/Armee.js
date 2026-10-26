@@ -228,6 +228,21 @@ class PageArmee {
     return null;
   }
   /**
+   * Un transfert du replacement n'a pas eu de réponse (réseau, jeu occupé) :
+   * on s'arrête et on recharge la page Armée pour afficher l'état réel.
+   *
+   * @method echecReplacement
+   */
+  echecReplacement() {
+    if (this._echecReplacement) return;
+    this._echecReplacement = true;
+    $.toast({
+      ...TOAST_ERROR,
+      text: "Replacement interrompu : le jeu n'a pas répondu. La page Armée va être rechargée.",
+    });
+    setTimeout(() => (location = "/Armee.php"), 2500);
+  }
+  /**
    * Lance un replacement une seule fois par page : les transferts finissent
    * par recharger Armee.php, et un double clic (ou un clic pendant le
    * replacement automatique) déplaçait les troupes deux fois.
@@ -331,10 +346,10 @@ class PageArmee {
             (data) => {
               location = "/Armee.php";
             },
-          );
+          ).fail(() => this.echecReplacement());
         },
-      );
-    });
+      ).fail(() => this.echecReplacement());
+    }).fail(() => this.echecReplacement());
     return this;
   }
   /**
@@ -363,10 +378,10 @@ class PageArmee {
             (data) => {
               location = "/Armee.php";
             },
-          );
+          ).fail(() => this.echecReplacement());
         },
-      );
-    });
+      ).fail(() => this.echecReplacement());
+    }).fail(() => this.echecReplacement());
     return this;
   }
   /**

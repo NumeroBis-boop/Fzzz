@@ -209,7 +209,7 @@ class Alliance {
     );
     return this.getDescription().then((data) => {
       this._terrain = 0;
-      $(data)
+      Utils.parseHtml(data)
         .find("#tabMembresAlliance tr:gt(0)")
         .each((i, elt) => {
           this._terrain += numeral($(elt).find("td:eq(4)").text()).value();

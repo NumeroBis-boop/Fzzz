@@ -364,16 +364,7 @@ class BoiteRadar {
    */
   _renderSeparateur(sep, indice) {
     $("#o_radar tbody").append(
-      `<tr id='o_item_${indice}' class='o_radarSep' data-id='${sep.id}'><td colspan='3'><div class='o_radarSepInner'><span class='o_radarSepText'>${BoiteRadar._escapeHtml(sep.texte)}</span></div></td></tr>`,
-    );
-  }
-  /**
-   * Échappement minimal pour les valeurs user-supplied injectées en HTML.
-   */
-  static _escapeHtml(s) {
-    return String(s).replace(
-      /[&<>"']/g,
-      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+      `<tr id='o_item_${indice}' class='o_radarSep' data-id='${sep.id}'><td colspan='3'><div class='o_radarSepInner'><span class='o_radarSepText'>${Utils.echapper(sep.texte)}</span></div></td></tr>`,
     );
   }
   /**

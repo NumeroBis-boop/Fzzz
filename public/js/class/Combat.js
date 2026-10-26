@@ -667,7 +667,10 @@ class Combat {
       vieDefenseur.reduce((acc, val) => acc + val, 0),
     );
     // tant qu'il rete de la vie sur la defense ou l'attaque on enchaine les tours
+    // (au plus 1 000 : des dégâts nuls ou non numériques, niveau inconnu par
+    // exemple, faisaient tourner la boucle sans fin et figeaient l'onglet)
     while (
+      this._tour.length < 1000 &&
       vieAttaquant.reduce((acc, val) => {
         return acc + val;
       }, 0) > 0 &&

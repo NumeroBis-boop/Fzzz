@@ -528,23 +528,8 @@ class AttaqueLancee {
     return noeuds;
   }
   /**
-   * Lieu visé d'une attaque : capture, sinon texte du jeu (C+), sinon null.
+   * Lieu d'une attaque : capture, sinon texte du jeu.
    */
-  static lieuCourt(a) {
-    let lieu = AttaqueLancee.lieu(a);
-    if (!lieu) return null;
-    return /terrain/i.test(lieu) ? "TdC" : /loge/i.test(lieu) ? "Loge" : "Fourmilière";
-  }
-  /**
-   * Troupes abrégées (« 2 111 JSN, 30 S ») ; texte complet en infobulle.
-   */
-  static troupesCourtes(a) {
-    if (!a.capture) return a.ligne.troupesNatif;
-    return new Armee({ unite: a.capture.unite }).unite
-      .map((nb, i) => (nb ? `${numeral(nb).format()} ${NOM_RAC_UNITE[i + 1]}` : null))
-      .filter(Boolean)
-      .join(", ");
-  }
   static lieu(a) {
     return a.capture ? a.capture.lieu : a.ligne.lieuNatif;
   }
@@ -553,35 +538,6 @@ class AttaqueLancee {
    */
   static troupes(a) {
     return a.capture ? new Armee({ unite: a.capture.unite }).toString() : a.ligne.troupesNatif;
-  }
-  /**
-   * Une ligne à coller sur le forum : cible, nombre d'attaques, arrivée
-   * (toujours avec la date, le message est lu plus tard ; une plage quand les
-   * arrivées s'étalent sur plusieurs minutes) et le terrain estimé de la cible
-   * après la dernière attaque, omis s'il est inconnu.
-   */
-  static formatForumCourt(cible, groupe) {
-    let arrivees = groupe.map((a) =>
-        Utils.minuteRC(moment.max(a.ligne.arrivee, Horloge.serveur())),
-      ),
-      premiere = arrivees[0],
-      derniere = arrivees[arrivees.length - 1],
-      quand = premiere.isSame(derniere, "minute")
-        ? `le ${premiere.format("DD/MM [à] HH[h]mm")}`
-        : premiere.isSame(derniere, "day")
-          ? `le ${premiere.format("DD/MM")} entre ${premiere.format("HH[h]mm")} et ${derniere.format("HH[h]mm")}`
-          : `entre le ${premiere.format("DD/MM [à] HH[h]mm")} et le ${derniere.format("DD/MM [à] HH[h]mm")}`,
-      texte =
-        groupe.length > 1
-          ? `Flood lancé sur ${cible} (${groupe.length} attaques), touche ${quand}`
-          : `Attaque lancée sur ${cible}, touche ${quand}`,
-      estimation = groupe
-        .filter((a) => a.capture && a.capture.terrainCible != null)
-        .sort((a, b) => a.capture.lancee - b.capture.lancee)
-        .pop();
-    if (estimation)
-      texte += `, TdC de ${cible} à l'arrivée : ${numeral(estimation.capture.terrainCible).format()} cm²`;
-    return texte;
   }
   /**
    * Texte à coller sur le forum : une entrée par attaque au format des lignes

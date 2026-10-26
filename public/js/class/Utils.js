@@ -22,8 +22,6 @@ const AFFICHAGES_FZZZ = {
   messagerieCouleurs: "Messagerie : couleurs des titres et icônes de copie",
   messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
   trajet: "Page d'attaque : temps de trajet",
-  partagerFlood: "Page d'attaque : case « Partager ce flood avec l'alliance »",
-  prevenirFlood: "Page d'attaque : case « Prévenir X du flood »",
   syntheseChasses: "Ressources : synthèse des chasses en cours",
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
   floodsRecus: "Armée : floods en cours sur moi",
@@ -201,6 +199,22 @@ class Utils {
     if (Math.abs(val) >= 1e18) return numeral(val / 1e18).format("0.[0]") + "E";
     if (Math.abs(val) >= 1e15) return numeral(val / 1e15).format("0.[0]") + "P";
     return numeral(val).format("0.[0]a");
+  }
+  /**
+   * Durée avec les secondes, toujours affichées : « 8h 05m 03s ».
+   *
+   * @static
+   * @method duree
+   * @param {Number} secondes
+   * @return {String}
+   */
+  static duree(secondes) {
+    let s = Math.round(secondes),
+      j = Math.floor(s / 86400),
+      h = Math.floor((s % 86400) / 3600),
+      m = Math.floor((s % 3600) / 60),
+      deux = (n) => String(n).padStart(2, "0");
+    return `${j ? j + "J " : ""}${h}h ${deux(m)}m ${deux(s % 60)}s`;
   }
   /**
    * Formate un nombre entier en temps.

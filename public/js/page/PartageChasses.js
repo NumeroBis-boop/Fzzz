@@ -12,12 +12,6 @@ const PARTAGE_MAX_ENTREES = 300;
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
-// partage demandé au lancement (case cochée), traité sur la page suivante
-const CLE_PARTAGE_AUTO = "fzzz_partageAuto";
-// dernier choix de la case « Partager ce flood »
-const CLE_PARTAGE_COCHE = "fzzz_partageFloodCoche";
-// écouteur de la case installé une seule fois par page
-let casePartageActive = false;
 
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
@@ -417,65 +411,6 @@ class PartageChasses {
     try {
       localStorage.setItem(CLE_FLOODS_PARTAGES, JSON.stringify(liste));
     } catch (e) {}
-  }
-  /**
-   * Case « Partager ce flood avec la <alliance> », placée au-dessus de
-   * « Prévenir X du flood ». Le dernier choix est retenu.
-   *
-   * @static
-   * @method caseHtml
-   */
-  static caseHtml(id) {
-    let coche = false;
-    try {
-      coche = localStorage.getItem(CLE_PARTAGE_COCHE) == "1";
-    } catch (e) {}
-    if (!casePartageActive) {
-      casePartageActive = true;
-      $(document).on("change", ".o_partagerFloodCase", (e) => {
-        try {
-          localStorage.setItem(CLE_PARTAGE_COCHE, e.currentTarget.checked ? "1" : "0");
-        } catch (err) {}
-      });
-    }
-    return `<label class='o_prevenirFlood' for='${id}'><input type='checkbox' id='${id}' class='o_partagerFloodCase'${coche ? " checked" : ""}/> Partager ce flood avec la ${Utils.echapper(Utils.alliance || "l'alliance")}</label>`;
-  }
-  /**
-   * Case cochée au lancement : le partage se fera sur la page suivante, une
-   * fois les attaques confirmées par le jeu (numéro et heure d'arrivée).
-   *
-   * @static
-   * @method armerPartage
-   */
-  static armerPartage(cible) {
-    sessionStorage.setItem(CLE_PARTAGE_AUTO, JSON.stringify({ cible: cible, depuis: Date.now() }));
-  }
-  /**
-   * Partage les attaques lancées depuis la demande (même effet que le bouton
-   * « Partager »), suite du clic de lancement du joueur. Sans demande : rien.
-   *
-   * @static
-   * @method partageAuto
-   * @return {Promise}
-   */
-  static partageAuto() {
-    let d = null;
-    try {
-      d = JSON.parse(sessionStorage.getItem(CLE_PARTAGE_AUTO));
-    } catch (e) {}
-    sessionStorage.removeItem(CLE_PARTAGE_AUTO);
-    if (!d || Date.now() - d.depuis > 15 * 60 * 1000) return Promise.resolve();
-    let captures = AttaqueLancee.charger().filter(
-      (a) => a.cible == d.cible && a.id && a.arrivee && a.lancee >= d.depuis - 1000,
-    );
-    if (!captures.length) {
-      $.toast({
-        ...TOAST_WARNING,
-        text: `Aucune attaque confirmée sur ${Utils.echapper(d.cible)} : rien n'a été partagé.`,
-      });
-      return Promise.resolve();
-    }
-    return PartageChasses.partagerFloods(captures, null);
   }
   /**
    * Ressources.php : groupes de la synthèse des chasses.

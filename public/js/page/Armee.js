@@ -114,11 +114,6 @@ class PageArmee {
         text: "Armée à replacer : clique sur le bouton de replacement mis en évidence.",
       });
     }
-    // Fzzz : message « Prévenir X du flood » prêt, ouvert une fois l'armée replacée
-    // (un replacement recharge Armee.php, on repasse alors ici)
-    // fin de flood : partage demandé au lancement, puis message à la cible
-    // (après le replacement de l'armée, qui recharge la page)
-    if (!this._replacementEnCours) PartageChasses.partageAuto().then(() => PrevenirFlood.ouvrir());
     return this;
   }
   /**

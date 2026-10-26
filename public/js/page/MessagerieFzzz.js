@@ -5,7 +5,9 @@
 
 /**
  * Catégories des messages et dossier du jeu qui les reçoit. `type` est la
- * valeur de data-type des lignes déjà rangées dans ce dossier.
+ * valeur de data-type des lignes déjà rangées dans ce dossier. Le combat est
+ * testé avant la chasse : « Invasion de X : votre armée a été vaincue sur le
+ * Terrain de chasse » est un RC de combat.
  */
 const CATEGORIES_MESSAGES = [
   {
@@ -16,19 +18,19 @@ const CATEGORIES_MESSAGES = [
     titre: /^convoi\b|\bconvoi (reçu|livré)/i,
   },
   {
-    nom: "chasse",
-    dossier: "Chasse",
-    type: "Chasses",
-    systeme: true,
-    titre: /chasse|chasseuses/i,
-  },
-  {
     nom: "combat",
     dossier: "Combat",
     type: "Combats",
     systeme: true,
     titre:
       /vol par|butin chez|invasion|attaque (réussie|échouée)|colonie|rebellion|conquis par|défense/i,
+  },
+  {
+    nom: "chasse",
+    dossier: "Chasse",
+    type: "Chasses",
+    systeme: true,
+    titre: /chasse|chasseuses/i,
   },
   { nom: "conversation", dossier: "Conversation", type: "Conversations", systeme: false },
 ];
@@ -79,7 +81,10 @@ class MessagerieFzzz {
     let titre = $ligne.find(".intitule_message").text(),
       participants = $ligne.find(".td_participants").text().trim(),
       systeme = /^fourmizzz$/i.test(participants);
-    if (!systeme) return $ligne.data("type") == "Alliance" ? null : CATEGORIES_MESSAGES[3];
+    if (!systeme)
+      return $ligne.data("type") == "Alliance"
+        ? null
+        : CATEGORIES_MESSAGES.find((c) => c.nom == "conversation");
     return CATEGORIES_MESSAGES.find((c) => c.systeme && c.titre.test(titre)) || null;
   }
   /**

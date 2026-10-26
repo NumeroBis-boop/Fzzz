@@ -1549,6 +1549,15 @@ center > div > #tabMembresAlliance {
   font-weight: bold !important;
   text-shadow: none !important;
 }
+/* messages non lus : le jeu colore leur titre en bleu, ce que les couleurs
+ * ci-dessus masquent ; une pastille bleue le rappelle (disparaît à la lecture,
+ * quand le jeu retire .nbr_mess_non_lus_conv) */
+tr.en_tete_message:has(.nbr_mess_non_lus_conv) .intitule_message::before {
+  content: "● ";
+  color: #0000aa;
+  font-style: normal;
+  text-shadow: none;
+}
 .o_copierRapport {
   /* taille fixée : le style mobile du jeu étirait l'icône (60 px de large) */
   width: 14px !important;
@@ -1733,16 +1742,6 @@ tr.en_tete_message > td.td_coche {
   padding: 3px 10px;
   font-size: 0.85em;
   white-space: nowrap;
-}
-
-/* Fzzz : case « Prévenir X du flood » (page d'attaque) */
-.o_prevenirFlood {
-  cursor: pointer;
-  font-size: 0.9em;
-}
-.o_prevenirFlood input {
-  vertical-align: middle;
-  margin: 0 3px 0 0;
 }
 
 /* Fzzz : synthèse des chasses en cours (Ressources.php) */

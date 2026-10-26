@@ -864,8 +864,6 @@ class Armee {
       // Fin du flood : on enchaîne sur Armee.php pour replacer l'antisonde
       // (PageArmee détecte ce flag et appelle replacerArmee() automatiquement).
       sessionStorage.setItem("outiiil_floodPuisReplacer", "1");
-      // « Prévenir X du flood » : brouillon ouvert depuis Armee.php, après le replacement
-      PrevenirFlood.preparer("flood");
       location = "/Armee.php";
     }
   }

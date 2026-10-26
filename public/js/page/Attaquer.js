@@ -56,13 +56,6 @@ class PageAttaquer {
     }
     if (!Utils.comptePlus) this.plus();
     AttaqueLancee.afficherTableaux();
-    // « Prévenir X du flood » coché sur le formulaire : la page de retour liste
-    // les attaques lancées, le brouillon peut être préparé
-    // case « Partager ce flood » cochée : partage des attaques confirmées, puis,
-    // si demandé, ouverture du message pour prévenir la cible
-    PartageChasses.partageAuto().then(() => {
-      if (PrevenirFlood.preparer("formulaire")) PrevenirFlood.ouvrir();
-    });
     return this;
   }
   /**
@@ -115,9 +108,6 @@ class PageAttaquer {
     $("input[name='ChoixArmee']")
       .closest("form")
       .on("submit", () => {
-        if ($("#o_prevenirArmee").prop("checked"))
-          PrevenirFlood.armer(this._cible.pseudo, "formulaire");
-        if ($("#o_partagerArmee").prop("checked")) PartageChasses.armerPartage(this._cible.pseudo);
         AttaqueLancee.enregistrer(
           this._cible.pseudo,
           $("#lieu option:selected").text().trim(),
@@ -136,7 +126,7 @@ class PageAttaquer {
         `<div id="o_btnSynchro"><button id='o_synchro' class="o_button f_info" title="${titleSync}">Synchroniser</button><button id='o_sonder' class="o_button f_error" title="${titleSonde}">Sonder</button><button id='o_sonderDirect' class="o_button f_error" title="${titleSondeDirect}">Sonder direct</button></div>`,
       )
       .after(
-        `${Utils.affichage("trajet") ? `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">${PrevenirFlood.duree(monProfil.getTempsParcours2(this._cible))}</span></p>` : ""}<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${Horloge.clic().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()).format("D MMM à HH[h]mm")}</span>).</p>${Utils.affichage("partagerFlood") ? `<p class="centre">${PartageChasses.caseHtml("o_partagerArmee")}</p>` : ""}${Utils.affichage("prevenirFlood") ? `<p class="centre">${PrevenirFlood.caseHtml("o_prevenirArmee", this._cible.pseudo)}</p>` : ""}`,
+        `${Utils.affichage("trajet") ? `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">${Utils.duree(monProfil.getTempsParcours2(this._cible))}</span></p>` : ""}<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${Horloge.clic().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()).format("D MMM à HH[h]mm")}</span>).</p>`,
       );
     $("#o_synchro").click((e) => {
       e.preventDefault();
@@ -219,7 +209,6 @@ class PageAttaquer {
 			<tr><td>Antisonde (<span id="o_pourcentAttaque0">0</span>%)</td><td><input value='0' size='12' id='o_floodAntiSonde'/></td><td></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>
             <tr class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
             </table>
-            ${Utils.affichage("partagerFlood") ? `<p class='o_marginT15'>${PartageChasses.caseHtml("o_partagerFloodLanceur")}</p>` : ""}${Utils.affichage("prevenirFlood") ? `<p class='o_marginT15'>${PrevenirFlood.caseHtml("o_prevenirFloodLanceur", this._cible.pseudo)}</p>` : ""}
             <button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
             <p class="reduce left">* : place les unités restantes sur l'attaque selectionnée.</p>
             </fieldset>`);
@@ -268,10 +257,6 @@ class PageAttaquer {
       // contexte pour que envoyerFlood capture chaque attaque confirmée. Le
       // terrain de départ est celui saisi dans la simulation (par défaut celui
       // du profil, modifiable si on connaît une valeur plus fraîche)
-      if ($("#o_prevenirFloodLanceur").prop("checked"))
-        PrevenirFlood.armer(this._cible.pseudo, "flood");
-      if ($("#o_partagerFloodLanceur").prop("checked"))
-        PartageChasses.armerPartage(this._cible.pseudo);
       AttaqueLancee.contexteFlood = {
         cible: this._cible.pseudo,
         terrain: $("#o_floodTDCB").spinner("value"),

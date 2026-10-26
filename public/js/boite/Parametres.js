@@ -18,7 +18,7 @@ class BoiteParametre extends Boite {
     super(
       "o_boiteParametre",
       "Paramètres",
-      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre5'>Affichages</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre3'/><div id='o_tabsParametre5'/><div id='o_tabsParametre4'/></div>`,
+      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre5'>Affichages</a></li><li><a href='#o_tabsParametre6'>Convoi</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre3'/><div id='o_tabsParametre5'/><div id='o_tabsParametre6'/><div id='o_tabsParametre4'/></div>`,
     );
     /**
      *
@@ -64,7 +64,7 @@ class BoiteParametre extends Boite {
           },
         })
         .removeClass("ui-widget");
-      this.parametreStyle().parametreGeneral().affichages().apropos().css().event();
+      this.parametreStyle().parametreGeneral().affichages().convoi().apropos().css().event();
     }
   }
   /**
@@ -189,6 +189,64 @@ class BoiteParametre extends Boite {
         );
       } catch (err) {}
     });
+    return this;
+  }
+  /**
+   * Onglet Convoi : affichages de la page Convois, et code de connexion au
+   * site de suivi des convois de la OUAF. Le code est gardé dans le stockage
+   * de l'extension (le jeu ne peut pas le lire) et n'est jamais réaffiché.
+   *
+   * @method convoi
+   */
+  convoi() {
+    let cases = Object.entries(AFFICHAGES_CONVOIS)
+      .map(
+        ([cle, libelle]) =>
+          `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelle}</label>`,
+      )
+      .join("");
+    $("#o_tabsParametre6").append(`<form autocomplete='off'>
+            <p class='left reduce gras'>Affichages de la page Convois</p>
+            <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
+            ${cases}
+            <p class='left reduce gras o_marginT15'>Suivi des convois de la OUAF</p>
+            <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
+            <p class='left small'><label for='o_ouafCode'>Code de connexion de ton compte :</label>
+              <input type='password' id='o_ouafCode' autocomplete='new-password' spellcheck='false' style='width:12em'/>
+              <button type='button' id='o_ouafCodeEnregistrer' class='o_button f_success'>Enregistrer</button>
+              <button type='button' id='o_ouafCodeEffacer' class='o_button f_error'>Effacer</button></p>
+            <p id='o_ouafCodeEtat' class='left small'></p>
+            <p class='left small'><em>Le code reste dans ton navigateur, dans l'espace privé de l'extension. Il ne sera envoyé qu'au site de suivi, quand tu cliqueras sur un bouton d'envoi de convoi.</em></p>
+        </form>`);
+    $("#o_tabsParametre6 input[data-affichage]").on("change", (e) => {
+      try {
+        localStorage.setItem(
+          "fzzz_affichage_" + e.currentTarget.dataset.affichage,
+          e.currentTarget.checked ? "1" : "0",
+        );
+      } catch (err) {}
+    });
+    let etat = (code) =>
+      $("#o_ouafCodeEtat").html(
+        code
+          ? "<span class='green'>Code enregistré.</span>"
+          : "<span class='red'>Aucun code enregistré.</span>",
+      );
+    OuafSuivi.lireCode().then(etat);
+    $("#o_ouafCodeEnregistrer").on("click", () => {
+      let code = String($("#o_ouafCode").val() || "").trim();
+      if (!code) return;
+      OuafSuivi.enregistrerCode(code).then(() => {
+        $("#o_ouafCode").val("");
+        etat(code);
+      });
+    });
+    $("#o_ouafCodeEffacer").on("click", () =>
+      OuafSuivi.enregistrerCode("").then(() => {
+        $("#o_ouafCode").val("");
+        etat("");
+      }),
+    );
     return this;
   }
   /**

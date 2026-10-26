@@ -21,7 +21,6 @@ const AFFICHAGES_FZZZ = {
   rentabilite: "Laboratoire et Construction : bandeaux « rentabilité du niveau supérieur »",
   messagerieCouleurs: "Messagerie : couleurs des titres et icônes de copie",
   messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
-  convoisSelection: "Convois : cases à cocher et copie des convois en cours",
   trajet: "Page d'attaque : temps de trajet",
   partagerFlood: "Page d'attaque : case « Partager ce flood avec l'alliance »",
   prevenirFlood: "Page d'attaque : case « Prévenir X du flood »",
@@ -29,6 +28,17 @@ const AFFICHAGES_FZZZ = {
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
   floodsRecus: "Armée : floods en cours sur moi",
   profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
+};
+
+// Fzzz : affichages de la page Convois, réglables dans Paramètres → Convoi
+const AFFICHAGES_CONVOIS = {
+  convoisInfoEtable: "Ligne « Niveau d'étable, 1 ouvrière peut transporter… »",
+  convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
+  convoisRetour: "Heure de retour de chaque convoi en cours (hors Compte+)",
+  convoisRecherche: "Recherche du destinataire pendant la saisie (hors Compte+)",
+  convoisSelection: "Cases à cocher et copie des convois en cours",
+  convoisSuiviOuaf: "Bloc « Suivi des convois OUAF » (en préparation)",
+  convoisSuiviLignes: "État « transmis au suivi OUAF » à côté de chaque convoi (en préparation)",
 };
 
 class Utils {

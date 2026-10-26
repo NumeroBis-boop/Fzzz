@@ -22,10 +22,23 @@ class PageCommerce {
    */
   executer() {
     // ajout d'information
-    $("form table").append(
-      `<tr class='centre'><td colspan=6>Info : Niveau d'étable <strong>${monProfil.niveauConstruction[11]}</strong>, 1 ouvrière peut transporter : <strong>${10 + monProfil.niveauConstruction[11] / 2}</strong> ressources.</td></tr>`,
-    );
+    if (Utils.affichage("convoisInfoEtable"))
+      $("form table").append(
+        `<tr class='centre'><td colspan=6>Info : Niveau d'étable <strong>${monProfil.niveauConstruction[11]}</strong>, 1 ouvrière peut transporter : <strong>${10 + monProfil.niveauConstruction[11] / 2}</strong> ressources.</td></tr>`,
+      );
     // ajout des boutons pour arrondir les quantités
+    if (Utils.affichage("convoisArrondir")) this.arrondir();
+    // option c+
+    if (!Utils.comptePlus) this.plus();
+    CommerceFzzz.decorer();
+    return this;
+  }
+  /**
+   * Liens « arrondir… » des quantités, avec le nombre d'ouvrières recalculé.
+   *
+   * @method arrondir
+   */
+  arrondir() {
     $("#bouton_nourriture_max").html(
       `Nourriture donnée <span id="o_arrondirNou" class="gras small">arrondir...</span>`,
     );
@@ -69,9 +82,6 @@ class PageCommerce {
       );
       return false;
     });
-    // option c+
-    if (!Utils.comptePlus) this.plus();
-    CommerceFzzz.decorer();
     return this;
   }
   /**
@@ -82,17 +92,18 @@ class PageCommerce {
    */
   plus() {
     // autocomplete sur le champs pseudo
-    $("#pseudo_convoi").autocomplete({
-      source: (request, response) => {
-        // requete pour autocomplete
-        Joueur.rechercher(request.term).then((data) => {
-          response(Utils.extraitRecherche(data, true, false));
-        });
-      },
-      position: { my: "left top-5", at: "left bottom" },
-      delay: 0,
-      minLength: 3,
-    });
+    if (Utils.affichage("convoisRecherche"))
+      $("#pseudo_convoi").autocomplete({
+        source: (request, response) => {
+          // requete pour autocomplete
+          Joueur.rechercher(request.term).then((data) => {
+            response(Utils.extraitRecherche(data, true, false));
+          });
+        },
+        position: { my: "left top-5", at: "left bottom" },
+        delay: 0,
+        minLength: 3,
+      });
     // sauvegarde des convois
     let listeConvoi = new Array(),
       nombres = new Array();
@@ -101,7 +112,7 @@ class PageCommerce {
       // message en gras du jeu faisait échouer toute la page
       if (!/\bdans\b/.test($(elt).text()) || !/\d/.test($(elt).text().split("dans")[0])) return;
       // Affichage du retour des convois
-      if ($(elt).next().text().indexOf("Retour") == -1)
+      if (Utils.affichage("convoisRetour") && $(elt).next().text().indexOf("Retour") == -1)
         $(elt).after(
           `<span class='small'>- Retour le ${Utils.roundMinute(Utils.timeToInt($(elt).text().split("dans")[1].trim())).format("D MMM YYYY à HH[h]mm")}</span>`,
         );

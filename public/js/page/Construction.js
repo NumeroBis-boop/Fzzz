@@ -267,12 +267,7 @@ class PageConstruction {
     let $ligne = $(".ligneAmelioration").filter((i, elt) =>
       /table à pucerons/i.test($(elt).find("h2").text()),
     );
-    if ($ligne.length)
-      Utils.ajouterSpoilerRentabilite(
-        $ligne,
-        "o_rentabiliteEtableLigne",
-        Utils.htmlRentabiliteEtable(),
-      );
+    if ($ligne.length) Utils.ajouterRentabiliteEtable($ligne);
     return this;
   }
   /**

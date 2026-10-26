@@ -46,12 +46,7 @@ class PageLaboratoire {
     let $communication = $(".ligneAmelioration").filter((i, elt) =>
       /communication avec les animaux/i.test($(elt).find("h2").text()),
     );
-    if ($communication.length)
-      Utils.ajouterSpoilerRentabilite(
-        $communication,
-        "o_rentabiliteEtableLigne",
-        Utils.htmlRentabiliteEtable(),
-      );
+    if ($communication.length) Utils.ajouterRentabiliteEtable($communication);
     // Sauvegarde recherche AVANT le remplacement (saveRecherche lit $("#centre strong"))
     if (!Utils.comptePlus) this.plus();
     // ⚠️ Ordre : confirmationAnnuler AVANT tableauEvolution — la 1re ajoute le

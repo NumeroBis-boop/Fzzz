@@ -282,24 +282,63 @@ class Utils {
    * Fzzz : bandeau « Estimer le niveau de rentabilité… » (voir plus bas).
    */
   static ajouterSpoilerRentabilite($ligne, id, contenu) {
+    // contenu : HTML, ou fonction rendant une promesse de HTML, appelée à la
+    // première ouverture du bandeau
+    let charger = typeof contenu == "function" ? contenu : null;
     if (!Utils.affichage("rentabilite")) return;
     $("#" + id).remove();
     $ligne.after(`
       <tr id='${id}' class='o_spoilerLigne'><td colspan='${$ligne.children("td").length || 4}'>
         <div class='o_spoilerCadre'>
           <div class='o_spoilerBandeau'><span class='o_fleche'>▶</span> Estimer le niveau de rentabilité du niveau supérieur</div>
-          <div class='o_spoilerContenu' style='display:none'>${contenu}</div>
+          <div class='o_spoilerContenu' style='display:none'>${charger ? "<p class='small'>Chargement…</p>" : contenu}</div>
         </div>
       </td></tr>`);
     $(`#${id} .o_spoilerBandeau`).click((e) => {
       let $contenu = $(`#${id} .o_spoilerContenu`),
         ouvert = !$contenu.is(":visible");
       $contenu.toggle(ouvert);
+      if (ouvert && charger) {
+        charger().then((html) => $contenu.html(html));
+        charger = null;
+      }
       $(e.currentTarget)
         .toggleClass("o_ouvert", ouvert)
         .find(".o_fleche")
         .text(ouvert ? "▼" : "▶");
     });
+  }
+  /**
+   * Nombre total d'ouvrières, y compris celles parties en convoi, que le
+   * compteur de l'en-tête ne compte pas : lu dans la page Reine
+   * (#armee_initial), en une seule requête. À défaut, compteur de l'en-tête.
+   *
+   * @static
+   * @method ouvrieresTotales
+   * @return {Promise} {total, reine} reine = vrai si lu dans la page Reine
+   */
+  static ouvrieresTotales() {
+    let lire = ($page) => {
+      let n = parseInt($page.find("#armee_initial").text().replace(/\D/g, ""));
+      return isNaN(n) ? Promise.reject() : { total: n, reine: true };
+    };
+    let defaut = () => ({ total: Utils.ouvrieres || 0, reine: false });
+    if (/^\/Reine\.php/i.test(location.pathname))
+      return Promise.resolve($(document.body)).then(lire).catch(defaut);
+    return Promise.resolve($.get(location.origin + "/Reine.php"))
+      .then((html) => lire(Utils.parseHtml(html)))
+      .catch(defaut);
+  }
+  /**
+   * Bandeau de rentabilité de l'Étable, chargé à la première ouverture.
+   *
+   * @static
+   * @method ajouterRentabiliteEtable
+   */
+  static ajouterRentabiliteEtable($ligne) {
+    Utils.ajouterSpoilerRentabilite($ligne, "o_rentabiliteEtableLigne", () =>
+      Utils.ouvrieresTotales().then(Utils.htmlRentabiliteEtable),
+    );
   }
   /**
    * Contenu du bandeau de rentabilité de l'Étable à pucerons, affiché sous
@@ -318,11 +357,11 @@ class Utils {
    *
    * @static
    * @method htmlRentabiliteEtable
+   * @param {Object} ouvrieres {total, reine} (voir ouvrieresTotales)
    * @return {String} HTML
    */
-  static htmlRentabiliteEtable() {
-    let total = Utils.ouvrieres || 0,
-      tdc = Math.min(total, Utils.terrain || 0),
+  static htmlRentabiliteEtable({ total, reine }) {
+    let tdc = Math.min(total, Utils.terrain || 0),
       dispo = total - tdc,
       niveau = monProfil.niveauConstruction[11] || 0,
       communication = parseInt(monProfil.niveauRecherche[4]),
@@ -349,7 +388,11 @@ class Utils {
       o -= sacrifiees;
       communication = Math.max(communication, requis);
     }
-    return `<p><strong>Ouvrières : ${fmt(total)}</strong> · exploitées sur le TdC : ${fmt(tdc)} ·
+    return `<p><strong>Ouvrières : ${fmt(total)}</strong>${
+      reine
+        ? " <span class='small'>(page Reine, convois en cours compris)</span>"
+        : " <span class='small red'>(Reine.php illisible : ouvrières en convoi non comptées)</span>"
+    } · exploitées sur le TdC : ${fmt(tdc)} ·
         <strong>disponibles pour les convois : ${fmt(dispo)}</strong></p>
       <p class='small'>Capacité de convoi actuelle (étable ${niveau}) : ${fmt(capacite(dispo, niveau))} ressources par convoi.</p>
       <table cellspacing='0'>

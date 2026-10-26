@@ -90,6 +90,19 @@ class MessagerieFzzz {
    */
   static decorer() {
     if (!Utils.affichage("messagerieCouleurs")) return;
+    // copie des conversations cochées, à gauche de « Boîte de réception »
+    let $toutes = $("#selection_toutes_checkbox");
+    if ($toutes.length && !$toutes.find(".o_copierRapport").length)
+      $(
+        `<img class='o_copierRapport' src='${IMG_COPIER}' title='Copier les rapports complets des conversations sélectionnées' alt='Copier'/>`,
+      )
+        .appendTo($toutes)
+        .on("click", (e) => {
+          // le clic sur la case voisine coche tout : il ne doit pas l'atteindre
+          e.preventDefault();
+          e.stopPropagation();
+          MessagerieFzzz.copierSelection();
+        });
     $("tr.en_tete_message[id^='conversation_']")
       .not(".o_fzzz")
       .each((i, elt) => {
@@ -387,13 +400,14 @@ class MessagerieFzzz {
     return lignes.join("\n").trim();
   }
   /**
-   * Copie le rapport complet d'une conversation. Si elle est ouverte, on lit la
-   * page ; sinon on la charge comme le jeu le fait à l'ouverture.
+   * Rapport complet d'une conversation. Si elle est ouverte, on lit la page ;
+   * sinon on la charge comme le jeu le fait à l'ouverture.
    *
    * @static
-   * @method copier
+   * @method rapport
+   * @return {Promise} texte
    */
-  static copier($ligne) {
+  static rapport($ligne) {
     let id = $ligne.attr("id").match(/\d+/)[0],
       ouverts = $ligne.nextUntil("tr.en_tete_message").find("tr[id^='message_']");
     let charger = ouverts.length
@@ -401,22 +415,61 @@ class MessagerieFzzz {
       : Promise.resolve(
           $.post(location.origin + "/messagerie.php", { traitement: "afficher", conversation: id }),
         ).then((html) => $("<table>").html(html).find("tr[id^='message_']"));
-    charger
-      .then(($messages) => {
-        if (!$messages.length) throw new Error("vide");
-        let texte = MessagerieFzzz.texte($ligne, $messages),
-          ecrire =
-            navigator.clipboard && navigator.clipboard.writeText
-              ? navigator.clipboard.writeText(texte)
-              : Promise.reject(new Error("presse-papier indisponible"));
-        return ecrire.then(
-          () => $.toast({ ...TOAST_SUCCESS, text: "Rapport copié dans le presse-papier." }),
-          () => MessagerieFzzz._copieManuelle(texte),
-        );
-      })
+    return charger.then(($messages) => {
+      if (!$messages.length) throw new Error("vide");
+      return MessagerieFzzz.texte($ligne, $messages);
+    });
+  }
+  /**
+   * @static
+   * @method copier
+   */
+  static copier($ligne) {
+    MessagerieFzzz.rapport($ligne)
+      .then((texte) => CommerceFzzz.copier(texte, "Rapport copié dans le presse-papier."))
       .catch(() =>
         $.toast({ ...TOAST_ERROR, text: "Le rapport n'a pas pu être chargé, la copie a échoué." }),
       );
+  }
+  /**
+   * Copie les rapports des conversations cochées, l'un après l'autre (une
+   * requête à la fois pour celles qui ne sont pas ouvertes).
+   *
+   * @static
+   * @method copierSelection
+   */
+  static copierSelection() {
+    let lignes = $("tr.en_tete_message[id^='conversation_']")
+      .filter((i, elt) => $(elt).find(".checkbox_message").prop("checked"))
+      .get();
+    if (!lignes.length) {
+      $.toast({ ...TOAST_INFO, text: "Aucune conversation sélectionnée." });
+      return;
+    }
+    let textes = [],
+      echecs = 0;
+    lignes
+      .reduce(
+        (suite, elt) =>
+          suite.then(() =>
+            MessagerieFzzz.rapport($(elt)).then(
+              (t) => textes.push(t),
+              () => echecs++,
+            ),
+          ),
+        Promise.resolve(),
+      )
+      .then(() => {
+        if (!textes.length) {
+          $.toast({ ...TOAST_ERROR, text: "Les rapports n'ont pas pu être chargés." });
+          return;
+        }
+        CommerceFzzz.copier(
+          textes.join("\n\n----------\n\n"),
+          `${textes.length} rapport${textes.length > 1 ? "s" : ""} copié${textes.length > 1 ? "s" : ""} dans le presse-papier.` +
+            (echecs ? ` ${echecs} n'ont pas pu être chargés.` : ""),
+        );
+      });
   }
   /**
    * Repli quand le navigateur refuse l'accès au presse-papier : le texte est

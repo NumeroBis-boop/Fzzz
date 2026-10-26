@@ -408,6 +408,41 @@ class MessagerieFzzz {
    * @return {Promise} texte
    */
   static rapport($ligne) {
+    // déjà chargé pendant cette visite, et sans nouveau message depuis
+    let cle = MessagerieFzzz._cleRapport($ligne);
+    MessagerieFzzz._rapports = MessagerieFzzz._rapports || new Map();
+    if (!MessagerieFzzz._rapports.has(cle)) {
+      let p = MessagerieFzzz._chargerRapport($ligne);
+      MessagerieFzzz._rapports.set(cle, p);
+      p.catch(() => MessagerieFzzz._rapports.delete(cle));
+    }
+    return MessagerieFzzz._rapports.get(cle);
+  }
+  /**
+   * Vrai si le rapport s'obtient sans requête : conversation ouverte, ou déjà
+   * chargée pendant cette visite.
+   *
+   * @static
+   * @method rapportPret
+   */
+  static rapportPret($ligne) {
+    return (
+      $ligne.nextUntil("tr.en_tete_message").find("tr[id^='message_']").length > 0 ||
+      (MessagerieFzzz._rapports || new Map()).has(MessagerieFzzz._cleRapport($ligne))
+    );
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _cleRapport($ligne) {
+    return $ligne.attr("id") + "|" + $ligne.find(".td_objet > span").first().text();
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _chargerRapport($ligne) {
     let id = $ligne.attr("id").match(/\d+/)[0],
       ouverts = $ligne.nextUntil("tr.en_tete_message").find("tr[id^='message_']");
     let charger = ouverts.length
@@ -446,8 +481,16 @@ class MessagerieFzzz {
       $.toast({ ...TOAST_INFO, text: "Aucune conversation sélectionnée." });
       return;
     }
+    // le serveur refuse deux requêtes simultanées (voir Requetes.js) : les
+    // rapports sont chargés l'un après l'autre, dans l'ordre de la liste
     let textes = [],
-      echecs = 0;
+      echecs = 0,
+      aCharger = lignes.filter((elt) => !MessagerieFzzz.rapportPret($(elt))).length;
+    if (aCharger > 1)
+      $.toast({
+        ...TOAST_INFO,
+        text: `Chargement de ${aCharger} rapports, un par un (le jeu n'en sert qu'un à la fois)…`,
+      });
     lignes
       .reduce(
         (suite, elt) =>

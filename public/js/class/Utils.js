@@ -36,9 +36,8 @@ const AFFICHAGES_CONVOIS = {
   convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
   convoisRetour: "Heure de retour de chaque convoi en cours (hors Compte+)",
   convoisRecherche: "Recherche du destinataire pendant la saisie (hors Compte+)",
-  convoisSelection: "Cases à cocher et copie des convois en cours",
-  convoisSuiviOuaf: "Bloc « Suivi des convois OUAF » (envoi des convois au site de suivi)",
-  convoisSuiviLignes: "État « noté au suivi OUAF » et bouton d'envoi à côté de chaque convoi",
+  convoisSuiviLignes:
+    "Suivi OUAF devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
 };
 
 class Utils {

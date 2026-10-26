@@ -92,12 +92,12 @@ class OuafSuivi {
   static connecter() {
     return OuafSuivi.lireCode().then((code) => {
       if (!code) {
-        let e = new Error("aucun code de connexion enregistré");
+        let e = new Error("aucun mot de passe enregistré");
         e.name = "code";
         throw e;
       }
       return OuafSuivi.requete("POST", "/api/session", { mot_de_passe: code }).then((s) => {
-        if (!s.connecte) throw new Error("code de connexion refusé par le site");
+        if (!s.connecte) throw new Error("mot de passe refusé par le site de suivi");
         return s;
       });
     });

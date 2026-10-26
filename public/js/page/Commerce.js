@@ -30,7 +30,6 @@ class PageCommerce {
     if (Utils.affichage("convoisArrondir")) this.arrondir();
     // option c+
     if (!Utils.comptePlus) this.plus();
-    CommerceFzzz.decorer();
     CommerceFzzz.suiviOuaf();
     return this;
   }

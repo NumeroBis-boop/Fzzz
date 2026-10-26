@@ -193,8 +193,9 @@ class BoiteParametre extends Boite {
   }
   /**
    * Onglet Convoi : affichages de la page Convois, et code de connexion au
-   * site de suivi des convois de la OUAF. Le code est gardé dans le stockage
-   * de l'extension (le jeu ne peut pas le lire) et n'est jamais réaffiché.
+   * site de suivi des convois de la OUAF (seul endroit où il se renseigne). Le
+   * code est gardé dans le stockage de l'extension (le jeu ne peut pas le
+   * lire) ; il n'est placé dans le champ que si le joueur clique « Afficher ».
    *
    * @method convoi
    */
@@ -211,13 +212,14 @@ class BoiteParametre extends Boite {
             ${cases}
             <p class='left reduce gras o_marginT15'>Suivi des convois de la OUAF</p>
             <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
-            <p class='left small'><label for='o_ouafCode'>Code de connexion de ton compte :</label>
+            <p class='left small'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
               <input type='password' id='o_ouafCode' autocomplete='new-password' spellcheck='false' style='width:12em'/>
+              <button type='button' id='o_ouafCodeVoir' class='o_button' title='Afficher le mot de passe enregistré'>👁 Afficher</button>
               <button type='button' id='o_ouafCodeEnregistrer' class='o_button f_success'>Enregistrer</button>
               <button type='button' id='o_ouafCodeEffacer' class='o_button f_error'>Effacer</button></p>
             <p id='o_ouafCodeEtat' class='left small'></p>
-            <p class='left small'><em>Le code reste dans ton navigateur, dans l'espace privé de l'extension. Il ne sera envoyé qu'au site de suivi, quand tu cliqueras sur un bouton d'envoi de convoi.</em></p>
-            <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton code et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>
+            <p class='left small'><em>Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension. Il ne sera envoyé qu'au site de suivi, quand tu cliqueras sur « 📤 Envoyer au suivi » à côté d'un convoi.</em></p>
+            <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>
         </form>`);
     $("#o_tabsParametre6 input[data-affichage]").on("change", (e) => {
       try {
@@ -228,26 +230,42 @@ class BoiteParametre extends Boite {
       } catch (err) {}
     });
     let etat = (code) =>
-      $("#o_ouafCodeEtat").html(
-        code
-          ? "<span class='green'>Code enregistré.</span>"
-          : "<span class='red'>Aucun code enregistré.</span>",
-      );
+        $("#o_ouafCodeEtat").html(
+          code
+            ? "<span class='green'>Mot de passe enregistré.</span>"
+            : "<span class='red'>Aucun mot de passe enregistré : à renseigner pour envoyer tes convois au suivi.</span>",
+        ),
+      masquer = () => {
+        $("#o_ouafCode").attr("type", "password").val("");
+        $("#o_ouafCodeVoir")
+          .text("👁 Afficher")
+          .attr("title", "Afficher le mot de passe enregistré");
+      };
     OuafSuivi.lireCode().then(etat);
     $("#o_ouafCodeEnregistrer").on("click", () => {
       let code = String($("#o_ouafCode").val() || "").trim();
       if (!code) return;
       OuafSuivi.enregistrerCode(code).then(() => {
-        $("#o_ouafCode").val("");
+        masquer();
+        $("#o_ouafCode").removeClass("o_champSignale");
         etat(code);
       });
     });
     $("#o_ouafCodeEffacer").on("click", () =>
       OuafSuivi.enregistrerCode("").then(() => {
-        $("#o_ouafCode").val("");
+        masquer();
         etat("");
       }),
     );
+    // consulter le mot de passe enregistré, même masqué
+    $("#o_ouafCodeVoir").on("click", () => {
+      if ($("#o_ouafCode").attr("type") == "text") return masquer();
+      OuafSuivi.lireCode().then((code) => {
+        if (!code) return etat("");
+        $("#o_ouafCode").attr("type", "text").val(code);
+        $("#o_ouafCodeVoir").text("🙈 Masquer").attr("title", "Masquer le mot de passe");
+      });
+    });
     return this;
   }
   /**

@@ -1735,46 +1735,6 @@ tr.en_tete_message > td.td_coche {
   white-space: nowrap;
 }
 
-/* Fzzz : sélection et copie des convois en cours (commerce.php) */
-.o_convoiOutils {
-  white-space: nowrap;
-  margin-right: 4px;
-}
-.o_convoiOutils .o_convoiCoche {
-  margin: 0 3px 0 0;
-  vertical-align: middle;
-  cursor: pointer;
-}
-.o_convoiCopier {
-  width: 14px !important;
-  height: 14px !important;
-  vertical-align: middle;
-  cursor: pointer;
-  opacity: 0.75;
-}
-.o_convoiCopier:hover {
-  opacity: 1;
-}
-#o_convoisOutils {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 4px 0 6px 0;
-}
-#o_convoisOutils label {
-  cursor: pointer;
-  font-size: 0.9em;
-}
-#o_convoisOutils input {
-  margin: 0 3px 0 10px;
-  vertical-align: middle;
-}
-#o_convoisOutils .o_button {
-  margin: 0;
-  padding: 3px 10px;
-  font-size: 0.85em;
-}
-
 /* Fzzz : case « Prévenir X du flood » (page d'attaque) */
 .o_prevenirFlood {
   cursor: pointer;
@@ -2040,7 +2000,6 @@ tr.en_tete_message > td.td_coche {
   #o_partageAlliance,
   .o_attaquesBoutons,
   .o_syntheseBoutons,
-  #o_convoisOutils,
   #o_btnSynchro,
   .o_analyseLigne {
     flex-wrap: wrap !important;
@@ -2129,14 +2088,6 @@ tr.en_tete_message > td.td_coche {
     display: block;
     margin: 2px 0 0 0;
   }
-  /* Convois : état du suivi OUAF à la ligne */
-  .o_ouafLigne {
-    white-space: normal;
-    display: inline-block;
-  }
-  #o_ouafCodeCommerce {
-    width: 9em;
-  }
   /* Ressources : choix d'affectation des ouvrières sur plusieurs lignes */
   td.o_affectationChoix,
   td:has(> label > #o_ratioRadio) {
@@ -2154,32 +2105,22 @@ tr.en_tete_message > td.td_coche {
   }
 }
 
-/* Fzzz : suivi des convois OUAF (page Convois) */
-#o_ouafSuivi p {
-  margin: 4px 0;
-}
-#o_ouafCodeCommerce {
-  width: 12em;
-}
+/* Fzzz : suivi des convois OUAF, devant chaque convoi (page Convois) */
 .o_ouafLigne {
   font-size: 0.85em;
   white-space: nowrap;
+  margin-right: 6px;
 }
 .o_ouafLigne .o_button {
-  margin: 0 0 0 4px;
+  margin: 0;
   padding: 1px 6px;
   font-size: 0.9em;
 }
-.o_ouafEtat {
-  font-weight: bold;
-}
 .o_ouafOui {
   color: #287a36;
+  font-weight: bold;
 }
-.o_ouafNon {
-  color: #b00020;
-}
-.o_ouafInconnu {
-  color: #6b5a2e;
-  font-weight: normal;
+/* champ vers lequel Fzzz renvoie (mot de passe du suivi OUAF à renseigner) */
+.o_champSignale {
+  outline: 2px solid #c27c0e;
 }

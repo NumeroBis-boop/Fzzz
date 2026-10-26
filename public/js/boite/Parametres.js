@@ -217,6 +217,7 @@ class BoiteParametre extends Boite {
               <button type='button' id='o_ouafCodeEffacer' class='o_button f_error'>Effacer</button></p>
             <p id='o_ouafCodeEtat' class='left small'></p>
             <p class='left small'><em>Le code reste dans ton navigateur, dans l'espace privé de l'extension. Il ne sera envoyé qu'au site de suivi, quand tu cliqueras sur un bouton d'envoi de convoi.</em></p>
+            <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton code et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>
         </form>`);
     $("#o_tabsParametre6 input[data-affichage]").on("change", (e) => {
       try {

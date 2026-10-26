@@ -217,7 +217,7 @@ class AllianceFzzz {
         .html(p ? PartageChasses.libellePrise(p, "") : "—");
       cellule(r, n - k + 3)
         .toggleClass("o_allVide", !p)
-        .html(p ? p.autre : "—");
+        .html(p ? Utils.echapper(p.autre) : "—");
       cellule(r, n - 1)
         .attr("data-order", final)
         .html(numeral(final).format());
@@ -230,10 +230,10 @@ class AllianceFzzz {
       vars.forEach((v) => {
         tdc += v.delta;
         lignes.push(
-          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${v.autre}</td></tr>`,
+          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${Utils.echapper(v.autre)}</td></tr>`,
         );
       });
-      let html = `<div class='gras'>${pseudo}</div>${
+      let html = `<div class='gras'>${Utils.echapper(pseudo)}</div>${
         vars.length
           ? `<table cellspacing='0'>${lignes.join("")}</table>`
           : "<em>Aucune variation partagée en cours.</em>"

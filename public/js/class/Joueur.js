@@ -157,7 +157,7 @@ class Joueur {
     );
     this._parametre["replacerArmeeAuto"] = new Parametre(
       "replacerArmeeAuto",
-      "Replacer l'armée automatiquement",
+      "Signaler l'armée à replacer (ouverture d'Armée)",
       "checkbox",
       false,
     );
@@ -465,7 +465,7 @@ class Joueur {
    *
    */
   getParametre() {
-    let data = JSON.parse(localStorage.getItem("outiiil_parametre")) || {};
+    let data = Utils.lireStockage("outiiil_parametre");
     // Si des données sont deja presente et à jour on les charges
     for (let cle in data) if (this._parametre[cle]) this._parametre[cle].valeur = data[cle];
     return this;
@@ -534,7 +534,7 @@ class Joueur {
     // si on est le joueur courant on a peut etre les infos dans le storage
     if (monProfil.pseudo == this._pseudo) {
       // si on est le joueur courant on regarde dans le localstorage
-      let data = JSON.parse(localStorage.getItem("outiiil_joueur")) || {};
+      let data = Utils.lireStockage("outiiil_joueur");
       // Si des données sont deja presente et à jour on les charges
       if (data.hasOwnProperty("id") && data.hasOwnProperty("x") && data.hasOwnProperty("y")) {
         this._id = data.id;
@@ -563,15 +563,17 @@ class Joueur {
       let stripped = html.replace(/<img\b[^>]*>/gi, ""),
         // -1 / -1 si les coordonnées sont introuvables : la carte d'alliance
         // écarte alors le joueur au lieu de le placer en 0 / 0
-        coordonnees = Utils.coordonnees($(stripped).find(".boite_membre"));
-      this._id = $(stripped).find("a[href^='commerce.php?ID=']").attr("href").match(/\d+/g)[0];
+        $page = $(stripped),
+        coordonnees = Utils.coordonnees($page.find(".boite_membre")),
+        // lien commerce absent (page inattendue) : on garde l'id connu au lieu
+        // de planter tout le démarrage de l'extension
+        idLu = (($page.find("a[href^='commerce.php?ID=']").attr("href") || "").match(/\d+/) ||
+          [])[0];
+      if (idLu) this._id = idLu;
       this._x = coordonnees.x;
       this._y = coordonnees.y;
-      this._mv = $(stripped)
-        .find("table:eq(0) tr:eq(0) td:eq(0)")
-        .text()
-        .includes("Joueur en vacances");
-      this._terrain = numeral($(stripped).find(".tableau_score tr:eq(1) td:eq(1)").text()).value();
+      this._mv = $page.find("table:eq(0) tr:eq(0) td:eq(0)").text().includes("Joueur en vacances");
+      this._terrain = numeral($page.find(".tableau_score tr:eq(1) td:eq(1)").text()).value();
       if (monProfil.pseudo == this._pseudo) this.sauvegarder();
     }
     return true;
@@ -583,7 +585,7 @@ class Joueur {
    */
   getConstruction() {
     // si on est le joueur courant on regarde dans le localstorage
-    let data = JSON.parse(localStorage.getItem("outiiil_joueur")) || {};
+    let data = Utils.lireStockage("outiiil_joueur");
     // Si des données sont deja presente et à jour on les charges
     if (data.hasOwnProperty("niveauConstruction"))
       this._niveauConstruction = data.niveauConstruction;
@@ -613,7 +615,7 @@ class Joueur {
       time = parseInt(ligne.split(",")[0].split("(")[1]);
     // si il y a une construction en cours les données expirent à la fin de cette construction
     if (construction) {
-      let dataEvo = JSON.parse(localStorage.getItem("outiiil_evolution")) || {};
+      let dataEvo = Utils.lireStockage("outiiil_evolution");
       // si on a pas de donné ou que la consutrction n'est pas deja enregistré
       if (!dataEvo.hasOwnProperty("construction")) {
         // si on pas les infos en localstorage
@@ -633,7 +635,7 @@ class Joueur {
    */
   getLaboratoire() {
     // si on est le joueur courant on regarde dans le localstorage
-    let data = JSON.parse(localStorage.getItem("outiiil_joueur")) || {};
+    let data = Utils.lireStockage("outiiil_joueur");
     // Si des données sont deja presente et à jour on les charges
     if (data.hasOwnProperty("niveauRecherche")) this._niveauRecherche = data.niveauRecherche;
     // si on pas les infos en localstorage
@@ -660,7 +662,7 @@ class Joueur {
       time = parseInt(ligne.split(",")[0].split("(")[1]);
     // si il y a une recherche en cours les données expirent à la fin de cette construction
     if (recherche) {
-      let dataEvo = JSON.parse(localStorage.getItem("outiiil_evolution")) || {};
+      let dataEvo = Utils.lireStockage("outiiil_evolution");
       // si on a pas de donné ou que la recherche n'est pas deja enregistré
       if (!dataEvo.hasOwnProperty("recherche")) {
         // si on pas les infos en localstorage

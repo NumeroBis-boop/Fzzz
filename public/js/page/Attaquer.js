@@ -427,7 +427,7 @@ class PageAttaquer {
    * @method saveAttaque
    */
   saveAttaque(listeAttaque) {
-    let dataEvo = JSON.parse(localStorage.getItem("outiiil_evolution")) || {};
+    let dataEvo = Utils.lireStockage("outiiil_evolution");
     if (
       !dataEvo.hasOwnProperty("attaque") ||
       dataEvo.attaque.length != listeAttaque.length ||

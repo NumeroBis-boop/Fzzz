@@ -165,7 +165,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["images/*", "images/**", "css/*", "css/**", "js/*"],
+        resources: ["images/*", "images/**", "css/*", "css/**"],
         matches: ["*://*.fourmizzz.fr/*"],
       },
     ],

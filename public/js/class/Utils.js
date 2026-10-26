@@ -82,6 +82,34 @@ class Utils {
     return parseInt($("#quantite_tdc").text());
   }
   /**
+   * Échappe un texte venu du jeu, du forum ou d'un autre joueur avant de
+   * l'insérer comme HTML : sans cela, une ligne de forum contenant une balise
+   * serait exécutée dans la page de chaque lecteur.
+   *
+   * @static
+   * @method echapper
+   */
+  static echapper(texte) {
+    return String(texte ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
+  }
+  /**
+   * Valeur JSON du localStorage, ou `defaut` si elle est absente, vide ou
+   * illisible (une valeur abîmée ne doit pas bloquer l'extension).
+   *
+   * @static
+   * @method lireStockage
+   */
+  static lireStockage(cle, defaut = {}) {
+    try {
+      return JSON.parse(localStorage.getItem(cle)) || defaut;
+    } catch (e) {
+      return defaut;
+    }
+  }
+  /**
    * Renvoie le nombre d'ouvrières.
    *
    * @static

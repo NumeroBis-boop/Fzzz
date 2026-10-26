@@ -42,51 +42,41 @@ class PageChat {
    * @method afficheMessage
    */
   afficheMessage() {
-    // ajoute du cite sur les anciens messages
-    $("#anciensMessages p, #nouveauxMessages p").each((i, elt) => {
-      $(elt).html((i, html) => {
+    // « citer » avant le 3e « : » du texte du message (les « : » des balises,
+    // dans un lien https: par exemple, ne comptent pas)
+    let ajouterCiter = (elt) => {
+      let $p = $(elt);
+      if ($p.hasClass("o_parsed")) return;
+      $p.addClass("o_parsed");
+      $p.html((i, html) => {
         let nth = 0;
-        return html.replace(/:/g, (match, j) => {
+        return html.replace(/<[^>]*>|:/g, (match) => {
+          if (match != ":") return match;
           nth++;
           return nth == 3
-            ? ` <span id="o_cite${$(elt).attr("id")}" class="reduce souligne cursor">citer</span> :`
+            ? ` <span id="o_cite${$p.attr("id")}" class="reduce souligne cursor">citer</span> :`
             : match;
         });
       });
-    });
-    // event sur les anciens message
-    $("span[id^='o_cite']").click((e) => {
+    };
+    $("#anciensMessages p, #nouveauxMessages p").each((i, elt) => ajouterCiter(elt));
+    // un seul écouteur délégué : il couvre aussi les messages ajoutés ensuite
+    $(document).on("click", "span[id^='o_cite']", (e) => {
       let texte = this.citerMessage(e);
       texte.length && $("#message").val(`[i]${texte}[/i] // `).focus();
     });
-    // ajotu du cite pour les nouveaux messages
-    $("#nouveauxMessages").on("DOMNodeInserted", (e) => {
-      let element = $(e.target);
-      if (element.is("p") && !element.hasClass("o_parsed")) {
-        $(element).addClass("o_parsed");
-        element.html((i, html) => {
-          let nth = 0;
-          return html.replace(/:/g, (match, i) => {
-            nth++;
-            return nth == 3
-              ? ` <span id="o_cite${element.attr("id")}" class="reduce souligne cursor">citer</span> :`
-              : match;
-          });
-        });
-        $(`#o_cite${element.attr("id")}`).click((e) => {
-          let texte = this.citerMessage(e);
-          texte.length && $("#message").val(`[i]${texte}[/i] // `).focus();
-        });
-      }
-    });
-    // ajout de l'event lorsqu'on actualise et que les nouveaux messages passent en anciens messages
-    $("#anciensMessages").on("DOMNodeInserted", (e) => {
-      $("span[id^='o_cite']")
-        .off()
-        .click((e) => {
-          let texte = this.citerMessage(e);
-          texte.length && $("#message").val(`[i]${texte}[/i] // `).focus();
-        });
+    // messages ajoutés par le jeu (l'événement DOMNodeInserted utilisé
+    // auparavant a été retiré de Chrome)
+    let observer = new MutationObserver((mutations) =>
+      mutations.forEach((m) =>
+        m.addedNodes.forEach((n) => {
+          if (n.nodeName == "P") ajouterCiter(n);
+        }),
+      ),
+    );
+    ["nouveauxMessages", "anciensMessages"].forEach((id) => {
+      let cible = document.getElementById(id);
+      if (cible) observer.observe(cible, { childList: true, subtree: true });
     });
     return this;
   }

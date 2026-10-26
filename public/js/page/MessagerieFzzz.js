@@ -467,7 +467,9 @@ class MessagerieFzzz {
           $.post(location.origin + "/messagerie.php", { traitement: "afficher", conversation: id }),
         ).then((html) => {
           MessagerieFzzz.dureeRapport = Date.now() - debut;
-          return $("<table>").html(html).find("tr[id^='message_']");
+          // DOMParser : le contenu des messages (écrit par d'autres joueurs)
+          // n'exécute rien ; <table> pour garder les lignes <tr>
+          return Utils.parseHtml(`<table>${html}</table>`).find("tr[id^='message_']");
         });
     return charger.then(($messages) => {
       if (!$messages.length) throw new Error("vide");
@@ -500,6 +502,12 @@ class MessagerieFzzz {
       $.toast({ ...TOAST_INFO, text: "Aucune conversation sélectionnée." });
       return;
     }
+    // double clic : une seule série de chargements à la fois
+    if (MessagerieFzzz._copieEnCours) {
+      $.toast({ ...TOAST_INFO, text: "Copie déjà en cours, patiente un instant." });
+      return;
+    }
+    MessagerieFzzz._copieEnCours = true;
     // le serveur refuse deux requêtes simultanées (voir Requetes.js) : les
     // rapports sont chargés l'un après l'autre, dans l'ordre de la liste
     let textes = [],
@@ -543,6 +551,7 @@ class MessagerieFzzz {
         Promise.resolve(),
       )
       .then(() => {
+        MessagerieFzzz._copieEnCours = false;
         if (attente) {
           clearInterval(attente);
           $("#o_attenteCopie").closest(".jq-toast-single").remove();

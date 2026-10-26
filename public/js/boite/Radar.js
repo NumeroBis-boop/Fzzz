@@ -159,7 +159,7 @@ class BoiteRadar {
    * @method getRadar
    */
   getData() {
-    let data = JSON.parse(localStorage.getItem("outiiil_radar")) || {};
+    let data = Utils.lireStockage("outiiil_radar");
     // Si des données sont deja presente et à jour on les charges
     if (data.hasOwnProperty("joueurs"))
       for (let item in data.joueurs) this._joueurs[item] = new Joueur(data.joueurs[item]);

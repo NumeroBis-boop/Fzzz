@@ -85,8 +85,8 @@ class PartageChasses {
   static trouverSection() {
     if (PartageChasses.idSection) return Promise.resolve(PartageChasses.idSection);
     return PartageChasses._xajax("callGetForum").then((data) => {
-      let $span = $("<div/>")
-          .append(PartageChasses._html(data))
+      // DOMParser : le HTML du forum (écrit par des membres) n'exécute rien
+      let $span = Utils.parseHtml(PartageChasses._html(data))
           .find("span[class^='forum']")
           .filter((i, e) => PartageChasses.estSection($(e).text()))
           .first(),
@@ -95,6 +95,19 @@ class PartageChasses {
       PartageChasses.idSection = id;
       return id;
     });
+  }
+  /**
+   * Pseudo ou cible lu dans le forum, texte libre écrit par un membre : les
+   * caractères de balisage (< > & " ') n'existent pas dans un pseudo du jeu et
+   * sont retirés, pour qu'aucune balise ne puisse être injectée.
+   *
+   * @static
+   * @method nettoyer
+   */
+  static nettoyer(texte) {
+    return String(texte || "")
+      .replace(/[<>&"']/g, "")
+      .trim();
   }
   /**
    * Sujets de la section : {"Chasses | pseudo": idSujet, ...}.
@@ -113,8 +126,7 @@ class PartageChasses {
         }
         // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse
         let sujets = { liste: [] };
-        $("<div/>")
-          .append(reponse)
+        Utils.parseHtml(reponse)
           .find("#form_cat tr")
           .each((i, elt) => {
             let titre = $(elt).find("td:eq(1)").text().trim(),
@@ -123,8 +135,10 @@ class PartageChasses {
                 $(elt).find("input[name='topic[]']").val() ||
                 (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0];
             if (m && idSujet) {
-              sujets[`${m[1]} | ${m[2].trim().toLowerCase()}`] = idSujet;
-              sujets.liste.push({ type: m[1], pseudo: m[2].trim(), id: idSujet });
+              // titre écrit par un membre : caractères de balisage retirés
+              let pseudo = PartageChasses.nettoyer(m[2]);
+              sujets[`${m[1]} | ${pseudo.toLowerCase()}`] = idSujet;
+              sujets.liste.push({ type: m[1], pseudo: pseudo, id: idSujet });
             }
           });
         return sujets;
@@ -139,7 +153,7 @@ class PartageChasses {
    */
   static lireSujet(idSujet) {
     return PartageChasses._xajax("callGetTopic", idSujet).then((data) => {
-      let $div = $("<div/>").append(PartageChasses._html(data));
+      let $div = Utils.parseHtml(PartageChasses._html(data));
       $div.find("br").replaceWith("\n");
       let texte = $div.text(),
         chasses = [],
@@ -170,7 +184,7 @@ class PartageChasses {
       while ((m = reF.exec(texte)))
         floods.push({
           date: date(m),
-          cible: m[6].trim(),
+          cible: PartageChasses.nettoyer(m[6]),
           unites: m[7] ? nombre(m[7]) : null,
           terrain: nombre(m[8]),
           tdcCible: m[9] ? nombre(m[9]) : null,
@@ -184,7 +198,11 @@ class PartageChasses {
         while ((m = reC0.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
       if (!floods.length)
         while ((m = reF0.exec(texte)))
-          floods.push({ date: m[1], cible: m[2], terrain: parseInt(m[3]) });
+          floods.push({
+            date: m[1],
+            cible: PartageChasses.nettoyer(m[2]),
+            terrain: parseInt(m[3]),
+          });
       return { chasses: chasses, floods: floods };
     });
   }
@@ -543,7 +561,7 @@ class PartageChasses {
         else {
           html += `<table class='o_attaquesLancees o_maxWidth centre' cellspacing='0'><thead><tr><th>#</th><th>Arrivée</th><th>Unités envoyées</th><th>TdC perdu (estimé)</th><th>Lanceur</th></tr></thead><tbody>`;
           recus.forEach((v, i) => {
-            html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${v.unites != null ? numeral(v.unites).format() : "?"}</td><td>${PartageChasses.libellePrise(v)}</td><td><a href='Membre.php?Pseudo=${encodeURIComponent(v.lanceur)}'>${v.lanceur}</a></td></tr>`;
+            html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${v.unites != null ? numeral(v.unites).format() : "?"}</td><td>${PartageChasses.libellePrise(v)}</td><td><a href='Membre.php?Pseudo=${encodeURIComponent(v.lanceur)}'>${Utils.echapper(v.lanceur)}</a></td></tr>`;
           });
           let unites = recus.reduce((t, v) => t + (v.unites || 0), 0),
             perte = recus.reduce((t, v) => t + v.delta, 0);
@@ -585,7 +603,8 @@ class PartageChasses {
           chasses = vars.filter((v) => !v.flood),
           floods = vars.filter((v) => v.flood),
           date = (v) => moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
-          lien = (p) => `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}'>${p}</a>`,
+          lien = (p) =>
+            `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}'>${Utils.echapper(p)}</a>`,
           tableau = (titre, lignes, colonnes, cellules, total) => {
             let html = `<h3 class='o_partageTitre'>${titre} (${lignes.length})</h3>`;
             if (!lignes.length) return html + "<p class='centre'>Aucun partage en cours.</p>";
@@ -610,7 +629,7 @@ class PartageChasses {
           vars.forEach((v) => {
             tdc += v.delta;
             lignes.push(
-              `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${v.autre}</td></tr>`,
+              `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${Utils.echapper(v.autre)}</td></tr>`,
             );
           });
           synthese =

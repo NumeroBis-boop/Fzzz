@@ -30,73 +30,9 @@ class PageMessagerie {
     MessagerieFzzz.ranger();
     PrevenirFlood.remplir();
     // Fzzz : l'analyse des rapports ouverts passe par MessagerieFzzz.observer
-    // (boutons « Analyser »). analyseMessage() reposait sur l'événement
-    // DOMNodeInserted, retiré de Chrome ; l'appeler en plus doublerait
-    // l'affichage sur Firefox.
+    // (boutons « Analyser »). L'ancien analyseMessage(), fondé sur l'événement
+    // DOMNodeInserted retiré de Chrome, a été supprimé.
     return this;
-  }
-  /**
-   *
-   */
-  analyseMessage() {
-    // Listener pour l'ouverture des rapports de combat ou de chasse.
-    $("#corps_messagerie").on("DOMNodeInserted", (e) => {
-      // Si on ouvre le message pour la première fois
-      if ($(e.target).hasClass("contenu_conversation")) {
-        // correction pour chrome
-        $(".message").removeAttr("colspan");
-        let titreMess = $(e.target).prev().prev().find(".td_objet").text();
-        // Si on est sur des rapports des chasses
-        if (titreMess.includes("chasseuses ont conquis")) {
-          let conv = $(e.target).prev().prev().attr("id").split("_")[1];
-          $(e.target)
-            .find(".message")
-            .each((i, elt) => {
-              this.analyseChasse(conv, $(elt).parent().attr("id"), $(elt).text());
-            });
-          // on affiche un bilan que lorsqu'il y a plus d'une chasse
-          if ($(e.target).find(".message").length > 1) this.analyseChasses(conv);
-          // Si on est sur des rapports de combat
-        } else if (
-          titreMess.includes("Attaque réussie") ||
-          titreMess.includes("Attaque échouée") ||
-          titreMess.includes("Invasion") ||
-          titreMess.includes("Rebellion")
-        ) {
-          $(e.target)
-            .find(".message")
-            .each((i, elt) => {
-              this.analyseCombat($(elt).parent().attr("id"), $(elt).prev().text(), $(elt).text());
-            });
-          this.optionMessage($(e.target).find(".message:first").parent().attr("id"));
-        }
-        // Ajout des balises de mise en forme pour envoyer des messages
-        if ($(e.target).find("div[id^='champ_bbcode_']").length && !Utils.comptePlus)
-          this.plus($(e.target).find("div[id^='champ_bbcode_']").attr("id").match(/\d+$/));
-      }
-      // Si on affiche plus de message
-      else if ($(e.target).attr("id") && $(e.target).attr("id").includes("message_")) {
-        // Si on affiche plus de message d'un rapport de chasse
-        if (
-          $(e.target)
-            .closest(".contenu_conversation")
-            .prev()
-            .prev()
-            .find(".td_objet")
-            .text()
-            .includes("chasseuses ont conquis")
-        ) {
-          let conv = $(e.target).parents().eq(3).prevAll().eq(1).attr("id").split("_")[1];
-          this.analyseChasse(
-            conv,
-            $(e.target).find(".message").parent().attr("id"),
-            $(e.target).find(".message").text(),
-          ).analyseChasses(conv);
-        }
-      }
-      if ($(e.target).attr("id") && $(e.target).attr("id").includes("liste_conversations"))
-        this.couleurMessage();
-    });
   }
   /**
    *

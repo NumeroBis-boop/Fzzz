@@ -99,7 +99,7 @@ class PageCompte {
    */
   _lirePrefs() {
     try {
-      return JSON.parse(localStorage.getItem(MENU_RAPIDE_KEY)) || {};
+      return Utils.lireStockage(MENU_RAPIDE_KEY);
     } catch (e) {
       return {};
     }

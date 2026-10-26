@@ -894,8 +894,11 @@ class PageRessource {
         if (monProfil.parametre["affectationRessource"].valeur == 3) apercuRatio(ratio);
         return false;
       });
-    // Affectation des ouvriéres inutilisé si on a la pref
-    if (affection) this.affecterOuvrieres(affection, ratio);
+    // Affectation des ouvrières inutilisées si on a la pref. Règlement du s5 :
+    // rien ne part sans clic du joueur. À l'ouverture de la page, la
+    // répartition est seulement préparée dans le formulaire du jeu ; le joueur
+    // l'enregistre avec le bouton du jeu.
+    if (affection) this.affecterOuvrieres(affection, ratio, false, false);
   }
   /**
    * Affecte les ouvrières selon le mode choisi et soumet le formulaire du jeu
@@ -907,8 +910,9 @@ class PageRessource {
    * @param {Integer} mode 1 matériaux, 2 nourriture, 3 ratio
    * @param {Integer} ratio part en nourriture (%) pour le mode 3
    * @param {Boolean} forcer soumettre même si la répartition ne change pas
+   * @param {Boolean} soumettre faux : remplit le formulaire sans l'envoyer
    */
-  affecterOuvrieres(mode, ratio, forcer = false) {
+  affecterOuvrieres(mode, ratio, forcer = false, soumettre = true) {
     const CLE_TENTATIVE = "outiiil_affectationTentee";
     let materiaux = numeral($("#RecolteMateriaux").val()).value(),
       nourriture = numeral($("#RecolteNourriture").val()).value(),
@@ -926,6 +930,16 @@ class PageRessource {
     }
     if (nouveauMateriaux == materiaux && nouvelleNourriture == nourriture && !forcer) {
       sessionStorage.removeItem(CLE_TENTATIVE);
+      return;
+    }
+    if (!soumettre) {
+      $("#RecolteMateriaux").val(nouveauMateriaux);
+      $("#RecolteNourriture").val(nouvelleNourriture);
+      $("#ChangeRessource").addClass("o_synchroPret");
+      $.toast({
+        ...TOAST_INFO,
+        text: "Affectation des ouvrières préparée : clique sur le bouton du jeu pour l'enregistrer.",
+      });
       return;
     }
     // la soumission recharge la page : si le jeu n'a pas appliqué la valeur

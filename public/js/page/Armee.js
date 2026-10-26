@@ -98,7 +98,22 @@ class PageArmee {
     // Auto-replacer : déclenché en sortie de flood (flag sessionStorage) ou par le param utilisateur.
     let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
     if (floodFlag) sessionStorage.removeItem("outiiil_floodPuisReplacer");
-    if (floodFlag || monProfil.parametre["replacerArmeeAuto"].valeur) this.replacerArmee(true);
+    // Fin de flood : le replacement fait partie de l'enchaînement lancé par le
+    // clic du joueur. L'option « Replacer l'armée automatiquement » ne peut en
+    // revanche rien envoyer à la simple ouverture de la page (règlement du s5) :
+    // elle met en évidence le bouton de replacement, le joueur clique.
+    if (floodFlag) this.replacerArmee(true);
+    else if (
+      monProfil.parametre["replacerArmeeAuto"].valeur &&
+      this.uniteTransferables() &&
+      this.placementPrevu()
+    ) {
+      $("#o_replaceArmee").addClass("o_synchroPret");
+      $.toast({
+        ...TOAST_INFO,
+        text: "Armée à replacer : clique sur le bouton de replacement mis en évidence.",
+      });
+    }
     // Fzzz : message « Prévenir X du flood » prêt, ouvert une fois l'armée replacée
     // (un replacement recharge Armee.php, on repasse alors ici)
     if (!this._replacementEnCours) PrevenirFlood.ouvrir();
@@ -156,47 +171,61 @@ class PageArmee {
   }
   /**
    * Replace l'armée en respectant les bornes d'antisonde des paramètres.
-   * Quand auto=true (déclenché par le param d'auto-replacer ou en sortie de flood),
+   * Quand auto=true (en sortie de flood, enchaîné au clic du joueur),
    * les toasts informatifs sont supprimés pour ne pas spammer à chaque visite.
    */
   replacerArmee(auto = false) {
-    if (
+    if (!this.uniteTransferables()) {
+      if (!auto) $.toast({ ...TOAST_ERROR, text: "Aucune unité n'est transférable." });
+      return this;
+    }
+    let placer = this.placementPrevu();
+    if (placer) this.lancerReplacement(placer);
+    else if (!auto) $.toast({ ...TOAST_INFO, text: "Votre armée est déjà placée correctement." });
+    return this;
+  }
+  /**
+   * @method uniteTransferables
+   * @return {Integer} unités en loge, dôme et terrain
+   */
+  uniteTransferables() {
+    return (
       this._armeeLoge.getSommeUnite() +
       this._armeeDome.getSommeUnite() +
       this._armeeTdc.getSommeUnite()
+    );
+  }
+  /**
+   * Replacement à faire pour respecter les bornes d'antisonde des paramètres,
+   * ou null si l'armée est déjà bien placée. N'envoie rien.
+   *
+   * @method placementPrevu
+   * @return {Function|null}
+   */
+  placementPrevu() {
+    let premiereUnite = this.indicePremiereUnite();
+    let nbUniteDispo =
+      this._armeeLoge.unite[premiereUnite] +
+      this._armeeDome.unite[premiereUnite] +
+      this._armeeTdc.unite[premiereUnite];
+    // si j'ai assez d'unité pour mettre les antisonde en param
+    if (
+      nbUniteDispo >=
+      monProfil.parametre["uniteAntisondeDome"].valeur +
+        monProfil.parametre["uniteAntisondeTerrain"].valeur
     ) {
-      let premiereUnite = this.indicePremiereUnite();
-      let nbUniteDispo =
-        this._armeeLoge.unite[premiereUnite] +
-        this._armeeDome.unite[premiereUnite] +
-        this._armeeTdc.unite[premiereUnite];
-      // si j'ai assez d'unité pour mettre les antisonde en param
+      // si les unités en terrain et dome ne sont pas dans les bornes dasn antisonde on replace tout sinon on est bon
       if (
-        nbUniteDispo >=
-        monProfil.parametre["uniteAntisondeDome"].valeur +
-          monProfil.parametre["uniteAntisondeTerrain"].valeur
-      ) {
-        // si les unités en terrain et dome ne sont pas dans les bornes dasn antisonde on replace tout sinon on est bon
-        if (
-          !this.estPlacePourAntiSonde(
-            premiereUnite,
-            monProfil.parametre["uniteAntisondeTerrain"].valeur,
-            monProfil.parametre["uniteAntisondeDome"].valeur,
-          )
+        !this.estPlacePourAntiSonde(
+          premiereUnite,
+          monProfil.parametre["uniteAntisondeTerrain"].valeur,
+          monProfil.parametre["uniteAntisondeDome"].valeur,
         )
-          this.lancerReplacement(() => this.placerAntisondeSuffisant(premiereUnite, nbUniteDispo));
-        else if (!auto)
-          $.toast({ ...TOAST_INFO, text: "Votre armée est déjà placée correctement." });
-      } else {
-        if (!this.estPlacePourAntiSonde(premiereUnite, 1, nbUniteDispo * 0.3))
-          this.lancerReplacement(() =>
-            this.placerAntisondeInsuffisant(premiereUnite, nbUniteDispo),
-          );
-        else if (!auto)
-          $.toast({ ...TOAST_INFO, text: "Votre armée est déjà placée correctement." });
-      }
-    } else if (!auto) $.toast({ ...TOAST_ERROR, text: "Aucune unité n'est transférable." });
-    return this;
+      )
+        return () => this.placerAntisondeSuffisant(premiereUnite, nbUniteDispo);
+    } else if (!this.estPlacePourAntiSonde(premiereUnite, 1, nbUniteDispo * 0.3))
+      return () => this.placerAntisondeInsuffisant(premiereUnite, nbUniteDispo);
+    return null;
   }
   /**
    * Lance un replacement une seule fois par page : les transferts finissent

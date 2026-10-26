@@ -454,228 +454,252 @@ const DATEPICKER_OPTION = {
       monProfil.getConstruction(),
       monProfil.getLaboratoire(),
       monProfil.getProfilCourant(),
-    ]).then((values) => {
-      // chargement des données du joueur
-      if (values[0]) monProfil.chargerConstruction(values[0]);
-      if (values[1]) monProfil.chargerRecherche(values[1]);
-      if (values[2]) monProfil.chargerProfil(values[2]);
-
-      // Ajout des outils
-      let boite = new Dock();
-      boite.afficher();
-      // boite compte plus
-      let boiteComptePlus = new BoiteComptePlus();
-      boiteComptePlus.afficher();
-      // Boite radar
-      let boiteRadar = new BoiteRadar();
-      boiteRadar.afficher();
-
-      // Onglet "Carte" dans le menu d'alliance — injecté sur toutes les pages
-      // tant que le joueur a une alliance (présence du lien Membres = preuve).
-      // Lien réel vers ?Membres#carte : sur cette page, PageAlliance intercepte
-      // le clic pour un toggle client-side ; depuis ailleurs, navigation normale.
-      if ($("#menuAlliance .boutonMembres").length) {
-        $("#menuAlliance .boutonMembres")
-          .parent()
-          .after(
-            `<li><a id='o_ongletCarte' class='boutonCarte' href='alliance.php?Membres#carte'><span></span>Carte</a></li>`,
-          );
-      }
-
-      // Onglet "Coûts" dans le menu colonie (Fourmilière) — injecté en bout de
-      // liste, sur toutes les pages où le menu existe. La feature vit sur
-      // construction.php (#cout) ; PageConstruction intercepte le hash pour
-      // masquer la simulation native et n'afficher que les courbes. Classe
-      // `boutonDescription` réutilisée pour le look graphique cohérent.
-      if ($("#menuFourmiliere").length && !$("#o_ongletCouts").length) {
-        $("#menuFourmiliere").append(
-          `<li><a id='o_ongletCouts' class='boutonDescription' href='construction.php#cout'><span></span>Coûts</a></li>`,
-        );
-      }
-
-      // Notification "Nouveautés" — toast sticky au 1er chargement après une mise à jour.
-      // hideAfter: false → reste visible tant que l'user ne ferme pas / ne clique pas le lien.
-      // La version est marquée vue dans les deux cas (close X ou clic lien) pour ne pas
-      // ré-apparaître. Si la clé est absente (install avant cette feature), on montre quand
-      // même : un nouvel utilisateur a aussi intérêt à voir le changelog une fois.
-      const LAST_SEEN_VERSION_KEY = "outiiil_lastSeenVersion";
-      if (localStorage.getItem(LAST_SEEN_VERSION_KEY) !== VERSION) {
-        // Pointe sur la page des releases (la dernière est en haut), histoire que
-        // l'utilisateur puisse aussi parcourir les versions précédentes qu'il aurait
-        // potentiellement ratées.
-        const releaseUrl = `https://github.com/NumeroBis-boop/fzzz/releases`;
-        const markSeen = () => localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION);
-        $.toast({
-          heading: "Fzzz mis à jour",
-          text: `Nouvelle version <b>v${VERSION}</b>. <a href='${releaseUrl}' target='_blank' rel='noopener' id='o_changelogLink'>Voir les nouveautés</a>`,
-          hideAfter: false,
-          allowToastClose: true,
-          showHideTransition: "slide",
-          position: { top: 30, right: 100 },
-          icon: "info",
-          afterHidden: markSeen,
+    ])
+      // lecture impossible (réseau, jeu indisponible) : les outils s'affichent
+      // quand même avec les données déjà connues
+      .catch((e) => {
+        console.error("Fzzz : lecture du profil impossible", e);
+        return [null, null, null];
+      })
+      .then((values) => {
+        // chargement des données du joueur ; une page reçue inattendue ne doit
+        // pas empêcher le reste de l'extension de démarrer
+        [
+          () => values[0] && monProfil.chargerConstruction(values[0]),
+          () => values[1] && monProfil.chargerRecherche(values[1]),
+          () => values[2] && monProfil.chargerProfil(values[2]),
+        ].forEach((charger) => {
+          try {
+            charger();
+          } catch (e) {
+            console.error("Fzzz : données du joueur illisibles", e);
+          }
         });
-        $(document).on("click", "#o_changelogLink", markSeen);
-      }
 
-      // Enrichit les tooltips Nourriture / Matériaux du bandeau d'info avec la capacité
-      // max estimée et la place libre — répond directement à "il me reste combien pour
-      // un convoi". Le serveur expose juste le % rempli (arrondi entier) et la valeur
-      // courante ; on remonte le max via current / (percent/100), précis à ±0.5%.
-      //
-      // Approche : on vide le `title` du td (le tooltip natif de la page lit ce title
-      // via une content function par défaut, qui retournera donc une chaîne vide → pas
-      // de tooltip rendu côté page) et on attache notre propre popover sur mouseenter
-      // pour afficher le HTML riche. Tout reste dans l'isolated world, pas d'injection
-      // de script main-world.
-      // On réutilise les classes du widget jQuery UI tooltip + warning-tooltip de la
-      // page pour hériter automatiquement de leur style (couleur, bordure, ombre).
-      const $tip = $(
-        `<div id='o_boiteInfoTooltip' class='ui-tooltip ui-corner-all ui-widget-shadow ui-widget ui-widget-content warning-tooltip' role='tooltip' style='position:absolute;display:none;z-index:99999;pointer-events:none;'><div class='ui-tooltip-content'></div></div>`,
-      ).appendTo("body");
-      // Capacité d'entrepôt = 500 + 1200 × 2^niveau (formule identique pour
-      // Nourriture et Matériaux, vérifiée sur s1/s2/s3/test via la table de
-      // référence toolzzz.fr/couts.php). On préfère la formule au ratio
-      // current/percent, qui est inutilisable à 0% affiché et imprécis à
-      // bas niveau de remplissage.
-      const maxEntrepot = (niveau) => 500 + 1200 * Math.pow(2, niveau);
-      const niveauEntrepot = (type) => {
-        if (type === "Nourriture") return monProfil.niveauConstruction[1];
-        if (type === "Matériaux") return monProfil.niveauConstruction[2];
-        return undefined;
-      };
-      $(".tooltip_boite_info").each(function () {
-        const $td = $(this);
-        const original = $td.attr("title") || $td.attr("data-tooltip-original-title");
-        if (!original || !/rempli à \d+\s*%/.test(original)) return;
-        const $val = $td.find(".texte_ligne_boite_info");
-        if (!$val.length) return;
-        const value = numeral($val.text().trim()).value() ?? 0;
-        const match = original.match(/rempli à (\d+)\s*%/);
-        if (!match) return;
-        const percentAffiche = parseInt(match[1], 10);
-        const type = /nourriture/i.test(original)
-          ? "Nourriture"
-          : /matériaux|materiaux/i.test(original)
-            ? "Matériaux"
-            : "Stock";
-        const niveau = niveauEntrepot(type);
-        let html;
-        if (niveau !== undefined) {
-          const max = maxEntrepot(niveau);
-          const restant = Math.max(0, max - value);
-          const percentReel = max > 0 ? Math.round((value / max) * 1000) / 10 : 0;
-          html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentReel}%)<br/><b style="color:#27ae60">Place libre : ${numeral(restant).format()}</b>`;
-        } else if (percentAffiche > 0 && value > 0) {
-          // Fallback : type non reconnu (ni Nourriture ni Matériaux) ou
-          // niveauConstruction non chargé. On retombe sur l'ancien ratio.
-          const max = Math.round(value / (percentAffiche / 100));
-          const restant = Math.max(0, max - value);
-          html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentAffiche}%)<br/><b style="color:#27ae60">Place libre : ${numeral(restant).format()}</b>`;
-        } else {
-          html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}`;
+        // Ajout des outils
+        let boite = new Dock();
+        boite.afficher();
+        // boite compte plus
+        let boiteComptePlus = new BoiteComptePlus();
+        boiteComptePlus.afficher();
+        // Boite radar
+        let boiteRadar = new BoiteRadar();
+        boiteRadar.afficher();
+
+        // Onglet "Carte" dans le menu d'alliance — injecté sur toutes les pages
+        // tant que le joueur a une alliance (présence du lien Membres = preuve).
+        // Lien réel vers ?Membres#carte : sur cette page, PageAlliance intercepte
+        // le clic pour un toggle client-side ; depuis ailleurs, navigation normale.
+        if ($("#menuAlliance .boutonMembres").length) {
+          $("#menuAlliance .boutonMembres")
+            .parent()
+            .after(
+              `<li><a id='o_ongletCarte' class='boutonCarte' href='alliance.php?Membres#carte'><span></span>Carte</a></li>`,
+            );
         }
-        // Vide le title pour neutraliser le tooltip jQuery UI de la page (sa content
-        // fn par défaut retourne attr("title") = "" → pas de rendu).
-        $td.attr("title", "");
-        $td.attr("data-tooltip-original-title", "");
-        $td
-          .on("mouseenter.toolzzzInfo", () => {
-            $tip.find(".ui-tooltip-content").html(html);
-            $tip.show();
-            const offset = $td.offset();
-            $tip.css({
-              top: offset.top + $td.outerHeight() / 2 - $tip.outerHeight() / 2,
-              left: offset.left + $td.outerWidth() + 10,
-            });
-          })
-          .on("mouseleave.toolzzzInfo", () => {
-            $tip.hide();
-          });
-      });
 
-      let uri = location.pathname,
-        page = null;
-      // Routing
-      switch (true) {
-        case uri == "/Reine.php":
-          page = new PageReine(boiteComptePlus);
-          // Le Compte+ affiche déjà le nombre d'unités. nombreUnites() passe
-          // après plus(), qui lit le texte brut des <h2>.
-          if (!Utils.comptePlus) page.plus().nombreUnites();
-          break;
-        case uri == "/construction.php":
-          page = new PageConstruction(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/laboratoire.php":
-          page = new PageLaboratoire(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/Ressources.php":
-          page = new PageRessource(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/Armee.php":
-          page = new PageArmee(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/commerce.php":
-          page = new PageCommerce(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/compte.php":
-          page = new PageCompte(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/messagerie.php":
-          page = new PageMessagerie();
-          page.executer();
-          break;
-        case uri == "/alliance.php" && location.search == "":
-        case uri == "/chat.php":
-          page = new PageChat();
-          page.executer();
-          break;
-        case location.href.indexOf("/alliance.php?forum_menu") > 0:
-          // Fzzz : repère la section du forum qui stocke les chasses partagées
-          PartageChasses.observerForum();
-          break;
-        case location.href.indexOf("/alliance.php?Membres") > 0:
-          page = new PageAlliance();
-          page.executer();
-          break;
-        case location.href.indexOf("/Membre.php?Pseudo") > 0:
-        case uri == "/Membre.php":
-          page = new PageProfil(boiteRadar);
-          page.executer();
-          break;
-        case uri == "/classementAlliance.php" &&
-          Utils.extractUrlParams()["alliance"] != "" &&
-          Utils.extractUrlParams()["alliance"] != undefined:
-          page = new PageDescription(boiteRadar);
-          page.executer();
-          break;
-        case location.href.indexOf("/ennemie.php?Attaquer") > 0:
-        case location.href.indexOf("/ennemie.php?annuler") > 0:
-          page = new PageAttaquer(boiteComptePlus);
-          page.executer();
-          break;
-        case uri == "/ennemie.php" && location.search == "":
-          // Affichage des temps de trajet
-          $("#tabEnnemie tr:eq(0) th:eq(5)").after("<th class='centre'>Temps</th>");
-          $("#tabEnnemie tr:gt(0)").each((i, elt) => {
-            let distance = parseInt($(elt).find("td:eq(5)").text());
-            $(elt)
-              .find("td:eq(5)")
-              .after(
-                `<td class='centre'>${Utils.intToTime(Math.round(Math.pow(0.9, monProfil.niveauRecherche[6]) * 637200 * (1 - Math.exp(-(distance / 350)))))}</td>`,
-              );
+        // Onglet "Coûts" dans le menu colonie (Fourmilière) — injecté en bout de
+        // liste, sur toutes les pages où le menu existe. La feature vit sur
+        // construction.php (#cout) ; PageConstruction intercepte le hash pour
+        // masquer la simulation native et n'afficher que les courbes. Classe
+        // `boutonDescription` réutilisée pour le look graphique cohérent.
+        if ($("#menuFourmiliere").length && !$("#o_ongletCouts").length) {
+          $("#menuFourmiliere").append(
+            `<li><a id='o_ongletCouts' class='boutonDescription' href='construction.php#cout'><span></span>Coûts</a></li>`,
+          );
+        }
+
+        // Notification "Nouveautés" — toast sticky au 1er chargement après une mise à jour.
+        // hideAfter: false → reste visible tant que l'user ne ferme pas / ne clique pas le lien.
+        // La version est marquée vue dans les deux cas (close X ou clic lien) pour ne pas
+        // ré-apparaître. Si la clé est absente (install avant cette feature), on montre quand
+        // même : un nouvel utilisateur a aussi intérêt à voir le changelog une fois.
+        const LAST_SEEN_VERSION_KEY = "outiiil_lastSeenVersion";
+        if (localStorage.getItem(LAST_SEEN_VERSION_KEY) !== VERSION) {
+          // Pointe sur la page des releases (la dernière est en haut), histoire que
+          // l'utilisateur puisse aussi parcourir les versions précédentes qu'il aurait
+          // potentiellement ratées.
+          const releaseUrl = `https://github.com/NumeroBis-boop/Fzzz/releases`;
+          const markSeen = () => localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION);
+          $.toast({
+            heading: "Fzzz mis à jour",
+            text: `Nouvelle version <b>v${VERSION}</b>. <a href='${releaseUrl}' target='_blank' rel='noopener' id='o_changelogLink'>Voir les nouveautés</a>`,
+            hideAfter: false,
+            allowToastClose: true,
+            showHideTransition: "slide",
+            position: { top: 30, right: 100 },
+            icon: "info",
+            afterHidden: markSeen,
           });
-          break;
-        default:
-          break;
-      }
-    });
+          $(document).on("click", "#o_changelogLink", markSeen);
+        }
+
+        // Enrichit les tooltips Nourriture / Matériaux du bandeau d'info avec la capacité
+        // max estimée et la place libre — répond directement à "il me reste combien pour
+        // un convoi". Le serveur expose juste le % rempli (arrondi entier) et la valeur
+        // courante ; on remonte le max via current / (percent/100), précis à ±0.5%.
+        //
+        // Approche : on vide le `title` du td (le tooltip natif de la page lit ce title
+        // via une content function par défaut, qui retournera donc une chaîne vide → pas
+        // de tooltip rendu côté page) et on attache notre propre popover sur mouseenter
+        // pour afficher le HTML riche. Tout reste dans l'isolated world, pas d'injection
+        // de script main-world.
+        // On réutilise les classes du widget jQuery UI tooltip + warning-tooltip de la
+        // page pour hériter automatiquement de leur style (couleur, bordure, ombre).
+        const $tip = $(
+          `<div id='o_boiteInfoTooltip' class='ui-tooltip ui-corner-all ui-widget-shadow ui-widget ui-widget-content warning-tooltip' role='tooltip' style='position:absolute;display:none;z-index:99999;pointer-events:none;'><div class='ui-tooltip-content'></div></div>`,
+        ).appendTo("body");
+        // Capacité d'entrepôt = 500 + 1200 × 2^niveau (formule identique pour
+        // Nourriture et Matériaux, vérifiée sur s1/s2/s3/test via la table de
+        // référence toolzzz.fr/couts.php). On préfère la formule au ratio
+        // current/percent, qui est inutilisable à 0% affiché et imprécis à
+        // bas niveau de remplissage.
+        const maxEntrepot = (niveau) => 500 + 1200 * Math.pow(2, niveau);
+        const niveauEntrepot = (type) => {
+          if (type === "Nourriture") return monProfil.niveauConstruction[1];
+          if (type === "Matériaux") return monProfil.niveauConstruction[2];
+          return undefined;
+        };
+        $(".tooltip_boite_info").each(function () {
+          const $td = $(this);
+          const original = $td.attr("title") || $td.attr("data-tooltip-original-title");
+          if (!original || !/rempli à \d+\s*%/.test(original)) return;
+          const $val = $td.find(".texte_ligne_boite_info");
+          if (!$val.length) return;
+          const value = numeral($val.text().trim()).value() ?? 0;
+          const match = original.match(/rempli à (\d+)\s*%/);
+          if (!match) return;
+          const percentAffiche = parseInt(match[1], 10);
+          const type = /nourriture/i.test(original)
+            ? "Nourriture"
+            : /matériaux|materiaux/i.test(original)
+              ? "Matériaux"
+              : "Stock";
+          const niveau = niveauEntrepot(type);
+          let html;
+          if (niveau !== undefined) {
+            const max = maxEntrepot(niveau);
+            const restant = Math.max(0, max - value);
+            const percentReel = max > 0 ? Math.round((value / max) * 1000) / 10 : 0;
+            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentReel}%)<br/><b style="color:#27ae60">Place libre : ${numeral(restant).format()}</b>`;
+          } else if (percentAffiche > 0 && value > 0) {
+            // Fallback : type non reconnu (ni Nourriture ni Matériaux) ou
+            // niveauConstruction non chargé. On retombe sur l'ancien ratio.
+            const max = Math.round(value / (percentAffiche / 100));
+            const restant = Math.max(0, max - value);
+            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentAffiche}%)<br/><b style="color:#27ae60">Place libre : ${numeral(restant).format()}</b>`;
+          } else {
+            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}`;
+          }
+          // Vide le title pour neutraliser le tooltip jQuery UI de la page (sa content
+          // fn par défaut retourne attr("title") = "" → pas de rendu).
+          $td.attr("title", "");
+          $td.attr("data-tooltip-original-title", "");
+          $td
+            .on("mouseenter.toolzzzInfo", () => {
+              $tip.find(".ui-tooltip-content").html(html);
+              $tip.show();
+              const offset = $td.offset();
+              $tip.css({
+                top: offset.top + $td.outerHeight() / 2 - $tip.outerHeight() / 2,
+                left: offset.left + $td.outerWidth() + 10,
+              });
+            })
+            .on("mouseleave.toolzzzInfo", () => {
+              $tip.hide();
+            });
+        });
+
+        let uri = location.pathname,
+          page = null;
+        // Routing ; une erreur dans le module d'une page reste confinée à cette page
+        try {
+          switch (true) {
+            case uri == "/Reine.php":
+              page = new PageReine(boiteComptePlus);
+              // Le Compte+ affiche déjà le nombre d'unités. nombreUnites() passe
+              // après plus(), qui lit le texte brut des <h2>.
+              if (!Utils.comptePlus) page.plus().nombreUnites();
+              break;
+            case uri == "/construction.php":
+              page = new PageConstruction(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/laboratoire.php":
+              page = new PageLaboratoire(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/Ressources.php":
+              page = new PageRessource(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/Armee.php":
+              page = new PageArmee(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/commerce.php":
+              page = new PageCommerce(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/compte.php":
+              page = new PageCompte(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/messagerie.php":
+              page = new PageMessagerie();
+              page.executer();
+              break;
+            case uri == "/alliance.php" && location.search == "":
+            case uri == "/chat.php":
+              page = new PageChat();
+              page.executer();
+              break;
+            case location.href.indexOf("/alliance.php?forum_menu") > 0:
+              // Fzzz : repère la section du forum qui stocke les chasses partagées
+              PartageChasses.observerForum();
+              break;
+            case location.href.indexOf("/alliance.php?Membres") > 0:
+              page = new PageAlliance();
+              page.executer();
+              break;
+            case location.href.indexOf("/Membre.php?Pseudo") > 0:
+            case uri == "/Membre.php":
+              page = new PageProfil(boiteRadar);
+              page.executer();
+              break;
+            case uri == "/classementAlliance.php" &&
+              Utils.extractUrlParams()["alliance"] != "" &&
+              Utils.extractUrlParams()["alliance"] != undefined:
+              page = new PageDescription(boiteRadar);
+              page.executer();
+              break;
+            case location.href.indexOf("/ennemie.php?Attaquer") > 0:
+            case location.href.indexOf("/ennemie.php?annuler") > 0:
+              page = new PageAttaquer(boiteComptePlus);
+              page.executer();
+              break;
+            case uri == "/ennemie.php" && location.search == "":
+              // Affichage des temps de trajet
+              $("#tabEnnemie tr:eq(0) th:eq(5)").after("<th class='centre'>Temps</th>");
+              $("#tabEnnemie tr:gt(0)").each((i, elt) => {
+                let distance = parseInt($(elt).find("td:eq(5)").text());
+                $(elt)
+                  .find("td:eq(5)")
+                  .after(
+                    `<td class='centre'>${Utils.intToTime(Math.round(Math.pow(0.9, monProfil.niveauRecherche[6]) * 637200 * (1 - Math.exp(-(distance / 350)))))}</td>`,
+                  );
+              });
+              break;
+            default:
+              break;
+          }
+        } catch (e) {
+          console.error("Fzzz : erreur sur cette page", e);
+          $.toast({
+            ...TOAST_ERROR,
+            text: "Fzzz : une erreur a empêché certains outils de s'afficher sur cette page.",
+          });
+        }
+      });
   }
 })();

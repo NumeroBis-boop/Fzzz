@@ -199,7 +199,7 @@ class BoiteComptePlus {
    * @method getRadar
    */
   getData() {
-    let data = JSON.parse(localStorage.getItem("outiiil_evolution")) || {};
+    let data = Utils.lireStockage("outiiil_evolution");
     if (data.ponte) this._ponte = data.ponte;
     if (data.startPonte) this._startPonte = data.startPonte;
     if (data.construction) this._construction = data.construction;
@@ -319,7 +319,7 @@ class BoiteComptePlus {
   _htmlRaccourcisMenuRapide() {
     let prefs = {};
     try {
-      prefs = JSON.parse(localStorage.getItem(MENU_RAPIDE_KEY)) || {};
+      prefs = Utils.lireStockage(MENU_RAPIDE_KEY);
     } catch (e) {
       return "";
     }

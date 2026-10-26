@@ -1,6 +1,6 @@
 {
   "name": "fzzz",
-  "version": "1.28.0",
+  "version": "1.29.0",
   "private": true,
   "description": "Extension pour www.fourmizzz.fr.",
   "type": "module",
@@ -14,6 +14,7 @@
     "compile": "tsc --noEmit",
     "test": "bun test tests/",
     "check:js": "tsc -p tsconfig.js.json",
+    "userscript": "bun scripts/userscript.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "postinstall": "wxt prepare",

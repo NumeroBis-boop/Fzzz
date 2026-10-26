@@ -34,7 +34,8 @@ Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-m
 
 ## Installer
 
-Voir [docs/installation.md](docs/installation.md).
+- **Script utilisateur** (Tampermonkey ou Violentmonkey) : ouvrir https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js. Ce fichier d'en-tête déclare tous les fichiers de Fzzz en dépendance (`@require`).
+- **Extension** et différences entre les deux : voir [docs/installation.md](docs/installation.md).
 
 ## Développer
 

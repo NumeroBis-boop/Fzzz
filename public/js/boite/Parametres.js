@@ -307,6 +307,10 @@ class BoiteParametre extends Boite {
         if (r.statut == "no_update") $etat.text(`Fzzz est à jour (v${VERSION}).`);
         else if (r.statut == "throttled")
           $etat.text("Trop de vérifications rapprochées : réessaie dans quelques minutes.");
+        else if (r.statut == "userscript")
+          $etat.text(
+            "Version script utilisateur : Tampermonkey ou Violentmonkey vérifie les mises à jour (menu du gestionnaire → « Rechercher des mises à jour »).",
+          );
         else if (r.statut == "non_supporte") {
           // Firefox : il propose d'installer le .xpi ouvert (autoriser puis « Ajouter »)
           window.open(xpi, "_blank", "noopener");

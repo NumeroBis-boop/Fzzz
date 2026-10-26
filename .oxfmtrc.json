@@ -1,4 +1,10 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": [".output/**", ".wxt/**", "public/js/lib/**", "public/css/lib/**"]
+  "ignorePatterns": [
+    ".output/**",
+    ".wxt/**",
+    "public/js/lib/**",
+    "public/css/lib/**",
+    "fzzz.user.js"
+  ]
 }

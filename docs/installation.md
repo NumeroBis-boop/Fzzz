@@ -2,6 +2,28 @@
 
 **Avant tout** : si Toolzzz est installé, désactive-le (`chrome://extensions` ou `about:addons`). Fzzz contient tout Toolzzz : avec les deux actifs, chaque page reçoit deux fois les mêmes outils.
 
+## Script utilisateur (Tampermonkey, Violentmonkey)
+
+La façon la plus simple de partager Fzzz : un seul lien, et les mises à jour arrivent par le gestionnaire de scripts.
+
+1. Installe [Tampermonkey](https://www.tampermonkey.net/) ou [Violentmonkey](https://violentmonkey.github.io/) (Chrome, Edge, Brave, Firefox PC et Android).
+2. **Chrome, Edge, Brave** : le navigateur exige une autorisation pour les scripts utilisateur. Dans `chrome://extensions`, ouvre **Détails** de Tampermonkey et active **Autoriser les scripts utilisateur**. Sur les versions de Chrome antérieures à la 138, active plutôt le **Mode développeur**.
+3. Ouvre https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js : le gestionnaire propose l'installation.
+
+`fzzz.user.js` ne contient que l'en-tête. Tous les fichiers de Fzzz y sont déclarés en dépendance (`@require`), dans l'ordre du manifeste de l'extension, et servis par jsDelivr à un commit précis du dépôt : une version installée ne change donc pas toute seule. Le fichier est généré par `bun run userscript`, à relancer après chaque version poussée.
+
+**Différences avec l'extension**
+
+- **Fichiers chargés** : tous les fichiers sont chargés sur chaque page, Highcharts et le simulateur de Calystène compris. Le gestionnaire les garde en cache.
+- **Tiers contacté** : les images et feuilles de style viennent de cdn.jsdelivr.net, qui voit donc ton adresse IP.
+- **Horloge du serveur** : elle se cale sur l'en-tête `Date` des requêtes faites dans la page, et non sur les chargements de page. Tant qu'aucune requête n'a eu lieu, l'heure du PC est affichée.
+- **Démarrage** : le script démarre à la fin du chargement de la page. Le masquage de la simulation native de Construction (`#cout`) peut laisser voir un court clignotement.
+- **Suivi des convois OUAF** : l'accès à ouafchaine.fr est déclaré par `@connect`, sans page d'autorisation.
+- **Données** : les réglages enregistrés dans la page (`outiiil_*`) sont communs avec l'extension. L'horloge et le code du site OUAF sont stockés par le gestionnaire de scripts.
+- **Ne pas cumuler** : n'active pas à la fois le script et l'extension, sinon les outils s'affichent deux fois.
+
+## Extension
+
 Les archives à installer s'obtiennent de deux façons :
 
 - **Dernière version de `main`** : onglet **Actions** du dépôt, dernière exécution « CI » réussie, section **Artifacts**, fichier `fzzz-extension` (connexion GitHub requise).

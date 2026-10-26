@@ -29,6 +29,7 @@ Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-m
   - Ressources : synthèse des chasses en cours par minute d'impact (minutes consécutives regroupées sur la plus tardive) : heure d'impact, nombre de chasses, TdC chassé, unités mises en chasse (détail au survol), total ;
   - lanceur de chasses : les difficultés que l'armée ne peut pas tenir sont grisées, avec le maximum possible.
 
+- **Mises à jour** : Firefox (version signée) se met à jour seul chaque jour ; bouton « Mettre à jour Fzzz » dans Paramètres → À propos (Chrome Web Store : mise à jour immédiate en un clic ; Firefox : installation du dernier .xpi signé).
 - **Mobile** (Firefox pour Android) : sur écran étroit, les tableaux et encarts ajoutés défilent horizontalement dans leur cadre au lieu d'élargir la page, les rangées de boutons passent à la ligne, la largeur fixe du tableau des membres est désactivée et l'infobulle d'évolution du TdC s'ouvre au toucher d'une ligne (second toucher ou toucher ailleurs pour la fermer).
 
 ## Installer

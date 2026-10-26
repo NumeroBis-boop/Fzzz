@@ -42,7 +42,52 @@ function enregistrer(serveur: string, e: Echantillon): void {
     .catch(() => {});
 }
 
+/** Résultat de la vérification de mise à jour demandée par le bouton « Mettre à jour Fzzz ». */
+interface ResultatMaj {
+  statut: "update_available" | "no_update" | "throttled" | "non_supporte" | "dossier" | "erreur";
+  version?: string;
+  message?: string;
+}
+
+/**
+ * Bouton « Mettre à jour Fzzz » (Paramètres → À propos). Chrome sait demander
+ * une vérification immédiate au Chrome Web Store ; s'il trouve une version, le
+ * rechargement de l'extension l'installe. Firefox n'a pas cette fonction : la
+ * page propose alors le dernier .xpi signé (et Firefox vérifie seul chaque jour).
+ */
+async function verifierMiseAJour(): Promise<ResultatMaj> {
+  // chargée depuis un dossier (mode développeur) : jamais de mise à jour automatique,
+  // et Chrome répondrait « no_update » à tort
+  try {
+    const moi = await browser.management.getSelf();
+    if (moi.installType === "development") return { statut: "dossier" };
+  } catch (e) {
+    /* management.getSelf indisponible : on tente quand même la vérification */
+  }
+  // requestUpdateCheck : Chrome uniquement (absent des types communs WXT)
+  const runtime = browser.runtime as unknown as {
+    requestUpdateCheck?: () => Promise<{ status: string; version?: string } | [string, object]>;
+  };
+  if (typeof runtime.requestUpdateCheck !== "function") return { statut: "non_supporte" };
+  try {
+    const res = await runtime.requestUpdateCheck();
+    const statut = (Array.isArray(res) ? res[0] : res.status) as ResultatMaj["statut"];
+    const version = Array.isArray(res) ? undefined : res.version;
+    // la nouvelle version, déjà téléchargée, s'installe au rechargement
+    if (statut === "update_available") setTimeout(() => browser.runtime.reload(), 800);
+    return { statut, version };
+  } catch (e) {
+    // extension chargée depuis un dossier (mode développeur) : pas de mise à jour possible
+    return { statut: "erreur", message: String(e) };
+  }
+}
+
 export default defineBackground(() => {
+  browser.runtime.onMessage.addListener((message: unknown) => {
+    if ((message as { type?: string })?.type !== "fzzz_majVerifier") return undefined;
+    return verifierMiseAJour();
+  });
+
   browser.webRequest.onSendHeaders.addListener((d) => {
     envois.set(d.requestId, d.timeStamp);
   }, FILTRE);

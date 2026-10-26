@@ -66,6 +66,9 @@ jobs:
             --approval-timeout=1800000
           XPI=$(ls signed/*.xpi | head -n 1)
           mv "$XPI" ".output/fzzz-${V}.xpi"
+          # copie au nom fixe : le bouton « Mettre à jour Fzzz » ouvre
+          # releases/latest/download/fzzz.xpi (toujours la dernière version)
+          cp ".output/fzzz-${V}.xpi" .output/fzzz.xpi
 
       - name: Update manifest for Firefox (updates.json)
         run: |
@@ -94,6 +97,7 @@ jobs:
           generate_release_notes: true
           files: |
             .output/fzzz-*.xpi
+            .output/fzzz.xpi
             .output/updates.json
             .output/fzzz-*-firefox.zip
             .output/fzzz-*-sources.zip

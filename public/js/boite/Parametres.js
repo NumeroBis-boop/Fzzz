@@ -228,6 +228,8 @@ class BoiteParametre extends Boite {
     $("#o_tabsParametre4").append(`
       <p class='left reduce gras'>Fzzz v${VERSION}</p>
       <p class='left reduce'>Extension open source pour Fourmizzz.fr.</p>
+      <p class='left'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour Fzzz</button></p>
+      <p id='o_majFzzzEtat' class='left small'></p>
       <ul class='left reduce'>
         <li><a href='https://github.com/GuiEpi/toolzzz/wiki' target='_blank' rel='noopener'>Wiki (Toolzzz)</a></li>
         <li><a href='${repo}' target='_blank' rel='noopener'>Code source (GitHub)</a></li>
@@ -240,6 +242,57 @@ class BoiteParametre extends Boite {
       <p class='left small'><em>Remet toutes les options (couleurs, dock, flood, antisondes, replacer auto, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
       <button id='o_resetParametres' class='o_button f_error'>Réinitialiser</button>
     `);
+    $("#o_majFzzz").on("click", (e) => {
+      e.preventDefault();
+      BoiteParametre.mettreAJour($(e.currentTarget), $("#o_majFzzzEtat"));
+    });
     return this;
+  }
+  /**
+   * Fzzz : bouton « Mettre à jour Fzzz ». Chrome (installé depuis le Chrome Web
+   * Store) : vérification immédiate et installation, puis rechargement de la
+   * page. Firefox : ouverture du dernier .xpi signé, que Firefox propose
+   * d'installer (la vérification automatique quotidienne reste active).
+   *
+   * @static
+   * @method mettreAJour
+   */
+  static mettreAJour($bouton, $etat) {
+    const xpi = "https://github.com/NumeroBis-boop/Fzzz/releases/latest/download/fzzz.xpi",
+      releases = "https://github.com/NumeroBis-boop/Fzzz/releases/latest";
+    $bouton.prop("disabled", true);
+    $etat.text("Recherche d'une mise à jour…");
+    chrome.runtime
+      .sendMessage({ type: "fzzz_majVerifier" })
+      .then((r) => {
+        r = r || { statut: "erreur" };
+        if (r.statut == "update_available") {
+          $etat.text(
+            `Version ${r.version || "plus récente"} trouvée : installation, puis la page se recharge…`,
+          );
+          setTimeout(() => location.reload(), 2500);
+          return;
+        }
+        $bouton.prop("disabled", false);
+        if (r.statut == "no_update") $etat.text(`Fzzz est à jour (v${VERSION}).`);
+        else if (r.statut == "throttled")
+          $etat.text("Trop de vérifications rapprochées : réessaie dans quelques minutes.");
+        else if (r.statut == "non_supporte") {
+          // Firefox : il propose d'installer le .xpi ouvert (autoriser puis « Ajouter »)
+          window.open(xpi, "_blank", "noopener");
+          $etat.html(
+            "Firefox ouvre la dernière version : accepte l'installation (« Autoriser » puis « Ajouter »). Si rien ne s'ouvre (Firefox Android), la mise à jour se fait seule chaque jour, ou via le menu Modules complémentaires.",
+          );
+        } else
+          $etat.html(
+            `Mise à jour automatique impossible pour cette installation (chargée depuis un dossier : il faut l'installer depuis le Chrome Web Store, ou le .xpi signé sur Firefox). Télécharge la dernière version sur <a href='${releases}' target='_blank' rel='noopener'>la page des versions</a>.`,
+          );
+      })
+      .catch(() => {
+        $bouton.prop("disabled", false);
+        $etat.html(
+          `La vérification a échoué. Dernière version : <a href='${releases}' target='_blank' rel='noopener'>page des versions</a>.`,
+        );
+      });
   }
 }

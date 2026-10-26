@@ -29,6 +29,12 @@ jobs:
       - name: Typecheck
         run: bun run compile
 
+      - name: Check JS (fichiers marqués // @ts-check)
+        run: bun run check:js
+
+      - name: Tests
+        run: bun run test
+
       - name: Build zips
         run: |
           bun run zip

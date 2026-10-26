@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * SimulationChasse.js
  * Portage du simulateur de chasse de Calystene, révision 2.00.38

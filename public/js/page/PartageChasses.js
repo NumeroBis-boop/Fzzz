@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * PartageChasses.js
  * NumeroBis-boop

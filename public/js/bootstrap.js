@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * bootstrap.js
  *

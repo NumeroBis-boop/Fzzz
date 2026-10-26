@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * Chat.js
  * Hraesvelg

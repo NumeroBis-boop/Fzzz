@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Creer la boite compte plus.
  *

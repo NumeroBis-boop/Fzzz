@@ -791,7 +791,7 @@ class Combat {
   calculeUniteXP(armee, ratio) {
     let ordreXp = new Array(0, 1, 3, 4, 5, 7, 10, 12),
       armeeXP = new Armee();
-    ordreXP.forEach((val, i) => {
+    ordreXp.forEach((val, i) => {
       armeeXP.unite[val] = Math.round(armee.unite[val] * ratio);
     });
     return armee;

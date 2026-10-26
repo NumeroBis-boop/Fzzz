@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * Alliance.js
  * Hraesvelg

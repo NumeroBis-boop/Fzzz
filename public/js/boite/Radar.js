@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Creer une boite radar pour la surveillance des joueurs/alliances.
  *

@@ -1,6 +1,6 @@
 {
   "name": "fzzz",
-  "version": "1.24.0",
+  "version": "1.24.1",
   "private": true,
   "description": "Extension pour www.fourmizzz.fr.",
   "type": "module",
@@ -12,12 +12,16 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "test": "bun test tests/",
+    "check:js": "tsc -p tsconfig.js.json",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "postinstall": "wxt prepare",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "happy-dom": "^21.0.4",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.0",
     "oxfmt": "^0.55.0",

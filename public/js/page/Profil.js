@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * Profil.js
  * Hraesvelg

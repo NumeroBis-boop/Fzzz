@@ -23,11 +23,19 @@ bun run build:firefox     # production build → .output/firefox-mv3/
 bun run zip               # zip for Chrome Web Store
 bun run zip:firefox       # zip for Firefox AMO
 bun run compile           # tsc --noEmit (typecheck only, no emitted files)
+bun run check:js          # tsc -p tsconfig.js.json — checks public/js files marked // @ts-check
+bun run test              # bun test tests/ — unit tests in a happy-dom window
 bun run format            # oxfmt — writes changes in place
 bun run format:check      # oxfmt --check — CI uses this
 ```
 
-There is no test suite and no linter configured. Formatting is handled by oxfmt.
+There is no linter configured. Formatting is handled by oxfmt.
+
+### Tests and JS checking
+
+- `tests/harnais.ts` loads the real vendored libs and extension scripts into a happy-dom window (node `vm` context), the way the browser injects them; classes declared at script top level are read with `page.lire("Expression")`. Stub globals the code needs (`Horloge`, `monProfil`, DOM) via the `avant` argument. Tests cover the flood simulation (20 % rule, range, ordering), forum topic parsing, étable profitability, escaping and storage reads. Add a test with any change to these calculations.
+- `tsconfig.js.json` checks `public/js` (libs excluded) **opt-in**: only files starting with `// @ts-check` are checked; the rest still provide global class declarations. Non-strict on purpose (looks for unknown names and bad calls, not missing annotations). Library globals are declared `any` in `types/globals-js.d.ts`. Many legacy files fail mainly because of inaccurate JSDoc (`@private` on methods called from other classes, wrong `@param` types): fix the JSDoc before adding `// @ts-check` to a file.
+- CI runs `format:check`, `compile`, `check:js` and `test`.
 
 ## Architecture — read this before touching WXT or the manifest
 

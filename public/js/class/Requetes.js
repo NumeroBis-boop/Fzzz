@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * Requetes.js
  * File d'attente des requêtes de l'extension vers le jeu.

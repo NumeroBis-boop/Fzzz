@@ -1,0 +1,19 @@
+{
+  // Vérification des scripts de l'extension (public/js, hors bibliothèques).
+  // Progressive : seuls les fichiers qui commencent par « // @ts-check » sont
+  // vérifiés ; les autres servent de déclarations (classes globales).
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "skipLibCheck": true,
+    // pas de mode strict : on cherche les vraies erreurs (noms inconnus,
+    // appels invalides), pas l'absence d'annotations de types
+    "strict": false
+  },
+  "include": ["public/js/**/*.js", "types/globals-js.d.ts"],
+  "exclude": ["public/js/lib/**"]
+}

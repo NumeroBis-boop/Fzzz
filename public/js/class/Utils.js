@@ -37,8 +37,8 @@ const AFFICHAGES_CONVOIS = {
   convoisRetour: "Heure de retour de chaque convoi en cours (hors Compte+)",
   convoisRecherche: "Recherche du destinataire pendant la saisie (hors Compte+)",
   convoisSelection: "Cases à cocher et copie des convois en cours",
-  convoisSuiviOuaf: "Bloc « Suivi des convois OUAF » (en préparation)",
-  convoisSuiviLignes: "État « transmis au suivi OUAF » à côté de chaque convoi (en préparation)",
+  convoisSuiviOuaf: "Bloc « Suivi des convois OUAF » (envoi des convois au site de suivi)",
+  convoisSuiviLignes: "État « noté au suivi OUAF » et bouton d'envoi à côté de chaque convoi",
 };
 
 class Utils {

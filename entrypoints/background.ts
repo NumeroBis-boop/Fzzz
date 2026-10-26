@@ -82,9 +82,52 @@ async function verifierMiseAJour(): Promise<ResultatMaj> {
   }
 }
 
+/** Site de suivi des convois de la OUAF (http uniquement). */
+const OUAF = "http://ouafchaine.fr";
+const OUAF_ORIGINE = "http://ouafchaine.fr/*";
+
+interface RequeteOuaf {
+  type: "fzzz_ouaf";
+  methode: string;
+  chemin: string;
+  corps?: unknown;
+}
+
+/**
+ * Requête au site de suivi des convois, pour le script de contenu de la page
+ * Convois (une page https ne peut pas appeler un site http). Limitée à l'API
+ * du site, et seulement si le joueur a accordé l'accès à ouafchaine.fr. La
+ * session du site est gardée par son cookie, comme dans un onglet.
+ */
+async function requeteOuaf(m: RequeteOuaf): Promise<{
+  ok?: boolean;
+  statut?: number;
+  donnees?: unknown;
+  erreur?: "permission" | "requete" | "reseau";
+}> {
+  if (!/^\/api\/[a-z/-]+$/.test(m.chemin) || !["GET", "POST", "PUT"].includes(m.methode))
+    return { erreur: "requete" };
+  if (!(await browser.permissions.contains({ origins: [OUAF_ORIGINE] })))
+    return { erreur: "permission" };
+  try {
+    const r = await fetch(OUAF + m.chemin, {
+      method: m.methode,
+      credentials: "include",
+      headers: m.corps === undefined ? {} : { "Content-Type": "application/json" },
+      body: m.corps === undefined ? undefined : JSON.stringify(m.corps),
+    });
+    const donnees = await r.json().catch(() => ({}));
+    return { ok: r.ok, statut: r.status, donnees };
+  } catch (e) {
+    return { erreur: "reseau" };
+  }
+}
+
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: unknown) => {
-    if ((message as { type?: string })?.type !== "fzzz_majVerifier") return undefined;
+    const type = (message as { type?: string })?.type;
+    if (type === "fzzz_ouaf") return requeteOuaf(message as RequeteOuaf);
+    if (type !== "fzzz_majVerifier") return undefined;
     return verifierMiseAJour();
   });
 

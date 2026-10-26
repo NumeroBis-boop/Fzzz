@@ -73,6 +73,8 @@ Each tier depends on everything above it being present as globals. Reordering wi
 
 The `data_collection_permissions.required: ["none"]` declaration in the manifest depends on this: the extension no longer transmits any data anywhere, only reads fourmizzz.fr pages locally.
 
+**Exception (Fzzz 1.28) — OUAF convoy tracking.** `http://ouafchaine.fr/*` is an `optional_host_permissions` entry, granted by the player from `public/ouaf-autorisation.html` (permissions.request needs a click in an extension page; opened from the Convois page). Requests to that site go through `entrypoints/background.ts` (`fzzz_ouaf` message: `/api/...` paths only, GET/POST/PUT, refused without the permission) because an https game page cannot call an http site. The player's site password is kept in `chrome.storage.local` (`fzzz_ouafCode`), never in the page's localStorage. The manifest declares `data_collection_permissions.optional: ["authenticationInfo", "websiteContent"]` for this. Logic lives in `public/js/class/OuafSuivi.js` (tested in `tests/ouaf.test.ts`); the site is plain http by design (accepted by the maintainer, shown in Paramètres → Convoi).
+
 ## MV3 CSP constraints
 
 The migration from MV2 to MV3 tightened CSP. Two non-obvious patches exist:

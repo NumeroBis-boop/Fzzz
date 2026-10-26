@@ -38,6 +38,9 @@ export default defineConfig({
         update_url: "https://github.com/NumeroBis-boop/Fzzz/releases/latest/download/updates.json",
         data_collection_permissions: {
           required: ["none"],
+          // suivi des convois OUAF (optionnel, au clic) : code de connexion et
+          // convois envoyés transmis à ouafchaine.fr
+          optional: ["authenticationInfo", "websiteContent"],
         },
       },
       // Déclare la compatibilité Firefox for Android pour qu'AMO marque
@@ -57,6 +60,9 @@ export default defineConfig({
     },
     permissions: ["webRequest", "storage"],
     host_permissions: ["*://*.fourmizzz.fr/*"],
+    // site de suivi des convois de la OUAF : accès demandé au premier envoi
+    // (page ouaf-autorisation.html), pas à l'installation
+    optional_host_permissions: ["http://ouafchaine.fr/*"],
     content_scripts: [
       // Bootstrap au document_start : pose des classes CSS sur <html> dès
       // l'arrivée du HTML, avant le parsing du body. Permet d'éviter le flash
@@ -166,7 +172,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["images/*", "images/**", "css/*", "css/**"],
+        resources: ["images/*", "images/**", "css/*", "css/**", "ouaf-autorisation.html"],
         matches: ["*://*.fourmizzz.fr/*"],
       },
     ],

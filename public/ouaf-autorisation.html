@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fzzz : accès au suivi des convois OUAF</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 34em;
+        margin: 3em auto;
+        padding: 0 1em;
+        line-height: 1.5;
+        color: #3a2a0c;
+        background: #f3ead2;
+      }
+      button {
+        font-size: 1.1em;
+        padding: 0.5em 1.2em;
+        cursor: pointer;
+      }
+      .avertissement {
+        color: #b00020;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Suivi des convois OUAF</h1>
+    <p>
+      Pour noter tes convois sur <b>ouafchaine.fr</b>, Fzzz a besoin de ton accord pour accéder à ce
+      site. Il ne s'y connecte que lorsque tu ouvres la page Convois du jeu ou que tu cliques sur un
+      bouton d'envoi.
+    </p>
+    <p class="avertissement">
+      Le site n'est pas chiffré (http) : ton code de connexion et tes convois y circulent en clair.
+    </p>
+    <p><button type="button" id="autoriser">Autoriser l'accès à ouafchaine.fr</button></p>
+    <p id="etat"></p>
+    <script src="js/ouaf-autorisation.js"></script>
+  </body>
+</html>

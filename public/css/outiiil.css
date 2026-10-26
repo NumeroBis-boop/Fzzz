@@ -2129,6 +2129,14 @@ tr.en_tete_message > td.td_coche {
     display: block;
     margin: 2px 0 0 0;
   }
+  /* Convois : état du suivi OUAF à la ligne */
+  .o_ouafLigne {
+    white-space: normal;
+    display: inline-block;
+  }
+  #o_ouafCodeCommerce {
+    width: 9em;
+  }
   /* Ressources : choix d'affectation des ouvrières sur plusieurs lignes */
   td.o_affectationChoix,
   td:has(> label > #o_ratioRadio) {
@@ -2144,4 +2152,34 @@ tr.en_tete_message > td.td_coche {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Fzzz : suivi des convois OUAF (page Convois) */
+#o_ouafSuivi p {
+  margin: 4px 0;
+}
+#o_ouafCodeCommerce {
+  width: 12em;
+}
+.o_ouafLigne {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.o_ouafLigne .o_button {
+  margin: 0 0 0 4px;
+  padding: 1px 6px;
+  font-size: 0.9em;
+}
+.o_ouafEtat {
+  font-weight: bold;
+}
+.o_ouafOui {
+  color: #287a36;
+}
+.o_ouafNon {
+  color: #b00020;
+}
+.o_ouafInconnu {
+  color: #6b5a2e;
+  font-weight: normal;
 }

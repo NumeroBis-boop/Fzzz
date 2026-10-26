@@ -1533,6 +1533,10 @@ center > div > #tabMembresAlliance {
 .o_copierRapport:hover {
   opacity: 1;
 }
+/* case « tout cocher » et copie de la sélection sur une seule ligne */
+#selection_toutes_checkbox {
+  white-space: nowrap;
+}
 #o_copieManuelle {
   position: fixed;
   inset: 0;

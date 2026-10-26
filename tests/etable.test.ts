@@ -38,39 +38,36 @@ describe("Utils.htmlRentabiliteEtable", () => {
       bandeau({ total: 42481, reine: false, raison: "le jeu traitait une autre action" }),
     ).toContain("Reine.php illisible : le jeu traitait une autre action");
   });
-
-  test("relevé mémorisé : âge affiché", () => {
-    expect(bandeau({ total: 70481, reine: true, age: 4 })).toContain("relevé il y a 4 min");
-  });
 });
 
 describe("Utils.ouvrieresTotales", () => {
-  test("page Reine : lit #armee_initial et le mémorise", async () => {
+  test("page Reine : lit #armee_initial sans requête", async () => {
     page.lire(`history.replaceState(null, "", "/Reine.php");
-      document.body.insertAdjacentHTML("beforeend", "<span id='armee_initial'>70481</span>");`);
-    expect(await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`)).toBe(
-      JSON.stringify({ total: 70481, reine: true, age: 0 }),
-    );
-    expect(page.lire(`Utils.lireStockage("fzzz_ouvrieresReine_S5").total`)).toBe(70481);
-  });
-
-  test("ailleurs, relevé de moins de 10 min : aucune requête", async () => {
-    page.lire(`history.replaceState(null, "", "/laboratoire.php");
-      localStorage.setItem("fzzz_ouvrieresReine_S5", JSON.stringify({ total: 70000, date: Date.now() - 3 * 60000 }));
+      document.body.insertAdjacentHTML("beforeend", "<span id='armee_initial'>70481</span>");
       window.requetes = 0; $.get = () => { window.requetes++; return $.Deferred().reject({ status: 0 }); };`);
     expect(await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`)).toBe(
-      JSON.stringify({ total: 70000, reine: true, age: 3 }),
+      JSON.stringify({ total: 70481, reine: true }),
     );
     expect(page.lire(`window.requetes`)).toBe(0);
   });
 
-  test("relevé périmé et jeu occupé (503) : en-tête, avec la raison", async () => {
-    page.lire(`localStorage.setItem("fzzz_ouvrieresReine_S5", JSON.stringify({ total: 70000, date: Date.now() - 11 * 60000 }));
-      $.get = () => { window.requetes++; return $.Deferred().reject({ status: 503 }); };`);
+  test("ailleurs : une lecture de Reine.php à chaque chargement", async () => {
+    page.lire(`history.replaceState(null, "", "/laboratoire.php");
+      $.get = () => { window.requetes++; return $.Deferred().resolve("<span id='armee_initial'>70 481</span>"); };`);
+    const o = JSON.parse(
+      await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`),
+    );
+    expect(o.total).toBe(70481);
+    expect(o.reine).toBe(true);
+    expect(page.lire(`window.requetes`)).toBe(1);
+  });
+
+  test("jeu occupé (503) : en-tête, avec la raison", async () => {
+    page.lire(`$.get = () => { window.requetes++; return $.Deferred().reject({ status: 503 }); };`);
     const o = JSON.parse(
       await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`),
     );
     expect(o).toEqual({ total: 42481, reine: false, raison: "le jeu traitait une autre action" });
-    expect(page.lire(`window.requetes`)).toBe(1);
+    expect(page.lire(`window.requetes`)).toBe(2);
   });
 });

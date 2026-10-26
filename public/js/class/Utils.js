@@ -341,35 +341,28 @@ class Utils {
    * compteur de l'en-tête ne compte pas : lu dans la page Reine
    * (#armee_initial).
    *
-   * Pour limiter les requêtes (le jeu refuse une action pendant qu'une autre
-   * est en cours sur le compte), la valeur est mémorisée 10 min : à chaque
-   * visite de la page Reine (sans requête) et à chaque lecture. Au-delà, une
-   * seule lecture de Reine.php. À défaut, compteur de l'en-tête, avec la raison.
+   * Lu à chaque chargement de Construction et Laboratoire (une requête), ou
+   * directement dans la page Reine. À défaut, compteur de l'en-tête, avec la
+   * raison de l'échec.
    *
    * @static
    * @method ouvrieresTotales
-   * @return {Promise} {total, reine, age (min), duree (ms), raison}
+   * @return {Promise} {total, reine, duree (ms), raison}
    */
   static ouvrieresTotales() {
-    let cle = "fzzz_ouvrieresReine_" + Utils.serveur,
-      lire = ($page) => {
+    let lire = ($page) => {
         let n = parseInt($page.find("#armee_initial").text().replace(/\D/g, ""));
         if (isNaN(n)) throw new Error("nombre d'ouvrières absent de la page");
-        localStorage.setItem(cle, JSON.stringify({ total: n, date: Date.now() }));
         return n;
       },
       defaut = (raison) => ({ total: Utils.ouvrieres || 0, reine: false, raison: raison });
     if (/^\/Reine\.php/i.test(location.pathname)) {
       try {
-        return Promise.resolve({ total: lire($(document.body)), reine: true, age: 0 });
+        return Promise.resolve({ total: lire($(document.body)), reine: true });
       } catch (e) {
         return Promise.resolve(defaut(e.message));
       }
     }
-    let memo = Utils.lireStockage(cle, null),
-      age = memo ? (Date.now() - memo.date) / 60000 : Infinity;
-    if (memo && age >= 0 && age < 10)
-      return Promise.resolve({ total: memo.total, reine: true, age: Math.floor(age) });
     let debut = Date.now();
     return Promise.resolve($.get(location.origin + "/Reine.php")).then(
       (html) => {
@@ -377,7 +370,7 @@ class Utils {
           let total = lire(Utils.parseHtml(html)),
             duree = Date.now() - debut;
           Utils.dureeReine = duree;
-          return { total: total, reine: true, age: 0, duree: duree };
+          return { total: total, reine: true, duree: duree };
         } catch (e) {
           return defaut(e.message);
         }
@@ -436,7 +429,7 @@ class Utils {
    * @param {Object} ouvrieres {total, reine} (voir ouvrieresTotales)
    * @return {String} HTML
    */
-  static htmlRentabiliteEtable({ total, reine, age = 0, duree = null, raison = "" }) {
+  static htmlRentabiliteEtable({ total, reine, duree = null, raison = "" }) {
     let tdc = Math.min(total, Utils.terrain || 0),
       dispo = total - tdc,
       niveau = monProfil.niveauConstruction[11] || 0,
@@ -468,11 +461,9 @@ class Utils {
     return `<p><strong>Ouvrières : ${fmt(total)}</strong>${
       reine
         ? ` <span class='small'>(page Reine, convois en cours compris${
-            age
-              ? `, relevé il y a ${age} min`
-              : duree != null
-                ? `, lue en ${secondes(duree)} s, moyenne ${secondes(Utils.dureeReine)} s`
-                : ""
+            duree != null
+              ? `, lue au chargement en ${secondes(duree)} s, moyenne ${secondes(Utils.dureeReine)} s`
+              : ""
           })</span>`
         : ` <span class='small red'>(Reine.php illisible${raison ? ` : ${Utils.echapper(raison)}` : ""} ; ouvrières en convoi non comptées)</span>`
     } · exploitées sur le TdC : ${fmt(tdc)} ·

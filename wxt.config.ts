@@ -79,17 +79,45 @@ export default defineConfig({
           "js/lib/globalize_0.1.1.js",
           "js/lib/globalize-locale-fr.js",
           "js/lib/clipboard_1.7.1.js",
+        ],
+      },
+      // Fzzz : bibliothèques lourdes injectées seulement sur les pages qui s'en
+      // servent (les blocs sont injectés dans l'ordre du manifeste, avant le code
+      // Fzzz/Toolzzz du dernier bloc). Highcharts (~2 Mo) : graphiques de la
+      // carte d'alliance, des coûts (construction.php#cout) et des chasses
+      // (messagerie).
+      {
+        matches: [
+          "*://*.fourmizzz.fr/alliance.php*",
+          "*://*.fourmizzz.fr/construction.php*",
+          "*://*.fourmizzz.fr/messagerie.php*",
+        ],
+        js: [
           "js/lib/highcharts_6.0.7.js",
           "js/lib/highcharts-more.js",
           "js/lib/highcharts-data.js",
           "js/lib/highcharts-stock.js",
+        ],
+      },
+      {
+        matches: ["*://*.fourmizzz.fr/*"],
+        js: [
           "js/lib/datatables_1.10.16.js",
           "js/lib/numeral_2.0.6.js",
           "js/lib/numeral-locale-fr.js",
           "js/lib/moment_2.19.1.js",
           "js/lib/moment-locale-fr.js",
           "js/lib/moment-duration-format.js",
-          "js/lib/calystene-chs2_2.00.35.03.js",
+        ],
+      },
+      // simulateur de Calystène (lanceur « Budget de pertes ») : page Ressources seulement
+      {
+        matches: ["*://*.fourmizzz.fr/Ressources.php*", "*://*.fourmizzz.fr/ressources.php*"],
+        js: ["js/lib/calystene-chs2_2.00.35.03.js"],
+      },
+      {
+        matches: ["*://*.fourmizzz.fr/*"],
+        js: [
           "js/class/Requetes.js",
           "js/data/couts.js",
           "js/data/menuRapide.js",

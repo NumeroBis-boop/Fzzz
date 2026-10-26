@@ -47,6 +47,8 @@ class PageRessource {
       // chasses commencé maintenant serait coupé en route
       if (this._rechargement) return;
       this._armee.chargeData(data);
+      // gardée pour le simulateur de Calystène (évite de relire Armee.php)
+      this._htmlArmee = data;
       // Ajout du lanceur de chasse
       this.lanceur();
       // Fzzz : second lanceur (budget de pertes) et sélecteur entre les deux
@@ -257,7 +259,25 @@ class PageRessource {
     let appliquer = (v) => {
       if (v == "budget" && !$("#CHS2_MainFrame").length) {
         try {
+          // pages servies sans requête au démarrage du simulateur (voir
+          // fzzzAjaxSync) : niveaux déjà connus de Fzzz, page Armée déjà lue
+          let niveaux = (liste) =>
+              liste.every((n) => n >= 0)
+                ? liste
+                    .map(
+                      (n) =>
+                        `<div class='ligneAmelioration'><span class='niveau_amelioration'>niveau ${n}</span></div>`,
+                    )
+                    .join("")
+                : null,
+            pages = {
+              "/construction.php": niveaux(monProfil.niveauConstruction),
+              "/laboratoire.php": niveaux(monProfil.niveauRecherche),
+              "/Armee.php": this._htmlArmee || null,
+            };
+          window.fzzzPagesCHS2 = pages;
           fzzzLancerCHS2();
+          window.fzzzPagesCHS2 = null;
         } catch (e) {
           console.error("[Fzzz] simulateur de Calystène :", e);
           $.toast({ ...TOAST_ERROR, text: "Le simulateur de Calystène n'a pas pu démarrer." });

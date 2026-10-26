@@ -18,7 +18,17 @@
 function fzzzLancerCHS2() {
 // Fzzz : dans un script d'extension, jQuery ignore async:false ; les lectures de
 // pages qui en dépendent passent par une requête native synchrone équivalente.
+// Fzzz : au démarrage, les pages déjà connues de l'extension (niveaux mémorisés,
+// page Armée déjà chargée) sont servies depuis fzzzPagesCHS2 sans requête ni blocage ;
+// le bouton « Récupérer » relit ensuite les vraies pages.
 function fzzzAjaxSync(o) {
+  var cache = window.fzzzPagesCHS2 || {};
+  if (cache[o.url] != null) {
+    var html = cache[o.url];
+    delete cache[o.url];
+    if (o.success) o.success(html);
+    return;
+  }
   var x = new XMLHttpRequest();
   x.open("GET", o.url, false);
   x.send();

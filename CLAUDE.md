@@ -57,6 +57,8 @@ Files under `public/js/` are concatenated in the order listed in `wxt.config.ts`
 
 Each tier depends on everything above it being present as globals. Reordering will break runtime references.
 
+**Page-scoped library blocks (Fzzz).** The libs are split across several `content_scripts` entries, injected in manifest order before the last entry (classes → content.js): Highcharts (~2 MB) only on `alliance.php*`, `construction.php*` and `messagerie.php*`; Calystène's simulator only on `Ressources.php*`; everything else on every page. Code that may run on other pages must not assume `Highcharts` exists (`content.js` guards `Highcharts.setOptions`). If you add a chart elsewhere, add its page to the Highcharts block. This cut the JS injected on most pages from 4.9 MB to 2.6 MB.
+
 ### Single domain
 
 `*://*.fourmizzz.fr/*` (http + https) is the only host in both `host_permissions` and `content_scripts.matches`. The upstream Outiiil v2 also relied on a companion backend at `outiiil.fr` (crowdsourced map data, player/alliance historique, Traceur POST endpoint). That backend is dead — the fork removes all of it in 3.0. If you see mentions of outiiil.fr in old branches, PRs, or issue history, they are stale and should not be re-introduced.

@@ -282,7 +282,7 @@ class Utils {
    * Fzzz : bandeau « Estimer le niveau de rentabilité… » (voir plus bas).
    */
   static ajouterSpoilerRentabilite($ligne, id, contenu) {
-    // contenu : HTML, ou fonction rendant une promesse de HTML, appelée à la
+    // contenu : HTML, ou fonction rendant une promesse de HTML, attendue à la
     // première ouverture du bandeau
     let charger = typeof contenu == "function" ? contenu : null;
     if (!Utils.affichage("rentabilite")) return;
@@ -330,15 +330,16 @@ class Utils {
       .catch(defaut);
   }
   /**
-   * Bandeau de rentabilité de l'Étable, chargé à la première ouverture.
+   * Bandeau de rentabilité de l'Étable : la page Reine est lue au chargement,
+   * le contenu est affiché à l'ouverture du bandeau.
    *
    * @static
    * @method ajouterRentabiliteEtable
    */
   static ajouterRentabiliteEtable($ligne) {
-    Utils.ajouterSpoilerRentabilite($ligne, "o_rentabiliteEtableLigne", () =>
-      Utils.ouvrieresTotales().then(Utils.htmlRentabiliteEtable),
-    );
+    if (!Utils.affichage("rentabilite")) return;
+    let html = Utils.ouvrieresTotales().then(Utils.htmlRentabiliteEtable);
+    Utils.ajouterSpoilerRentabilite($ligne, "o_rentabiliteEtableLigne", () => html);
   }
   /**
    * Contenu du bandeau de rentabilité de l'Étable à pucerons, affiché sous

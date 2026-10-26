@@ -419,6 +419,21 @@ class MessagerieFzzz {
     return MessagerieFzzz._rapports.get(cle);
   }
   /**
+   * Durée moyenne (ms) du chargement d'un rapport, mesurée sur les copies
+   * précédentes (moyenne glissante, gardée dans le navigateur).
+   *
+   * @static
+   */
+  static get dureeRapport() {
+    return parseInt(localStorage.getItem("fzzz_dureeRapport")) || 600;
+  }
+  static set dureeRapport(ms) {
+    localStorage.setItem(
+      "fzzz_dureeRapport",
+      Math.round(0.7 * MessagerieFzzz.dureeRapport + 0.3 * ms),
+    );
+  }
+  /**
    * Vrai si le rapport s'obtient sans requête : conversation ouverte, ou déjà
    * chargée pendant cette visite.
    *
@@ -443,13 +458,17 @@ class MessagerieFzzz {
    * @static
    */
   static _chargerRapport($ligne) {
-    let id = $ligne.attr("id").match(/\d+/)[0],
+    let debut = Date.now(),
+      id = $ligne.attr("id").match(/\d+/)[0],
       ouverts = $ligne.nextUntil("tr.en_tete_message").find("tr[id^='message_']");
     let charger = ouverts.length
       ? Promise.resolve(ouverts)
       : Promise.resolve(
           $.post(location.origin + "/messagerie.php", { traitement: "afficher", conversation: id }),
-        ).then((html) => $("<table>").html(html).find("tr[id^='message_']"));
+        ).then((html) => {
+          MessagerieFzzz.dureeRapport = Date.now() - debut;
+          return $("<table>").html(html).find("tr[id^='message_']");
+        });
     return charger.then(($messages) => {
       if (!$messages.length) throw new Error("vide");
       return MessagerieFzzz.texte($ligne, $messages);
@@ -485,24 +504,49 @@ class MessagerieFzzz {
     // rapports sont chargés l'un après l'autre, dans l'ordre de la liste
     let textes = [],
       echecs = 0,
-      aCharger = lignes.filter((elt) => !MessagerieFzzz.rapportPret($(elt))).length;
-    if (aCharger > 1)
+      aCharger = lignes.filter((elt) => !MessagerieFzzz.rapportPret($(elt))).length,
+      restants = aCharger,
+      // attente estimée : durée moyenne d'un chargement × rapports restants
+      fin = Date.now() + restants * MessagerieFzzz.dureeRapport,
+      attente = null,
+      afficher = () => {
+        let s = Math.max(1, Math.ceil((fin - Date.now()) / 1000));
+        $("#o_attenteCopie").text(`${aCharger - restants}/${aCharger} chargés · encore ≈ ${s} s`);
+      };
+    if (aCharger > 1) {
       $.toast({
         ...TOAST_INFO,
-        text: `Chargement de ${aCharger} rapports, un par un (le jeu n'en sert qu'un à la fois)…`,
+        hideAfter: false,
+        text: `Chargement des rapports, un par un (le jeu n'en sert qu'un à la fois) :<br/><strong id='o_attenteCopie'></strong>`,
       });
+      afficher();
+      // décompte affiché seulement : aucune requête
+      attente = setInterval(afficher, 1000);
+    }
     lignes
       .reduce(
         (suite, elt) =>
-          suite.then(() =>
-            MessagerieFzzz.rapport($(elt)).then(
-              (t) => textes.push(t),
-              () => echecs++,
-            ),
-          ),
+          suite.then(() => {
+            let pret = MessagerieFzzz.rapportPret($(elt));
+            return MessagerieFzzz.rapport($(elt))
+              .then(
+                (t) => textes.push(t),
+                () => echecs++,
+              )
+              .then(() => {
+                if (pret || !attente) return;
+                restants--;
+                fin = Date.now() + restants * MessagerieFzzz.dureeRapport;
+                afficher();
+              });
+          }),
         Promise.resolve(),
       )
       .then(() => {
+        if (attente) {
+          clearInterval(attente);
+          $("#o_attenteCopie").closest(".jq-toast-single").remove();
+        }
         if (!textes.length) {
           $.toast({ ...TOAST_ERROR, text: "Les rapports n'ont pas pu être chargés." });
           return;

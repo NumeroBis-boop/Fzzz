@@ -10,6 +10,15 @@ const FORUM_SECTIONS_CHASSES = ["Fzzz-Chasses", "Fzzz_Chasses"];
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
 
+// numéros des attaques déjà publiées dans le sujet « Floods » du joueur
+const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
+// partage demandé au lancement (case cochée), traité sur la page suivante
+const CLE_PARTAGE_AUTO = "fzzz_partageAuto";
+// dernier choix de la case « Partager ce flood »
+const CLE_PARTAGE_COCHE = "fzzz_partageFloodCoche";
+// écouteur de la case installé une seule fois par page
+let casePartageActive = false;
+
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
  * (aucun serveur tiers). Deux sujets par joueur dans la section
@@ -288,10 +297,18 @@ class PartageChasses {
       accord = (n) => (type == "Chasses" ? "e" : "") + (n > 1 ? "s" : "");
     if (!entrees.length) {
       $.toast({ ...TOAST_INFO, text: `Aucun ${libelle} à partager.` });
-      return;
+      return Promise.resolve();
     }
-    $bouton.prop("disabled", true);
-    PartageChasses._partager(type, entrees)
+    if ($bouton) $bouton.prop("disabled", true);
+    return PartageChasses._partager(type, entrees)
+      .then((n) => {
+        // floods présents dans le sujet (nouveaux ou déjà publiés) : marqués partagés
+        if (type == "Floods") {
+          PartageChasses.marquerFloodsPartages(entrees.map((e) => e.id));
+          AttaqueLancee.majPartages();
+        }
+        return n;
+      })
       .then((n) =>
         $.toast({
           ...TOAST_SUCCESS,
@@ -310,7 +327,91 @@ class PartageChasses {
               : `Partage impossible : le forum de l'alliance n'a pas pu être lu ou modifié.`,
         }),
       )
-      .finally(() => $bouton.prop("disabled", false));
+      .finally(() => $bouton && $bouton.prop("disabled", false));
+  }
+  /**
+   * Numéros des attaques déjà publiées dans le sujet « Floods » du joueur :
+   * {id: date du marquage (ms)}. Tenu à jour à chaque partage depuis ce
+   * navigateur, et sur la page Armée d'après la lecture du forum.
+   *
+   * @static
+   * @method floodsPartages
+   */
+  static floodsPartages() {
+    return Utils.lireStockage(CLE_FLOODS_PARTAGES, {});
+  }
+  /**
+   * @static
+   * @method marquerFloodsPartages
+   */
+  static marquerFloodsPartages(ids) {
+    let liste = PartageChasses.floodsPartages(),
+      limite = Date.now() - 7 * 86400000;
+    ids.filter(Boolean).forEach((id) => (liste[id] = Date.now()));
+    // attaques arrivées depuis longtemps : oubliées
+    for (let id in liste) if (liste[id] < limite) delete liste[id];
+    try {
+      localStorage.setItem(CLE_FLOODS_PARTAGES, JSON.stringify(liste));
+    } catch (e) {}
+  }
+  /**
+   * Case « Partager ce flood avec la <alliance> », placée au-dessus de
+   * « Prévenir X du flood ». Le dernier choix est retenu.
+   *
+   * @static
+   * @method caseHtml
+   */
+  static caseHtml(id) {
+    let coche = false;
+    try {
+      coche = localStorage.getItem(CLE_PARTAGE_COCHE) == "1";
+    } catch (e) {}
+    if (!casePartageActive) {
+      casePartageActive = true;
+      $(document).on("change", ".o_partagerFloodCase", (e) => {
+        try {
+          localStorage.setItem(CLE_PARTAGE_COCHE, e.currentTarget.checked ? "1" : "0");
+        } catch (err) {}
+      });
+    }
+    return `<label class='o_prevenirFlood' for='${id}'><input type='checkbox' id='${id}' class='o_partagerFloodCase'${coche ? " checked" : ""}/> Partager ce flood avec la ${Utils.echapper(Utils.alliance || "l'alliance")}</label>`;
+  }
+  /**
+   * Case cochée au lancement : le partage se fera sur la page suivante, une
+   * fois les attaques confirmées par le jeu (numéro et heure d'arrivée).
+   *
+   * @static
+   * @method armerPartage
+   */
+  static armerPartage(cible) {
+    sessionStorage.setItem(CLE_PARTAGE_AUTO, JSON.stringify({ cible: cible, depuis: Date.now() }));
+  }
+  /**
+   * Partage les attaques lancées depuis la demande (même effet que le bouton
+   * « Partager »), suite du clic de lancement du joueur. Sans demande : rien.
+   *
+   * @static
+   * @method partageAuto
+   * @return {Promise}
+   */
+  static partageAuto() {
+    let d = null;
+    try {
+      d = JSON.parse(sessionStorage.getItem(CLE_PARTAGE_AUTO));
+    } catch (e) {}
+    sessionStorage.removeItem(CLE_PARTAGE_AUTO);
+    if (!d || Date.now() - d.depuis > 15 * 60 * 1000) return Promise.resolve();
+    let captures = AttaqueLancee.charger().filter(
+      (a) => a.cible == d.cible && a.id && a.arrivee && a.lancee >= d.depuis - 1000,
+    );
+    if (!captures.length) {
+      $.toast({
+        ...TOAST_WARNING,
+        text: `Aucune attaque confirmée sur ${Utils.echapper(d.cible)} : rien n'a été partagé.`,
+      });
+      return Promise.resolve();
+    }
+    return PartageChasses.partagerFloods(captures, null);
   }
   /**
    * Ressources.php : groupes de la synthèse des chasses.
@@ -320,7 +421,7 @@ class PartageChasses {
    * @param {Array} groupes [{impact (moment), terrain, unites (texte)}]
    */
   static partager(groupes, $bouton) {
-    PartageChasses._avecBouton(
+    return PartageChasses._avecBouton(
       $bouton,
       "Chasses",
       groupes.map((g) => ({
@@ -337,7 +438,7 @@ class PartageChasses {
    * @method partagerFloods
    */
   static partagerFloods(captures, $bouton) {
-    PartageChasses._avecBouton(
+    return PartageChasses._avecBouton(
       $bouton,
       "Floods",
       captures
@@ -553,6 +654,13 @@ class PartageChasses {
     let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
     PartageChasses.charger([moi])
       .then((d) => {
+        // mes floods déjà publiés (y compris depuis un autre navigateur)
+        PartageChasses.marquerFloodsPartages(
+          d.floods
+            .filter((f) => f.id && f.lanceur.toLowerCase() == moi.toLowerCase())
+            .map((f) => f.id),
+        );
+        AttaqueLancee.majPartages();
         let sim = PartageChasses.simuler(d, { [moi]: Utils.terrain }),
           recus = PartageChasses.chronologie(sim, moi).filter(
             (v) => v.flood && v.delta <= 0 && v.cible.toLowerCase() == moi.toLowerCase(),

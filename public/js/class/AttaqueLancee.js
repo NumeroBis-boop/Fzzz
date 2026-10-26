@@ -333,17 +333,20 @@ class AttaqueLancee {
       // type="button" obligatoire : sur la page Attaquer ce bloc est dans le
       // formulaire de lancement du jeu, un <button> nu le soumettrait
       html = `<table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">
-        <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Unités envoyées</th><th>Lieu</th><th title="Au plus 20 % du TdC de la cible à l'impact, d'après le TdC connu au lancement et tes attaques précédentes sur elle">TdC pris (estimé)</th><th></th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Unités envoyées</th><th>Lieu</th><th title="Au plus 20 % du TdC de la cible à l'impact, d'après le TdC connu au lancement et tes attaques précédentes sur elle">TdC pris (estimé)</th><th></th></tr></thead>
         <tbody>`;
     attaques.forEach((a, i) => {
       html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
         <td>${Utils.roundMinute(a.ligne.secondes).format("DD/MM HH[h]mm")}</td>
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
-        <td>${AttaqueLancee.lieu(a) || "?"}</td>
+        <td class="o_lieuAttaque">${AttaqueLancee.lieu(a) || "?"}</td>
         <td>${AttaqueLancee.priseEstimee(a)}</td>
-        <td><button type="button" class="o_button o_attaqueCopier" data-i="${i}">Copier le détail</button></td>
-        <td><button type="button" class="o_button f_info o_attaquePartager" data-i="${i}">Partager ce flood avec la ${tag}</button><span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span><span id="${id}Reste${i}" style="display:none;"></span></td></tr>`;
+        <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button>${
+          /terrain/i.test(AttaqueLancee.lieu(a) || "")
+            ? `<button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager ce flood avec la ${tag}">Partager</button>`
+            : ""
+        }<span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span><span id="${id}Reste${i}" style="display:none;"></span></td></tr>`;
     });
     html += `</tbody></table>
       ${annulables.length > 1 ? `<div class="o_attaquesBoutons"><button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button></div>` : ""}`;
@@ -399,6 +402,7 @@ class AttaqueLancee {
       natifs.forEach((n) => n.parentNode && n.parentNode.removeChild(n));
     });
     majToutAnnuler();
+    AttaqueLancee.majPartages();
     $(`#${id} .o_attaqueCopier`).on("click", (e) => {
       let a = attaques[parseInt(e.currentTarget.dataset.i)];
       CommerceFzzz.copier(
@@ -440,6 +444,31 @@ class AttaqueLancee {
         // courante est la réponse du POST de lancement, un reload le rejouerait
         .finally(() => location.replace(location.pathname + location.search));
     });
+  }
+  /**
+   * Floods déjà publiés dans le forum de l'alliance : « Partagé ✓ » à la place
+   * du bouton, et bouton « Partager TOUS » désactivé s'il ne reste rien.
+   *
+   * @static
+   * @method majPartages
+   */
+  static majPartages() {
+    let partages = PartageChasses.floodsPartages(),
+      tag = Utils.echapper(Utils.alliance || "l'alliance");
+    $(".o_attaquePartager").each((i, bouton) => {
+      if (partages[bouton.dataset.id])
+        $(bouton).replaceWith(
+          `<span class="o_attaquePartage" title="Déjà publié dans le forum de la ${tag}">Partagé ✓</span>`,
+        );
+    });
+    let reste = $(".o_attaquePartager").length;
+    $("#o_attaquesLanceesPartagerTout")
+      .prop("disabled", !reste)
+      .text(
+        reste
+          ? `Partager TOUS mes floods avec la ${Utils.alliance || "l'alliance"}`
+          : `Tous mes floods sont partagés avec la ${Utils.alliance || "l'alliance"} ✓`,
+      );
   }
   /**
    * Fzzz : TdC que l'attaque prendra (règle des 20 %, estimée au lancement),

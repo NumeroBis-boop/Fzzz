@@ -23,6 +23,7 @@ const AFFICHAGES_FZZZ = {
   messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
   convoisSelection: "Convois : cases à cocher et copie des convois en cours",
   trajet: "Page d'attaque : temps de trajet",
+  partagerFlood: "Page d'attaque : case « Partager ce flood avec l'alliance »",
   prevenirFlood: "Page d'attaque : case « Prévenir X du flood »",
   syntheseChasses: "Ressources : synthèse des chasses en cours",
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",

@@ -1002,8 +1002,34 @@ hr.o_scSepar {
 /* Récapitulatif des attaques lancées, pages : Armee.php, ennemie.php?Attaquer=... */
 .o_attaquesLancees td,
 .o_attaquesLancees th {
-  padding: 1px 8px;
+  padding: 1px 5px;
   white-space: nowrap;
+}
+/* actions d'une attaque (Copier, Partager / Partagé, Annuler) dans une seule
+   colonne étroite : le tableau tient dans la page à 100 % */
+.o_attaquesLancees td.o_attaqueActions {
+  text-align: left;
+  white-space: normal;
+  min-width: 7em;
+}
+/* titres et lieu sur deux lignes si besoin : le tableau tient dans la page */
+.o_attaquesLancees th,
+.o_attaquesLancees td.o_lieuAttaque {
+  white-space: normal;
+}
+.o_attaquesLancees td.o_attaqueActions > * {
+  margin-bottom: 2px;
+}
+.o_attaquesLancees td.o_attaqueActions .o_button {
+  margin: 0 3px 0 0;
+}
+.o_attaquePartage {
+  display: inline-block;
+  margin-right: 3px;
+  font-size: 0.8em;
+  font-weight: bold;
+  color: #287a36;
+  cursor: help;
 }
 /* Fzzz : blocs compacts, empilés sans grand espace */
 .o_blocAttaques {
@@ -1831,8 +1857,14 @@ tr.en_tete_message > td.td_coche {
   font-size: 0.8em;
 }
 .o_attaqueAnnuler a {
-  margin-left: 6px;
-  font-size: 0.85em;
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid #b00020;
+  border-radius: 4px;
+  color: #b00020 !important;
+  font-size: 0.8em;
+  font-weight: bold;
+  text-decoration: none;
 }
 .o_partagerToutBloc {
   margin: 2px 0 8px 0;

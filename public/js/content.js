@@ -616,6 +616,8 @@ const DATEPICKER_OPTION = {
         try {
           switch (true) {
             case uri == "/Reine.php":
+              // total des ouvrières (convois compris) mémorisé pour l'étable, sans requête
+              Utils.ouvrieresTotales();
               page = new PageReine(boiteComptePlus);
               // Le Compte+ affiche déjà le nombre d'unités. nombreUnites() passe
               // après plus(), qui lit le texte brut des <h2>.

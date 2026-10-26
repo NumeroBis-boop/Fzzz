@@ -339,23 +339,70 @@ class Utils {
   /**
    * Nombre total d'ouvrières, y compris celles parties en convoi, que le
    * compteur de l'en-tête ne compte pas : lu dans la page Reine
-   * (#armee_initial), en une seule requête. À défaut, compteur de l'en-tête.
+   * (#armee_initial).
+   *
+   * Pour limiter les requêtes (le jeu refuse une action pendant qu'une autre
+   * est en cours sur le compte), la valeur est mémorisée 10 min : à chaque
+   * visite de la page Reine (sans requête) et à chaque lecture. Au-delà, une
+   * seule lecture de Reine.php. À défaut, compteur de l'en-tête, avec la raison.
    *
    * @static
    * @method ouvrieresTotales
-   * @return {Promise} {total, reine} reine = vrai si lu dans la page Reine
+   * @return {Promise} {total, reine, age (min), duree (ms), raison}
    */
   static ouvrieresTotales() {
-    let lire = ($page) => {
-      let n = parseInt($page.find("#armee_initial").text().replace(/\D/g, ""));
-      return isNaN(n) ? Promise.reject() : { total: n, reine: true };
-    };
-    let defaut = () => ({ total: Utils.ouvrieres || 0, reine: false });
-    if (/^\/Reine\.php/i.test(location.pathname))
-      return Promise.resolve($(document.body)).then(lire).catch(defaut);
-    return Promise.resolve($.get(location.origin + "/Reine.php"))
-      .then((html) => lire(Utils.parseHtml(html)))
-      .catch(defaut);
+    let cle = "fzzz_ouvrieresReine_" + Utils.serveur,
+      lire = ($page) => {
+        let n = parseInt($page.find("#armee_initial").text().replace(/\D/g, ""));
+        if (isNaN(n)) throw new Error("nombre d'ouvrières absent de la page");
+        localStorage.setItem(cle, JSON.stringify({ total: n, date: Date.now() }));
+        return n;
+      },
+      defaut = (raison) => ({ total: Utils.ouvrieres || 0, reine: false, raison: raison });
+    if (/^\/Reine\.php/i.test(location.pathname)) {
+      try {
+        return Promise.resolve({ total: lire($(document.body)), reine: true, age: 0 });
+      } catch (e) {
+        return Promise.resolve(defaut(e.message));
+      }
+    }
+    let memo = Utils.lireStockage(cle, null),
+      age = memo ? (Date.now() - memo.date) / 60000 : Infinity;
+    if (memo && age >= 0 && age < 10)
+      return Promise.resolve({ total: memo.total, reine: true, age: Math.floor(age) });
+    let debut = Date.now();
+    return Promise.resolve($.get(location.origin + "/Reine.php")).then(
+      (html) => {
+        try {
+          let total = lire(Utils.parseHtml(html)),
+            duree = Date.now() - debut;
+          Utils.dureeReine = duree;
+          return { total: total, reine: true, age: 0, duree: duree };
+        } catch (e) {
+          return defaut(e.message);
+        }
+      },
+      (jqXHR) =>
+        defaut(
+          jqXHR && jqXHR.status == 503
+            ? "le jeu traitait une autre action"
+            : jqXHR && jqXHR.statusText == "timeout"
+              ? "pas de réponse du jeu"
+              : `erreur ${(jqXHR && jqXHR.status) || "réseau"}`,
+        ),
+    );
+  }
+  /**
+   * Durée moyenne (ms) d'une lecture de Reine.php, mesurée (moyenne glissante).
+   *
+   * @static
+   */
+  static get dureeReine() {
+    return parseInt(localStorage.getItem("fzzz_dureeReine")) || 0;
+  }
+  static set dureeReine(ms) {
+    let m = Utils.dureeReine;
+    localStorage.setItem("fzzz_dureeReine", String(Math.round(m ? 0.7 * m + 0.3 * ms : ms)));
   }
   /**
    * Bandeau de rentabilité de l'Étable : la page Reine est lue au chargement,
@@ -389,7 +436,7 @@ class Utils {
    * @param {Object} ouvrieres {total, reine} (voir ouvrieresTotales)
    * @return {String} HTML
    */
-  static htmlRentabiliteEtable({ total, reine }) {
+  static htmlRentabiliteEtable({ total, reine, age = 0, duree = null, raison = "" }) {
     let tdc = Math.min(total, Utils.terrain || 0),
       dispo = total - tdc,
       niveau = monProfil.niveauConstruction[11] || 0,
@@ -397,6 +444,7 @@ class Utils {
       coutComm = (k) => 80 * Math.pow(2, k - 1),
       capacite = (o, n) => o * (10 + 0.5 * n),
       fmt = (n) => numeral(Math.round(n)).format(),
+      secondes = (ms) => (ms / 1000).toFixed(1).replace(".", ","),
       lignes = [],
       o = dispo;
     // niveau de Communication inconnu : on suppose le minimum requis aujourd'hui
@@ -419,8 +467,14 @@ class Utils {
     }
     return `<p><strong>Ouvrières : ${fmt(total)}</strong>${
       reine
-        ? " <span class='small'>(page Reine, convois en cours compris)</span>"
-        : " <span class='small red'>(Reine.php illisible : ouvrières en convoi non comptées)</span>"
+        ? ` <span class='small'>(page Reine, convois en cours compris${
+            age
+              ? `, relevé il y a ${age} min`
+              : duree != null
+                ? `, lue en ${secondes(duree)} s, moyenne ${secondes(Utils.dureeReine)} s`
+                : ""
+          })</span>`
+        : ` <span class='small red'>(Reine.php illisible${raison ? ` : ${Utils.echapper(raison)}` : ""} ; ouvrières en convoi non comptées)</span>`
     } · exploitées sur le TdC : ${fmt(tdc)} ·
         <strong>disponibles pour les convois : ${fmt(dispo)}</strong></p>
       <p class='small'>Capacité de convoi actuelle (étable ${niveau}) : ${fmt(capacite(dispo, niveau))} ressources par convoi.</p>

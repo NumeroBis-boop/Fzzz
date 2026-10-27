@@ -362,7 +362,11 @@ class BoiteComptePlus {
   afficher() {
     let visible = localStorage.getItem("outiiil_boiteActive");
     if (!Utils.comptePlus) {
-      // Ajout du contenue
+      // Ajout du contenue : à la place de l'encadré du jeu, ou (s'il n'y en a
+      // pas) sous l'encadré « S5 pseudo »
+      if (!$("#boiteComptePlus").length && $("#boiteInfo").length)
+        $("<div id='boiteComptePlus'/>").insertAfter("#boiteInfo");
+      let cree = !$("#boiteComptePlus").hasClass("boite_compte_plus");
       $("#boiteComptePlus").replaceWith(
         "<div id='boiteComptePlus' class='boite_compte_plus'><div class='titre_colonne_cliquable'><span class='titre_compte_plus'>Fzzz " +
           VERSION.substring(0, 2) +
@@ -389,6 +393,8 @@ class BoiteComptePlus {
           this._htmlRaccourcisMenuRapide() +
           "</div></div>",
       );
+      // encadré créé par Fzzz : placé sous l'encadré « S5 pseudo »
+      if (cree) Dock.suivre($("#boiteInfo")[0], $("#boiteComptePlus")[0], () => 8);
       // Remplissage des champs
       this.verifierDonnees()
         .majPonte()

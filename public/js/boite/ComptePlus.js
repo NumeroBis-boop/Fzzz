@@ -394,7 +394,7 @@ class BoiteComptePlus {
           "</div></div>",
       );
       // encadré créé par Fzzz : placé sous l'encadré « S5 pseudo »
-      if (cree) Dock.suivre($("#boiteInfo")[0], $("#boiteComptePlus")[0], () => 8);
+      if (cree) Dock.suivre($("#boiteInfo")[0], $("#boiteComptePlus")[0], () => ECART_ENCADRES);
       // Remplissage des champs
       this.verifierDonnees()
         .majPonte()

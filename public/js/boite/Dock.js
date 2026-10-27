@@ -1,3 +1,6 @@
+// écart vertical (px) entre les encadrés « S5 pseudo », Compte+ et Extension OUAF
+const ECART_ENCADRES = 6;
+
 /**
  * Classe pour la gestion des différents outils globals à fourmizzz.
  *
@@ -39,13 +42,15 @@ class Dock {
    */
   afficher() {
     // Fzzz : encadré à part, juste sous l'encadré Compte+ (celui du jeu, ou
-    // celui que Fzzz recrée hors C+), avec le même écart qu'entre l'encadré
-    // « S5 pseudo » et le Compte+. Plus de bandeau fixe sur le bord droit.
+    // celui que Fzzz recrée hors C+). Les trois encadrés (« S5 pseudo »,
+    // Compte+, Extension OUAF) sont resserrés : écart ECART_ENCADRES entre
+    // chacun. Plus de bandeau fixe sur le bord droit.
     let $cplus = $("#boiteComptePlus").length ? $("#boiteComptePlus") : $("#boiteInfo"),
       $boite = $(this._html);
     if ($cplus.length) {
+      if ($cplus.is("#boiteComptePlus")) Dock.rapprocher($("#boiteInfo")[0], $cplus[0]);
       $boite.insertAfter($cplus);
-      Dock.suivre($cplus[0], $boite[0], () => Dock.ecart($("#boiteInfo")[0], $cplus[0]));
+      Dock.suivre($cplus[0], $boite[0], () => ECART_ENCADRES);
     } else $boite.addClass("o_toolbarFlottante").appendTo("body");
     $("#o_toolbarOutiiil .o_toolbarItem").tooltip({
       tooltipClass: "warning-tooltip",
@@ -74,18 +79,28 @@ class Dock {
     });
   }
   /**
-   * Écart vertical entre deux encadrés de la colonne (8 px par défaut).
+   * Remonte visuellement l'encadré Compte+ (translation, sans toucher à la
+   * mise en page du jeu) pour ne laisser que ECART_ENCADRES sous « S5
+   * pseudo ». Refait au chargement complet, si le jeu place ses encadrés
+   * tardivement.
    *
    * @static
-   * @method ecart
-   * @param {HTMLElement} haut
-   * @param {HTMLElement} bas
-   * @return {Number}
+   * @method rapprocher
+   * @param {HTMLElement} haut encadré « S5 pseudo »
+   * @param {HTMLElement} bas encadré Compte+
    */
-  static ecart(haut, bas) {
-    if (!haut || !bas || haut == bas) return 8;
-    let e = Dock.emprise(bas).top - Dock.emprise(haut).bottom;
-    return e >= 0 && e < 80 ? Math.round(e) : 8;
+  static rapprocher(haut, bas) {
+    if (!haut || !bas) return;
+    let ajuster = () => {
+      bas.style.transform = "";
+      let e = Dock.emprise(bas).top - Dock.emprise(haut).bottom;
+      // écart inattendu (encadrés déplacés, colonnes différentes) : on n'y touche pas
+      if (e > ECART_ENCADRES && e < 200)
+        bas.style.transform = `translateY(${ECART_ENCADRES - Math.round(e)}px)`;
+    };
+    ajuster();
+    $(window).on("load resize", ajuster);
+    setTimeout(ajuster, 300);
   }
   /**
    * Emprise visible d'un encadré du jeu : son cadre est dessiné par ses

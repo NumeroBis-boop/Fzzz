@@ -1811,10 +1811,6 @@ tr.en_tete_message > td.td_coche {
 #o_chassesPartagees .o_partageSynthese .o_partageTitre {
   margin: 0 0 4px 0;
 }
-#o_chassesPartagees .o_partageAvertissement {
-  font-size: 0.85em;
-  margin: 4px 0 0 0;
-}
 .o_attaquesLancees .o_button {
   margin: 0;
   padding: 1px 6px;
@@ -1994,8 +1990,7 @@ tr.en_tete_message > td.td_coche {
     padding: 4px 6px;
   }
   .o_spoilerCadre,
-  .o_spoilerBandeau,
-  .o_partageAvertissement {
+  .o_spoilerBandeau {
     white-space: normal;
     overflow-wrap: anywhere;
   }

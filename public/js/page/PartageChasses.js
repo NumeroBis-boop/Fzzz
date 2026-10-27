@@ -744,8 +744,7 @@ class PartageChasses {
             "<div class='o_partageSeparation'></div>" +
             `<div class='o_partageSynthese'>` +
             `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
-              <table class='centre' cellspacing='0'>${lignes.join("")}</table>
-              <p class='o_partageAvertissement'><em>Prise de chaque flood estimée à l'impact : au plus 20 % du TdC de la cible à ce moment, rien si la cible n'est plus à portée du lanceur. En cas d'opti-flood raté, les niveaux de TdC sont mal estimés.</em></p>` +
+              <table class='centre' cellspacing='0'>${lignes.join("")}</table>` +
             "</div>";
         }
         let unitesFloods = floods.reduce((t, v) => t + (v.unites || 0), 0),

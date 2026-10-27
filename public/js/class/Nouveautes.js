@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.51.0",
+    notes: [
+      "Attaque lancée sans l'extension : TdC de la cible lu sur sa page, prise estimée et partage possibles.",
+      "Convois : un nouveau convoi n'est plus marqué « Enregistré » à cause d'un envoi précédent du même montant.",
+      "Notifications lisibles sur téléphone.",
+    ],
+  },
+  {
     version: "1.50.1",
     notes: [
       "Partage des floods : marche aussi pour une attaque lancée depuis un autre appareil ou le formulaire du jeu.",
@@ -92,7 +100,7 @@ class Nouveautes {
    * @param {String} actuelle
    * @param {Number} max nombre d'entrées au plus
    */
-  static depuis(vue, actuelle, max = 4) {
+  static depuis(vue, actuelle, max = 3) {
     return NOUVEAUTES.filter(
       (n) =>
         Nouveautes.comparer(n.version, actuelle) <= 0 &&

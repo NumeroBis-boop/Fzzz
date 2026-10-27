@@ -343,7 +343,7 @@ class AttaqueLancee {
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
         <td class="o_lieuAttaque" title="${AttaqueLancee.lieu(a) || "Lieu inconnu"}">${AttaqueLancee.lieuCourt(a)}</td>
-        <td>${AttaqueLancee.priseEstimee(a)}</td>
+        <td class="o_priseAttaque" data-i="${i}">${AttaqueLancee.priseEstimee(a)}</td>
         <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button>${
           /terrain/i.test(AttaqueLancee.lieu(a) || "")
             ? `<button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager ce flood avec la ${tag}">Partager</button>`
@@ -387,7 +387,10 @@ class AttaqueLancee {
     };
     attaques.forEach((a, i) => {
       let natifs = AttaqueLancee.noeudsLigne(a.ligne.elt),
-        restant = a.capture ? a.capture.lancee + DELAI_ANNULATION * 1000 - Date.now() : null;
+        restant =
+          a.capture && !a.capture.reconstituee
+            ? a.capture.lancee + DELAI_ANNULATION * 1000 - Date.now()
+            : null;
       a.cellule = `#${id}Annuler${i}`;
       $(a.ligne.elt).appendTo(`#${id}Reste${i}`);
       if (a.annuler.length) {
@@ -405,6 +408,13 @@ class AttaqueLancee {
     });
     majToutAnnuler();
     AttaqueLancee.majPartages();
+    AttaqueLancee.reconstituer(attaques).then((faites) =>
+      faites.forEach((a) => {
+        let i = attaques.indexOf(a);
+        $(`#${id} .o_priseAttaque[data-i='${i}']`).html(AttaqueLancee.priseEstimee(a));
+        $(`#${id} .o_troupesCourtes`).eq(i).attr("title", AttaqueLancee.troupes(a));
+      }),
+    );
     // page d'attaque, ou page Armée sans l'encart des floods reçus (qui lit
     // déjà le forum) : recalage sur le forum peu après le chargement
     if (!/^\/Armee\.php/i.test(location.pathname) || !Utils.affichage("floodsRecus"))
@@ -616,6 +626,88 @@ class AttaqueLancee {
     $("#o_attaquesLanceesRetirerTout").toggle(retirables > 0);
   }
 
+  /**
+   * Composition {nom d'unité: nombre} d'après le texte du jeu
+   * (« 30 000 Jeunes Soldates Naines, 2 000 Soldates »).
+   *
+   * @static
+   * @method uniteNatif
+   */
+  static uniteNatif(texte) {
+    let unite = {};
+    String(texte || "")
+      .split(/,|\bet\b/)
+      .forEach((morceau) => {
+        let m = morceau.trim().match(/^(\d[\d\s\u00a0\u202f]*)\s+(.+)$/),
+          i = m ? Utils.uniteDepuisLibelle(m[2]) : -1;
+        if (i > 0)
+          unite[NOM_UNITE[i]] = (unite[NOM_UNITE[i]] || 0) + parseInt(m[1].replace(/\D/g, ""));
+      });
+    return unite;
+  }
+  /**
+   * Attaques au terrain de chasse affichées sans capture (lancées sur un autre
+   * appareil, ou capture perdue) : capture reconstituée avec les données du
+   * jeu (arrivée, lieu, troupes) et le TdC de la cible lu sur sa page joueur,
+   * une lecture par cible. Le départ est déduit du trajet : pour une même
+   * cible, l'ordre des arrivées est celui des lancements.
+   *
+   * @static
+   * @method reconstituer
+   * @return {Promise<Array>} attaques complétées
+   */
+  static reconstituer(attaques) {
+    let manquantes = attaques.filter(
+      (a) =>
+        !a.capture &&
+        a.ligne.cible &&
+        /terrain/i.test(a.ligne.lieuNatif || "") &&
+        Object.keys(AttaqueLancee.uniteNatif(a.ligne.troupesNatif)).length,
+    );
+    if (!manquantes.length) return Promise.resolve([]);
+    let profils = [...new Set(manquantes.map((a) => a.ligne.cible))].map((pseudo) => {
+      let j = new Joueur({ pseudo });
+      return Promise.resolve(j.getProfil())
+        .then((html) => (j.chargerProfil(html) ? j : null))
+        .catch(() => null);
+    });
+    return Promise.all(profils).then((joueurs) => {
+      let liste = AttaqueLancee.charger();
+      manquantes
+        .sort((a, b) => a.ligne.arrivee - b.ligne.arrivee)
+        .forEach((a) => {
+          let l = a.ligne,
+            j = joueurs.find((x) => x && x.pseudo == l.cible),
+            capture = {
+              id: l.id,
+              cible: l.cible,
+              lieu: l.lieuNatif,
+              unite: AttaqueLancee.uniteNatif(l.troupesNatif),
+              lancee: l.arrivee.valueOf() - (j ? monProfil.getTempsParcours2(j) * 1000 : 0),
+              arrivee: l.arrivee.valueOf(),
+              terrainDepart: null,
+              terrainCible: null,
+              terrainConnu: j && j.terrain > 0 ? j.terrain : null,
+              reconstituee: true,
+            },
+            precedente = liste
+              .filter(
+                (x) => x.cible == l.cible && x.terrainCible != null && x.arrivee < capture.arrivee,
+              )
+              .sort((x, y) => x.arrivee - y.arrivee)
+              .pop();
+          AttaqueLancee.estimerTerrain(
+            capture,
+            precedente ? precedente.terrainCible : capture.terrainConnu,
+          );
+          liste.push(capture);
+          AttaqueLancee.noterDehors(capture);
+          a.capture = capture;
+        });
+      AttaqueLancee.sauvegarder(liste);
+      return manquantes;
+    });
+  }
   /**
    * Attaque à partager : la capture, ou à défaut les données du jeu (date
    * d'arrivée, cible, lieu et troupes affichés en C+) pour une attaque lancée

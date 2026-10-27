@@ -155,12 +155,7 @@ class CommerceFzzz {
       deux = (n) => String(n).padStart(2, "0"),
       hms = (s) =>
         `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
-      trajet = (p) => {
-        let m = connus[p];
-        return m && m.x != null && m.y != null && (m.x || m.y)
-          ? monProfil.getTempsParcours2(m)
-          : null;
-      },
+      trajet = (p) => (connus[p] ? OuafSuivi.trajet(p) : null),
       lien = (p) => {
         let m = connus[p];
         return `<a href='${m && m.id ? "commerce.php?ID=" + m.id : "Membre.php?Pseudo=" + encodeURIComponent(p)}' title='${m && m.id ? "Convoyer " + Utils.echapper(p) : "Page de " + Utils.echapper(p)}'>${Utils.echapper(p)}</a>`;

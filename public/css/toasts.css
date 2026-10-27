@@ -141,4 +141,9 @@
     right: 8px !important;
     width: auto !important;
   }
+  /* une longue notification (nouveautés) défile au lieu de sortir de l'écran */
+  .jq-toast-single {
+    max-height: 45vh;
+    overflow-y: auto;
+  }
 }

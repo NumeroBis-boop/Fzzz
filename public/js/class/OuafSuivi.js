@@ -14,6 +14,8 @@ const CLE_OUAF_TRANSMIS = "fzzz_ouafTransmis";
 const OUAF_DUREE_VIE = 10 * 86400000;
 // trajet maximal d'un convoi (vitesse 0) : fenêtre de recherche dans l'historique
 const OUAF_TRAJET_MAX = 637200 * 1000;
+// départ d'un convoi estimé d'après le trajet calculé : marge (horloges, arrondis)
+const OUAF_MARGE_DEPART = 5 * 60000;
 // connexion au site, partagée par les lectures d'une même page (cookie de session)
 /** @type {Promise<Object>|null} */
 let connexionOuaf = null;
@@ -122,7 +124,7 @@ class OuafSuivi {
    *
    * @static
    * @method convoisJeu
-   * @return {Array} [{elt, cle, vers, montant, arrivee (ms)}]
+   * @return {Array} [{elt, cle, vers, montant, arrivee (ms), depart (ms, null si trajet inconnu)}]
    */
   static convoisJeu() {
     return CommerceFzzz.lignes()
@@ -137,14 +139,34 @@ class OuafSuivi {
           vers = $(elt).find("a[href*='Pseudo=']").first().text().trim() || m[3].trim(),
           montant = nombre(m[1]) + nombre(m[2]),
           arrivee = Horloge.serveur().valueOf() + Utils.timeToInt(m[4]) * 1000,
+          trajet = OuafSuivi.trajet(vers),
           annuler = OuafSuivi._lienAnnuler(elt),
           // numéro d'annulation du jeu, sinon destinataire, montant et minute d'arrivée
           cle = annuler
             ? "id" + annuler
             : `${vers.toLowerCase()}|${montant}|${Math.round(arrivee / 60000)}`;
-        return { elt, cle, vers, montant, arrivee };
+        return {
+          elt,
+          cle,
+          vers,
+          montant,
+          arrivee,
+          depart: trajet == null ? null : arrivee - trajet * 1000,
+        };
       })
       .filter(Boolean);
+  }
+  /**
+   * Temps de trajet (s) d'un convoi vers un membre, d'après ses coordonnées
+   * (cache de Alliance → Membres → Temps de trajet) ; null si inconnues.
+   *
+   * @static
+   * @method trajet
+   */
+  static trajet(pseudo) {
+    let cache = Utils.lireStockage(`outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`, {}),
+      m = (cache.members || []).find((x) => x.pseudo == pseudo);
+    return m && m.x != null && m.y != null && (m.x || m.y) ? monProfil.getTempsParcours2(m) : null;
   }
   /**
    * @private
@@ -203,8 +225,9 @@ class OuafSuivi {
   }
   /**
    * Convois déjà transmis : marqués dans ce navigateur, ou retrouvés dans
-   * l'historique (même destinataire, même montant, noté après le départ
-   * possible du convoi ; chaque envoi de l'historique ne sert qu'une fois).
+   * l'historique (même destinataire, même montant, noté après le départ du
+   * convoi, ou son départ le plus tôt possible si le trajet est inconnu ;
+   * chaque envoi de l'historique ne sert qu'une fois).
    *
    * @static
    * @method apparier
@@ -223,7 +246,10 @@ class OuafSuivi {
           (g) =>
             g.vers == c.vers.toLowerCase() &&
             Math.abs(g.net - c.montant) <= 1 &&
-            g.quand >= c.arrivee - OUAF_TRAJET_MAX,
+            // un envoi noté avant le départ de ce convoi en est un autre (même
+            // montant vers le même joueur, convoi précédent déjà arrivé)
+            g.quand >=
+              (c.depart != null ? c.depart - OUAF_MARGE_DEPART : c.arrivee - OUAF_TRAJET_MAX),
         );
         if (i != -1) {
           libres.splice(i, 1);

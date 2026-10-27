@@ -112,6 +112,23 @@ describe("OuafSuivi.apparier", () => {
     expect(t).toEqual([]);
   });
 
+  test("même montant vers le même joueur, noté avant le départ de ce convoi : non apparié", () => {
+    page.lire(`localStorage.clear()`);
+    // l'historique contient 280 000 vers Alpha noté le 26 à 10h ; ce convoi est parti après
+    const arrivee = Date.parse("2026-10-27T12:00:00Z");
+    expect(
+      apparier([
+        {
+          cle: "id5",
+          vers: "Alpha",
+          montant: 280000,
+          arrivee,
+          depart: Date.parse("2026-10-27T08:00:00Z"),
+        },
+      ]),
+    ).toEqual([]);
+  });
+
   test("marquage local", () => {
     page.lire(`OuafSuivi.marquerTransmis("id7")`);
     expect(apparier([{ cle: "id7", vers: "Zeta", montant: 5, arrivee: maintenant }], [])).toEqual([

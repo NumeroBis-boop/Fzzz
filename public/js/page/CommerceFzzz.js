@@ -212,7 +212,7 @@ class CommerceFzzz {
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
           <table class='o_convoisMembres o_maxWidth' cellspacing='0'>
-            <thead><tr><th class='o_cmJoueur' data-tri='joueur' title='Joueur à livrer'>Joueur</th><th class='o_cmNum' data-tri='trajet' title='Temps de trajet'>Trajet</th><th class='o_cmNum' data-tri='trajet' title='Horaire de retour d&#39;un convoi lancé maintenant'>Retour</th><th class='o_cmNum' data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Reste</th><th></th></tr></thead>
+            <thead><tr><th class='o_cmJoueur' data-tri='joueur' title='Joueur à livrer'>Joueur<span class='o_triIcone'></span></th><th class='o_cmNum' data-tri='trajet' title='Temps de trajet'>Trajet<span class='o_triIcone'></span></th><th class='o_cmNum' data-tri='trajet' title='Horaire de retour d&#39;un convoi lancé maintenant'>Retour<span class='o_triIcone'></span></th><th class='o_cmNum' data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Reste<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
             <tfoot><tr><td colspan='5' class='o_convoisMembresAjout'>+ Suivre <span class='o_convoisMembreChoixZone'></span></td></tr></tfoot>
           </table>
@@ -254,7 +254,18 @@ class CommerceFzzz {
           // Trajet et Retour trient pareil : la flèche reste sur l'en-tête cliqué
           let actif =
             th.dataset.tri == tri.col && (tri.col != "trajet" || (i == 2) == !!tri.retour);
-          $(th).attr("data-sens", actif ? (tri.sens > 0 ? "▲" : "▼") : "");
+          $(th)
+            .find(".o_triIcone")
+            .text(actif ? (tri.sens > 0 ? "▲" : "▼") : "⇅")
+            .toggleClass("o_triActif", actif)
+            .attr(
+              "title",
+              actif
+                ? tri.sens > 0
+                  ? "Trié croissant : clic pour décroissant"
+                  : "Trié décroissant : clic pour l'ordre d'origine"
+                : "Trier par ordre croissant",
+            );
         });
       };
     try {
@@ -266,13 +277,13 @@ class CommerceFzzz {
     if ($titre.length) $bloc.insertAfter($section.last());
     else $("#centre").append($bloc);
     afficher();
-    // tri au clic sur un en-tête : croissant, puis décroissant ; mémorisé
+    // tri au clic sur l'en-tête : croissant, décroissant, puis ordre d'origine ; mémorisé
     $bloc.on("click", "th[data-tri]", (e) => {
       let col = e.currentTarget.dataset.tri,
-        retourCol = $(e.currentTarget).index() == 2;
-      tri.sens = tri.col == col && !!tri.retour == retourCol ? -tri.sens : 1;
-      tri.col = col;
-      tri.retour = retourCol;
+        retourCol = $(e.currentTarget).index() == 2,
+        meme = tri.col == col && !!tri.retour == retourCol;
+      if (meme && tri.sens < 0) Object.assign(tri, { col: null, sens: 1, retour: false });
+      else Object.assign(tri, { col, sens: meme ? -1 : 1, retour: retourCol });
       try {
         localStorage.setItem(CLE_CONVOIS_MEMBRES + "_tri", JSON.stringify(tri));
       } catch (err) {}

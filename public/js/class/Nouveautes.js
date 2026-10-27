@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.3",
+    notes: [
+      "Convois à faire : icône de tri ⇅ sur chaque en-tête ; 1er clic croissant, 2e décroissant, 3e ordre d'origine.",
+    ],
+  },
+  {
     version: "1.52.2",
     notes: [
       "Convois à faire : sélecteur de membre sous le tableau (« + Suivre »), qui ne se réinitialise plus pendant le choix ; noms à gauche, chiffres alignés à droite.",

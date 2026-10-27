@@ -2293,10 +2293,16 @@ tr.en_tete_message > td.td_coche {
   cursor: pointer;
   user-select: none;
 }
-.o_convoisMembres th[data-tri]::after {
-  content: attr(data-sens);
-  font-size: 0.8em;
-  margin-left: 2px;
+.o_triIcone {
+  display: inline-block;
+  min-width: 1.1em;
+  margin-left: 3px;
+  text-align: center;
+  font-size: 0.9em;
+  opacity: 0.45;
+}
+.o_triIcone.o_triActif {
+  opacity: 1;
 }
 .o_convoisMembres tr.o_cmNouveau td {
   background-color: rgba(255, 220, 0, 0.35);

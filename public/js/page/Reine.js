@@ -217,25 +217,13 @@ class PageReine {
       sync(1);
     });
     // Sauvegarde de la ponte en cours
-    let listePonte = new Array();
-    for (let i = 1, l = $(".tableau_leger:eq(0) tr").length; i < l; i++) {
-      let unite = $(".tableau_leger:eq(0) tr:eq(" + i + ") td:eq(0)")
-          .text()
-          .replace(/[0-9]+/g, "")
-          .trim(),
-        nombre = parseInt(
-          $(".tableau_leger:eq(0) tr:eq(" + i + ") td:eq(0)")
-            .text()
-            .replace(/\D+/g, ""),
-        ),
-        temps = Utils.timeToInt($(".tableau_leger:eq(0) tr:eq(" + i + ") td:eq(3)").text());
-      listePonte.push({
-        unite: unite.substr(0, 1).toUpperCase() + unite.substr(1),
-        nombre: nombre,
-        exp: moment().add(temps, "s"),
-      });
-    }
-    // Verification si les données sont deja enregistré
+    let pontes = Utils.pontesReine($(document));
+    if (pontes.length) Utils.noterFinPonte(pontes);
+    let listePonte = pontes.map((p) => ({
+      unite: p.unite.substr(0, 1).toUpperCase() + p.unite.substr(1),
+      nombre: p.nombre,
+      exp: moment().add(p.secondes, "s"),
+    }));
     if (listePonte.length) this.savePonte(listePonte);
     return this;
   }

@@ -30,6 +30,7 @@ const AFFICHAGES_FZZZ = {
   messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
   trajet: "Page d'attaque : temps de trajet",
   syntheseChasses: "Ressources : synthèse des chasses en cours",
+  lanceurChasse: "Ressources : lanceur de chasses",
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
   floodsRecus: "Armée : floods en cours sur moi",
   profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
@@ -61,6 +62,10 @@ const AFFICHAGES_CONVOIS = {
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400];
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
+// fin de la file de ponte lue sur la page Reine : {fin, lu} (ms)
+const CLE_FIN_PONTE = "fzzz_finPonteReine";
+// une fin de file lue il y a moins de 10 min est crue sans relire la page Reine
+const VALIDITE_FIN_PONTE = 10 * 60000;
 
 class Utils {
   /**
@@ -866,7 +871,8 @@ class Utils {
   /**
    * Fenêtre d'alerte : la reine ne pond plus, ou sa file se termine bientôt
    * (seuil réglable dans Paramètres → Général). Rien sur la page Reine, ni
-   * si le joueur a demandé un rappel plus tard. Aucune requête au jeu.
+   * si le joueur a demandé un rappel plus tard. Une seule lecture de la page
+   * Reine, au chargement d'une page, quand l'alerte serait affichée.
    *
    * @static
    * @method alertePonte
@@ -881,40 +887,116 @@ class Utils {
       muette = parseInt(localStorage.getItem(CLE_ALERTE_PONTE_MUETTE)) || 0;
     } catch (e) {}
     if (Date.now() < muette || $("#o_alertePonte").length) return;
+    // La file mémorisée vient de la dernière page Reine vue sur cet appareil :
+    // des pontes lancées ailleurs (autre appareil) n'y sont pas. Avant
+    // d'alerter, la page Reine est relue une fois.
+    let connue = Utils.finPonteConnue();
+    if (connue && Date.now() - connue.lu < VALIDITE_FIN_PONTE) {
+      let r = Math.round((connue.fin - Date.now()) / 1000);
+      if (r <= seuil) Utils.fenetreAlertePonte(Math.max(0, r));
+      return;
+    }
+    Promise.resolve($.get(location.origin + "/Reine.php"))
+      .then((html) => {
+        let pontes = Utils.pontesReine(Utils.parseHtml(html));
+        // page illisible : pas d'alerte plutôt qu'une fausse alerte
+        if (!pontes.length && reste > 0) return;
+        let r = Utils.noterFinPonte(pontes);
+        if (r <= seuil && !$("#o_alertePonte").length) Utils.fenetreAlertePonte(r);
+      })
+      .catch(() => {});
+  }
+  /**
+   * Pontes de la file d'une page Reine. Les secondes restantes de chacune sont
+   * lues dans l'appel reste(secondes, …) que le jeu place juste après sa ligne
+   * (même source que la colonne « Terminé le »).
+   *
+   * @static
+   * @method pontesReine
+   * @param {Object} $racine page Reine (jQuery)
+   * @return {Array} [{unite, nombre, secondes}]
+   */
+  static pontesReine($racine) {
+    let pontes = [];
+    $racine
+      .find(".tableau_leger")
+      .first()
+      .find("tr:gt(0)")
+      .each((i, tr) => {
+        let apres = "";
+        for (let n = tr.nextSibling; n && n.nodeName != "TR"; n = n.nextSibling)
+          apres += n.textContent;
+        let m = (apres || $(tr).next().text()).match(/\(\s*(\d+)\s*,/);
+        if (!m) return;
+        let texte = $(tr).find("td:eq(0)").text();
+        pontes.push({
+          unite: texte.replace(/[0-9]+/g, "").trim(),
+          nombre: parseInt(texte.replace(/\D+/g, "")) || 0,
+          secondes: parseInt(m[1]),
+        });
+      });
+    return pontes;
+  }
+  /**
+   * Mémorise la fin de file lue sur la page Reine ; renvoie les secondes restantes.
+   *
+   * @static
+   * @method noterFinPonte
+   */
+  static noterFinPonte(pontes) {
+    let reste = Math.max(0, ...pontes.map((p) => p.secondes));
+    try {
+      localStorage.setItem(
+        CLE_FIN_PONTE,
+        JSON.stringify({ fin: Date.now() + reste * 1000, lu: Date.now() }),
+      );
+    } catch (e) {}
+    return reste;
+  }
+  /**
+   * @static
+   * @method finPonteConnue
+   * @return {Object|null} {fin, lu} en ms
+   */
+  static finPonteConnue() {
+    try {
+      let v = JSON.parse(localStorage.getItem(CLE_FIN_PONTE));
+      return v && v.fin && v.lu ? v : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  /**
+   * Encadré d'alerte de ponte. Pas de fenêtre jQuery UI : sur Firefox
+   * Android, après la croix, ses boutons ne répondaient plus.
+   *
+   * @static
+   * @method fenetreAlertePonte
+   * @param {Number} reste secondes de ponte restantes
+   */
+  static fenetreAlertePonte(reste) {
     let message =
         reste <= 0
           ? "<p><strong>La reine ne pond plus.</strong></p><p>Aucune ponte n'est en cours : relance-la depuis la page Reine.</p>"
           : `<p><strong>La ponte se termine dans ${Utils.intToTime(reste)}</strong> (vers ${Horloge.serveur().add(reste, "s").format("HH[h]mm")}).</p><p>Pense à relancer la ponte depuis la page Reine.</p>`,
+      $fenetre = $(`<div id="o_alertePonte" role="alertdialog" aria-labelledby="o_alertePonteTitre">
+        <div class="o_alertePonteTitre"><span id="o_alertePonteTitre">${reste <= 0 ? "Ponte arrêtée" : "Ponte bientôt terminée"}</span>
+          <button type="button" class="o_alertePonteFermer" title="Fermer (rappel dans 30 min)" aria-label="Fermer">×</button></div>
+        <div class="o_alertePonteCorps">${message}</div>
+        <div class="o_alertePonteBoutons">
+          <a href="/Reine.php" class="o_button f_success">Aller à la Reine</a>
+          <button type="button" class="o_button o_alertePontePlusTard">Me le rappeler dans 30 min</button>
+        </div>
+      </div>`),
       plusTard = () => {
         try {
           localStorage.setItem(CLE_ALERTE_PONTE_MUETTE, String(Date.now() + 30 * 60000));
         } catch (e) {}
+        $fenetre.remove();
       };
-    $(`<div id="o_alertePonte">${message}</div>`).dialog({
-      title: reste <= 0 ? "Ponte arrêtée" : "Ponte bientôt terminée",
-      modal: true,
-      width: Math.min(420, window.innerWidth - 32),
-      classes: { "ui-dialog": "o_alertePonteFenetre" },
-      buttons: [
-        {
-          text: "Aller à la Reine",
-          class: "o_button f_success",
-          click: () => (location.href = "/Reine.php"),
-        },
-        {
-          text: "Me le rappeler dans 30 min",
-          class: "o_button",
-          click: () => {
-            plusTard();
-            $("#o_alertePonte").dialog("close");
-          },
-        },
-      ],
-      // fermeture par la croix ou Échap : même chose que « plus tard »
-      close: () => {
-        plusTard();
-        $("#o_alertePonte").dialog("destroy").remove();
-      },
+    $fenetre.on("click", ".o_alertePonteFermer, .o_alertePontePlusTard", plusTard).appendTo("body");
+    $(document).on("keydown.o_alertePonte", (e) => {
+      if (e.key == "Escape" && $.contains(document, $fenetre[0])) plusTard();
     });
   }
   /**

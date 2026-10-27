@@ -42,18 +42,17 @@ class PageRessource {
    *
    */
   executer() {
-    this._armee.getArmee().then((data) => {
-      // la page va se recharger (affectation des ouvrières) : un lancement de
-      // chasses commencé maintenant serait coupé en route
-      if (this._rechargement) return;
-      this._armee.chargeData(data);
-      // gardée pour le simulateur de Calystène (évite de relire Armee.php)
-      this._htmlArmee = data;
-      // Ajout du lanceur de chasse
-      this.lanceur();
-      // Fzzz : second lanceur (budget de pertes) et sélecteur entre les deux
-      this.selecteurLanceur();
-    });
+    if (Utils.affichage("lanceurChasse"))
+      this._armee.getArmee().then((data) => {
+        // la page va se recharger (affectation des ouvrières) : un lancement de
+        // chasses commencé maintenant serait coupé en route
+        if (this._rechargement) return;
+        this._armee.chargeData(data);
+        // gardée pour le simulateur de Calystène (évite de relire Armee.php)
+        this._htmlArmee = data;
+        this.lanceur();
+        this.selecteurLanceur();
+      });
     // Lie les chasses lancées aux lignes du jeu (compte des troupes dehors)
     TroupesDehors.synchroniserChasses();
     // Sauvegarde les chasses en cours et ajoute les boutons max recolte

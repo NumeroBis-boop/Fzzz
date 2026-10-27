@@ -63,6 +63,8 @@ const AFFICHAGES_CONVOIS = {
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800];
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
+// écart (px) entre le menu principal du jeu et le bandeau d'alerte de ponte
+const ECART_SOUS_MENU = 6;
 
 class Utils {
   /**
@@ -957,6 +959,33 @@ class Utils {
     if ($("#menu").length) $bandeau.insertAfter("#menu");
     else if ($("#centre").length) $bandeau.prependTo("#centre");
     else $bandeau.prependTo("body");
+    let caler = () => Utils.calerSousMenu($bandeau[0]);
+    caler();
+    // la page peut encore bouger (images, polices, largeur de fenêtre)
+    $(window).off(".o_alertePonte").on("load.o_alertePonte resize.o_alertePonte", caler);
+    if (document.fonts) document.fonts.ready.then(caler);
+  }
+  /**
+   * Place `elt` à ECART_SOUS_MENU px sous le menu principal du jeu, quelle que
+   * soit la page : selon la page, le menu est suivi de contenus différents, ou
+   * sort du flux et recouvrirait le bandeau. La marge haute compense l'écart
+   * mesuré (elle peut décaler le contenu de la page vers le bas).
+   *
+   * @static
+   * @method calerSousMenu
+   * @param {HTMLElement} elt
+   */
+  static calerSousMenu(elt) {
+    let menu = document.getElementById("menu_horizontal") || document.getElementById("menu");
+    if (!menu || !elt || !elt.isConnected) return;
+    // un menu fixé à l'écran se mesure sans le défilement de la page
+    let fixe = [menu, document.getElementById("menu")].some(
+        (m) => m && getComputedStyle(m).position == "fixed",
+      ),
+      basMenu = menu.getBoundingClientRect().bottom + (fixe ? 0 : window.scrollY);
+    elt.style.marginTop = "0px";
+    let haut = elt.getBoundingClientRect().top + window.scrollY;
+    elt.style.marginTop = Math.round(basMenu + ECART_SOUS_MENU - haut) + "px";
   }
   /**
    * Largeur minimale d'un bouton : celle de son plus long libellé possible,

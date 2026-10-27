@@ -2302,17 +2302,17 @@ tr.en_tete_message > td.td_coche {
   font-variant-numeric: tabular-nums;
 }
 
-/* Fzzz : bandeau d'alerte de ponte, accolé au menu du jeu (Utils.bandeauPonte) :
+/* Fzzz : bandeau d'alerte de ponte, sous le menu du jeu (Utils.calerSousMenu) :
    fin, mais d'une couleur vive pour attirer l'œil */
 #o_alertePonte {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0;
+  margin: 0 0 6px;
   padding: 1px 4px 1px 8px;
   background: #ffe066;
   border: 2px solid #d32f2f;
-  border-radius: 0 0 4px 4px;
+  border-radius: 4px;
   color: #8b0000;
   text-align: left;
   font-size: 0.9em;

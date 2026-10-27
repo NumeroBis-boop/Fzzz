@@ -192,7 +192,9 @@ class CommerceFzzz {
           <td>${reste(p)}</td>
           <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
       },
-      $bloc = $(`<div id='o_convoisMembres' class='o_blocAttaques'>
+      // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
+      $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
+          <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
           <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
             <thead><tr><th>Joueur à livrer</th><th>Temps de trajet</th><th>Horaire de retour</th><th>Convoi restant à livrer</th><th></th></tr></thead>
             <tbody></tbody>

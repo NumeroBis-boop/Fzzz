@@ -82,7 +82,11 @@ class OuafSuivi {
         e.name = "permission";
         throw e;
       }
-      if (r.erreur) throw new Error("site injoignable");
+      if (r.erreur) {
+        let e = new Error("site injoignable");
+        e.name = "reseau";
+        throw e;
+      }
       if (!r.ok) throw new Error((r.donnees && r.donnees.detail) || `erreur ${r.statut}`);
       return r.donnees || {};
     });

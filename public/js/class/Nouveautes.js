@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.51.3",
+    notes: [
+      "Convois : plus d'erreur à l'ouverture de la page si le site de suivi est injoignable ; l'explication s'affiche à l'envoi.",
+    ],
+  },
+  {
     version: "1.51.2",
     notes: [
       "Notification de mise à jour : affichée une seule fois, tient dans l'écran du téléphone, croix plus grande.",

@@ -88,6 +88,11 @@ class CommerceFzzz {
             .off("click.ouafAcces")
             .on("click.ouafAcces", "#o_ouafAcces", () => OuafSuivi.demanderAcces());
         } else if (e.name == "code") CommerceFzzz.ouvrirParametresOuaf();
+        else if (e.name == "reseau")
+          toast(
+            `Le site de suivi n'a pas pu être joint. Il n'est pas en https : le mode « HTTPS uniquement » de Firefox le bloque souvent. Ouvre une fois <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a>, choisis « Continuer vers le site HTTP », puis réessaie.`,
+            TOAST_ERROR,
+          );
         else
           toast(
             "Le site de suivi n'a pas pu être joint : " + Utils.echapper(e.message),
@@ -120,7 +125,8 @@ class CommerceFzzz {
           convois.forEach((c) => etatLigne(c, transmis.has(c.cle) ? "transmis" : "non")),
         (e) => {
           convois.forEach((c) => etatLigne(c, "non", "état du site inconnu"));
-          if (e.name != "permission") echec(e);
+          // site injoignable à l'ouverture de la page : expliqué au clic sur un envoi
+          if (e.name != "permission" && e.name != "reseau") echec(e);
         },
       );
     });
@@ -255,7 +261,9 @@ class CommerceFzzz {
             erreur:
               e.name == "permission"
                 ? "Accès à ouafchaine.fr non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
-                : "Site de suivi injoignable : " + e.message,
+                : e.name == "reseau"
+                  ? "Site de suivi injoignable (non https : Firefox peut le bloquer, ouvre-le une fois et accepte le http)"
+                  : "Site de suivi : " + e.message,
           });
           afficher();
         },

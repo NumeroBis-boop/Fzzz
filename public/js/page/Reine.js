@@ -217,9 +217,7 @@ class PageReine {
       sync(1);
     });
     // Sauvegarde de la ponte en cours
-    let pontes = Utils.pontesReine($(document));
-    if (Utils.estPageReine($(document))) Utils.noterFinPonte(pontes);
-    let listePonte = pontes.map((p) => ({
+    let listePonte = Utils.pontesReine($(document)).map((p) => ({
       unite: p.unite.substr(0, 1).toUpperCase() + p.unite.substr(1),
       nombre: p.nombre,
       exp: moment().add(p.secondes, "s"),

@@ -63,10 +63,6 @@ const AFFICHAGES_CONVOIS = {
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800];
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
-// fin de la file de ponte lue sur la page Reine : {fin, lu} (ms)
-const CLE_FIN_PONTE = "fzzz_finPonteReine";
-// une fin de file lue il y a moins de 10 min est crue sans relire la page Reine
-const VALIDITE_FIN_PONTE = 10 * 60000;
 
 class Utils {
   /**
@@ -847,39 +843,38 @@ class Utils {
   }
   /**
    * Bandeau d'alerte sous le menu du jeu : la reine ne pond plus, ou sa file
-   * se termine sous le seuil (Paramètres → Général). La file vient de la page
-   * Reine, relue au chargement d'une page au plus toutes les 10 min (ouvrir la
-   * page Reine la met aussi à jour). Rien sur la page Reine, ni pendant les
-   * 30 min qui suivent la fermeture du bandeau.
+   * se termine sous le seuil (Paramètres → Général). La file est lue sur la
+   * page Reine à chaque chargement de page. Rien sur la page Reine, ni pendant
+   * les 30 min qui suivent la fermeture du bandeau.
    *
    * @static
    * @method alertePonte
    */
   static alertePonte() {
-    let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0;
-    if (!seuil || /^\/Reine\.php/i.test(location.pathname)) return;
+    let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0,
+      // une ligne dans la console (F12) pour comprendre une alerte absente
+      noter = (texte) => console.info(`[${NOM_EXTENSION}] alerte de ponte : ${texte}`);
+    if (!seuil) return noter("désactivée dans Paramètres → Général");
+    if (/^\/Reine\.php/i.test(location.pathname)) return;
     let muette = 0;
     try {
       muette = parseInt(localStorage.getItem(CLE_ALERTE_PONTE_MUETTE)) || 0;
     } catch (e) {}
-    if (Date.now() < muette) return;
-    let connue = Utils.finPonteConnue(),
-      fin =
-        connue && Date.now() - connue.lu < VALIDITE_FIN_PONTE
-          ? Promise.resolve(connue.fin)
-          : Promise.resolve($.get(location.origin + "/Reine.php")).then((html) => {
-              let $page = Utils.parseHtml(html);
-              // pas la page Reine (session expirée…) : pas d'alerte plutôt qu'une fausse
-              if (!Utils.estPageReine($page)) return null;
-              return Date.now() + Utils.noterFinPonte(Utils.pontesReine($page)) * 1000;
-            });
-    fin
-      .then((f) => {
-        if (f == null) return;
-        let reste = Math.max(0, Math.round((f - Date.now()) / 1000));
+    if (Date.now() < muette)
+      return noter(`masquée jusqu'à ${moment(muette).format("HH[h]mm")} (croix du bandeau)`);
+    Promise.resolve($.get(location.origin + "/Reine.php"))
+      .then((html) => {
+        let $page = Utils.parseHtml(html);
+        // pas la page Reine (session expirée…) : pas d'alerte plutôt qu'une fausse
+        if (!Utils.estPageReine($page)) return noter("page Reine illisible");
+        let pontes = Utils.pontesReine($page),
+          reste = Math.max(0, ...pontes.map((p) => p.secondes));
+        noter(
+          `${pontes.length} ponte(s), fin de la file dans ${reste} s, seuil ${seuil} s : ${reste <= seuil ? "bandeau affiché" : "pas de bandeau"}`,
+        );
         if (reste <= seuil) Utils.bandeauPonte(reste);
       })
-      .catch(() => {});
+      .catch((e) => console.error("Fzzz : lecture de la page Reine", e));
   }
   /**
    * La page contient le formulaire de ponte de la page Reine.
@@ -921,35 +916,6 @@ class Utils {
       });
     });
     return pontes;
-  }
-  /**
-   * Mémorise la fin de file lue sur la page Reine ; renvoie les secondes restantes.
-   *
-   * @static
-   * @method noterFinPonte
-   */
-  static noterFinPonte(pontes) {
-    let reste = Math.max(0, ...pontes.map((p) => p.secondes));
-    try {
-      localStorage.setItem(
-        CLE_FIN_PONTE,
-        JSON.stringify({ fin: Date.now() + reste * 1000, lu: Date.now() }),
-      );
-    } catch (e) {}
-    return reste;
-  }
-  /**
-   * @static
-   * @method finPonteConnue
-   * @return {Object|null} {fin, lu} en ms
-   */
-  static finPonteConnue() {
-    try {
-      let v = JSON.parse(localStorage.getItem(CLE_FIN_PONTE));
-      return v && v.fin && v.lu ? v : null;
-    } catch (e) {
-      return null;
-    }
   }
   /**
    * Bandeau d'alerte de ponte, sous le menu principal du jeu ; sa croix le

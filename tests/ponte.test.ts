@@ -75,14 +75,14 @@ describe("page Reine réelle", () => {
 });
 
 describe("bandeau d'alerte de ponte", () => {
-  test("pontes jusqu'à demain : pas de bandeau, page Reine relue au plus toutes les 10 min", async () => {
+  test("pontes jusqu'à demain : pas de bandeau, page Reine relue à chaque chargement", async () => {
     const p = creer(pageReine([3000, 90000]));
     lancer(p);
     await attendre();
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(0);
     lancer(p);
     await attendre();
-    expect(p.lire("LECTURES")).toBe(1);
+    expect(p.lire("LECTURES")).toBe(2);
   });
 
   test("fin de file sous le seuil : bandeau sous le menu, la croix le masque 30 min", async () => {

@@ -464,7 +464,7 @@ const DATEPICKER_OPTION = {
         boiteComptePlus.afficher();
         // Fzzz : alerte si la reine ne pond plus ou presque plus
         try {
-          Utils.alertePonte(boiteComptePlus.resteFilePonte());
+          Utils.alertePonte();
         } catch (e) {
           console.error("Fzzz : alerte de ponte", e);
         }

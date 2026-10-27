@@ -846,66 +846,49 @@ class Utils {
     }
   }
   /**
-   * Fin de la file de ponte d'après les heures de fin de chaque ponte (« 07h40 »,
-   * dans l'ordre de la file, telles que les affiche l'encadré Compte+ du jeu) :
-   * chaque heure est la première occurrence qui suit la fin précédente.
-   *
-   * @static
-   * @method finFilePonte
-   * @param {Array<String>} heures « HHhMM »
-   * @param {Object} maintenant moment (heure du serveur)
-   * @return {Object|null} moment de la fin de la file, null sans heure lisible
-   */
-  static finFilePonte(heures, maintenant) {
-    let fin = maintenant.clone(),
-      lues = 0;
-    heures.forEach((h) => {
-      let m = String(h).match(/(\d{1,2})\s*h\s*(\d{2})/);
-      if (!m) return;
-      let t = fin.clone().hour(+m[1]).minute(+m[2]).second(0).millisecond(0);
-      while (!t.isAfter(fin)) t.add(1, "day");
-      fin = t;
-      lues++;
-    });
-    return lues ? fin : null;
-  }
-  /**
-   * Fenêtre d'alerte : la reine ne pond plus, ou sa file se termine bientôt
-   * (seuil réglable dans Paramètres → Général). Rien sur la page Reine, ni
-   * si le joueur a demandé un rappel plus tard. Une seule lecture de la page
-   * Reine, au chargement d'une page, quand l'alerte serait affichée.
+   * Bandeau d'alerte sous le menu du jeu : la reine ne pond plus, ou sa file
+   * se termine sous le seuil (Paramètres → Général). La file vient de la page
+   * Reine, relue au chargement d'une page au plus toutes les 10 min (ouvrir la
+   * page Reine la met aussi à jour). Rien sur la page Reine, ni pendant les
+   * 30 min qui suivent la fermeture du bandeau.
    *
    * @static
    * @method alertePonte
-   * @param {Number|null} reste secondes de ponte restantes, null si inconnu
    */
-  static alertePonte(reste) {
+  static alertePonte() {
     let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0;
-    if (!seuil || reste == null || reste > seuil || /^\/Reine\.php/i.test(location.pathname))
-      return;
+    if (!seuil || /^\/Reine\.php/i.test(location.pathname)) return;
     let muette = 0;
     try {
       muette = parseInt(localStorage.getItem(CLE_ALERTE_PONTE_MUETTE)) || 0;
     } catch (e) {}
-    if (Date.now() < muette || $("#o_alertePonte").length) return;
-    // La file mémorisée vient de la dernière page Reine vue sur cet appareil :
-    // des pontes lancées ailleurs (autre appareil) n'y sont pas. Avant
-    // d'alerter, la page Reine est relue une fois.
-    let connue = Utils.finPonteConnue();
-    if (connue && Date.now() - connue.lu < VALIDITE_FIN_PONTE) {
-      let r = Math.round((connue.fin - Date.now()) / 1000);
-      if (r <= seuil) Utils.fenetreAlertePonte(Math.max(0, r));
-      return;
-    }
-    Promise.resolve($.get(location.origin + "/Reine.php"))
-      .then((html) => {
-        let pontes = Utils.pontesReine(Utils.parseHtml(html));
-        // page illisible : pas d'alerte plutôt qu'une fausse alerte
-        if (!pontes.length && reste > 0) return;
-        let r = Utils.noterFinPonte(pontes);
-        if (r <= seuil && !$("#o_alertePonte").length) Utils.fenetreAlertePonte(r);
+    if (Date.now() < muette) return;
+    let connue = Utils.finPonteConnue(),
+      fin =
+        connue && Date.now() - connue.lu < VALIDITE_FIN_PONTE
+          ? Promise.resolve(connue.fin)
+          : Promise.resolve($.get(location.origin + "/Reine.php")).then((html) => {
+              let $page = Utils.parseHtml(html);
+              // pas la page Reine (session expirée…) : pas d'alerte plutôt qu'une fausse
+              if (!Utils.estPageReine($page)) return null;
+              return Date.now() + Utils.noterFinPonte(Utils.pontesReine($page)) * 1000;
+            });
+    fin
+      .then((f) => {
+        if (f == null) return;
+        let reste = Math.max(0, Math.round((f - Date.now()) / 1000));
+        if (reste <= seuil) Utils.bandeauPonte(reste);
       })
       .catch(() => {});
+  }
+  /**
+   * La page contient le formulaire de ponte de la page Reine.
+   *
+   * @static
+   * @method estPageReine
+   */
+  static estPageReine($page) {
+    return $page.find(".icones_unite, span[id^='bouton_cout_nombre']").length > 0;
   }
   /**
    * Pontes de la file d'une page Reine. Les secondes restantes de chacune sont
@@ -968,37 +951,34 @@ class Utils {
     }
   }
   /**
-   * Encadré d'alerte de ponte. Pas de fenêtre jQuery UI : sur Firefox
-   * Android, après la croix, ses boutons ne répondaient plus.
+   * Bandeau d'alerte de ponte, sous le menu principal du jeu ; sa croix le
+   * masque 30 min.
    *
    * @static
-   * @method fenetreAlertePonte
+   * @method bandeauPonte
    * @param {Number} reste secondes de ponte restantes
    */
-  static fenetreAlertePonte(reste) {
-    let message =
+  static bandeauPonte(reste) {
+    $("#o_alertePonte").remove();
+    let texte =
         reste <= 0
-          ? "<p><strong>La reine ne pond plus.</strong></p><p>Aucune ponte n'est en cours : relance-la depuis la page Reine.</p>"
-          : `<p><strong>La ponte se termine dans ${Utils.intToTime(reste)}</strong> (vers ${Horloge.serveur().add(reste, "s").format("HH[h]mm")}).</p><p>Pense à relancer la ponte depuis la page Reine.</p>`,
-      $fenetre = $(`<div id="o_alertePonte" role="alertdialog" aria-labelledby="o_alertePonteTitre">
-        <div class="o_alertePonteTitre"><span id="o_alertePonteTitre">${reste <= 0 ? "Ponte arrêtée" : "Ponte bientôt terminée"}</span>
-          <button type="button" class="o_alertePonteFermer" title="Fermer (rappel dans 30 min)" aria-label="Fermer">×</button></div>
-        <div class="o_alertePonteCorps">${message}</div>
-        <div class="o_alertePonteBoutons">
-          <a href="/Reine.php" class="o_button f_success">Aller à la Reine</a>
-          <button type="button" class="o_button o_alertePontePlusTard">Me le rappeler dans 30 min</button>
-        </div>
-      </div>`),
-      plusTard = () => {
-        try {
-          localStorage.setItem(CLE_ALERTE_PONTE_MUETTE, String(Date.now() + 30 * 60000));
-        } catch (e) {}
-        $fenetre.remove();
-      };
-    $fenetre.on("click", ".o_alertePonteFermer, .o_alertePontePlusTard", plusTard).appendTo("body");
-    $(document).on("keydown.o_alertePonte", (e) => {
-      if (e.key == "Escape" && $.contains(document, $fenetre[0])) plusTard();
+          ? "<strong>La reine ne pond plus</strong> : aucune ponte en cours."
+          : `<strong>Ponte bientôt terminée</strong> : fin de la file dans ${Utils.intToTime(reste)} (vers ${Horloge.serveur().add(reste, "s").format("HH[h]mm")}).`,
+      $bandeau =
+        $(`<div id="o_alertePonte" class="${reste <= 0 ? "o_alertePonteArretee" : ""}" role="alert">
+        <span class="o_alertePonteSymbole" aria-hidden="true">⚠</span>
+        <span class="o_alertePonteTexte">${texte} <a href="/Reine.php">Relancer la ponte</a></span>
+        <button type="button" class="o_alertePonteFermer" title="Masquer pendant 30 min" aria-label="Masquer pendant 30 min">×</button>
+      </div>`);
+    $bandeau.find(".o_alertePonteFermer").on("click", () => {
+      try {
+        localStorage.setItem(CLE_ALERTE_PONTE_MUETTE, String(Date.now() + 30 * 60000));
+      } catch (e) {}
+      $bandeau.remove();
     });
+    if ($("#menu").length) $bandeau.insertAfter("#menu");
+    else if ($("#centre").length) $bandeau.prependTo("#centre");
+    else $bandeau.prependTo("body");
   }
   /**
    * Largeur minimale d'un bouton : celle de son plus long libellé possible,

@@ -130,7 +130,7 @@ class OuafSuivi {
    *
    * @static
    * @method convoisJeu
-   * @return {Array} [{elt, cle, vers, montant, arrivee (ms), depart (ms, null si trajet inconnu)}]
+   * @return {Array} [{elt, cle, id, vers, montant, arrivee (ms), depart (ms, null si trajet inconnu)}]
    */
   static convoisJeu() {
     return CommerceFzzz.lignes()
@@ -154,6 +154,8 @@ class OuafSuivi {
         return {
           elt,
           cle,
+          // numéro du convoi dans le jeu (lien Annuler), noté dans le forum
+          id: annuler ? parseInt(annuler) : null,
           vers,
           montant,
           arrivee,

@@ -16,7 +16,8 @@ const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
  * (aucun serveur tiers). Deux sujets par joueur dans la section
- * « Fzzz-Chasses » : « Chasses | pseudo » et « Floods | pseudo ». Le premier
+ * « Fzzz-Chasses » : « Chasses | pseudo » et « Floods | pseudo » (et
+ * « Convois | pseudo », voir ConvoisForum). Le premier
  * message du sujet contient tout l'historique, une ligne par entrée, et chaque
  * partage le réécrit (fusion sans doublon). La page membre lit les deux
  * sujets du joueur consulté.
@@ -52,7 +53,7 @@ class PartageChasses {
   /**
    * Requête xajax du forum d'alliance (même protocole que la page Forum).
    *
-   * @private
+   * @static
    */
   static _xajax(fonction, args) {
     return Promise.resolve(
@@ -69,7 +70,7 @@ class PartageChasses {
   /**
    * Texte HTML de toutes les commandes d'une réponse xajax.
    *
-   * @private
+   * @static
    */
   static _html(data) {
     return $(data)
@@ -134,7 +135,7 @@ class PartageChasses {
           .find("#form_cat tr")
           .each((i, elt) => {
             let titre = $(elt).find("td:eq(1)").text().trim(),
-              m = titre.match(/^(Chasses|Floods) \| (.+)$/),
+              m = titre.match(/^(Chasses|Floods|Convois) \| (.+)$/),
               idSujet =
                 $(elt).find("input[name='topic[]']").val() ||
                 (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0];
@@ -509,7 +510,9 @@ class PartageChasses {
     return PartageChasses.sujets().then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
         liste = sujets.liste.filter(
-          (t) => t.type == "Floods" || !voulus || voulus.includes(t.pseudo.toLowerCase()),
+          (t) =>
+            t.type == "Floods" ||
+            (t.type == "Chasses" && (!voulus || voulus.includes(t.pseudo.toLowerCase()))),
         ),
         d = { chasses: {}, floods: [] },
         lirePaquet = (k) =>

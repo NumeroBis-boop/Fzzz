@@ -101,7 +101,10 @@ class CommerceFzzz {
       },
       envoyer = (c) => {
         etatLigne(c, "envoi");
-        OuafSuivi.envoyer([c], (x, statut, detail) => etatLigne(x, statut, detail)).then(
+        OuafSuivi.envoyer([c], (x, statut, detail) => {
+          etatLigne(x, statut, detail);
+          if (statut == "envoye") ConvoisForum.noter([x]);
+        }).then(
           (b) => {
             if (b.introuvables)
               toast(
@@ -117,18 +120,25 @@ class CommerceFzzz {
         );
       };
     convois.forEach((c) => etatLigne(c, "verif"));
+    // ouverture de la page : numéros notés dans le forum (exacts), puis
+    // historique du site pour les convois qui n'y sont pas
+    let forum = ConvoisForum.transmis();
     OuafSuivi.lireCode().then((code) => {
-      if (!code) return convois.forEach((c) => etatLigne(c, "non"));
-      // ouverture de la page : lecture de l'historique du site, une fois
-      OuafSuivi.etat(convois).then(
-        (transmis) =>
-          convois.forEach((c) => etatLigne(c, transmis.has(c.cle) ? "transmis" : "non")),
-        (e) => {
-          convois.forEach((c) => etatLigne(c, "non", "état du site inconnu"));
-          // site injoignable à l'ouverture de la page : expliqué au clic sur un envoi
-          if (e.name != "permission" && e.name != "reseau") echec(e);
-        },
-      );
+      let site = code
+        ? OuafSuivi.etat(convois).then(
+            (transmis) => ({ transmis }),
+            (erreur) => ({ erreur }),
+          )
+        : Promise.resolve({ transmis: new Set() });
+      Promise.all([forum, site]).then(([notes, r]) => {
+        convois.forEach((c) => {
+          if (c.id && notes.has(c.id)) etatLigne(c, "transmis", "Noté dans le forum de l'alliance");
+          else if (r.transmis) etatLigne(c, r.transmis.has(c.cle) ? "transmis" : "non");
+          else etatLigne(c, "non", "état du site inconnu");
+        });
+        // site injoignable à l'ouverture de la page : expliqué au clic sur un envoi
+        if (r.erreur && r.erreur.name != "permission" && r.erreur.name != "reseau") echec(r.erreur);
+      });
     });
   }
   /**

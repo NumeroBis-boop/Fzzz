@@ -161,6 +161,14 @@ class Joueur {
       "color",
       "#000000",
     );
+    // Fzzz : fenêtre d'alerte quand la file de ponte se vide (seuils : SEUILS_ALERTE_PONTE)
+    this._parametre["alertePonte"] = new Parametre(
+      "alertePonte",
+      "Alerte quand la ponte se termine dans moins de",
+      "select",
+      3,
+      ["Désactivée", "15 min", "30 min", "1 h", "2 h", "4 h"],
+    );
     this._parametre["affectationRessource"] = new Parametre(
       "affectationRessource",
       "Affectation des ressources",

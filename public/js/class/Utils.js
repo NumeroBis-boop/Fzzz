@@ -40,6 +40,11 @@ const AFFICHAGES_CONVOIS = {
     "Suivi OUAF devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
 };
 
+// Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix
+const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400];
+// « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
+const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
+
 class Utils {
   /**
    * Renvoie le serveur sur lequel joue le joueur.
@@ -806,6 +811,84 @@ class Utils {
       // bloqué par CSP MV3.
       $table[0].parentNode.insertBefore($wrapper[0], $table[0].nextSibling);
     }
+  }
+  /**
+   * Fin de la file de ponte d'après les heures de fin de chaque ponte (« 07h40 »,
+   * dans l'ordre de la file, telles que les affiche l'encadré Compte+ du jeu) :
+   * chaque heure est la première occurrence qui suit la fin précédente.
+   *
+   * @static
+   * @method finFilePonte
+   * @param {Array<String>} heures « HHhMM »
+   * @param {Object} maintenant moment (heure du serveur)
+   * @return {Object|null} moment de la fin de la file, null sans heure lisible
+   */
+  static finFilePonte(heures, maintenant) {
+    let fin = maintenant.clone(),
+      lues = 0;
+    heures.forEach((h) => {
+      let m = String(h).match(/(\d{1,2})\s*h\s*(\d{2})/);
+      if (!m) return;
+      let t = fin.clone().hour(+m[1]).minute(+m[2]).second(0).millisecond(0);
+      while (!t.isAfter(fin)) t.add(1, "day");
+      fin = t;
+      lues++;
+    });
+    return lues ? fin : null;
+  }
+  /**
+   * Fenêtre d'alerte : la reine ne pond plus, ou sa file se termine bientôt
+   * (seuil réglable dans Paramètres → Général). Rien sur la page Reine, ni
+   * si le joueur a demandé un rappel plus tard. Aucune requête au jeu.
+   *
+   * @static
+   * @method alertePonte
+   * @param {Number|null} reste secondes de ponte restantes, null si inconnu
+   */
+  static alertePonte(reste) {
+    let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0;
+    if (!seuil || reste == null || reste > seuil || /^\/Reine\.php/i.test(location.pathname))
+      return;
+    let muette = 0;
+    try {
+      muette = parseInt(localStorage.getItem(CLE_ALERTE_PONTE_MUETTE)) || 0;
+    } catch (e) {}
+    if (Date.now() < muette || $("#o_alertePonte").length) return;
+    let message =
+        reste <= 0
+          ? "<p><strong>La reine ne pond plus.</strong></p><p>Aucune ponte n'est en cours : relance-la depuis la page Reine.</p>"
+          : `<p><strong>La ponte se termine dans ${Utils.intToTime(reste)}</strong> (vers ${Horloge.serveur().add(reste, "s").format("HH[h]mm")}).</p><p>Pense à relancer la ponte depuis la page Reine.</p>`,
+      plusTard = () => {
+        try {
+          localStorage.setItem(CLE_ALERTE_PONTE_MUETTE, String(Date.now() + 30 * 60000));
+        } catch (e) {}
+      };
+    $(`<div id="o_alertePonte">${message}</div>`).dialog({
+      title: reste <= 0 ? "Ponte arrêtée" : "Ponte bientôt terminée",
+      modal: true,
+      width: Math.min(420, window.innerWidth - 32),
+      classes: { "ui-dialog": "o_alertePonteFenetre" },
+      buttons: [
+        {
+          text: "Aller à la Reine",
+          class: "o_button f_success",
+          click: () => (location.href = "/Reine.php"),
+        },
+        {
+          text: "Me le rappeler dans 30 min",
+          class: "o_button",
+          click: () => {
+            plusTard();
+            $("#o_alertePonte").dialog("close");
+          },
+        },
+      ],
+      // fermeture par la croix ou Échap : même chose que « plus tard »
+      close: () => {
+        plusTard();
+        $("#o_alertePonte").dialog("destroy").remove();
+      },
+    });
   }
   /**
    * Largeur minimale d'un bouton : celle de son plus long libellé possible,

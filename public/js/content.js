@@ -479,6 +479,12 @@ const DATEPICKER_OPTION = {
         // boite compte plus (recréée par Fzzz hors C+)
         let boiteComptePlus = new BoiteComptePlus();
         boiteComptePlus.afficher();
+        // Fzzz : alerte si la reine ne pond plus ou presque plus
+        try {
+          Utils.alertePonte(boiteComptePlus.resteFilePonte());
+        } catch (e) {
+          console.error("Fzzz : alerte de ponte", e);
+        }
         // Ajout des outils, sous l'encadré Compte+
         let boite = new Dock();
         boite.afficher();

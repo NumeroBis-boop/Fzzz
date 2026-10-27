@@ -142,3 +142,19 @@ describe("Utils.lireReine : armée complète", () => {
       expect(page.lire(`Utils.uniteDepuisLibelle(${JSON.stringify(texte)})`)).toBe(n);
   });
 });
+
+describe("alerte de ponte : fin de la file", () => {
+  const p = creerPage(["js/class/Utils.js"]);
+  const fin = (heures: string[], maintenant: string) =>
+    p.lire<string | null>(
+      `(Utils.finFilePonte(${JSON.stringify(heures)}, moment("${maintenant}")) || { format: () => null }).format("YYYY-MM-DD HH:mm")`,
+    );
+  test("heures dans l'ordre de la file, passage de minuit", () => {
+    expect(fin(["07h40"], "2026-10-27 00:33")).toBe("2026-10-27 07:40");
+    expect(fin(["07h40", "21h05", "03h10"], "2026-10-27 00:33")).toBe("2026-10-28 03:10");
+    expect(fin(["00h20"], "2026-10-27 23:50")).toBe("2026-10-28 00:20");
+  });
+  test("aucune heure lisible : inconnu", () => {
+    expect(fin([], "2026-10-27 00:33")).toBeNull();
+  });
+});

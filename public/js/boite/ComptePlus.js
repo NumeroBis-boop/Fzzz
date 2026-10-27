@@ -489,6 +489,36 @@ class BoiteComptePlus {
     });
   }
   /**
+   * Secondes de ponte restantes dans toute la file, lues sans requête :
+   * encadré Compte+ du jeu (ligne de ponte et son détail au survol), sinon
+   * pontes mémorisées par Fzzz à la dernière visite de la page Reine.
+   * 0 : aucune ponte ; null : inconnu (pas d'information fiable).
+   *
+   * @method resteFilePonte
+   * @return {Number|null}
+   */
+  resteFilePonte() {
+    let maintenant = Horloge.serveur();
+    if (Utils.comptePlus) {
+      let $ligne = $("#ligne_ponte");
+      if (!$ligne.length) return null;
+      if (/aucune ponte/i.test($ligne.text())) return 0;
+      let scripts = $ligne.find("script").text(),
+        // détail au survol : une ligne par ponte, avec son heure de fin
+        contenu = (scripts.match(/content\s*:\s*"([\s\S]*?)"\s*\}/) || [])[1] || "",
+        heures = contenu.match(/\d{1,2}h\d{2}/g) || [],
+        fin = Utils.finFilePonte(heures, maintenant);
+      if (fin) return Math.max(0, fin.diff(maintenant, "seconds"));
+      // à défaut : temps de la ponte en cours
+      let m = scripts.match(/resteTemps\((\d+)/);
+      return m ? parseInt(m[1]) : null;
+    }
+    // hors C+ : rien de connu tant que la page Reine n'a pas été ouverte
+    if (!this._ponte.length) return this._startPonte ? 0 : null;
+    let fin = Math.max(...this._ponte.map((p) => moment(p.exp).valueOf()));
+    return Math.max(0, Math.round((fin - Date.now()) / 1000));
+  }
+  /**
    * Met à jour les pontes si elles ne correspondent pas.
    *
    * @private

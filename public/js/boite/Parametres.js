@@ -45,6 +45,7 @@ class BoiteParametre extends Boite {
       "reserveFloodAuto",
       "replacerArmeeAuto",
       "ratioRecolte",
+      "alertePonte",
     ];
   }
   /**

@@ -259,7 +259,6 @@ class Dock {
       if (!isNaN(n)) z = Math.max(z, n);
     }
     let haut = r.bottom + ecart;
-    boite.classList.remove("o_extensionLigne");
     Object.assign(boite.style, {
       display: "",
       position: fixe ? "fixed" : "absolute",
@@ -271,9 +270,7 @@ class Dock {
     });
     if (!fixe) return;
     // colonne fixe : l'encadré doit tenir dans la fenêtre (on ne peut pas
-    // défiler jusqu'à lui). Icônes en colonne si la place le permet, sinon
-    // en ligne ; s'il dépasse encore, il remonte juste ce qu'il faut.
-    if (haut + boite.offsetHeight > window.innerHeight) boite.classList.add("o_extensionLigne");
+    // défiler jusqu'à lui) ; s'il dépasse, il remonte juste ce qu'il faut
     if (haut + boite.offsetHeight > window.innerHeight)
       boite.style.top = Math.max(0, window.innerHeight - boite.offsetHeight - 4) + "px";
   }

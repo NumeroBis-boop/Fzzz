@@ -129,6 +129,17 @@ describe("OuafSuivi.apparier", () => {
     ).toEqual([]);
   });
 
+  test("envoi noté peu avant le départ estimé (trajet réel plus long, heure décalée) : apparié", () => {
+    page.lire(`localStorage.clear()`);
+    // 280 000 vers Alpha noté le 26 à 14h34 ; départ estimé à 16h00 (trajet calculé de 9 h)
+    const depart = Date.parse("2026-10-26T16:00:00Z");
+    expect(
+      apparier([
+        { cle: "id6", vers: "Alpha", montant: 280000, arrivee: depart + 9 * 3600000, depart },
+      ]),
+    ).toEqual(["id6"]);
+  });
+
   test("marquage local", () => {
     page.lire(`OuafSuivi.marquerTransmis("id7")`);
     expect(apparier([{ cle: "id7", vers: "Zeta", montant: 5, arrivee: maintenant }], [])).toEqual([

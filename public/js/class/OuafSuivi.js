@@ -14,8 +14,10 @@ const CLE_OUAF_TRANSMIS = "fzzz_ouafTransmis";
 const OUAF_DUREE_VIE = 10 * 86400000;
 // trajet maximal d'un convoi (vitesse 0) : fenêtre de recherche dans l'historique
 const OUAF_TRAJET_MAX = 637200 * 1000;
-// départ d'un convoi estimé d'après le trajet calculé : marge (horloges, arrondis)
-const OUAF_MARGE_DEPART = 5 * 60000;
+// départ d'un convoi estimé d'après le trajet calculé : marge minimale, et part
+// du trajet tolérée (vitesse réelle du convoi, heure du site décalée d'un fuseau)
+const OUAF_MARGE_DEPART = 10 * 60000;
+const OUAF_MARGE_TRAJET = 0.5;
 // connexion au site, partagée par les lectures d'une même page (cookie de session)
 /** @type {Promise<Object>|null} */
 let connexionOuaf = null;
@@ -252,8 +254,7 @@ class OuafSuivi {
             Math.abs(g.net - c.montant) <= 1 &&
             // un envoi noté avant le départ de ce convoi en est un autre (même
             // montant vers le même joueur, convoi précédent déjà arrivé)
-            g.quand >=
-              (c.depart != null ? c.depart - OUAF_MARGE_DEPART : c.arrivee - OUAF_TRAJET_MAX),
+            g.quand >= OuafSuivi.departAuPlusTot(c),
         );
         if (i != -1) {
           libres.splice(i, 1);
@@ -261,6 +262,17 @@ class OuafSuivi {
         }
       });
     return transmis;
+  }
+  /**
+   * Instant avant lequel une entrée de l'historique ne peut pas être ce convoi.
+   *
+   * @static
+   * @method departAuPlusTot
+   */
+  static departAuPlusTot(c) {
+    if (c.depart == null) return c.arrivee - OUAF_TRAJET_MAX;
+    let marge = Math.max(OUAF_MARGE_DEPART, (c.arrivee - c.depart) * OUAF_MARGE_TRAJET);
+    return c.depart - marge;
   }
   /**
    * @static
@@ -343,9 +355,23 @@ class OuafSuivi {
    */
   static etat(convois) {
     return OuafSuivi.connecter().then((session) =>
-      OuafSuivi.requete("GET", "/api/historique").then((h) =>
-        OuafSuivi.apparier(convois, OuafSuivi.transmissions(h.lignes, session.pseudo)),
-      ),
+      OuafSuivi.requete("GET", "/api/historique").then((h) => {
+        let groupes = OuafSuivi.transmissions(h.lignes, session.pseudo),
+          transmis = OuafSuivi.apparier(convois, groupes);
+        // une ligne par convoi non retrouvé (console F12) : envois du site vers ce joueur
+        convois
+          .filter((c) => !transmis.has(c.cle))
+          .forEach((c) =>
+            console.info(
+              `[${NOM_EXTENSION}] convoi vers ${c.vers} (${c.montant}) non retrouvé sur le site ; noté après ${moment(OuafSuivi.departAuPlusTot(c)).format("DD/MM HH:mm")} attendu ; envois du site vers ce joueur :`,
+              groupes
+                .filter((g) => g.vers == c.vers.toLowerCase())
+                .map((g) => `${g.net} le ${moment(g.quand).format("DD/MM HH:mm")}`)
+                .join(", ") || "aucun",
+            ),
+          );
+        return transmis;
+      }),
     );
   }
   /**

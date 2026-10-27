@@ -121,7 +121,7 @@ class PageAttaquer {
     // Ajout du temps de trajet
     const nbSonde = monProfil.parametre["uniteSonde"].valeur;
     const titleSync = `Affiche le compte à rebours, au dixième de seconde et en heure du serveur + latence, jusqu'au moment où l'attaque arrivera sur une minute pleine (utile pour synchroniser plusieurs attaques avec des alliés). À zéro, c'est à toi de cliquer sur Lancer.`;
-    const titleSonde = `Prépare ${nbSonde} unité${nbSonde > 1 ? "s" : ""} de la première espèce disponible (configurable dans Paramètres → Général) et affiche le compte à rebours de la minute pleine — révèle le nombre de défenseurs ennemis sans engager toute l'armée. À zéro, c'est à toi de cliquer sur Lancer.`;
+    const titleSonde = `Prépare ${nbSonde} unité${nbSonde > 1 ? "s" : ""} de la première espèce disponible (configurable dans Paramètres → Attaque) et affiche le compte à rebours de la minute pleine — révèle le nombre de défenseurs ennemis sans engager toute l'armée. À zéro, c'est à toi de cliquer sur Lancer.`;
     const titleSondeDirect = `Comme Sonder mais sans attendre la minute pleine : envoi immédiat, au clic. Utile quand le timing n'a pas d'importance.`;
     $("#o_btnLancer")
       .before(

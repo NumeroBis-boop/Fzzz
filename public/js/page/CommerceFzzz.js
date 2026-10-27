@@ -35,7 +35,7 @@ class CommerceFzzz {
    * « ✅ Enregistré », ou un bouton « 📤 Envoyer au suivi ». À l'ouverture de
    * la page, l'historique du site est lu (si le mot de passe est enregistré
    * et l'accès accordé) pour savoir ce qui est déjà noté. Le mot de passe se
-   * renseigne seulement dans Paramètres → Convoi.
+   * renseigne seulement dans Paramètres → Convois.
    *
    * @static
    * @method suiviOuaf
@@ -168,7 +168,7 @@ class CommerceFzzz {
       reste = (p) => {
         if (ouaf.etat == "attente") return "<span class='small'>…</span>";
         if (ouaf.etat == "code")
-          return "<span class='small' title='Mot de passe du site de suivi à renseigner dans Paramètres → Convoi'>—</span>";
+          return "<span class='small' title='Mot de passe du site de suivi à renseigner dans Paramètres → Convois'>—</span>";
         if (ouaf.etat == "erreur")
           return `<span class='small' title='${Utils.echapper(ouaf.erreur || "")}'>?</span>`;
         let r = ouaf.restes.get(p.toLowerCase());
@@ -268,7 +268,7 @@ class CommerceFzzz {
     });
   }
   /**
-   * Premier envoi sans mot de passe : ouvre Paramètres → Convoi, sur le champ
+   * Premier envoi sans mot de passe : ouvre Paramètres → Convois, sur le champ
    * du mot de passe du site de suivi.
    *
    * @static
@@ -277,17 +277,17 @@ class CommerceFzzz {
   static ouvrirParametresOuaf() {
     $.toast({
       ...TOAST_INFO,
-      text: "Renseigne d'abord le mot de passe du site de suivi (Paramètres → Convoi), puis relance l'envoi.",
+      text: "Renseigne d'abord le mot de passe du site de suivi (Paramètres → Convois), puis relance l'envoi.",
       hideAfter: 8000,
     });
-    if (!$("#o_tabsParametre6").is(":visible"))
+    if (!$("#o_tabsParametreConvois").is(":visible"))
       $("#o_itemParametre").closest(".o_toolbarItem").trigger("click");
     let $onglets = $("#o_tabsParametre");
     if ($onglets.hasClass("ui-tabs"))
       $onglets.tabs(
         "option",
         "active",
-        $onglets.find("a[href='#o_tabsParametre6']").parent().index(),
+        $onglets.find("a[href='#o_tabsParametreConvois']").parent().index(),
       );
     setTimeout(() => $("#o_ouafCode").trigger("focus").addClass("o_champSignale"), 400);
   }

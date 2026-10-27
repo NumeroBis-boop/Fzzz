@@ -4,6 +4,28 @@
  **********************************************************************/
 
 /**
+ * Onglets des préférences : un par page du jeu que l'extension modifie (la
+ * page Construction n'affiche que la rentabilité de l'étable, réglée avec le
+ * Laboratoire). `affichages` : clés de AFFICHAGES_FZZZ / AFFICHAGES_CONVOIS ;
+ * un affichage présent sur deux pages figure dans les deux onglets.
+ */
+const ONGLETS_PARAMETRE = [
+  { id: "General", titre: "Général", affichages: ["horloge"] },
+  { id: "Ressources", titre: "Ressources", affichages: ["syntheseChasses", "lanceurChasse"] },
+  { id: "Armee", titre: "Armée", affichages: ["floodsRecus", "listeAttaques"] },
+  { id: "Attaque", titre: "Attaque", affichages: ["trajet", "listeAttaques"] },
+  { id: "Laboratoire", titre: "Laboratoire", affichages: ["rentabilite"] },
+  {
+    id: "Messagerie",
+    titre: "Messagerie",
+    affichages: ["messagerieCouleurs", "messagerieCopie", "messagerieAnalyse"],
+  },
+  { id: "Convois", titre: "Convois", affichages: Object.keys(AFFICHAGES_CONVOIS) },
+  { id: "Membre", titre: "Page membre", affichages: ["profilPartages"] },
+  { id: "Apropos", titre: "À propos", affichages: [] },
+];
+
+/**
  * Classe permettant de choisir ses préférences.
  *
  * @class BoiteParametre
@@ -11,18 +33,12 @@
  * @extends Boite
  */
 class BoiteParametre extends Boite {
-  /**
-   *
-   */
   constructor() {
     super(
       "o_boiteParametre",
       "Paramètres",
-      `<div id='o_tabsParametre' class='o_tabs'><ul><li><a href='#o_tabsParametre1'>Général</a></li><li><a href='#o_tabsParametre3'>Apparence</a></li><li><a href='#o_tabsParametre5'>Affichages</a></li><li><a href='#o_tabsParametre6'>Convoi</a></li><li><a href='#o_tabsParametre4'>À propos</a></li></ul><div id='o_tabsParametre1'/><div id='o_tabsParametre3'/><div id='o_tabsParametre5'/><div id='o_tabsParametre6'/><div id='o_tabsParametre4'/></div>`,
+      `<div id='o_tabsParametre' class='o_tabs'><ul>${ONGLETS_PARAMETRE.map((o) => `<li><a href='#o_tabsParametre${o.id}'>${o.titre}</a></li>`).join("")}</ul>${ONGLETS_PARAMETRE.map((o) => `<div id='o_tabsParametre${o.id}'/>`).join("")}</div>`,
     );
-    /**
-     *
-     */
     this._paramStyle = [
       "couleurTitre",
       "couleur1",
@@ -32,9 +48,6 @@ class BoiteParametre extends Boite {
       "boiteShow",
       "boiteHide",
     ];
-    /**
-     *
-     */
     this._paramGeneral = [
       "affectationRessource",
       "methodeFlood",
@@ -51,25 +64,56 @@ class BoiteParametre extends Boite {
   /**
    * Affiche la boite.
    *
-   * @private
    * @method afficher
    */
   afficher() {
     if (super.afficher()) {
       $("#o_tabsParametre")
-        .tabs({
-          activate: (e, ui) => {
-            this.css();
-          },
-        })
+        .tabs({ activate: () => this.css().ajusterTaille() })
         .removeClass("ui-widget");
-      this.parametreStyle().parametreGeneral().affichages().convoi().apropos().css().event();
+      this.ongletGeneral()
+        .ongletRessources()
+        .ongletArmee()
+        .ongletAttaque()
+        .ongletLaboratoire()
+        .ongletMessagerie()
+        .ongletConvois()
+        .ongletMembre()
+        .apropos()
+        .css()
+        .event();
+      $(window).on("resize.o_boiteParametre", () => this.ajusterTaille());
     }
+    // après l'effet d'ouverture : la taille n'est mesurable qu'une fois affichée
+    $("#o_boiteParametre")
+      .promise()
+      .done(() => this.ajusterTaille());
+  }
+  /**
+   * La boîte tient dans la fenêtre : seul le contenu de l'onglet défile, le
+   * titre et la croix restent visibles.
+   *
+   * @method ajusterTaille
+   */
+  ajusterTaille() {
+    let $boite = $("#o_boiteParametre"),
+      $panneau = $boite.find(".ui-tabs-panel:visible");
+    if (!$boite.is(":visible") || !$panneau.length) return this;
+    const MARGE = 8;
+    $panneau.css("max-height", "");
+    let horsPanneau = $boite.outerHeight() - $panneau.outerHeight();
+    $panneau.css({
+      "max-height": Math.max(120, window.innerHeight - 2 * MARGE - horsPanneau) + "px",
+      "overflow-y": "auto",
+    });
+    let r = $boite[0].getBoundingClientRect();
+    if (r.top < MARGE || r.bottom > window.innerHeight - MARGE)
+      $boite.css("top", Math.max(MARGE, window.innerHeight - MARGE - r.height) + "px");
+    return this;
   }
   /**
    * Applique le style propre à la boite.
    *
-   * @private
    * @method css
    */
   css() {
@@ -80,7 +124,6 @@ class BoiteParametre extends Boite {
   /**
    * Ajoute les evenements propres à la boite.
    *
-   * @private
    * @method event
    */
   event() {
@@ -93,8 +136,7 @@ class BoiteParametre extends Boite {
         $("#ratioRecolteGroupe").toggle(e.currentTarget.value == "3");
       })
       .trigger("change");
-    // Sync de la réserve avec les antisondes quand « Suivre antisondes » est coché.
-    // Quand actif : on désactive le spinner et on le force à la somme antisondeTerrain + antisondeDome.
+    // « Suivre antisondes » : la réserve vaut antisondes terrain + dôme
     let syncReserveFlood = () => {
       if ($("#reserveFloodAuto").prop("checked")) {
         let sum =
@@ -106,8 +148,16 @@ class BoiteParametre extends Boite {
     syncReserveFlood();
     $("#reserveFloodAuto").on("change", syncReserveFlood);
     $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", syncReserveFlood);
-    // Reset complet des paramètres (À propos) — efface le localStorage et recharge la page,
-    // ce qui reconstruit monProfil avec les valeurs par défaut.
+    // un affichage présent dans deux onglets : les deux cases suivent
+    $("#o_tabsParametre input[data-affichage]").on("change", (e) => {
+      let cle = e.currentTarget.dataset.affichage,
+        coche = e.currentTarget.checked;
+      try {
+        localStorage.setItem("fzzz_affichage_" + cle, coche ? "1" : "0");
+      } catch (err) {}
+      $(`#o_tabsParametre input[data-affichage='${cle}']`).prop("checked", coche);
+    });
+    // Réinitialiser (À propos) : la page rechargée reconstruit monProfil par défaut
     $("#o_resetParametres").click(() => {
       if (confirm("Réinitialiser tous les paramètres aux valeurs par défaut ?")) {
         localStorage.removeItem("outiiil_parametre");
@@ -117,59 +167,109 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
+   * Cases des affichages d'un onglet, cochées par défaut.
    *
+   * @method cases
+   * @param {String} id identifiant de l'onglet (ONGLETS_PARAMETRE)
    */
-  parametreStyle() {
-    let couleurs = ``;
-    for (let param of ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"])
-      couleurs += monProfil.parametre[param].getForm();
-    let effets = ``;
-    for (let param of ["boiteShow", "boiteHide"]) effets += monProfil.parametre[param].getForm();
-    $("#o_tabsParametre3").append(`<form>
-            <p class='left reduce gras'>Couleurs des boîtes et du texte</p>
-            ${couleurs}
-            <p class='left reduce gras'>Effets d'animation à l'ouverture et fermeture des boîtes</p>
-            ${effets}
-        </form>`);
+  cases(id) {
+    let onglet = ONGLETS_PARAMETRE.find((o) => o.id == id),
+      libelles = { ...AFFICHAGES_FZZZ, ...AFFICHAGES_CONVOIS };
+    if (!onglet.affichages.length) return "";
+    return `<p class='left reduce gras'>Affichages ajoutés par l'extension</p>
+      <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
+      ${onglet.affichages
+        .map(
+          (cle) =>
+            `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelles[cle]}</label>`,
+        )
+        .join("")}`;
+  }
+  /**
+   * Toutes les pages : horloge, alerte de ponte, apparence des boîtes.
+   *
+   * @method ongletGeneral
+   */
+  ongletGeneral() {
+    let p = monProfil.parametre,
+      couleurs = ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"]
+        .map((c) => p[c].getForm())
+        .join("");
+    $("#o_tabsParametreGeneral").append(`<form>
+        ${this.cases("General")}
+        <p class='left reduce gras o_marginT15'>Alerte quand la ponte de la reine se termine</p>
+        ${p["alertePonte"].getForm()}
+        <p class='left reduce gras o_marginT15'>Couleurs des boîtes et du texte</p>
+        ${couleurs}
+        <p class='left reduce gras'>Effets d'animation à l'ouverture et fermeture des boîtes</p>
+        ${p["boiteShow"].getForm() + p["boiteHide"].getForm()}
+      </form>`);
     return this;
   }
   /**
+   * L'affectation automatique vit dans PageRessource.affectation(), pour tous
+   * les comptes : en C+ le jeu propose Matériaux / Nourriture, le mode Ratio
+   * reste un apport de l'extension.
    *
+   * @method ongletRessources
    */
-  parametreGeneral() {
-    // L'affectation auto Toolzzz vit dans PageRessource.affectation(), pour
-    // tous les comptes : en C+ le jeu propose nativement Matériaux /
-    // Nourriture, le mode Ratio reste un apport de l'extension.
-    let blocAffectation = `<p class='left reduce gras'>À l'ouverture de la page Ressources, la répartition est préparée dans le formulaire du jeu : clique sur Valider pour l'enregistrer</p>
-         <p class='left small'><em>Ratio : les ouvrières suivent la part choisie, même après une chasse ou un flood.${Utils.comptePlus ? " En Compte+, l'activer sur la page Ressources coupe l'affectation automatique du jeu." : ""}</em></p>
-         ${monProfil.parametre[this._paramGeneral[0]].getForm()}
-         ${monProfil.parametre[this._paramGeneral[8]].getForm()}`;
-    $("#o_tabsParametre1").append(`<form>
-            ${blocAffectation}
-            <p class='left reduce gras'>La méthode sera sélectionnée par défaut dans le lanceur de flood</p>
-            ${monProfil.parametre[this._paramGeneral[1]].getForm()}
-            <p class='left reduce gras'>Indiquez le nombre d'unité selon l'objectif</p>
-            <p class='left small'><em>Le nombre est choisi aléatoirement entre 90% du max et le max.</em></p>
-            ${monProfil.parametre[this._paramGeneral[2]].getForm() + monProfil.parametre[this._paramGeneral[3]].getForm() + monProfil.parametre[this._paramGeneral[4]].getForm()}
-            <p class='left reduce gras'>Nombre d'unités à conserver lors d'un flood (réserve)</p>
-            <p class='left small'><em>Coche « Suivre antisondes » pour synchroniser automatiquement la réserve avec la somme des antisondes (terrain + dôme).</em></p>
-            ${monProfil.parametre[this._paramGeneral[5]].getForm() + monProfil.parametre[this._paramGeneral[6]].getForm()}
-            <p class='left reduce gras'>À l'ouverture de la page Armée, signaler une armée à replacer (bouton mis en évidence, tu cliques)</p>
-            ${monProfil.parametre[this._paramGeneral[7]].getForm()}
-        </form>`);
+  ongletRessources() {
+    let p = monProfil.parametre;
+    $("#o_tabsParametreRessources").append(`<form>
+        ${this.cases("Ressources")}
+        <p class='left reduce gras o_marginT15'>À l'ouverture de la page Ressources, la répartition est préparée dans le formulaire du jeu : clique sur Valider pour l'enregistrer</p>
+        <p class='left small'><em>Ratio : les ouvrières suivent la part choisie, même après une chasse ou un flood.${Utils.comptePlus ? " En Compte+, l'activer sur la page Ressources coupe l'affectation automatique du jeu." : ""}</em></p>
+        ${p["affectationRessource"].getForm()}
+        ${p["ratioRecolte"].getForm()}
+      </form>`);
     return this;
   }
   /**
-   * Fzzz : une case par affichage ajouté par l'extension (AFFICHAGES_FZZZ),
-   * toutes cochées par défaut ; pris en compte au prochain chargement de page.
+   * @method ongletArmee
    */
-  affichages() {
-    let cases = Object.entries(AFFICHAGES_FZZZ)
-      .map(
-        ([cle, libelle]) =>
-          `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelle}</label>`,
-      )
-      .join("");
+  ongletArmee() {
+    let p = monProfil.parametre;
+    $("#o_tabsParametreArmee").append(`<form>
+        ${this.cases("Armee")}
+        <p class='left reduce gras o_marginT15'>Antisondes à placer</p>
+        <p class='left small'><em>Le nombre est choisi aléatoirement entre 90% du max et le max.</em></p>
+        ${p["uniteAntisondeTerrain"].getForm() + p["uniteAntisondeDome"].getForm()}
+        <p class='left reduce gras'>À l'ouverture de la page Armée, signaler une armée à replacer (bouton mis en évidence, tu cliques)</p>
+        ${p["replacerArmeeAuto"].getForm()}
+      </form>`);
+    return this;
+  }
+  /**
+   * @method ongletAttaque
+   */
+  ongletAttaque() {
+    let p = monProfil.parametre;
+    $("#o_tabsParametreAttaque").append(`<form>
+        ${this.cases("Attaque")}
+        <p class='left reduce gras o_marginT15'>Méthode sélectionnée par défaut dans le lanceur de flood</p>
+        ${p["methodeFlood"].getForm()}
+        <p class='left reduce gras'>Unités envoyées en sonde</p>
+        ${p["uniteSonde"].getForm()}
+        <p class='left reduce gras'>Nombre d'unités à conserver lors d'un flood (réserve)</p>
+        <p class='left small'><em>« Suivre antisondes » : la réserve vaut la somme des antisondes terrain et dôme (onglet Armée).</em></p>
+        ${p["reserveFlood"].getForm() + p["reserveFloodAuto"].getForm()}
+      </form>`);
+    return this;
+  }
+  /**
+   * @method ongletLaboratoire
+   */
+  ongletLaboratoire() {
+    $("#o_tabsParametreLaboratoire").append(`<form>
+        ${this.cases("Laboratoire")}
+        <p class='left small'><em>La page Construction n'a que la rentabilité de l'Étable à pucerons : elle suit ce réglage.</em></p>
+      </form>`);
+    return this;
+  }
+  /**
+   * @method ongletMessagerie
+   */
+  ongletMessagerie() {
     let couleurs = Object.entries(COULEURS_MESSAGES)
       .map(([type, c]) => {
         let couleur = Utils.couleurMessage(type);
@@ -177,68 +277,50 @@ class BoiteParametre extends Boite {
           <label class='o_affichageFzzz'><input type='checkbox' data-couleur-active='${type}' ${couleur ? "checked" : ""}/> ${c.libelle}</label></div>`;
       })
       .join("");
-    $("#o_tabsParametre5").append(`<form>
-            <p class='left reduce gras'>Affichages ajoutés par l'extension</p>
-            <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
-            ${cases}
-            <p class='left reduce gras o_marginT15'>Couleurs des titres de la messagerie</p>
-            <p class='left small'><em>Case décochée : le titre garde la couleur du jeu.</em></p>
-            ${couleurs}
-            <p class='left'><button type='button' id='o_couleursMessagesDefaut' class='o_button'>Couleurs par défaut</button></p>
-        </form>`);
-    $("#o_tabsParametre5 input[data-affichage]").on("change", (e) => {
-      try {
-        localStorage.setItem(
-          "fzzz_affichage_" + e.currentTarget.dataset.affichage,
-          e.currentTarget.checked ? "1" : "0",
-        );
-      } catch (err) {}
-    });
+    let $onglet = $("#o_tabsParametreMessagerie").append(`<form>
+        ${this.cases("Messagerie")}
+        <p class='left reduce gras o_marginT15'>Couleurs des titres</p>
+        <p class='left small'><em>Case décochée : le titre garde la couleur du jeu.</em></p>
+        ${couleurs}
+        <p class='left'><button type='button' id='o_couleursMessagesDefaut' class='o_button'>Couleurs par défaut</button></p>
+      </form>`);
     let enregistrer = (type) => {
-      let active = $(`#o_tabsParametre5 input[data-couleur-active='${type}']`).prop("checked"),
-        couleur = $(`#o_tabsParametre5 input[data-couleur='${type}']`).val();
+      let active = $onglet.find(`input[data-couleur-active='${type}']`).prop("checked"),
+        couleur = $onglet.find(`input[data-couleur='${type}']`).val();
       try {
         localStorage.setItem("fzzz_couleurMessage_" + type, active ? couleur : "");
       } catch (err) {}
     };
-    $("#o_tabsParametre5 input[data-couleur]").on("change", (e) => {
+    $onglet.find("input[data-couleur]").on("change", (e) => {
       let type = e.currentTarget.dataset.couleur;
-      $(`#o_tabsParametre5 input[data-couleur-active='${type}']`).prop("checked", true);
+      $onglet.find(`input[data-couleur-active='${type}']`).prop("checked", true);
       enregistrer(type);
     });
-    $("#o_tabsParametre5 input[data-couleur-active]").on("change", (e) =>
-      enregistrer(e.currentTarget.dataset.couleurActive),
-    );
+    $onglet
+      .find("input[data-couleur-active]")
+      .on("change", (e) => enregistrer(e.currentTarget.dataset.couleurActive));
     $("#o_couleursMessagesDefaut").on("click", () => {
       for (let type in COULEURS_MESSAGES) {
         try {
           localStorage.removeItem("fzzz_couleurMessage_" + type);
         } catch (err) {}
-        $(`#o_tabsParametre5 input[data-couleur='${type}']`).val(COULEURS_MESSAGES[type].defaut);
-        $(`#o_tabsParametre5 input[data-couleur-active='${type}']`).prop("checked", true);
+        $onglet.find(`input[data-couleur='${type}']`).val(COULEURS_MESSAGES[type].defaut);
+        $onglet.find(`input[data-couleur-active='${type}']`).prop("checked", true);
       }
     });
     return this;
   }
   /**
-   * Onglet Convoi : affichages de la page Convois, et code de connexion au
-   * site de suivi des convois de la OUAF (seul endroit où il se renseigne). Le
-   * code est gardé dans le stockage de l'extension (le jeu ne peut pas le
-   * lire) ; il n'est placé dans le champ que si le joueur clique « Afficher ».
+   * Affichages de la page Convois, et mot de passe du site de suivi des convois
+   * de la OUAF (seul endroit où il se renseigne). Il est gardé dans le stockage
+   * de l'extension, que le jeu ne peut pas lire, et n'est placé dans le champ
+   * que si le joueur clique « Afficher ».
    *
-   * @method convoi
+   * @method ongletConvois
    */
-  convoi() {
-    let cases = Object.entries(AFFICHAGES_CONVOIS)
-      .map(
-        ([cle, libelle]) =>
-          `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelle}</label>`,
-      )
-      .join("");
-    $("#o_tabsParametre6").append(`<form autocomplete='off'>
-            <p class='left reduce gras'>Affichages de la page Convois</p>
-            <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
-            ${cases}
+  ongletConvois() {
+    $("#o_tabsParametreConvois").append(`<form autocomplete='off'>
+            ${this.cases("Convois")}
             <p class='left reduce gras o_marginT15'>Suivi des convois de la OUAF</p>
             <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
             <p class='left small'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
@@ -250,14 +332,6 @@ class BoiteParametre extends Boite {
             <p class='left small'><em>Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension. Il ne sera envoyé qu'au site de suivi, quand tu cliqueras sur « 📤 Envoyer au suivi » à côté d'un convoi.</em></p>
             <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>
         </form>`);
-    $("#o_tabsParametre6 input[data-affichage]").on("change", (e) => {
-      try {
-        localStorage.setItem(
-          "fzzz_affichage_" + e.currentTarget.dataset.affichage,
-          e.currentTarget.checked ? "1" : "0",
-        );
-      } catch (err) {}
-    });
     let etat = (code) =>
         $("#o_ouafCodeEtat").html(
           code
@@ -286,7 +360,6 @@ class BoiteParametre extends Boite {
         etat("");
       }),
     );
-    // consulter le mot de passe enregistré, même masqué
     $("#o_ouafCodeVoir").on("click", () => {
       if ($("#o_ouafCode").attr("type") == "text") return masquer();
       OuafSuivi.lireCode().then((code) => {
@@ -298,11 +371,18 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
+   * @method ongletMembre
+   */
+  ongletMembre() {
+    $("#o_tabsParametreMembre").append(`<form>${this.cases("Membre")}</form>`);
+    return this;
+  }
+  /**
    *
    */
   apropos() {
     const repo = "https://github.com/NumeroBis-boop/fzzz";
-    $("#o_tabsParametre4").append(`
+    $("#o_tabsParametreApropos").append(`
       <p class='left reduce gras'>${NOM_EXTENSION} v${VERSION}</p>
       <p class='left reduce'>Extension open source pour Fourmizzz.fr.</p>
       <p class='left'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour l'extension</button></p>

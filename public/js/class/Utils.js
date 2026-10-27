@@ -21,23 +21,24 @@ const NOM_EXTENSION = "Extension OUAF";
 // titre de l'encadré de synthèse recréé hors Compte+ (et de son bascule radar)
 const TITRE_SYNTHESE = "Synthèse OUAF";
 
-// Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres → Affichages
+// Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres (onglets : ONGLETS_PARAMETRE)
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",
-  rentabilite: "Laboratoire et Construction : bandeaux « rentabilité du niveau supérieur »",
-  messagerieCouleurs: "Messagerie : couleurs des titres par type de message",
-  messagerieCopie: "Messagerie : icônes de copie des rapports",
-  messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
-  trajet: "Page d'attaque : temps de trajet",
-  syntheseChasses: "Ressources : synthèse des chasses en cours",
-  lanceurChasse: "Ressources : lanceur de chasses",
-  listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
-  floodsRecus: "Armée : floods en cours sur moi",
-  profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
+  rentabilite:
+    "Bandeaux « rentabilité du niveau supérieur » (et Étable à pucerons dans Construction)",
+  messagerieCouleurs: "Couleurs des titres par type de message",
+  messagerieCopie: "Icônes de copie des rapports",
+  messagerieAnalyse: "Boutons « Analyser » sous les rapports",
+  trajet: "Temps de trajet",
+  syntheseChasses: "Synthèse des chasses en cours",
+  lanceurChasse: "Lanceur de chasses",
+  listeAttaques: "Liste des attaques en cours (pages Armée et Attaque)",
+  floodsRecus: "Floods en cours sur moi",
+  profilPartages: "Chasses, floods et évolution du TdC partagés",
 };
 
 // Fzzz : couleur des titres de la messagerie par type de message, réglable
-// dans Paramètres → Affichages (couleur vide : celle du jeu)
+// dans Paramètres → Messagerie (couleur vide : celle du jeu)
 const COULEURS_MESSAGES = {
   defense: { libelle: "Combat en défense", classe: "o_titreDefense", defaut: "#b42318" },
   attaque: { libelle: "Combat en attaque", classe: "o_titreAttaque", defaut: "#287a36" },
@@ -46,7 +47,7 @@ const COULEURS_MESSAGES = {
   autre: { libelle: "Autres messages", classe: "o_titreAutre", defaut: "#ffffff" },
 };
 
-// Fzzz : affichages de la page Convois, réglables dans Paramètres → Convoi
+// Fzzz : affichages de la page Convois, réglables dans Paramètres → Convois
 const AFFICHAGES_CONVOIS = {
   convoisInfoEtable: "Ligne « Niveau d'étable, 1 ouvrière peut transporter… »",
   convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
@@ -304,7 +305,7 @@ class Utils {
   }
   /**
    * Fzzz : un affichage ajouté par l'extension est-il activé ? Tous le sont
-   * par défaut ; le joueur peut les couper dans Paramètres → Affichages.
+   * par défaut ; le joueur peut les couper dans Paramètres.
    *
    * @static
    * @method affichage

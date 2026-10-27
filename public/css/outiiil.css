@@ -853,14 +853,18 @@ hr.o_calcSepar {
 }
 
 /* Parametre */
+/* hauteur des onglets : BoiteParametre.ajusterTaille (la croix reste à l'écran) */
 #o_boiteParametre {
   min-width: 40%;
+  max-width: min(760px, calc(100vw - 16px));
 }
-#o_tabsParametre1,
-#o_tabsParametre2,
-#o_tabsParametre3 {
-  max-height: 50vh;
+#o_tabsParametre .ui-tabs-panel {
+  box-sizing: border-box;
+  max-height: 60vh;
   overflow-y: auto;
+}
+#o_tabsParametre .ui-tabs-nav li a {
+  padding: 0.3em 0.6em;
 }
 
 /* Commande - Rang */

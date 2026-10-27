@@ -46,19 +46,22 @@ class PageLaboratoire {
     }
     // Armée complète (page Reine : garnison et troupes parties comprises),
     // à défaut garnison d'Armee.php plus les troupes parties d'ici
-    Utils.lireReine().then((reine) => {
-      if (reine.unites) {
-        this._armee.unite = reine.unites;
+    Promise.all([
+      Utils.lireReine(),
+      Promise.resolve(this._armee.getArmee()).catch(() => null),
+    ]).then(([reine, html]) => {
+      let complete = reine.reine
+        ? Utils.armeeReine(reine.brut, html ? Armee.debloquees(html) : null)
+        : null;
+      if (complete) {
+        this._armee.unite = complete;
         this._armeeComplete = true;
-        this.titleBouclier().titleArmes().fdfArmes();
-        return;
+      } else {
+        this._raisonReine = reine.raison || "unités de la page Reine non reconnues";
+        if (html) this._armee.chargeData(html);
       }
-      this._raisonReine = reine.raison || "armée absente de la page Reine";
-      this._armee.getArmee().then((data) => {
-        this._armee.chargeData(data);
-        // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
-        this.titleBouclier().titleArmes().fdfArmes();
-      });
+      // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
+      this.titleBouclier().titleArmes().fdfArmes();
     });
     // Rentabilité de l'étable à pucerons, aussi sous Communication avec les animaux
     let $communication = $(".ligneAmelioration").filter((i, elt) =>
@@ -109,6 +112,26 @@ class PageLaboratoire {
         tooltipClass: "ui-tooltip-brown ui-tooltip-lightBrown",
       });
     return this;
+  }
+  /**
+   * Détail de l'armée prise en compte dans la FdF (bulle au survol) : une
+   * ligne par unité, nombre × attaque HB.
+   *
+   * @method detailArmee
+   * @param {Array} unites nombres, ordre d'Armee.unite
+   * @return {String}
+   */
+  detailArmee(unites) {
+    let lignes = unites
+      .map((n, i) =>
+        n
+          ? `${numeral(n).format()} ${n > 1 ? NOM_UNITES[i + 1] : NOM_UNITE[i + 1]} × ${ATT_UNITE[i + 1]} = ${numeral(n * ATT_UNITE[i + 1]).format()}`
+          : "",
+      )
+      .filter(Boolean);
+    return lignes.length
+      ? `Armée prise en compte (${this._armeeComplete ? "complète, page Reine" : "estimée"}) :\n${lignes.join("\n")}`
+      : "Aucune unité de combat";
   }
   /**
    * Ajoute un title detaillé pour connaitre la rentabilité du niveau d'armes.
@@ -208,7 +231,7 @@ class PageLaboratoire {
     Utils.ajouterSpoilerRentabilite(
       $ligne,
       "o_fdfArmesLigne",
-      `<p><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
+      `<p><strong class='o_fdfDetail' title="${Utils.echapper(this.detailArmee(unites))}">FdF HB actuelle : ${numeral(fdf).format()}</strong>
         ${
           this._armeeComplete
             ? `<span class='small' title="Lue dans la page Reine : garnison et troupes parties en chasse ou en attaque">(armée complète)</span>`

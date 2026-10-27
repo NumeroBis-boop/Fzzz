@@ -129,6 +129,19 @@ class Armee {
     return this;
   }
   /**
+   * Unités débloquées, dans l'ordre des lignes d'Armee.php (indices NOM_UNITE).
+   *
+   * @param {String} html Armee.php
+   * @return {Array<Number>}
+   */
+  static debloquees(html) {
+    return Utils.parseHtml(html)
+      .find(".simulateur tr[align='center']")
+      .map((i, elt) => Utils.uniteDepuisLibelle($(elt).find(".pas_sur_telephone").first().text()))
+      .get()
+      .filter((n) => n > 0);
+  }
+  /**
    * Donne le compte rendu de l'armée.
    *
    * @private

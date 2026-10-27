@@ -10,11 +10,14 @@ class Dock {
     /**
      *
      */
-    this._html = `<div id="o_toolbarOutiiil">
+    // encadré « Extension OUAF », même style que l'encadré Compte+ du jeu
+    this._html = `<div id="o_boiteExtension" class="boite_compte_plus">
+            <div class="titre_colonne_cliquable"><span class="titre_compte_plus">Extension OUAF</span></div>
+            <div class="contenu_boite_compte_plus"><div id="o_toolbarOutiiil">
             <div id="o_toolbarItem2" class="o_toolbarItem" title="Chasse"><span id="o_itemChasse" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             <div id="o_toolbarItem3" class="o_toolbarItem" title="Combat"><span id="o_itemCombat" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             <div id="o_toolbarItem6" class="o_toolbarItem" title="Préférence"><span id="o_itemParametre" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
-            </div>`;
+            </div></div></div>`;
     /**
      *
      */
@@ -35,15 +38,19 @@ class Dock {
    * @method afficher
    */
   afficher() {
-    // Fzzz : rangée d'outils en bas de l'encadré Compte+ (celui du jeu, ou
-    // celui que Fzzz recrée hors C+), dans l'encadré lui-même : le jeu place
-    // ses encadrés en position absolue, un voisin se retrouverait en haut de
-    // la colonne. Plus de bandeau fixe sur le bord droit, gênant sur mobile.
-    let $boite = $("#boiteComptePlus"),
-      $ancre = $boite.find(".contenu_boite_compte_plus").first();
-    if (!$ancre.length) $ancre = $boite;
-    if ($ancre.length) $(this._html).appendTo($ancre);
-    else $(this._html).addClass("o_toolbarFlottante").appendTo("body");
+    // Fzzz : encadré à part, juste sous l'encadré Compte+ (celui du jeu, ou
+    // celui que Fzzz recrée hors C+). Le jeu place ses encadrés en position
+    // absolue : le nôtre est alors placé de même, recalé quand l'encadré
+    // Compte+ change de taille. Plus de bandeau fixe sur le bord droit.
+    let $cplus = $("#boiteComptePlus").length ? $("#boiteComptePlus") : $("#boiteInfo"),
+      $boite = $(this._html);
+    if ($cplus.length) {
+      $boite.insertAfter($cplus);
+      Dock.caler($cplus[0], $boite[0]);
+      if (window.ResizeObserver)
+        new ResizeObserver(() => Dock.caler($cplus[0], $boite[0])).observe($cplus[0]);
+      $(window).on("load resize", () => Dock.caler($cplus[0], $boite[0]));
+    } else $boite.addClass("o_toolbarFlottante").appendTo("body");
     $("#o_toolbarOutiiil .o_toolbarItem").tooltip({
       tooltipClass: "warning-tooltip",
       content: function () {
@@ -68,6 +75,29 @@ class Dock {
         default:
           break;
       }
+    });
+  }
+  /**
+   * Encadré en position absolue comme celui du jeu : même colonne, juste
+   * en dessous. En flux normal, rien à faire.
+   *
+   * @static
+   * @method caler
+   * @param {HTMLElement} cplus encadré Compte+
+   * @param {HTMLElement} boite encadré « Extension OUAF »
+   */
+  static caler(cplus, boite) {
+    let position = getComputedStyle(cplus).position;
+    if (position != "absolute" && position != "fixed") {
+      boite.style.position = "";
+      return;
+    }
+    Object.assign(boite.style, {
+      position: position,
+      marginTop: "0",
+      left: cplus.offsetLeft + "px",
+      top: cplus.offsetTop + cplus.offsetHeight + 8 + "px",
+      width: cplus.offsetWidth + "px",
     });
   }
 }

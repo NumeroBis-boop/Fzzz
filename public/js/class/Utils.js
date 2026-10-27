@@ -372,11 +372,11 @@ class Utils {
    *
    * @static
    * @method lireReine
-   * @return {Promise} {ouvrieres, unites (Array de 14, ou null), reine, raison}
+   * @return {Promise} {ouvrieres, brut, reine, raison}
    */
   static lireReine() {
     if (Utils._reine) return Utils._reine;
-    let defaut = (raison) => ({ ouvrieres: null, unites: null, reine: false, raison: raison }),
+    let defaut = (raison) => ({ ouvrieres: null, brut: null, reine: false, raison: raison }),
       analyser = ($page) => Utils.analyserReine($page);
     if (/^\/Reine\.php/i.test(location.pathname)) {
       try {
@@ -409,7 +409,7 @@ class Utils {
    * @static
    * @method analyserReine
    * @param {Object} $page page Reine (jQuery)
-   * @return {Object} {ouvrieres, unites, reine: true}
+   * @return {Object} {ouvrieres, brut: [{nombre, unite}], reine: true}
    */
   static analyserReine($page) {
     let nombre = (id) =>
@@ -421,16 +421,102 @@ class Utils {
         ),
       ouvrieres = nombre("armee_initial");
     if (isNaN(ouvrieres)) throw new Error("nombre d'ouvrières absent de la page");
-    let unites = [];
-    // 14 unités de combat, suffixe = indice dans NOM_UNITE (0 : ouvrières)
-    for (let i = 1; i <= 14; i++) unites.push(nombre("armee_initial" + i));
-    // armée absente de la page : null (on garde la méthode locale)
-    let lues = unites.filter((n) => !isNaN(n)).length;
-    return {
-      ouvrieres: ouvrieres,
-      unites: lues ? unites.map((n) => (isNaN(n) ? 0 : n)) : null,
-      reine: true,
-    };
+    // Les champs armee_initial1, 2… suivent les unités débloquées dans l'ordre
+    // du jeu : le Concierge d'élite et le Tank d'élite, débloqués plus tard,
+    // sont sautés tant qu'ils ne le sont pas (12 champs au lieu de 14). Le
+    // numéro ne désigne donc pas une unité fixe : on garde les valeurs dans
+    // l'ordre, et le nom de l'unité quand la ligne le donne.
+    let brut = [];
+    for (let i = 1; $page.find("#armee_initial" + i).length; i++)
+      brut.push({
+        nombre: nombre("armee_initial" + i) || 0,
+        unite: Utils.uniteDepuisLibelle(
+          $page
+            .find("#armee_initial" + i)
+            .closest("tr")
+            .text(),
+        ),
+      });
+    return { ouvrieres: ouvrieres, brut: brut, reine: true };
+  }
+  /**
+   * Indice (dans NOM_UNITE) de l'unité nommée dans un texte, ou -1. Le nom
+   * le plus long l'emporte (« Artilleuse d'élite » avant « Artilleuse »).
+   *
+   * @static
+   * @method uniteDepuisLibelle
+   * @param {String} texte
+   * @return {Number}
+   */
+  static uniteDepuisLibelle(texte) {
+    let t = String(texte)
+        .toLowerCase()
+        .replace(/[’`]/g, "'")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""),
+      noms = [
+        "jeune soldate naine",
+        "soldate naine",
+        "naine d'elite",
+        "jeune soldate",
+        "soldate",
+        "concierge",
+        "concierge d'elite",
+        "artilleuse",
+        "artilleuse d'elite",
+        "soldate d'elite",
+        "tank",
+        "tank d'elite",
+        "tueuse",
+        "tueuse d'elite",
+      ],
+      meilleur = -1;
+    noms.forEach((nom, i) => {
+      // pluriel accepté (« Tanks d'élites »), mots entiers
+      let motif = new RegExp(
+        "(^|[^a-z])" +
+          nom
+            .split(" ")
+            .map((m) => m + "s?")
+            .join(" ") +
+          "($|[^a-z])",
+      );
+      if (motif.test(t) && (meilleur < 0 || nom.length > noms[meilleur - 1].length))
+        meilleur = i + 1;
+    });
+    return meilleur;
+  }
+  /**
+   * Armée complète par unité (14 valeurs, ordre d'Armee.unite) d'après la
+   * page Reine. Chaque champ est attribué à une unité : par le nom lu sur sa
+   * ligne, sinon par rang parmi les unités débloquées (lignes d'Armee.php,
+   * dans l'ordre du jeu), sinon, avec 14 champs, par numéro.
+   *
+   * @static
+   * @method armeeReine
+   * @param {Array} brut voir analyserReine
+   * @param {Array} debloquees indices NOM_UNITE des lignes d'Armee.php, ou null
+   * @return {Array|null} null si l'attribution est impossible
+   */
+  static armeeReine(brut, debloquees) {
+    if (!brut || !brut.length) return null;
+    let unites = new Array(14).fill(0),
+      valides = (liste) =>
+        liste &&
+        liste.length == brut.length &&
+        liste.every((n) => n > 0) &&
+        new Set(liste).size == liste.length,
+      parNom = brut.map((b) => b.unite),
+      indices = valides(parNom)
+        ? parNom
+        : valides(debloquees)
+          ? debloquees
+          : brut.length == 14
+            ? brut.map((b, i) => i + 1)
+            : null;
+    if (!indices) return null;
+    brut.forEach((b, k) => (unites[indices[k] - 1] += b.nombre));
+    return unites;
   }
   /**
    * Nombre total d'ouvrières, y compris celles parties en convoi, que le

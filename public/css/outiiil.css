@@ -2272,15 +2272,22 @@ tr.en_tete_message > td.td_coche {
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
   font-size: var(--fzzz-titre);
 }
-/* colonnes à la largeur de leur contenu : tout le tableau d'un coup d'œil sur téléphone */
+/* nom à gauche (il prend la place libre), chiffres serrés et alignés à droite */
 .o_convoisMembres {
-  width: auto;
   font-size: var(--fzzz-reduit);
 }
 .o_convoisMembres td,
 .o_convoisMembres th {
-  padding: 1px 5px;
+  padding: 2px 6px;
   white-space: nowrap;
+}
+.o_convoisMembres .o_cmJoueur {
+  text-align: left !important;
+  width: 100%;
+}
+.o_convoisMembres .o_cmNum {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
 }
 .o_convoisMembres th[data-tri] {
   cursor: pointer;
@@ -2290,6 +2297,9 @@ tr.en_tete_message > td.td_coche {
   content: attr(data-sens);
   font-size: 0.8em;
   margin-left: 2px;
+}
+.o_convoisMembres tr.o_cmNouveau td {
+  background-color: rgba(255, 220, 0, 0.35);
 }
 .o_convoisMembres tbody tr:nth-child(even) {
   background-color: rgba(0, 0, 0, 0.05);

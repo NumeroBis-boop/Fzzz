@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.2",
+    notes: [
+      "Convois à faire : sélecteur de membre sous le tableau (« + Suivre »), qui ne se réinitialise plus pendant le choix ; noms à gauche, chiffres alignés à droite.",
+    ],
+  },
+  {
     version: "1.52.1",
     notes: [
       "Convois à faire : tableau resserré (tient sur téléphone), tri au clic sur les en-têtes.",

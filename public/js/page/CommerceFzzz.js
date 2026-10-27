@@ -198,25 +198,23 @@ class CommerceFzzz {
         let libres = [...new Set([...Object.keys(connus), ...ouaf.membres])]
           .filter((p) => p && p != monProfil.pseudo && !suivis.includes(p))
           .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
-        return `<select class='o_convoisMembreChoix'><option value=''>— choisir un membre —</option>${libres.map((p) => `<option value='${Utils.echapper(p)}'>${Utils.echapper(p)}</option>`).join("")}</select>`;
+        return `<select class='o_convoisMembreChoix'><option value=''>— un membre —</option>${libres.map((p) => `<option value='${Utils.echapper(p)}'>${Utils.echapper(p)}</option>`).join("")}</select>`;
       },
       ligne = (p) => {
-        if (!p)
-          return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td><td>—</td><td>—</td><td></td></tr>`;
         let t = trajet(p);
-        return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
-          <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hm(t)}</td>
-          <td class='o_convoisMembreRetour'>${t == null ? "—" : retour(t)}</td>
-          <td>${reste(p)}</td>
-          <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
+        return `<tr data-pseudo='${Utils.echapper(p)}'><td class='o_cmJoueur'>${lien(p)}</td>
+          <td class='o_cmNum'>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hm(t)}</td>
+          <td class='o_cmNum o_convoisMembreRetour'>${t == null ? "—" : retour(t)}</td>
+          <td class='o_cmNum'>${reste(p)}</td>
+          <td class='o_cmNum'><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
       },
       // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
-          <table class='o_convoisMembres centre' cellspacing='0'>
-            <thead><tr><th data-tri='joueur' title='Joueur à livrer'>Joueur</th><th data-tri='trajet' title='Temps de trajet'>Trajet</th><th data-tri='trajet' title='Horaire de retour d&#39;un convoi lancé maintenant'>Retour</th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Reste</th><th></th></tr></thead>
+          <table class='o_convoisMembres o_maxWidth' cellspacing='0'>
+            <thead><tr><th class='o_cmJoueur' data-tri='joueur' title='Joueur à livrer'>Joueur</th><th class='o_cmNum' data-tri='trajet' title='Temps de trajet'>Trajet</th><th class='o_cmNum' data-tri='trajet' title='Horaire de retour d&#39;un convoi lancé maintenant'>Retour</th><th class='o_cmNum' data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Reste</th><th></th></tr></thead>
             <tbody></tbody>
-            <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
+            <tfoot><tr><td colspan='5' class='o_convoisMembresAjout'>+ Suivre <span class='o_convoisMembreChoixZone'></span></td></tr></tfoot>
           </table>
           ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
         </div>`),
@@ -239,10 +237,19 @@ class CommerceFzzz {
               return tri.sens * (typeof x == "string" ? x.localeCompare(y, "fr") : x - y);
             }),
       afficher = () => {
-        let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
         $bloc
           .find("tbody")
-          .html(ordonnes().map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
+          .html(
+            suivis.length
+              ? ordonnes().map(ligne).join("")
+              : "<tr><td colspan='5' class='small'>Aucun membre suivi : choisis-en un ci-dessous.</td></tr>",
+          );
+        // liste refaite seulement si elle change, et jamais pendant un choix
+        // (sur téléphone, le menu ouvert serait remplacé et le choix perdu)
+        let $zone = $bloc.find(".o_convoisMembreChoixZone"),
+          html = choix();
+        if ($zone.data("html") != html && !$zone.find("select").is(":focus"))
+          $zone.data("html", html).html(html);
         $bloc.find("th[data-tri]").each((i, th) => {
           // Trajet et Retour trient pareil : la flèche reste sur l'en-tête cliqué
           let actif =
@@ -273,22 +280,23 @@ class CommerceFzzz {
     });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");
+      $(e.currentTarget).trigger("blur");
       if (!p || suivis.includes(p)) return;
-      $(e.currentTarget).closest("tr").remove();
       suivis.push(p);
       enregistrer();
       afficher();
+      // membre ajouté : surligné un instant, il peut être rangé au milieu par le tri
+      $bloc
+        .find("tr[data-pseudo]")
+        .filter((i, tr) => $(tr).data("pseudo") == p)
+        .addClass("o_cmNouveau");
+      setTimeout(() => $bloc.find(".o_cmNouveau").removeClass("o_cmNouveau"), 2500);
     });
     $bloc.on("click", ".o_convoisMembreRetirer", (e) => {
       let p = String($(e.currentTarget).closest("tr").data("pseudo"));
       suivis = suivis.filter((x) => x != p);
       enregistrer();
       afficher();
-    });
-    $bloc.find("#o_convoisMembreAjouter").on("click", (e) => {
-      e.preventDefault();
-      if ($bloc.find(".o_convoisMembreVide").length) return;
-      $bloc.find("tbody").append(ligne(""));
     });
     // heure de retour : recalculée chaque minute (affichage seulement)
     setInterval(() => {

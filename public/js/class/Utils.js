@@ -891,9 +891,9 @@ class Utils {
     return $page.find(".icones_unite, span[id^='bouton_cout_nombre']").length > 0;
   }
   /**
-   * Pontes de la file d'une page Reine. Les secondes restantes de chacune sont
-   * lues dans l'appel reste(secondes, …) que le jeu place juste après sa ligne
-   * (même source que la colonne « Terminé le »).
+   * Pontes de la file d'une page Reine. Colonne « Temps total restant » : le
+   * jeu l'anime par reste(secondes, "<id du span>"), ce sont les secondes
+   * jusqu'à la fin de cette ponte, file comprise (la plus grande = fin de file).
    *
    * @static
    * @method pontesReine
@@ -901,24 +901,25 @@ class Utils {
    * @return {Array} [{unite, nombre, secondes}]
    */
   static pontesReine($racine) {
-    let pontes = [];
-    $racine
-      .find(".tableau_leger")
-      .first()
-      .find("tr:gt(0)")
-      .each((i, tr) => {
-        let apres = "";
-        for (let n = tr.nextSibling; n && n.nodeName != "TR"; n = n.nextSibling)
-          apres += n.textContent;
-        let m = (apres || $(tr).next().text()).match(/\(\s*(\d+)\s*,/);
-        if (!m) return;
-        let texte = $(tr).find("td:eq(0)").text();
-        pontes.push({
-          unite: texte.replace(/[0-9]+/g, "").trim(),
-          nombre: parseInt(texte.replace(/\D+/g, "")) || 0,
-          secondes: parseInt(m[1]),
-        });
+    let pontes = [],
+      $table = $racine.find(".tableau_leger").first(),
+      scripts = $table.text();
+    $table.find("tr:gt(0)").each((i, tr) => {
+      let id = $(tr).find("td:eq(3) span[id]").attr("id"),
+        apres = "";
+      for (let n = tr.nextSibling; n && n.nodeName != "TR"; n = n.nextSibling)
+        apres += n.textContent;
+      let m =
+        (id && new RegExp(`\\(\\s*(\\d+)\\s*,\\s*["']${id}["']`).exec(scripts)) ||
+        (apres || $(tr).next().text()).match(/\(\s*(\d+)\s*,/);
+      if (!m) return;
+      let texte = $(tr).find("td:eq(0)").text();
+      pontes.push({
+        unite: texte.replace(/[0-9]+/g, "").trim(),
+        nombre: parseInt(texte.replace(/\D+/g, "")) || 0,
+        secondes: parseInt(m[1]),
       });
+    });
     return pontes;
   }
   /**

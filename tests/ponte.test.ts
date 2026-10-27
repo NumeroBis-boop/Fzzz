@@ -45,6 +45,35 @@ describe("page Reine : file de ponte", () => {
   });
 });
 
+/** Extrait réel de la page Reine (C+, une ponte ; jetons retirés). */
+const REINE_REELLE = `<h4 style="display:inline">Pontes en cours:</h4><table class="tableau_leger"><tr><td><strong>Unités</strong></td><td><strong>Garnison</strong></td><td><strong>Temps requis</strong></td><td><strong>Temps total restant</strong></td><td><strong>Ponte finie</strong></td><td></td></tr><tr><td><span id="unites_restantes_premiere_ponte">1 170 ouvrières</td>
+			<td>  Fourmilière</td>
+			<td><span id="temps_restant_premiere_ponte">17m 17s </span></td>
+			<td><span id="ponte_373023">17m 17s </span></td>
+				<td>15h00</td>
+				<td><a href="Reine.php?AnnulerPonte=373023" style="font-size:0.8em">Annuler</a></td></tr><script type="text/javascript">reste_unite(1037, "unites_restantes_premiere_ponte" ,"ouvrières","1170");</script><script type="text/javascript">reste(1037, "temps_restant_premiere_ponte");</script><script type="text/javascript">reste(1037, "ponte_373023");</script>__SUITE__</table><td class="icones_unite cliquable3"></td>`;
+
+describe("page Reine réelle", () => {
+  const lire = (html: string) =>
+    creer("").lire<string>(
+      `JSON.stringify(Utils.pontesReine(Utils.parseHtml(${JSON.stringify(html)})).map((p) => [p.unite, p.nombre, p.secondes]))`,
+    );
+  test("une ponte : 1 170 ouvrières, 1 037 s", () => {
+    expect(lire(REINE_REELLE.replace("__SUITE__", ""))).toBe(
+      JSON.stringify([["ouvrières", 1170, 1037]]),
+    );
+  });
+  test("ponte suivante : son temps total restant, pas son temps requis", () => {
+    const suite = `<tr><td>5 000 Jeunes Soldates Naines</td><td>Loge</td><td><span id="temps_ponte_2">2H 0m</span></td><td><span id="ponte_373024">2H 17m 17s</span></td><td>17h17</td><td></td></tr><script type="text/javascript">reste(7200, "temps_ponte_2");</script><script type="text/javascript">reste(8237, "ponte_373024");</script>`;
+    expect(lire(REINE_REELLE.replace("__SUITE__", suite))).toBe(
+      JSON.stringify([
+        ["ouvrières", 1170, 1037],
+        ["Jeunes Soldates Naines", 5000, 8237],
+      ]),
+    );
+  });
+});
+
 describe("bandeau d'alerte de ponte", () => {
   test("pontes jusqu'à demain : pas de bandeau, page Reine relue au plus toutes les 10 min", async () => {
     const p = creer(pageReine([3000, 90000]));

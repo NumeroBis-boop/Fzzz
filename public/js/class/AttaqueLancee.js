@@ -28,6 +28,10 @@ const DUREE_VIE_CAPTURE = 600;
 const DELAI_ANNULATION = 120;
 // nombre d'attaques qu'un « Tout annuler » n'a pas pu annuler, affiché après rechargement
 const CLE_ANNULATION_ECHEC = "outiiil_annulationEchec";
+// position du tableau à l'écran avant une annulation, rétablie au rechargement
+const CLE_POSITION_ANNULATION = "fzzz_positionAnnulation";
+// recalcul de la taille du tableau au redimensionnement, installé une fois
+let ajustementTailleActif = false;
 
 class AttaqueLancee {
   /**
@@ -322,7 +326,10 @@ class AttaqueLancee {
           annuler: $(l.elt).nextAll(`a[href$='annuler=${l.id}']`).first(),
         }));
     // les captures restent synchronisées (partage des floods) même sans la liste
-    if (!attaques.length || !Utils.affichage("listeAttaques")) return;
+    if (!attaques.length || !Utils.affichage("listeAttaques")) {
+      AttaqueLancee.retablirPosition();
+      return;
+    }
     // Fzzz : une seule liste, dans l'ordre d'arrivée : # | Arrivée | Cible (tag
     // coloré) | Troupes (quantité, détail au survol) | Lieu | Copier | Partager
     let conteneur = $(lignes[lignes.length - 1].elt).parent(),
@@ -340,7 +347,7 @@ class AttaqueLancee {
         <td>${Utils.roundMinute(a.ligne.secondes).format("DD/MM HH[h]mm")}</td>
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
-        <td class="o_lieuAttaque">${AttaqueLancee.lieu(a) || "?"}</td>
+        <td class="o_lieuAttaque" title="${AttaqueLancee.lieu(a) || "Lieu inconnu"}">${AttaqueLancee.lieuCourt(a)}</td>
         <td>${AttaqueLancee.priseEstimee(a)}</td>
         <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button>${
           /terrain/i.test(AttaqueLancee.lieu(a) || "")
@@ -460,8 +467,91 @@ class AttaqueLancee {
         })
         // navigation GET et non reload() : sur la page Attaquer, la page
         // courante est la réponse du POST de lancement, un reload le rejouerait
-        .finally(() => location.replace(location.pathname + location.search));
+        .finally(() => {
+          AttaqueLancee.memoriserPosition();
+          location.replace(location.pathname + location.search);
+        });
     });
+    // Annuler (lien du jeu) : la page se recharge, au même endroit
+    $(`#${id}`).on("click", ".o_attaqueAnnuler a", () => AttaqueLancee.memoriserPosition());
+    AttaqueLancee.ajusterTaille();
+    AttaqueLancee.retablirPosition();
+  }
+  /**
+   * Avant une annulation : position du tableau des attaques dans la fenêtre.
+   *
+   * @static
+   * @method memoriserPosition
+   */
+  static memoriserPosition() {
+    let $t = $("#o_attaquesLancees");
+    if (!$t.length) return;
+    try {
+      sessionStorage.setItem(
+        CLE_POSITION_ANNULATION,
+        JSON.stringify({
+          ecart: $t[0].getBoundingClientRect().top,
+          y: window.scrollY,
+          t: Date.now(),
+        }),
+      );
+    } catch (e) {}
+  }
+  /**
+   * Après le rechargement qui suit une annulation : le tableau reprend sa
+   * place dans la fenêtre (même s'il a une ligne de moins).
+   *
+   * @static
+   * @method retablirPosition
+   */
+  static retablirPosition() {
+    let p = null;
+    try {
+      p = JSON.parse(sessionStorage.getItem(CLE_POSITION_ANNULATION));
+      sessionStorage.removeItem(CLE_POSITION_ANNULATION);
+    } catch (e) {}
+    if (!p || Date.now() - p.t > 30000) return;
+    // plus d'attaque (dernière annulée) : même défilement qu'avant
+    let placer = () => {
+      let $t = $("#o_attaquesLancees");
+      window.scrollTo(
+        0,
+        $t.length ? window.scrollY + $t[0].getBoundingClientRect().top - p.ecart : p.y,
+      );
+    };
+    placer();
+    // blocs ajoutés au-dessus après coup (lectures en cours) : on recale
+    setTimeout(placer, 300);
+    $(window).one("load", placer);
+  }
+  /**
+   * Une attaque par ligne : si le tableau dépasse son cadre, la police
+   * rétrécit (jusqu'à 60 %), recalculé quand la fenêtre change de taille.
+   *
+   * @static
+   * @method ajusterTaille
+   */
+  static ajusterTaille() {
+    let $t = $(".o_attaquesLancees").first();
+    if (!$t.length) return;
+    let cadre = $t.closest(".o_blocAttaques")[0] || $t.parent()[0],
+      ajuster = () => {
+        let taille = 100;
+        $t.css("font-size", "");
+        while (taille > 60 && $t[0].scrollWidth > cadre.clientWidth) {
+          taille -= 5;
+          $t.css("font-size", taille + "%");
+        }
+      };
+    ajuster();
+    if (!ajustementTailleActif) {
+      ajustementTailleActif = true;
+      let attente = null;
+      $(window).on("resize", () => {
+        clearTimeout(attente);
+        attente = setTimeout(ajuster, 150);
+      });
+    }
   }
   /**
    * Floods déjà publiés dans le forum de l'alliance : « Partagé ✓ » à la place
@@ -591,6 +681,16 @@ class AttaqueLancee {
    */
   static lieu(a) {
     return a.capture ? a.capture.lieu : a.ligne.lieuNatif;
+  }
+  /**
+   * Lieu en 4 lettres au plus pour le tableau : TDC, Dôme, Loge.
+   */
+  static lieuCourt(a) {
+    let lieu = AttaqueLancee.lieu(a) || "";
+    if (/terrain/i.test(lieu)) return "TDC";
+    if (/d[ôo]me|fourmili/i.test(lieu)) return "Dôme";
+    if (/loge/i.test(lieu)) return "Loge";
+    return lieu || "?";
   }
   /**
    * Troupes d'une attaque : capture, sinon texte du jeu (C+), sinon null.

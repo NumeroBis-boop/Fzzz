@@ -1005,20 +1005,21 @@ hr.o_scSepar {
   padding: 1px 5px;
   white-space: nowrap;
 }
-/* actions d'une attaque (Copier, Partager / Partagé, Annuler) dans une seule
-   colonne étroite : le tableau tient dans la page à 100 % */
+/* une attaque par ligne (Copier, Partager / Partagé, Annuler côte à côte) ;
+   la police rétrécit si le tableau dépasse (AttaqueLancee.ajusterTaille) */
 .o_attaquesLancees td.o_attaqueActions {
   text-align: left;
-  white-space: normal;
-  min-width: 7em;
 }
-/* titres et lieu sur deux lignes si besoin : le tableau tient dans la page */
-.o_attaquesLancees th,
-.o_attaquesLancees td.o_lieuAttaque {
+/* seuls les titres passent à la ligne */
+.o_attaquesLancees th {
   white-space: normal;
+}
+.o_attaquesLancees td.o_lieuAttaque {
+  width: 4em;
+  cursor: help;
 }
 .o_attaquesLancees td.o_attaqueActions > * {
-  margin-bottom: 2px;
+  vertical-align: middle;
 }
 .o_attaquesLancees td.o_attaqueActions .o_button {
   margin: 0 3px 0 0;
@@ -1041,7 +1042,6 @@ hr.o_scSepar {
   font-size: 1.1em;
 }
 .o_attaquesLancees td.o_troupesCourtes {
-  white-space: normal;
   cursor: help;
 }
 .o_attaquesNote td {

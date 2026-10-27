@@ -49,7 +49,7 @@ const CATEGORIES_MESSAGES = [
  */
 class MessagerieFzzz {
   /**
-   * Boutons de partage avec l'alliance sous le titre « Messagerie ».
+   * Bouton « Partager mes RC » avec l'alliance sous le titre « Messagerie ».
    * Pas encore branchés : un message l'indique.
    *
    * @static
@@ -60,9 +60,7 @@ class MessagerieFzzz {
     if (!$titre.length || $("#o_partageAlliance").length) return;
     let tag = Utils.alliance || "l'alliance";
     $(`<div id='o_partageAlliance'>
-        <button type='button' class='o_button f_info' data-quoi='convois'>Partager mes convois avec la ${tag}</button>
         <button type='button' class='o_button f_info' data-quoi='rc'>Partager mes RC avec la ${tag}</button>
-        <button type='button' class='o_button f_info' data-quoi='chasses'>Partager mes chasses avec la ${tag}</button>
       </div>`)
       .insertAfter($titre)
       .find("button")

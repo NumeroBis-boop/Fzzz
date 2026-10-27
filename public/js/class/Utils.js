@@ -844,8 +844,9 @@ class Utils {
   /**
    * Bandeau d'alerte sous le menu du jeu : la reine ne pond plus, ou sa file
    * se termine sous le seuil (Paramètres → Général). La file est lue sur la
-   * page Reine à chaque chargement de page. Rien sur la page Reine, ni pendant
-   * les 30 min qui suivent la fermeture du bandeau.
+   * page Reine à chaque chargement de page. Rien sur la page Reine. La croix
+   * masque le bandeau 30 min, ou jusqu'à ce que la file repasse au-dessus du
+   * seuil (ponte relancée) : la fin de ponte suivante est alors signalée.
    *
    * @static
    * @method alertePonte
@@ -855,24 +856,34 @@ class Utils {
       // une ligne dans la console (F12) pour comprendre une alerte absente
       noter = (texte) => console.info(`[${NOM_EXTENSION}] alerte de ponte : ${texte}`);
     if (!seuil) return noter("désactivée dans Paramètres → Général");
-    if (/^\/Reine\.php/i.test(location.pathname)) return;
-    let muette = 0;
-    try {
-      muette = parseInt(localStorage.getItem(CLE_ALERTE_PONTE_MUETTE)) || 0;
-    } catch (e) {}
-    if (Date.now() < muette)
-      return noter(`masquée jusqu'à ${moment(muette).format("HH[h]mm")} (croix du bandeau)`);
-    Promise.resolve($.get(location.origin + "/Reine.php"))
-      .then((html) => {
-        let $page = Utils.parseHtml(html);
+    let surReine = /^\/Reine\.php/i.test(location.pathname),
+      page = surReine
+        ? Promise.resolve($(document))
+        : Promise.resolve($.get(location.origin + "/Reine.php")).then(Utils.parseHtml);
+    page
+      .then(($page) => {
         // pas la page Reine (session expirée…) : pas d'alerte plutôt qu'une fausse
         if (!Utils.estPageReine($page)) return noter("page Reine illisible");
         let pontes = Utils.pontesReine($page),
-          reste = Math.max(0, ...pontes.map((p) => p.secondes));
+          reste = Math.max(0, ...pontes.map((p) => p.secondes)),
+          muette = 0;
+        try {
+          // file relancée au-delà du seuil : la prochaine fin de ponte sera signalée
+          if (reste > seuil) localStorage.removeItem(CLE_ALERTE_PONTE_MUETTE);
+          muette = parseInt(localStorage.getItem(CLE_ALERTE_PONTE_MUETTE)) || 0;
+        } catch (e) {}
+        let decision =
+          reste > seuil
+            ? "pas de bandeau"
+            : surReine
+              ? "pas de bandeau sur la page Reine"
+              : Date.now() < muette
+                ? `masquée jusqu'à ${moment(muette).format("HH[h]mm")} (croix du bandeau)`
+                : "bandeau affiché";
         noter(
-          `${pontes.length} ponte(s), fin de la file dans ${reste} s, seuil ${seuil} s : ${reste <= seuil ? "bandeau affiché" : "pas de bandeau"}`,
+          `${pontes.length} ponte(s), fin de la file dans ${reste} s, seuil ${seuil} s : ${decision}`,
         );
-        if (reste <= seuil) Utils.bandeauPonte(reste);
+        if (decision == "bandeau affiché") Utils.bandeauPonte(reste);
       })
       .catch((e) => console.error("Fzzz : lecture de la page Reine", e));
   }

@@ -98,6 +98,23 @@ describe("bandeau d'alerte de ponte", () => {
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(0);
   });
 
+  test("ponte relancée au-delà du seuil : le masquage est levé pour la fin suivante", async () => {
+    const p = creer(pageReine([1200]));
+    lancer(p);
+    await attendre();
+    p.lire(`$(".o_alertePonteFermer").trigger("click")`);
+    // file relancée : 5 h restantes, pas de bandeau, masquage levé
+    p.lire(`REINE = ${JSON.stringify(pageReine([18000]))}`);
+    lancer(p);
+    await attendre();
+    expect(p.lire(`localStorage.getItem("fzzz_alertePonteMuette")`)).toBeNull();
+    // la nouvelle file arrive à son tour en fin de course : bandeau
+    p.lire(`REINE = ${JSON.stringify(pageReine([900]))}`);
+    lancer(p);
+    await attendre();
+    expect(p.lire(`$("#o_alertePonte").length`)).toBe(1);
+  });
+
   test("aucune ponte en cours : bandeau « la reine ne pond plus »", async () => {
     const p = creer(pageReine([]));
     lancer(p);

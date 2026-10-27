@@ -84,8 +84,36 @@ class Dock {
    */
   static ecart(haut, bas) {
     if (!haut || !bas || haut == bas) return 8;
-    let e = bas.getBoundingClientRect().top - haut.getBoundingClientRect().bottom;
+    let e = Dock.emprise(bas).top - Dock.emprise(haut).bottom;
     return e >= 0 && e < 80 ? Math.round(e) : 8;
+  }
+  /**
+   * Emprise visible d'un encadré du jeu : son cadre est dessiné par ses
+   * éléments intérieurs, l'élément lui-même pouvant mesurer 0 px (comme
+   * l'encadré « S5 pseudo », voir Horloge.afficher).
+   *
+   * @static
+   * @method emprise
+   * @param {HTMLElement} elt
+   * @return {{left: Number, top: Number, right: Number, bottom: Number, width: Number, height: Number}}
+   */
+  static emprise(elt) {
+    let g = Infinity,
+      h = Infinity,
+      d = -Infinity,
+      b = -Infinity;
+    [elt, ...elt.querySelectorAll("*")].forEach((e) => {
+      let r = e.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        g = Math.min(g, r.left);
+        h = Math.min(h, r.top);
+        d = Math.max(d, r.right);
+        b = Math.max(b, r.bottom);
+      }
+    });
+    return g == Infinity
+      ? { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }
+      : { left: g, top: h, right: d, bottom: b, width: d - g, height: b - h };
   }
   /**
    * Garde `boite` juste sous `ref`, à `ecart()` px, même colonne, même
@@ -107,7 +135,11 @@ class Dock {
         attente = requestAnimationFrame(() => Dock.caler(ref, boite, ecart()));
       };
     caler();
-    if (window.ResizeObserver) new ResizeObserver(caler).observe(ref);
+    // le cadre visible est dessiné par les enfants : on les suit aussi
+    if (window.ResizeObserver) {
+      let o = new ResizeObserver(caler);
+      [ref, ...ref.children].forEach((e) => o.observe(e));
+    }
     new MutationObserver(caler).observe(ref, {
       attributes: true,
       attributeFilter: ["style", "class"],
@@ -171,6 +203,21 @@ class Dock {
       "textAlign",
       "marginBottom",
     ]);
+    let contenu = (e) => e.querySelector(".contenu_boite_compte_plus");
+    copier(contenu(ref), contenu(boite), [
+      "backgroundColor",
+      "backgroundImage",
+      "backgroundSize",
+      "backgroundRepeat",
+      "borderTop",
+      "borderRight",
+      "borderBottom",
+      "borderLeft",
+      "borderRadius",
+      "boxShadow",
+      "paddingLeft",
+      "paddingRight",
+    ]);
     copier(libelle(ref), libelle(boite), [
       "color",
       "fontFamily",
@@ -192,7 +239,7 @@ class Dock {
    * @param {Number} ecart px entre les deux
    */
   static caler(ref, boite, ecart = 8) {
-    let r = ref.getBoundingClientRect();
+    let r = Dock.emprise(ref);
     if (!r.width || !r.height) {
       boite.style.display = "none";
       return;

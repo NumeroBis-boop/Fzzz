@@ -95,20 +95,6 @@ class Joueur {
       "color",
       "#787423",
     );
-    this._parametre["boiteShow"] = new Parametre(
-      "boiteShow",
-      "Effet appariation des boites",
-      "select",
-      0,
-      EFFET,
-    );
-    this._parametre["boiteHide"] = new Parametre(
-      "boiteHide",
-      "Effet disparition des boites",
-      "select",
-      0,
-      EFFET,
-    );
     // parametres armée
     this._parametre["methodeFlood"] = new Parametre(
       "methodeFlood",
@@ -167,7 +153,7 @@ class Joueur {
       "Alerte quand la ponte se termine dans moins de",
       "select",
       3,
-      ["Désactivée", "15 min", "30 min", "1 h", "2 h", "4 h"],
+      ["Désactivée", "15 min", "30 min", "1 h", "2 h", "4 h", "8 h"],
     );
     this._parametre["affectationRessource"] = new Parametre(
       "affectationRessource",

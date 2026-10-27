@@ -99,40 +99,34 @@ class Parametre {
     return this;
   }
   /**
-   *
+   * Libellé et champ sur une ligne ; `suite` : HTML ajouté au bout de la ligne.
    */
-  getForm() {
-    let html = `<div class="group">`;
+  getForm(libelle = this._libelle, suite = "") {
+    let champ;
     switch (this._type) {
       case "color":
-        html += `<input id="${this._id}" class="o_input" type="text" value="${this._valeur}" required/><input id="${this._id}Picker" class="o_inputColor" type="color" value="${this._valeur}"/>`;
+        champ = `<input id="${this._id}" type="text" value="${this._valeur}" size="7"/><input id="${this._id}Picker" class="o_inputColor" type="color" value="${this._valeur}"/>`;
         break;
       case "number":
-        html += `<input class="o_input" type="text" value="0" style="display:none;" required/><input id="${this._id}" value="${this._valeur}" />`;
+        champ = `<input id="${this._id}" value="${this._valeur}" size="7"/>`;
         break;
       case "input":
-        html += `<input id="${this._id}" class="o_input" type="text" value="${this._valeur}" required/>`;
+        champ = `<input id="${this._id}" type="text" value="${this._valeur}"/>`;
         break;
       case "checkbox":
-        return `<div class="group left"><label for="${this._id}">${this._libelle}</label><input id="${this._id}" class="o_checkbox" type="checkbox" ${this._valeur ? "checked" : ""}/></div>`;
+        champ = `<input id="${this._id}" type="checkbox" ${this._valeur ? "checked" : ""}/>`;
         break;
       case "slider":
-        // valeurPossible = { min, max, step, unite } ; la valeur courante est
-        // aussi saisissable au clavier dans un champ synchronisé avec le
-        // curseur, posé dans ajouterEvent
-        return `<div id="${this._id}Groupe" class="group left"><label for="${this._id}Valeur">${this._libelle} : <input id="${this._id}Valeur" class="o_sliderValeur" type="text" value="${this._valeur}"/>${this._valeurPossible.unite || ""}</label><div id="${this._id}" class="slider" style="margin:6px 12px 0 3px;"></div></div>`;
+        // valeurPossible = { min, max, step, unite } ; la valeur est aussi
+        // saisissable au clavier, dans un champ synchronisé avec le curseur
+        return `<div id="${this._id}Groupe" class="o_ligneParam"><label for="${this._id}Valeur">${libelle}</label><input id="${this._id}Valeur" class="o_sliderValeur" type="text" value="${this._valeur}"/>${this._valeurPossible.unite || ""}<div id="${this._id}" class="slider o_sliderParam"></div>${suite}</div>`;
       case "select":
-        html += `<select id="${this._id}" class="o_input" required>`;
-        this._valeurPossible.forEach((item, index, array) => {
-          html += `<option value="${index}" ${index == this._valeur ? "selected" : ""}>${item}</option>`;
-        });
-        html += `</select>`;
+        champ = `<select id="${this._id}">${this._valeurPossible.map((item, index) => `<option value="${index}" ${index == this._valeur ? "selected" : ""}>${item}</option>`).join("")}</select>`;
         break;
       default:
-        break;
+        champ = "";
     }
-    html += `<span class="o_inputHighlight"></span><span class="o_inputBar"></span><label class='o_label'>${this._libelle}</label></div>`;
-    return html;
+    return `<div class="o_ligneParam"><label for="${this._id}">${libelle}</label>${champ}${suite}</div>`;
   }
   /**
    *

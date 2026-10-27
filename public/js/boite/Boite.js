@@ -63,7 +63,7 @@ class Boite {
         .draggable({ handle: ".o_titre", stack: "div", containment: "window" });
       bCreate = true;
     }
-    $("#" + this._id).show(EFFET[monProfil.parametre["boiteShow"].valeur].toLowerCase(), () => {
+    $("#" + this._id).show(0, () => {
       $(".o_content").css({
         "background-color": monProfil.parametre["couleur1"].valeur,
         "border-color": monProfil.parametre["couleur3"].valeur,
@@ -84,13 +84,13 @@ class Boite {
     return bCreate;
   }
   /**
-   * Cache la boite avec un effet de slide.
+   * Cache la boite.
    *
    * @private
    * @method masquer
    */
   masquer() {
-    $("#" + this._id).hide(EFFET[monProfil.parametre["boiteHide"].valeur].toLowerCase());
+    $("#" + this._id).hide();
     return this;
   }
   /**

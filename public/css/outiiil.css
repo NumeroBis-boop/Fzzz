@@ -659,7 +659,7 @@ select:required {
 /* icônes en ligne, remontées pour loger leur nom dessous */
 #o_toolbarOutiiil {
   display: flex;
-  justify-content: center;
+  justify-content: space-evenly;
   gap: 2px;
   padding: 2px 0 3px;
 }
@@ -879,6 +879,61 @@ hr.o_calcSepar {
 }
 #o_tabsParametre .ui-tabs-nav li a {
   padding: 0.3em 0.6em;
+}
+/* une ligne par réglage, sur toute la largeur de la boîte */
+#o_boiteParametre p.left {
+  max-width: none;
+}
+#o_tabsParametre form {
+  text-align: left;
+}
+.o_titreParam {
+  font-weight: bold;
+  margin: 12px 0 4px;
+  text-align: left;
+}
+form > .o_titreParam:first-child {
+  margin-top: 0;
+}
+.o_aideParam {
+  font-weight: normal;
+  font-style: italic;
+  font-size: var(--fzzz-reduit);
+}
+.o_titreParam .o_button {
+  margin: 0 0 0 8px;
+  font-weight: normal;
+}
+.o_ligneParam {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 3px 0;
+}
+.o_ligneParam .o_number {
+  width: auto;
+}
+.o_ligneParam .o_number > input {
+  width: 6em;
+}
+.o_ligneParam select {
+  max-width: 100%;
+}
+.o_ligneParam .o_inputColor {
+  position: static;
+  width: 28px;
+  height: 20px;
+  padding: 0;
+}
+.o_sliderParam {
+  flex: 1 1 120px;
+  margin: 0 10px;
+}
+.o_grilleParam {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 16px;
 }
 
 /* Commande - Rang */

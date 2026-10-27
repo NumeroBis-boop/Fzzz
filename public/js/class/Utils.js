@@ -60,7 +60,7 @@ const AFFICHAGES_CONVOIS = {
 };
 
 // Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix
-const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400];
+const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800];
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
 // fin de la file de ponte lue sur la page Reine : {fin, lu} (ms)

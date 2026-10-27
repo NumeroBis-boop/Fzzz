@@ -39,15 +39,7 @@ class BoiteParametre extends Boite {
       "Paramètres",
       `<div id='o_tabsParametre' class='o_tabs'><ul>${ONGLETS_PARAMETRE.map((o) => `<li><a href='#o_tabsParametre${o.id}'>${o.titre}</a></li>`).join("")}</ul>${ONGLETS_PARAMETRE.map((o) => `<div id='o_tabsParametre${o.id}'/>`).join("")}</div>`,
     );
-    this._paramStyle = [
-      "couleurTitre",
-      "couleur1",
-      "couleur2",
-      "couleur3",
-      "couleurTexte",
-      "boiteShow",
-      "boiteHide",
-    ];
+    this._paramStyle = ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"];
     this._paramGeneral = [
       "affectationRessource",
       "methodeFlood",
@@ -176,8 +168,7 @@ class BoiteParametre extends Boite {
     let onglet = ONGLETS_PARAMETRE.find((o) => o.id == id),
       libelles = { ...AFFICHAGES_FZZZ, ...AFFICHAGES_CONVOIS };
     if (!onglet.affichages.length) return "";
-    return `<p class='left reduce gras'>Affichages ajoutés par l'extension</p>
-      <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
+    return `<p class='o_titreParam'>Affichages <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
       ${onglet.affichages
         .map(
           (cle) =>
@@ -186,23 +177,18 @@ class BoiteParametre extends Boite {
         .join("")}`;
   }
   /**
-   * Toutes les pages : horloge, alerte de ponte, apparence des boîtes.
+   * Toutes les pages : horloge, alerte de ponte, couleurs des boîtes.
    *
    * @method ongletGeneral
    */
   ongletGeneral() {
-    let p = monProfil.parametre,
-      couleurs = ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"]
-        .map((c) => p[c].getForm())
-        .join("");
+    let p = monProfil.parametre;
     $("#o_tabsParametreGeneral").append(`<form>
         ${this.cases("General")}
-        <p class='left reduce gras o_marginT15'>Alerte quand la ponte de la reine se termine</p>
-        ${p["alertePonte"].getForm()}
-        <p class='left reduce gras o_marginT15'>Couleurs des boîtes et du texte</p>
-        ${couleurs}
-        <p class='left reduce gras'>Effets d'animation à l'ouverture et fermeture des boîtes</p>
-        ${p["boiteShow"].getForm() + p["boiteHide"].getForm()}
+        <p class='o_titreParam'>Ponte</p>
+        ${p["alertePonte"].getForm("Alerte si la ponte finit dans moins de")}
+        <p class='o_titreParam'>Couleurs des boîtes</p>
+        <div class='o_grilleParam'>${["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"].map((c) => p[c].getForm()).join("")}</div>
       </form>`);
     return this;
   }
@@ -217,9 +203,8 @@ class BoiteParametre extends Boite {
     let p = monProfil.parametre;
     $("#o_tabsParametreRessources").append(`<form>
         ${this.cases("Ressources")}
-        <p class='left reduce gras o_marginT15'>À l'ouverture de la page Ressources, la répartition est préparée dans le formulaire du jeu : clique sur Valider pour l'enregistrer</p>
-        <p class='left small'><em>Ratio : les ouvrières suivent la part choisie, même après une chasse ou un flood.${Utils.comptePlus ? " En Compte+, l'activer sur la page Ressources coupe l'affectation automatique du jeu." : ""}</em></p>
-        ${p["affectationRessource"].getForm()}
+        <p class='o_titreParam'>Ouvrières <span class='o_aideParam'>(répartition préparée à l'ouverture de la page, à valider dans le formulaire du jeu${Utils.comptePlus ? " ; le mode Ratio coupe l'affectation automatique du C+" : ""})</span></p>
+        ${p["affectationRessource"].getForm("Affectation")}
         ${p["ratioRecolte"].getForm()}
       </form>`);
     return this;
@@ -231,11 +216,9 @@ class BoiteParametre extends Boite {
     let p = monProfil.parametre;
     $("#o_tabsParametreArmee").append(`<form>
         ${this.cases("Armee")}
-        <p class='left reduce gras o_marginT15'>Antisondes à placer</p>
-        <p class='left small'><em>Le nombre est choisi aléatoirement entre 90% du max et le max.</em></p>
-        ${p["uniteAntisondeTerrain"].getForm() + p["uniteAntisondeDome"].getForm()}
-        <p class='left reduce gras'>À l'ouverture de la page Armée, signaler une armée à replacer (bouton mis en évidence, tu cliques)</p>
-        ${p["replacerArmeeAuto"].getForm()}
+        <p class='o_titreParam'>Antisondes <span class='o_aideParam'>(nombre tiré entre 90 % du max et le max)</span></p>
+        <div class='o_grilleParam'>${p["uniteAntisondeTerrain"].getForm("Max en terrain")}${p["uniteAntisondeDome"].getForm("Max en dôme")}</div>
+        ${p["replacerArmeeAuto"].getForm("Signaler une armée à replacer à l'ouverture de la page Armée")}
       </form>`);
     return this;
   }
@@ -246,13 +229,13 @@ class BoiteParametre extends Boite {
     let p = monProfil.parametre;
     $("#o_tabsParametreAttaque").append(`<form>
         ${this.cases("Attaque")}
-        <p class='left reduce gras o_marginT15'>Méthode sélectionnée par défaut dans le lanceur de flood</p>
-        ${p["methodeFlood"].getForm()}
-        <p class='left reduce gras'>Unités envoyées en sonde</p>
-        ${p["uniteSonde"].getForm()}
-        <p class='left reduce gras'>Nombre d'unités à conserver lors d'un flood (réserve)</p>
-        <p class='left small'><em>« Suivre antisondes » : la réserve vaut la somme des antisondes terrain et dôme (onglet Armée).</em></p>
-        ${p["reserveFlood"].getForm() + p["reserveFloodAuto"].getForm()}
+        <p class='o_titreParam'>Flood et sonde</p>
+        ${p["methodeFlood"].getForm("Méthode de flood par défaut")}
+        ${p["uniteSonde"].getForm("Unités envoyées en sonde")}
+        ${p["reserveFlood"].getForm(
+          "Unités gardées au flood (réserve)",
+          `<label class='o_aideParam'><input id='reserveFloodAuto' type='checkbox' ${p["reserveFloodAuto"].valeur ? "checked" : ""}/> = antisondes terrain + dôme</label>`,
+        )}
       </form>`);
     return this;
   }
@@ -260,10 +243,7 @@ class BoiteParametre extends Boite {
    * @method ongletLaboratoire
    */
   ongletLaboratoire() {
-    $("#o_tabsParametreLaboratoire").append(`<form>
-        ${this.cases("Laboratoire")}
-        <p class='left small'><em>La page Construction n'a que la rentabilité de l'Étable à pucerons : elle suit ce réglage.</em></p>
-      </form>`);
+    $("#o_tabsParametreLaboratoire").append(`<form>${this.cases("Laboratoire")}</form>`);
     return this;
   }
   /**
@@ -279,10 +259,9 @@ class BoiteParametre extends Boite {
       .join("");
     let $onglet = $("#o_tabsParametreMessagerie").append(`<form>
         ${this.cases("Messagerie")}
-        <p class='left reduce gras o_marginT15'>Couleurs des titres</p>
-        <p class='left small'><em>Case décochée : le titre garde la couleur du jeu.</em></p>
-        ${couleurs}
-        <p class='left'><button type='button' id='o_couleursMessagesDefaut' class='o_button'>Couleurs par défaut</button></p>
+        <p class='o_titreParam'>Couleurs des titres <span class='o_aideParam'>(case décochée : couleur du jeu)</span>
+          <button type='button' id='o_couleursMessagesDefaut' class='o_button'>Par défaut</button></p>
+        <div class='o_grilleParam'>${couleurs}</div>
       </form>`);
     let enregistrer = (type) => {
       let active = $onglet.find(`input[data-couleur-active='${type}']`).prop("checked"),
@@ -321,7 +300,7 @@ class BoiteParametre extends Boite {
   ongletConvois() {
     $("#o_tabsParametreConvois").append(`<form autocomplete='off'>
             ${this.cases("Convois")}
-            <p class='left reduce gras o_marginT15'>Suivi des convois de la OUAF</p>
+            <p class='o_titreParam'>Suivi des convois de la OUAF</p>
             <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
             <p class='left small'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
               <input type='password' id='o_ouafCode' autocomplete='new-password' spellcheck='false' style='width:12em'/>
@@ -383,7 +362,7 @@ class BoiteParametre extends Boite {
   apropos() {
     const repo = "https://github.com/NumeroBis-boop/fzzz";
     $("#o_tabsParametreApropos").append(`
-      <p class='left reduce gras'>${NOM_EXTENSION} v${VERSION}</p>
+      <p class='o_titreParam'>${NOM_EXTENSION} v${VERSION}</p>
       <p class='left reduce'>Extension open source pour Fourmizzz.fr.</p>
       <p class='left'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour l'extension</button></p>
       <p id='o_majFzzzEtat' class='left small'></p>
@@ -395,7 +374,7 @@ class BoiteParametre extends Boite {
       </ul>
       <p class='left reduce'>Fork de <a href='https://github.com/GuiEpi/toolzzz' target='_blank' rel='noopener'>Toolzzz</a> (GuiEpi), lui-même fork d'<a href='https://github.com/Hraesvelg/Outiiil' target='_blank' rel='noopener'>Outiiil</a> (Hraesvelg), sous licence <a href='${repo}/blob/main/LICENSE' target='_blank' rel='noopener'>GPL-3.0</a>.</p>
       <hr class='o_marginT15' style='border:0; border-top:1px dashed currentColor; opacity:0.35;'/>
-      <p class='left reduce gras'>Réinitialiser les paramètres</p>
+      <p class='o_titreParam'>Réinitialiser les paramètres</p>
       <p class='left small'><em>Remet toutes les options (couleurs, dock, flood, antisondes, signalement de l'armée à replacer, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
       <button id='o_resetParametres' class='o_button f_error'>Réinitialiser</button>
     `);

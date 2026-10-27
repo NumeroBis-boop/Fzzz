@@ -337,23 +337,6 @@ const TOAST_INFO = {
   icon: "info",
 };
 const EVOLUTION = [...CONSTRUCTION, ...RECHERCHE, "Nourriture", "Materiaux"];
-const EFFET = [
-  "",
-  "Blind",
-  "Bounce",
-  "Clip",
-  "Drop",
-  "Explode",
-  "Fade",
-  "Fold",
-  "Highlight",
-  "Puff",
-  "Pulsate",
-  "Scale",
-  "Shake",
-  "Size",
-  "Slide",
-];
 const METHODE_FLOOD = ["Standard", "Optimisée", "Uniforme", "Dégressive"];
 const LIEU = { TERRAIN: 0, DOME: 1, LOGE: 2 };
 const LIBELLE_LIEU = ["Terrain de Chasse", "fourmilière", "Loge Impériale"];

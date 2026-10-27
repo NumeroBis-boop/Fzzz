@@ -60,7 +60,7 @@ export default defineConfig({
       default_icon: "images/icons/48.png",
     },
     permissions: ["webRequest", "storage"],
-    host_permissions: ["*://*.fourmizzz.fr/*"],
+    host_permissions: ["*://s5.fourmizzz.fr/*"],
     // site de suivi des convois de la OUAF : accès demandé au premier envoi
     // (page ouaf-autorisation.html), pas à l'installation
     optional_host_permissions: ["http://ouafchaine.fr/*"],
@@ -70,12 +70,12 @@ export default defineConfig({
       // de contenu natif (sur construction.php#cout notamment) en laissant
       // outiiil.css cacher la simulation pendant le parse.
       {
-        matches: ["*://*.fourmizzz.fr/*"],
+        matches: ["*://s5.fourmizzz.fr/*"],
         js: ["js/bootstrap.js"],
         run_at: "document_start",
       },
       {
-        matches: ["*://*.fourmizzz.fr/*"],
+        matches: ["*://s5.fourmizzz.fr/*"],
         css: ["css/outiiil.css", "css/toasts.css", "css/datatables.css"],
         js: [
           "js/lib/jquery_3.2.1.js",
@@ -95,9 +95,9 @@ export default defineConfig({
       // (messagerie).
       {
         matches: [
-          "*://*.fourmizzz.fr/alliance.php*",
-          "*://*.fourmizzz.fr/construction.php*",
-          "*://*.fourmizzz.fr/messagerie.php*",
+          "*://s5.fourmizzz.fr/alliance.php*",
+          "*://s5.fourmizzz.fr/construction.php*",
+          "*://s5.fourmizzz.fr/messagerie.php*",
         ],
         js: [
           "js/lib/highcharts_6.0.7.js",
@@ -107,7 +107,7 @@ export default defineConfig({
         ],
       },
       {
-        matches: ["*://*.fourmizzz.fr/*"],
+        matches: ["*://s5.fourmizzz.fr/*"],
         js: [
           "js/lib/datatables_1.10.16.js",
           "js/lib/numeral_2.0.6.js",
@@ -119,11 +119,11 @@ export default defineConfig({
       },
       // simulateur de Calystène (lanceur « Budget de pertes ») : page Ressources seulement
       {
-        matches: ["*://*.fourmizzz.fr/Ressources.php*", "*://*.fourmizzz.fr/ressources.php*"],
+        matches: ["*://s5.fourmizzz.fr/Ressources.php*", "*://s5.fourmizzz.fr/ressources.php*"],
         js: ["js/lib/calystene-chs2_2.00.35.03.js"],
       },
       {
-        matches: ["*://*.fourmizzz.fr/*"],
+        matches: ["*://s5.fourmizzz.fr/*"],
         js: [
           "js/class/Requetes.js",
           "js/data/couts.js",
@@ -173,7 +173,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         resources: ["images/*", "images/**", "css/*", "css/**", "ouaf-autorisation.html"],
-        matches: ["*://*.fourmizzz.fr/*"],
+        matches: ["*://s5.fourmizzz.fr/*"],
       },
     ],
   },

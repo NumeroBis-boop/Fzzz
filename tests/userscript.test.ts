@@ -21,6 +21,20 @@ describe("en-tête du script utilisateur", () => {
     for (const f of [...js, ...css]) expect(existsSync(join(RACINE, "public", f))).toBe(true);
   });
 
+  test("ne s'exécute que sur le serveur s5", () => {
+    const matches = entete("abc123", "9.9.9", config)
+      .split("\n")
+      .filter((l) => /^\/\/ @(match|include)/.test(l))
+      .map((l) => l.split(/\s+/).at(-1));
+    expect(matches).toEqual(["*://s5.fourmizzz.fr/*"]);
+  });
+
+  test("manifeste : pages et autorisations limitées au serveur s5", () => {
+    const hotes = [...config.matchAll(/"(\*:\/\/[^"]*fourmizzz[^"]*)"/g)].map((m) => m[1] ?? "");
+    expect(hotes.length).toBeGreaterThan(5);
+    expect(hotes.every((h) => h.startsWith("*://s5.fourmizzz.fr/"))).toBe(true);
+  });
+
   test("charge la couche GM avant tout le reste, à un commit fixe", () => {
     const requires = entete("abc123", "9.9.9", config)
       .split("\n")

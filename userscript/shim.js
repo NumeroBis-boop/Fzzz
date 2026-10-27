@@ -116,7 +116,7 @@ var chrome = (function () {
         if (lu || this.readyState < 2) return;
         lu = true;
         try {
-          if (new URL(this.responseURL).hostname.endsWith("fourmizzz.fr"))
+          if (new URL(this.responseURL).hostname === "s5.fourmizzz.fr")
             echantillon(envoi, this.getResponseHeader("Date"));
         } catch (e) {
           /* adresse illisible : pas d'échantillon */

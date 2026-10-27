@@ -69,7 +69,7 @@ Each tier depends on everything above it being present as globals. Reordering wi
 
 ### Single domain
 
-`*://*.fourmizzz.fr/*` (http + https) is the only host in both `host_permissions` and `content_scripts.matches`. The upstream Outiiil v2 also relied on a companion backend at `outiiil.fr` (crowdsourced map data, player/alliance historique, Traceur POST endpoint). That backend is dead — the fork removes all of it in 3.0. If you see mentions of outiiil.fr in old branches, PRs, or issue history, they are stale and should not be re-introduced.
+`*://s5.fourmizzz.fr/*` (http + https) is the only host in `host_permissions`, `content_scripts.matches` and `web_accessible_resources.matches` (Fzzz 1.42: s5 only; the userscript `@match`, the background clock filter and the shim's clock sampling are restricted the same way, checked by `tests/userscript.test.ts`). The upstream Outiiil v2 also relied on a companion backend at `outiiil.fr` (crowdsourced map data, player/alliance historique, Traceur POST endpoint). That backend is dead — the fork removes all of it in 3.0. If you see mentions of outiiil.fr in old branches, PRs, or issue history, they are stale and should not be re-introduced.
 
 The `data_collection_permissions.required: ["none"]` declaration in the manifest depends on this: the extension no longer transmits any data anywhere, only reads fourmizzz.fr pages locally.
 

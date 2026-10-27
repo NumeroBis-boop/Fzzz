@@ -46,7 +46,7 @@ export function entete(sha: string, version: string, config: string): string {
     ["@supportURL", `https://github.com/${DEPOT}/issues`],
     ["@updateURL", brut],
     ["@downloadURL", brut],
-    ["@match", "*://*.fourmizzz.fr/*"],
+    ["@match", "*://s5.fourmizzz.fr/*"],
     ["@run-at", "document-end"],
     ["@noframes", ""],
     ...[

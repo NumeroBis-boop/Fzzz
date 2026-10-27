@@ -871,19 +871,55 @@ class Utils {
     if (!p || Date.now() - p.t > 30000 || p.page !== location.pathname) return;
     // le navigateur ne doit pas replacer la page lui-même
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    let placer = () => {
-      let a = (p.ancres || []).find((x) => document.getElementById(x.id));
-      if (a)
-        window.scrollTo(
-          0,
-          window.scrollY + document.getElementById(a.id).getBoundingClientRect().top - a.haut,
+    // défilements faits par Fzzz (les autres arrêtent le recalage)
+    let attendus = 0,
+      placer = () => {
+        let a = (p.ancres || []).find((x) => document.getElementById(x.id)),
+          y = a
+            ? window.scrollY + document.getElementById(a.id).getBoundingClientRect().top - a.haut
+            : p.y;
+        if (Math.abs(y - window.scrollY) < 1) return;
+        attendus++;
+        window.scrollTo(0, y);
+      };
+    // La page continue de se construire après coup (lectures en arrière-plan,
+    // tableaux, images) : on recale à chaque changement de mise en page
+    // pendant quelques secondes, et on s'arrête dès que le joueur fait
+    // défiler lui-même.
+    let actif = true,
+      attente = null,
+      recaler = () => {
+        if (!actif) return;
+        cancelAnimationFrame(attente);
+        attente = requestAnimationFrame(placer);
+      },
+      arreter = () => {
+        actif = false;
+        observateurs.forEach((o) => o.disconnect());
+        ["wheel", "touchstart", "keydown", "mousedown", "click"].forEach((t) =>
+          window.removeEventListener(t, arreter, true),
         );
-      else window.scrollTo(0, p.y);
-    };
+        window.removeEventListener("scroll", defilement);
+      },
+      // défilement qui ne vient pas de Fzzz (barre de défilement, clavier,
+      // script) : le joueur a repris la main
+      defilement = () => {
+        if (attendus > 0) attendus--;
+        else arreter();
+      },
+      observateurs = [new MutationObserver(recaler)];
+    observateurs[0].observe(document.body, { childList: true, subtree: true, attributes: true });
+    if (window.ResizeObserver) {
+      observateurs.push(new ResizeObserver(recaler));
+      observateurs[1].observe(document.body);
+    }
+    ["wheel", "touchstart", "keydown", "mousedown", "click"].forEach((t) =>
+      window.addEventListener(t, arreter, true),
+    );
+    window.addEventListener("scroll", defilement, { passive: true });
     placer();
-    // blocs ajoutés au-dessus après coup (lectures en cours) : on recale
-    setTimeout(placer, 300);
-    $(window).one("load", placer);
+    $(window).one("load", recaler);
+    setTimeout(arreter, 5000);
   }
   /**
    * Préserve le scrollY à travers une navigation aller-retour sur la même page

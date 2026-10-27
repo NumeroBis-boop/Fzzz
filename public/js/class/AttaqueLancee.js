@@ -464,7 +464,20 @@ class AttaqueLancee {
         // courante est la réponse du POST de lancement, un reload le rejouerait
         .finally(() => location.replace(location.pathname + location.search));
     });
-    // Annuler (lien du jeu) : la page se recharge, au même endroit (Utils.garderPosition)
+    // Annuler : le lien du jeu (…?annuler=id) renvoie sur une autre page
+    // (page ennemie générique) ; l'annulation est donc envoyée en arrière-plan
+    // puis la page courante est rechargée, au même endroit (Utils.garderPosition)
+    $(`#${id}`).on("click", ".o_attaqueAnnuler a", (e) => {
+      e.preventDefault();
+      let $lien = $(e.currentTarget);
+      if ($lien.hasClass("o_enCours")) return;
+      $lien.addClass("o_enCours").css("pointer-events", "none");
+      Promise.resolve($.get($lien.attr("href")))
+        .catch(() => null)
+        // navigation GET et non reload() : la page courante peut être la
+        // réponse du POST de lancement, un reload le rejouerait
+        .then(() => location.replace(location.pathname + location.search));
+    });
     AttaqueLancee.figerActions();
     AttaqueLancee.ajusterTaille();
   }

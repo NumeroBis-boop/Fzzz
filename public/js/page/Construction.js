@@ -21,9 +21,6 @@ class PageConstruction {
    *
    */
   executer() {
-    // Préservation du scroll à travers les redirects "Construire prereq invalide"
-    // — la restauration se fait à la fin d'executer() (après les manipulations DOM).
-    let scrollY = Utils.preserveScroll("o_constructionScroll");
     // verification des niveaux
     let niveau = new Array(13);
     $(".ligneAmelioration").each((i, elt) => {
@@ -45,9 +42,10 @@ class PageConstruction {
     Utils.tableauEvolution("Construction", "Construction");
     // Visualisation des coûts/temps par niveau
     this.couts();
-    // Restauration du scroll APRÈS toutes les manipulations DOM (sinon le
-    // tableau évolutions et le widget couts décalent la mise en page après).
-    if (scrollY !== null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
+    // Après un clic qui recharge la page (construire, annuler et sa
+    // confirmation, redirections du jeu) : même position à l'écran, une fois
+    // toutes les manipulations DOM faites
+    Utils.garderPosition("fzzz_positionConstruction");
     return this;
   }
   /**

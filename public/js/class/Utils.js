@@ -836,6 +836,27 @@ class Utils {
    * @param {String} cle clé de stockage (une par page)
    */
   static garderPosition(cle) {
+    let lire = () => {
+        try {
+          return JSON.parse(sessionStorage.getItem(cle));
+        } catch (e) {
+          return null;
+        }
+      },
+      ecrire = (v) => {
+        try {
+          sessionStorage.setItem(cle, JSON.stringify(v));
+        } catch (e) {}
+      },
+      p = lire();
+    // Page de confirmation du jeu (« Je confirme », annulation d'une
+    // construction ou d'une recherche) : simple étape. La position d'avant le
+    // premier clic est gardée pour la page qui suit la confirmation.
+    if ($("a:contains('Je confirme')").length) {
+      if (p && p.page === location.pathname)
+        window.addEventListener("pagehide", () => ecrire({ ...p, t: Date.now() }));
+      return;
+    }
     // dernier clic : l'élément cliqué et sa position à l'écran
     let dernier = null,
       moment = 0;
@@ -856,56 +877,53 @@ class Utils {
         if (e.id && !/^ui-/.test(e.id))
           ancres.push({ id: e.id, haut: e.getBoundingClientRect().top });
       ancres.sort((a, b) => /\d$/.test(a.id) - /\d$/.test(b.id));
-      try {
-        sessionStorage.setItem(
-          cle,
-          JSON.stringify({ ancres, y: window.scrollY, page: location.pathname, t: Date.now() }),
-        );
-      } catch (e) {}
+      ecrire({ ancres, y: window.scrollY, page: location.pathname, t: Date.now() });
     });
-    let p = null;
     try {
-      p = JSON.parse(sessionStorage.getItem(cle));
       sessionStorage.removeItem(cle);
     } catch (e) {}
-    if (!p || Date.now() - p.t > 30000 || p.page !== location.pathname) return;
-    // le navigateur ne doit pas replacer la page lui-même
+    if (!p || Date.now() - p.t > 60000 || p.page !== location.pathname) return;
+    // ni le navigateur (restauration, ancrage du défilement) ni la page ne
+    // doivent déplacer la vue pendant le recalage
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    // défilements faits par Fzzz (les autres arrêtent le recalage)
-    let attendus = 0,
+    let racine = document.documentElement,
+      ancrage = racine.style.overflowAnchor;
+    racine.style.overflowAnchor = "none";
+    // dernier défilement fait par Fzzz : les autres (barre de défilement,
+    // script de la page…) arrêtent le recalage, l'ancrage du navigateur étant
+    // coupé pendant ce temps
+    let notreDefilement = 0,
       placer = () => {
         let a = (p.ancres || []).find((x) => document.getElementById(x.id)),
           y = a
             ? window.scrollY + document.getElementById(a.id).getBoundingClientRect().top - a.haut
             : p.y;
         if (Math.abs(y - window.scrollY) < 1) return;
-        attendus++;
+        notreDefilement = Date.now();
         window.scrollTo(0, y);
       };
     // La page continue de se construire après coup (lectures en arrière-plan,
     // tableaux, images) : on recale à chaque changement de mise en page
-    // pendant quelques secondes, et on s'arrête dès que le joueur fait
-    // défiler lui-même.
+    // pendant quelques secondes, et on s'arrête dès que le joueur agit
+    // (molette, doigt, clavier, souris).
     let actif = true,
       attente = null,
+      evenements = ["wheel", "touchstart", "keydown", "mousedown", "pointerdown"],
       recaler = () => {
         if (!actif) return;
         cancelAnimationFrame(attente);
         attente = requestAnimationFrame(placer);
       },
       arreter = () => {
+        if (!actif) return;
         actif = false;
         observateurs.forEach((o) => o.disconnect());
-        ["wheel", "touchstart", "keydown", "mousedown", "click"].forEach((t) =>
-          window.removeEventListener(t, arreter, true),
-        );
+        evenements.forEach((t) => window.removeEventListener(t, arreter, true));
         window.removeEventListener("scroll", defilement);
+        racine.style.overflowAnchor = ancrage;
       },
-      // défilement qui ne vient pas de Fzzz (barre de défilement, clavier,
-      // script) : le joueur a repris la main
       defilement = () => {
-        if (attendus > 0) attendus--;
-        else arreter();
+        if (Date.now() - notreDefilement > 150) arreter();
       },
       observateurs = [new MutationObserver(recaler)];
     observateurs[0].observe(document.body, { childList: true, subtree: true, attributes: true });
@@ -913,44 +931,13 @@ class Utils {
       observateurs.push(new ResizeObserver(recaler));
       observateurs[1].observe(document.body);
     }
-    ["wheel", "touchstart", "keydown", "mousedown", "click"].forEach((t) =>
-      window.addEventListener(t, arreter, true),
-    );
+    evenements.forEach((t) => window.addEventListener(t, arreter, true));
     window.addEventListener("scroll", defilement, { passive: true });
     placer();
     $(window).one("load", recaler);
     setTimeout(arreter, 5000);
   }
-  /**
-   * Préserve le scrollY à travers une navigation aller-retour sur la même page
-   * (ex: clic "Construire" prereq invalide → POST → 302 → on revient en haut).
-   * Pose un listener `pagehide` pour sauver la position, et retourne la
-   * position à restaurer si elle est récente (< 5s).
-   *
-   * Le caller doit appeler `window.scrollTo(0, y)` APRÈS ses manipulations DOM
-   * (tableauEvolution insère un tableau au début de #centre et décale le
-   * contenu) — d'où le pattern : on récupère la valeur tôt, on l'applique tard.
-   *
-   * @static
-   * @method preserveScroll
-   * @param {String} key Clé sessionStorage unique pour la page (ex. "o_constructionScroll").
-   * @returns {Number|null} ScrollY à restaurer, ou null si rien à restaurer.
-   */
-  static preserveScroll(key) {
-    let saved = sessionStorage.getItem(key);
-    sessionStorage.removeItem(key);
-    let y = null;
-    if (saved) {
-      try {
-        let parsed = JSON.parse(saved);
-        if (Date.now() - parsed.t < 5000) y = parsed.y;
-      } catch (e) {}
-    }
-    window.addEventListener("pagehide", () => {
-      sessionStorage.setItem(key, JSON.stringify({ y: window.scrollY, t: Date.now() }));
-    });
-    return y;
-  }
+
   /**
    * Sur la page de confirmation d'annulation d'une recherche ou construction
    * (`?confAnnuler=ID&t=TOKEN`), ajoute un lien "Retour" à côté du "Je confirme"

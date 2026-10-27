@@ -64,6 +64,8 @@ class PageRessource {
     this.syntheseChasses();
     // Bouton "Annuler toutes les chasses" si au moins une est en cours
     this.boutonAnnulerChasses();
+    // annulation d'une chasse, lancement : même position à l'écran après rechargement
+    Utils.garderPosition("fzzz_positionRessources");
     return this;
   }
   /**

@@ -32,6 +32,8 @@ class PageCommerce {
     if (!Utils.comptePlus) this.plus();
     CommerceFzzz.suiviOuaf();
     CommerceFzzz.membresSuivis();
+    // annulation d'un convoi, lancement : même position à l'écran après rechargement
+    Utils.garderPosition("fzzz_positionCommerce");
     return this;
   }
   /**

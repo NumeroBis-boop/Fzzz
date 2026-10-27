@@ -1569,22 +1569,22 @@ center > div > #tabMembresAlliance {
   color: var(--fzzz-erreur);
 }
 
-/* Fzzz : messagerie */
+/* Fzzz : messagerie (couleurs : COULEURS_MESSAGES, posées par MessagerieFzzz.decorer) */
 .o_titreDefense {
-  color: #b42318 !important;
+  color: var(--fzzz-msg-defense) !important;
 }
 .o_titreAttaque {
-  color: #287a36 !important;
+  color: var(--fzzz-msg-attaque) !important;
 }
 .o_titreChasse {
-  color: #000000 !important;
+  color: var(--fzzz-msg-chasse) !important;
   font-style: italic;
 }
 .o_titreConvoi {
-  color: #7137a8 !important;
+  color: var(--fzzz-msg-convoi) !important;
 }
 .o_titreAutre {
-  color: #ffffff !important;
+  color: var(--fzzz-msg-autre) !important;
   font-weight: bold !important;
   text-shadow: none !important;
 }
@@ -1893,6 +1893,17 @@ tr.en_tete_message > td.td_coche {
   text-align: left;
   margin: 3px 0;
   cursor: pointer;
+}
+.o_couleurMessage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.o_couleurMessage input[type="color"] {
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--fzzz-secondaire);
 }
 #o_chassesPartagees .o_partageSpoiler {
   color: inherit;

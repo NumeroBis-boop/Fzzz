@@ -170,10 +170,21 @@ class BoiteParametre extends Boite {
           `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelle}</label>`,
       )
       .join("");
+    let couleurs = Object.entries(COULEURS_MESSAGES)
+      .map(([type, c]) => {
+        let couleur = Utils.couleurMessage(type);
+        return `<div class='o_couleurMessage'><input type='color' data-couleur='${type}' value='${couleur || c.defaut}'/>
+          <label class='o_affichageFzzz'><input type='checkbox' data-couleur-active='${type}' ${couleur ? "checked" : ""}/> ${c.libelle}</label></div>`;
+      })
+      .join("");
     $("#o_tabsParametre5").append(`<form>
             <p class='left reduce gras'>Affichages ajoutés par l'extension</p>
             <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
             ${cases}
+            <p class='left reduce gras o_marginT15'>Couleurs des titres de la messagerie</p>
+            <p class='left small'><em>Case décochée : le titre garde la couleur du jeu.</em></p>
+            ${couleurs}
+            <p class='left'><button type='button' id='o_couleursMessagesDefaut' class='o_button'>Couleurs par défaut</button></p>
         </form>`);
     $("#o_tabsParametre5 input[data-affichage]").on("change", (e) => {
       try {
@@ -182,6 +193,30 @@ class BoiteParametre extends Boite {
           e.currentTarget.checked ? "1" : "0",
         );
       } catch (err) {}
+    });
+    let enregistrer = (type) => {
+      let active = $(`#o_tabsParametre5 input[data-couleur-active='${type}']`).prop("checked"),
+        couleur = $(`#o_tabsParametre5 input[data-couleur='${type}']`).val();
+      try {
+        localStorage.setItem("fzzz_couleurMessage_" + type, active ? couleur : "");
+      } catch (err) {}
+    };
+    $("#o_tabsParametre5 input[data-couleur]").on("change", (e) => {
+      let type = e.currentTarget.dataset.couleur;
+      $(`#o_tabsParametre5 input[data-couleur-active='${type}']`).prop("checked", true);
+      enregistrer(type);
+    });
+    $("#o_tabsParametre5 input[data-couleur-active]").on("change", (e) =>
+      enregistrer(e.currentTarget.dataset.couleurActive),
+    );
+    $("#o_couleursMessagesDefaut").on("click", () => {
+      for (let type in COULEURS_MESSAGES) {
+        try {
+          localStorage.removeItem("fzzz_couleurMessage_" + type);
+        } catch (err) {}
+        $(`#o_tabsParametre5 input[data-couleur='${type}']`).val(COULEURS_MESSAGES[type].defaut);
+        $(`#o_tabsParametre5 input[data-couleur-active='${type}']`).prop("checked", true);
+      }
     });
     return this;
   }

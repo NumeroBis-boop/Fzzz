@@ -25,13 +25,24 @@ const TITRE_SYNTHESE = "Synthèse OUAF";
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",
   rentabilite: "Laboratoire et Construction : bandeaux « rentabilité du niveau supérieur »",
-  messagerieCouleurs: "Messagerie : couleurs des titres et icônes de copie",
+  messagerieCouleurs: "Messagerie : couleurs des titres par type de message",
+  messagerieCopie: "Messagerie : icônes de copie des rapports",
   messagerieAnalyse: "Messagerie : boutons « Analyser » sous les rapports",
   trajet: "Page d'attaque : temps de trajet",
   syntheseChasses: "Ressources : synthèse des chasses en cours",
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
   floodsRecus: "Armée : floods en cours sur moi",
   profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
+};
+
+// Fzzz : couleur des titres de la messagerie par type de message, réglable
+// dans Paramètres → Affichages (couleur vide : celle du jeu)
+const COULEURS_MESSAGES = {
+  defense: { libelle: "Combat en défense", classe: "o_titreDefense", defaut: "#b42318" },
+  attaque: { libelle: "Combat en attaque", classe: "o_titreAttaque", defaut: "#287a36" },
+  chasse: { libelle: "Chasse", classe: "o_titreChasse", defaut: "#000000" },
+  convoi: { libelle: "Convoi", classe: "o_titreConvoi", defaut: "#7137a8" },
+  autre: { libelle: "Autres messages", classe: "o_titreAutre", defaut: "#ffffff" },
 };
 
 // Fzzz : affichages de la page Convois, réglables dans Paramètres → Convoi
@@ -287,17 +298,6 @@ class Utils {
     return Utils.minuteRC(moment(depart).add(temps, "s"));
   }
   /**
-   * Ajoute sous une ligne de Laboratoire ou de Construction un bandeau
-   * « Estimer le niveau de rentabilité du niveau supérieur », replié par
-   * défaut, qui déplie `contenu` au clic. La ligne du jeu reste intacte.
-   *
-   * @static
-   * @method ajouterSpoilerRentabilite
-   * @param {Object} $ligne ligne .ligneAmelioration du jeu
-   * @param {String} id identifiant de la ligne ajoutée
-   * @param {String} contenu HTML affiché une fois déplié
-   */
-  /**
    * Fzzz : un affichage ajouté par l'extension est-il activé ? Tous le sont
    * par défaut ; le joueur peut les couper dans Paramètres → Affichages.
    *
@@ -311,6 +311,21 @@ class Utils {
     } catch (e) {
       return true;
     }
+  }
+  /**
+   * Fzzz : couleur des titres d'un type de message (clé de COULEURS_MESSAGES),
+   * "" pour garder celle du jeu.
+   *
+   * @static
+   * @method couleurMessage
+   * @param {String} type
+   */
+  static couleurMessage(type) {
+    let lue = null;
+    try {
+      lue = localStorage.getItem("fzzz_couleurMessage_" + type);
+    } catch (e) {}
+    return lue ?? COULEURS_MESSAGES[type].defaut;
   }
   /**
    * Fzzz : encart repliable. Renvoie le HTML d'un titre cliquable (flèche
@@ -344,11 +359,17 @@ class Utils {
     return `<div class='o_spoilerTitre ${classeTitre}' data-spoiler='${cle}'><span class='o_spoilerFleche'>${ouvert ? "▼" : "▶"}</span> ${titre}</div><div class='o_spoilerCorps'${ouvert ? "" : " style='display:none;'"}>${corps}</div>`;
   }
   /**
-   * Fzzz : bandeau « Estimer le niveau de rentabilité… » (voir plus bas).
+   * Fzzz : bandeau « Estimer le niveau de rentabilité du niveau supérieur »
+   * sous une ligne de Laboratoire ou de Construction, replié par défaut.
+   *
+   * @static
+   * @method ajouterSpoilerRentabilite
+   * @param {Object} $ligne ligne .ligneAmelioration du jeu
+   * @param {String} id identifiant de la ligne ajoutée
+   * @param {String|Function} contenu HTML, ou fonction rendant une promesse de
+   *   HTML, appelée à la première ouverture
    */
   static ajouterSpoilerRentabilite($ligne, id, contenu) {
-    // contenu : HTML, ou fonction rendant une promesse de HTML, attendue à la
-    // première ouverture du bandeau
     let charger = typeof contenu == "function" ? contenu : null;
     if (!Utils.affichage("rentabilite")) return;
     $("#" + id).remove();

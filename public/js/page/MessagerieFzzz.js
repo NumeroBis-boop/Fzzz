@@ -86,16 +86,41 @@ class MessagerieFzzz {
     return CATEGORIES_MESSAGES.find((c) => c.systeme && c.titre.test(titre)) || null;
   }
   /**
+   * Type de couleur d'une ligne (clé de COULEURS_MESSAGES).
+   *
+   * @static
+   * @method typeCouleur
+   */
+  static typeCouleur($ligne) {
+    let c = MessagerieFzzz.categorie($ligne);
+    if (!c || c.nom == "conversation") return "autre";
+    if (c.nom != "combat") return c.nom;
+    // en défense : on a été attaqué (vol, invasion, colonie perdue…)
+    return /vol par|invasion|colonie perdue|conquis par|défense/i.test(
+      $ligne.find(".intitule_message").text(),
+    )
+      ? "defense"
+      : "attaque";
+  }
+  /**
    * Couleurs et bouton de copie sur les lignes pas encore traitées.
    *
    * @static
    * @method decorer
    */
   static decorer() {
-    if (!Utils.affichage("messagerieCouleurs")) return;
+    let couleurs = Utils.affichage("messagerieCouleurs"),
+      copie = Utils.affichage("messagerieCopie");
+    if (!couleurs && !copie) return;
+    if (couleurs)
+      for (let type in COULEURS_MESSAGES)
+        document.documentElement.style.setProperty(
+          "--fzzz-msg-" + type,
+          Utils.couleurMessage(type),
+        );
     // copie des conversations cochées, à gauche de « Boîte de réception »
     let $toutes = $("#selection_toutes_checkbox");
-    if ($toutes.length && !$toutes.find(".o_copierRapport").length)
+    if (copie && $toutes.length && !$toutes.find(".o_copierRapport").length)
       $(
         `<img class='o_copierRapport' src='${IMG_COPIER}' title='Copier les rapports complets des conversations sélectionnées' alt='Copier'/>`,
       )
@@ -110,24 +135,16 @@ class MessagerieFzzz {
       .not(".o_fzzz")
       .each((i, elt) => {
         let $ligne = $(elt).addClass("o_fzzz"),
-          c = MessagerieFzzz.categorie($ligne),
           $titre = $ligne.find(".intitule_message");
         // titre complet au survol : la liste compactée le tronque
         if (!$titre.attr("title")) $titre.attr("title", $titre.text().trim());
-        // une couleur par type : combat en défense / en attaque, chasse,
-        // convoi, autres messages (voir outiiil.css)
-        let classe = !c
-          ? "o_titreAutre"
-          : c.nom == "combat"
-            ? // en défense : on a été attaqué (vol, invasion, colonie perdue…)
-              /vol par|invasion|colonie perdue|conquis par|défense/i.test($titre.text())
-              ? "o_titreDefense"
-              : "o_titreAttaque"
-            : { convoi: "o_titreConvoi", chasse: "o_titreChasse", conversation: "o_titreAutre" }[
-                c.nom
-              ];
+        let type = MessagerieFzzz.typeCouleur($ligne);
         // le titre et la date prennent la couleur du type
-        if (classe) $titre.add($ligne.find(".td_objet > span").first()).addClass(classe);
+        if (couleurs && Utils.couleurMessage(type))
+          $titre
+            .add($ligne.find(".td_objet > span").first())
+            .addClass(COULEURS_MESSAGES[type].classe);
+        if (!copie) return;
         $(
           `<img class='o_copierRapport' src='${IMG_COPIER}' title='Copier le rapport complet' alt='Copier'/>`,
         )

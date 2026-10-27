@@ -165,6 +165,16 @@ WXT publishes LLM-friendly documentation dumps:
 
 When a WXT-specific question comes up (config options, CLI flags, lifecycle, module APIs), prefer fetching `llms-full.txt` over scraping individual doc pages — it's the authoritative source in one shot and avoids the cost of multiple fetches.
 
+## Comments
+
+Other developers read this code and find verbose AI-style comments noisy, and stale ones misleading. Rules:
+
+- Write a comment only for a **why** the code cannot say: a game constraint or quirk, an s5 rule, a workaround for a browser or game bug, a non-obvious formula source. Never paraphrase what the next line does, never narrate the change history ("Fzzz :", "écart avec…", "avant on faisait…") unless it explains a constraint still true today.
+- Prefer putting the information in the code: a well-named constant, function or variable over a comment.
+- One or two lines; JSDoc only on methods called from other files, with accurate `@param` types.
+- When you change code, re-read the comments around it in the same commit: update or delete any that no longer match. A wrong comment is worse than none.
+- Cleanups go one file or folder per commit (reviewable diff), tests green at each step; no repo-wide comment rewrite in one go.
+
 ## Commit Convention
 
 This project follows [Conventional Commits](https://www.conventionalcommits.org/).

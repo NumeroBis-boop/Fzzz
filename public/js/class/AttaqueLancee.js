@@ -419,7 +419,7 @@ class AttaqueLancee {
     // délégués : les boutons Partager / Retirer sont remplacés l'un par l'autre
     $(`#${id}`).on("click", ".o_attaquePartager", (e) =>
       PartageChasses.partagerFloods(
-        [attaques[parseInt(e.currentTarget.dataset.i)].capture],
+        [AttaqueLancee.pourPartage(attaques[parseInt(e.currentTarget.dataset.i)])],
         $(e.currentTarget),
       ),
     );
@@ -441,10 +441,7 @@ class AttaqueLancee {
       PartageChasses.retirerFloods(ids, $(e.currentTarget));
     });
     $(`#${id}PartagerTout`).on("click", (e) =>
-      PartageChasses.partagerFloods(
-        attaques.map((a) => a.capture),
-        $(e.currentTarget),
-      ),
+      PartageChasses.partagerFloods(attaques.map(AttaqueLancee.pourPartage), $(e.currentTarget)),
     );
     // annulation groupée : les liens Annuler du jeu, appelés l'un après
     // l'autre. Le jeu n'autorise l'annulation que peu de temps après le
@@ -619,6 +616,27 @@ class AttaqueLancee {
     $("#o_attaquesLanceesRetirerTout").toggle(retirables > 0);
   }
 
+  /**
+   * Attaque à partager : la capture, ou à défaut les données du jeu (date
+   * d'arrivée, cible, lieu et troupes affichés en C+) pour une attaque lancée
+   * sans que l'extension la capture (autre appareil, formulaire du jeu).
+   *
+   * @static
+   * @method pourPartage
+   */
+  static pourPartage(a) {
+    let l = a.ligne,
+      natif = {
+        id: l.id,
+        cible: l.cible,
+        lieu: l.lieuNatif,
+        arrivee: l.arrivee ? l.arrivee.valueOf() : null,
+        unite: { total: parseInt(String(AttaqueLancee.quantite(a)).replace(/\D/g, "")) || 0 },
+      };
+    return a.capture
+      ? { ...natif, ...a.capture, arrivee: a.capture.arrivee || natif.arrivee }
+      : natif;
+  }
   /**
    * Fzzz : TdC que l'attaque prendra (règle des 20 %, estimée au lancement),
    * « — » hors terrain de chasse, « ? » si le TdC de la cible était inconnu.

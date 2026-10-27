@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.50.1",
+    notes: [
+      "Partage des floods : marche aussi pour une attaque lancée depuis un autre appareil ou le formulaire du jeu.",
+    ],
+  },
+  {
     version: "1.50.0",
     notes: ["« Voir les nouveautés » s'affiche dans le jeu au lieu d'ouvrir GitHub."],
   },

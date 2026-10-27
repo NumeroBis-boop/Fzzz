@@ -168,9 +168,16 @@ class CommerceFzzz {
         } catch (e) {}
       },
       ouaf = { restes: null, etat: "attente", membres: [] },
-      deux = (n) => String(n).padStart(2, "0"),
-      hms = (s) =>
-        `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
+      // « 8h56 », minutes arrondies : les secondes ne servent pas à choisir un convoi
+      hm = (s) => {
+        let m = Math.round(s / 60);
+        return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+      },
+      retour = (t) => {
+        let r = Horloge.clic().add(t, "s");
+        return r.isSame(Horloge.clic(), "day") ? r.format("HH:mm") : r.format("DD/MM HH:mm");
+      },
+      tri = { col: null, sens: 1 },
       trajet = (p) => (connus[p] ? OuafSuivi.trajet(p) : null),
       lien = (p) => {
         let m = connus[p];
@@ -198,33 +205,72 @@ class CommerceFzzz {
           return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td><td>—</td><td>—</td><td></td></tr>`;
         let t = trajet(p);
         return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
-          <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hms(t)}</td>
-          <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
+          <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hm(t)}</td>
+          <td class='o_convoisMembreRetour'>${t == null ? "—" : retour(t)}</td>
           <td>${reste(p)}</td>
           <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
       },
       // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
-          <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
-            <thead><tr><th>Joueur à livrer</th><th>Temps de trajet</th><th>Horaire de retour</th><th>Convoi restant à livrer</th><th></th></tr></thead>
+          <table class='o_convoisMembres centre' cellspacing='0'>
+            <thead><tr><th data-tri='joueur' title='Joueur à livrer'>Joueur</th><th data-tri='trajet' title='Temps de trajet'>Trajet</th><th data-tri='trajet' title='Horaire de retour d&#39;un convoi lancé maintenant'>Retour</th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Reste</th><th></th></tr></thead>
             <tbody></tbody>
             <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
           </table>
           ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
         </div>`),
+      // valeur de tri d'un membre ; inconnue (null) toujours en dernier
+      cleTri = (p) =>
+        tri.col == "joueur"
+          ? p.toLowerCase()
+          : tri.col == "trajet"
+            ? trajet(p)
+            : ouaf.restes
+              ? (ouaf.restes.get(p.toLowerCase()) ?? null)
+              : null,
+      ordonnes = () =>
+        !tri.col
+          ? suivis
+          : suivis.slice().sort((a, b) => {
+              let x = cleTri(a),
+                y = cleTri(b);
+              if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
+              return tri.sens * (typeof x == "string" ? x.localeCompare(y, "fr") : x - y);
+            }),
       afficher = () => {
         let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
         $bloc
           .find("tbody")
-          .html(suivis.map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
+          .html(ordonnes().map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
+        $bloc.find("th[data-tri]").each((i, th) => {
+          // Trajet et Retour trient pareil : la flèche reste sur l'en-tête cliqué
+          let actif =
+            th.dataset.tri == tri.col && (tri.col != "trajet" || (i == 2) == !!tri.retour);
+          $(th).attr("data-sens", actif ? (tri.sens > 0 ? "▲" : "▼") : "");
+        });
       };
+    try {
+      Object.assign(tri, JSON.parse(localStorage.getItem(CLE_CONVOIS_MEMBRES + "_tri")) || {});
+    } catch (e) {}
     // sous les convois en cours (dernier élément de la section)
     let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours")),
       $section = $titre.first().nextUntil("h3").addBack();
     if ($titre.length) $bloc.insertAfter($section.last());
     else $("#centre").append($bloc);
     afficher();
+    // tri au clic sur un en-tête : croissant, puis décroissant ; mémorisé
+    $bloc.on("click", "th[data-tri]", (e) => {
+      let col = e.currentTarget.dataset.tri,
+        retourCol = $(e.currentTarget).index() == 2;
+      tri.sens = tri.col == col && !!tri.retour == retourCol ? -tri.sens : 1;
+      tri.col = col;
+      tri.retour = retourCol;
+      try {
+        localStorage.setItem(CLE_CONVOIS_MEMBRES + "_tri", JSON.stringify(tri));
+      } catch (err) {}
+      afficher();
+    });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");
       if (!p || suivis.includes(p)) return;
@@ -248,10 +294,7 @@ class CommerceFzzz {
     setInterval(() => {
       $bloc.find("tr[data-pseudo]").each((i, tr) => {
         let t = trajet(String($(tr).data("pseudo")));
-        if (t != null)
-          $(tr)
-            .find(".o_convoisMembreRetour")
-            .text(Horloge.clic().add(t, "s").format("DD/MM HH:mm"));
+        if (t != null) $(tr).find(".o_convoisMembreRetour").text(retour(t));
       });
     }, 30000);
     // reste à livrer : une lecture du site à l'ouverture de la page

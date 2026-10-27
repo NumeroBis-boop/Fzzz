@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.1",
+    notes: [
+      "Convois à faire : tableau resserré (tient sur téléphone), tri au clic sur les en-têtes.",
+    ],
+  },
+  {
     version: "1.52.0",
     notes: [
       "Convois : chaque envoi au suivi est noté avec son numéro dans le forum (sujet « Convois | pseudo ») ; un convoi déjà envoyé est reconnu sur tous tes appareils, sans erreur.",

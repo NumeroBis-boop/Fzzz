@@ -2119,6 +2119,23 @@ tr.en_tete_message > td.td_coche {
   color: #287a36;
   font-weight: bold;
 }
+/* Fzzz : alerte « niveau finançable » sous l'encart « S5 pseudo » */
+#o_alerteNiveaux {
+  margin: 4px auto 6px;
+  text-align: center;
+  font-size: 0.85em;
+}
+#o_alerteNiveaux a {
+  display: inline-block;
+  margin: 2px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #fff3c4;
+  border: 1px solid #c27c0e;
+  color: #5a3a00 !important;
+  font-weight: bold;
+  text-decoration: none;
+}
 /* Fzzz : tableau « Joueur à livrer » (page Convois) */
 #o_convoisMembres {
   margin-top: 24px;

@@ -485,6 +485,8 @@ const DATEPICKER_OPTION = {
         // Boite radar
         let boiteRadar = new BoiteRadar();
         boiteRadar.afficher();
+        // Fzzz : niveau d'Armes ou d'Étable à pucerons finançable
+        Utils.alerteNiveaux();
 
         // Onglet "Carte" dans le menu d'alliance — injecté sur toutes les pages
         // tant que le joueur a une alliance (présence du lien Membres = preuve).

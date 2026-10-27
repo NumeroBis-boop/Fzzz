@@ -26,6 +26,8 @@ const AFFICHAGES_FZZZ = {
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
   floodsRecus: "Armée : floods en cours sur moi",
   profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
+  alerteNiveaux:
+    "Alerte sous l'encart « S5 pseudo » : niveau d'Armes ou d'Étable à pucerons finançable",
 };
 
 // Fzzz : affichages de la page Convois, réglables dans Paramètres → Convoi
@@ -80,6 +82,88 @@ class Utils {
       $("#menuComptePlus a.boutonStatJoueur").text() == "Stat"
       ? true
       : false;
+  }
+  /**
+   * Niveaux suivants d'Armes et d'Étable à pucerons que les ressources
+   * actuelles permettent de payer. Un niveau déjà en cours n'est pas proposé.
+   *
+   * @static
+   * @method niveauxFinancables
+   * @param {{armes: Number, etable: Number}} niveaux niveaux actuels (-1 : inconnu)
+   * @param {{nourriture: Number, materiaux: Number, ouvrieres: Number}} ressources
+   * @param {{recherche: String, construction: String}} enCours libellés en cours
+   * @return {Array<{nom: String, niveau: Number, page: String, cout: String, occupe: Boolean}>}
+   */
+  static niveauxFinancables(niveaux, ressources, enCours) {
+    let liste = [],
+      format = (n) => numeral(n).format("0.[0]a");
+    if (niveaux.armes >= 0 && !/\bArmes\b/i.test(enCours.recherche)) {
+      let item = COUTS_RECHERCHES.labo2,
+        n = niveaux.armes + 1,
+        p = coutsPom(item, n),
+        m = coutsMat(item, n),
+        o = coutsOuv(item, n);
+      if (
+        n <= item.max &&
+        ressources.nourriture >= p &&
+        ressources.materiaux >= m &&
+        ressources.ouvrieres >= o
+      )
+        liste.push({
+          nom: "Armes",
+          niveau: n,
+          page: "laboratoire.php",
+          cout: `${format(p)} nourriture, ${format(m)} matériaux, ${format(o)} ouvrières`,
+          occupe: !/aucune/i.test(enCours.recherche) && /\S/.test(enCours.recherche),
+        });
+    }
+    if (niveaux.etable >= 0 && !/pucerons/i.test(enCours.construction)) {
+      let item = COUTS_CONSTRUCTIONS.cons0,
+        n = niveaux.etable + 1,
+        m = coutsMat(item, n);
+      if (n <= item.max && ressources.materiaux >= m)
+        liste.push({
+          nom: "Étable à pucerons",
+          niveau: n,
+          page: "construction.php",
+          cout: `${format(m)} matériaux`,
+          occupe: !/aucune/i.test(enCours.construction) && /\S/.test(enCours.construction),
+        });
+    }
+    return liste;
+  }
+  /**
+   * Petite alerte sous l'encart « S5 pseudo » quand un niveau d'Armes ou
+   * d'Étable à pucerons est finançable (ressources affichées par le jeu,
+   * aucune requête). Lien vers la page où le lancer.
+   *
+   * @static
+   * @method alerteNiveaux
+   */
+  static alerteNiveaux() {
+    if (!Utils.affichage("alerteNiveaux") || $("#o_alerteNiveaux").length) return;
+    let $boite = $("#boiteInfo");
+    if (!$boite.length) return;
+    let possibles = Utils.niveauxFinancables(
+      {
+        armes: parseInt(monProfil.niveauRecherche[2]),
+        etable: parseInt(monProfil.niveauConstruction[11]),
+      },
+      { nourriture: Utils.nourriture, materiaux: Utils.materiaux, ouvrieres: Utils.ouvrieres },
+      {
+        recherche: $("#ligne_recherche, #o_resteRecherche").first().text().trim(),
+        construction: $("#ligne_construction, #o_resteConstruction").first().text().trim(),
+      },
+    );
+    if (!possibles.length) return;
+    $(
+      `<div id='o_alerteNiveaux'>${possibles
+        .map(
+          (x) =>
+            `<a href='${x.page}' title='Coût : ${x.cout}${x.occupe ? " — " + (x.page == "laboratoire.php" ? "laboratoire" : "chantier") + " occupé pour l’instant" : ""}'>🔔 ${x.nom} ${x.niveau} possible</a>`,
+        )
+        .join("")}</div>`,
+    ).insertAfter($boite);
   }
   /**
    * Renvoie le terrain du joueur en cm².

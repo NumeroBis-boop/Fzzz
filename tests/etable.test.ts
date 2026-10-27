@@ -71,3 +71,46 @@ describe("Utils.ouvrieresTotales", () => {
     expect(page.lire(`window.requetes`)).toBe(2);
   });
 });
+
+describe("alerte de niveau finançable (Armes, Étable à pucerons)", () => {
+  const p = creerPage(["js/data/couts.js", "js/class/Utils.js"]);
+  const calcul = (
+    niveaux: object,
+    ressources: object,
+    enCours = { recherche: "Aucune recherche", construction: "Aucune construction" },
+  ) =>
+    p.lire<{ nom: string; niveau: number; occupe: boolean }[]>(
+      `JSON.parse(JSON.stringify(Utils.niveauxFinancables(${JSON.stringify(niveaux)}, ${JSON.stringify(ressources)}, ${JSON.stringify(enCours)})))`,
+    );
+  // Armes 10 : 153 600 nourriture, 102 400 matériaux, 40 960 ouvrières ; Étable 5 : 24 000 matériaux
+  const juste = { nourriture: 153600, materiaux: 102400, ouvrieres: 40960 };
+
+  test("ressources suffisantes : les deux niveaux, avec leur numéro", () => {
+    expect(calcul({ armes: 9, etable: 4 }, juste).map((x) => `${x.nom} ${x.niveau}`)).toEqual([
+      "Armes 10",
+      "Étable à pucerons 5",
+    ]);
+  });
+  test("une ressource manque : pas d'alerte pour ce niveau", () => {
+    expect(
+      calcul({ armes: 9, etable: 4 }, { ...juste, ouvrieres: 40959 }).map((x) => x.nom),
+    ).toEqual(["Étable à pucerons"]);
+    expect(
+      calcul({ armes: 9, etable: 4 }, { nourriture: 0, materiaux: 23999, ouvrieres: 0 }),
+    ).toEqual([]);
+  });
+  test("niveau inconnu ou déjà en cours : rien ; autre chantier en cours : signalé occupé", () => {
+    expect(calcul({ armes: -1, etable: -1 }, juste)).toEqual([]);
+    expect(
+      calcul({ armes: 9, etable: 4 }, juste, {
+        recherche: "Armes 3h 02m",
+        construction: "Étable à pucerons",
+      }),
+    ).toEqual([]);
+    const r = calcul({ armes: 9, etable: 4 }, juste, {
+      recherche: "Architecture 2h 55m",
+      construction: "Aucune construction",
+    });
+    expect(r.map((x) => x.occupe)).toEqual([true, false]);
+  });
+});

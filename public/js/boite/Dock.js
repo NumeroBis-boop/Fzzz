@@ -14,9 +14,9 @@ class Dock {
     this._html = `<div id="o_boiteExtension" class="boite_compte_plus">
             <div class="titre_colonne_cliquable"><span class="titre_compte_plus">Extension OUAF</span></div>
             <div class="contenu_boite_compte_plus"><div id="o_toolbarOutiiil">
+            <div id="o_toolbarItem6" class="o_toolbarItem" title="Préférence"><span id="o_itemParametre" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             <div id="o_toolbarItem2" class="o_toolbarItem" title="Chasse"><span id="o_itemChasse" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             <div id="o_toolbarItem3" class="o_toolbarItem" title="Combat"><span id="o_itemCombat" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
-            <div id="o_toolbarItem6" class="o_toolbarItem" title="Préférence"><span id="o_itemParametre" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             </div></div></div>`;
     /**
      *

@@ -20,8 +20,9 @@ export default defineConfig({
     ],
   },
   manifest: {
-    name: "Fzzz",
-    description: "Extension pour Fourmizzz, fork de Toolzzz et Outiiil.",
+    // nom affiché ; le nom technique (Fzzz) reste celui du dépôt et de l'identifiant Firefox
+    name: "Extension OUAF",
+    description: "Outils de l'alliance OUAF pour Fourmizzz (s5), d'après Toolzzz et Outiiil.",
     // version : pas déclarée ici — WXT reprend celle de package.json (source unique,
     // le bump de release ne doit toucher qu'un seul fichier).
     // @ts-expect-error AMO refuse la forme objet; Chrome accepte la string. On s'aligne sur Firefox.

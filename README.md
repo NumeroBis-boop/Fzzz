@@ -1,6 +1,8 @@
-# Fzzz
+# Extension OUAF
 
-Extension navigateur pour [Fourmizzz](http://www.fourmizzz.fr) (serveur s5), pour Chrome, Edge, Brave et Firefox (PC et Android).
+> Nom technique : **Fzzz** (dépôt, identifiant Firefox `fzzz@numerobis-boop.github.io`, clés de stockage, section de forum « Fzzz-Chasses »). Les joueurs voient « Extension OUAF » depuis la version 1.41.
+
+Extension navigateur de l'alliance OUAF pour [Fourmizzz](http://www.fourmizzz.fr) (serveur s5), pour Chrome, Edge, Brave et Firefox (PC et Android).
 
 Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-même fork et maintenance d'[Outiiil](https://github.com/Hraesvelg/Outiiil) (Hraesvelg). La base est celle de Toolzzz 3.12.3, que nous améliorons pour l'alliance.
 

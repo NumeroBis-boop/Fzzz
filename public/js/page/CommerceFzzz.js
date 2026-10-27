@@ -81,7 +81,7 @@ class CommerceFzzz {
       echec = (e) => {
         if (e.name == "permission") {
           toast(
-            "Fzzz n'a pas encore accès à ouafchaine.fr. <button type='button' id='o_ouafAcces' class='o_button f_info'>Autoriser l'accès</button> puis relance l'envoi.",
+            `${NOM_EXTENSION} n'a pas encore accès à ouafchaine.fr. <button type='button' id='o_ouafAcces' class='o_button f_info'>Autoriser l'accès</button> puis relance l'envoi.`,
             TOAST_WARNING,
           );
           $(document)

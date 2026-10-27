@@ -171,7 +171,7 @@ class BoiteParametre extends Boite {
       )
       .join("");
     $("#o_tabsParametre5").append(`<form>
-            <p class='left reduce gras'>Affichages ajoutés par Fzzz</p>
+            <p class='left reduce gras'>Affichages ajoutés par l'extension</p>
             <p class='left small'><em>Décoche ce que tu ne veux pas voir. Pris en compte au prochain chargement de la page.</em></p>
             ${cases}
         </form>`);
@@ -268,9 +268,9 @@ class BoiteParametre extends Boite {
   apropos() {
     const repo = "https://github.com/NumeroBis-boop/fzzz";
     $("#o_tabsParametre4").append(`
-      <p class='left reduce gras'>Fzzz v${VERSION}</p>
+      <p class='left reduce gras'>${NOM_EXTENSION} v${VERSION}</p>
       <p class='left reduce'>Extension open source pour Fourmizzz.fr.</p>
-      <p class='left'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour Fzzz</button></p>
+      <p class='left'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour l'extension</button></p>
       <p id='o_majFzzzEtat' class='left small'></p>
       <ul class='left reduce'>
         <li><a href='https://github.com/GuiEpi/toolzzz/wiki' target='_blank' rel='noopener'>Wiki (Toolzzz)</a></li>
@@ -316,7 +316,7 @@ class BoiteParametre extends Boite {
           return;
         }
         $bouton.prop("disabled", false);
-        if (r.statut == "no_update") $etat.text(`Fzzz est à jour (v${VERSION}).`);
+        if (r.statut == "no_update") $etat.text(`${NOM_EXTENSION} est à jour (v${VERSION}).`);
         else if (r.statut == "throttled")
           $etat.text("Trop de vérifications rapprochées : réessaie dans quelques minutes.");
         else if (r.statut == "userscript")

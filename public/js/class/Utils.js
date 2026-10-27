@@ -15,6 +15,12 @@ let intervalleComptesARebours = null;
  *
  * @class Utils
  */
+// Fzzz : nom de l'extension affiché aux joueurs (le nom technique, Fzzz, reste
+// celui du dépôt, des clés de stockage et de l'identifiant Firefox)
+const NOM_EXTENSION = "Extension OUAF";
+// titre de l'encadré de synthèse recréé hors Compte+ (et de son bascule radar)
+const TITRE_SYNTHESE = "Synthèse OUAF";
+
 // Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres → Affichages
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",

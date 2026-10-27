@@ -368,11 +368,9 @@ class BoiteComptePlus {
         $("<div id='boiteComptePlus'/>").insertAfter("#boiteInfo");
       let cree = !$("#boiteComptePlus").hasClass("boite_compte_plus");
       $("#boiteComptePlus").replaceWith(
-        "<div id='boiteComptePlus' class='boite_compte_plus'><div class='titre_colonne_cliquable'><span class='titre_compte_plus'>Fzzz " +
-          VERSION.substring(0, 2) +
-          "<span class='reduce'>" +
-          VERSION.substring(2) +
-          "</span></span></div><div class='contenu_boite_compte_plus'><table " +
+        "<div id='boiteComptePlus' class='boite_compte_plus'><div class='titre_colonne_cliquable'><span class='titre_compte_plus'>" +
+          TITRE_SYNTHESE +
+          "</span></div><div class='contenu_boite_compte_plus'><table " +
           (visible == null || visible == "C" ? "" : "style='display:none'") +
           ">" +
           // Ligne ponte

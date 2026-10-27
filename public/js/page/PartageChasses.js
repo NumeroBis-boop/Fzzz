@@ -317,7 +317,7 @@ class PartageChasses {
           hideAfter: 10000,
           text:
             e && e.message == "absente"
-              ? `Le forum de l'alliance n'a pas encore de section « ${FORUM_SECTIONS_CHASSES[0]} » : un chef peut la créer d'un clic depuis la page Forum (bouton Fzzz).`
+              ? `Le forum de l'alliance n'a pas encore de section « ${FORUM_SECTIONS_CHASSES[0]} » : un chef peut la créer d'un clic depuis la page Forum (bouton ${NOM_EXTENSION}).`
               : `Partage impossible : le forum de l'alliance n'a pas pu être lu ou modifié.`,
         }),
       )
@@ -849,7 +849,7 @@ class PartageChasses {
         $alliance
           .find("#cat_forum")
           .after(
-            `<div id='o_creerSectionChasses' class='centre o_marginT15'><button type='button' class='o_button f_info'>Fzzz : créer la section cachée « ${FORUM_SECTIONS_CHASSES[0]} » (partage des chasses)</button></div>`,
+            `<div id='o_creerSectionChasses' class='centre o_marginT15'><button type='button' class='o_button f_info'>${NOM_EXTENSION} : créer la section cachée « ${FORUM_SECTIONS_CHASSES[0]} » (partage des chasses)</button></div>`,
           );
         $("#o_creerSectionChasses button").on("click", (e) => {
           $(e.currentTarget).prop("disabled", true);

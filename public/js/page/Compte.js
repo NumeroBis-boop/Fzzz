@@ -78,7 +78,7 @@ class PageCompte {
       <br/>
       <div id='o_menuRapideForm' class='boite_amelioration simulateur centre'>
         <h2>Menu rapide</h2>
-        <p class='reduce'>Choisis les raccourcis qui s'afficheront en bas de la boîte Fzzz. Préférences sauvegardées localement (localStorage), partagées avec ton compte si tu repasses Compte+ un jour.</p>
+        <p class='reduce'>Choisis les raccourcis qui s'afficheront en bas de l'encadré « ${TITRE_SYNTHESE} ». Préférences sauvegardées localement (localStorage), partagées avec ton compte si tu repasses Compte+ un jour.</p>
         <table style='margin:0 auto;'><tr>${cols}</tr></table>
         <button type='button' id='o_menuRapideValider' class='o_button f_success o_marginT15'>Valider</button>
         <span id='o_menuRapideStatus' class='reduce' style='margin-left:12px;'></span>

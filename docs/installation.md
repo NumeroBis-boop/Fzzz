@@ -1,4 +1,4 @@
-# Installer Fzzz
+# Installer l'Extension OUAF (Fzzz)
 
 **Avant tout** : si Toolzzz est installé, désactive-le (`chrome://extensions` ou `about:addons`). Fzzz contient tout Toolzzz : avec les deux actifs, chaque page reçoit deux fois les mêmes outils.
 

@@ -783,7 +783,7 @@ class PageRessource {
       $("input[name=choixOuvriere][value=rien]")
         .closest("label")
         .before(
-          `<label title="Répartir les ouvrières entre nourriture et matériaux selon une part fixe, préparée à chaque consultation de la page : clique sur Valider pour l'enregistrer (Fzzz)"><input type="radio" name="choixOuvriere" value="rien" id="o_ratioRadio"> Ratio</label> `,
+          `<label title="Répartir les ouvrières entre nourriture et matériaux selon une part fixe, préparée à chaque consultation de la page : clique sur Valider pour l'enregistrer (${NOM_EXTENSION})"><input type="radio" name="choixOuvriere" value="rien" id="o_ratioRadio"> Ratio</label> `,
         );
       // L'exclusion mutuelle des radios se fait par formulaire propriétaire, pas
       // par position dans le DOM : inséré dynamiquement, notre radio n'en a

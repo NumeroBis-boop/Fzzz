@@ -528,7 +528,7 @@ const DATEPICKER_OPTION = {
           const releaseUrl = `https://github.com/NumeroBis-boop/Fzzz/releases`;
           const markSeen = () => localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION);
           $.toast({
-            heading: "Fzzz mis à jour",
+            heading: `${NOM_EXTENSION} mise à jour`,
             text: `Nouvelle version <b>v${VERSION}</b>. <a href='${releaseUrl}' target='_blank' rel='noopener' id='o_changelogLink'>Voir les nouveautés</a>`,
             hideAfter: false,
             allowToastClose: true,
@@ -703,7 +703,7 @@ const DATEPICKER_OPTION = {
           console.error("Fzzz : erreur sur cette page", e);
           $.toast({
             ...TOAST_ERROR,
-            text: "Fzzz : une erreur a empêché certains outils de s'afficher sur cette page.",
+            text: `${NOM_EXTENSION} : une erreur a empêché certains outils de s'afficher sur cette page.`,
           });
         }
       });

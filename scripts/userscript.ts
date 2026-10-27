@@ -31,10 +31,15 @@ export function entete(sha: string, version: string, config: string): string {
   const { js, css } = fichiersManifeste(config);
   const brut = `https://raw.githubusercontent.com/${DEPOT}/main/fzzz.user.js`;
   const lignes = [
+    // @name + @namespace identifient le script chez Violentmonkey/Tampermonkey :
+    // les changer créerait un second script. Le nom affiché (navigateur en
+    // français) est donné par @name:fr.
     ["@name", "Fzzz"],
+    ["@name:fr", "Extension OUAF"],
     ["@namespace", `https://github.com/${DEPOT}`],
     ["@version", version],
-    ["@description", "Outils pour Fourmizzz (serveur s5), version script utilisateur de Fzzz."],
+    ["@description", "Outils de l'alliance OUAF pour Fourmizzz (serveur s5)."],
+    ["@description:fr", "Outils de l'alliance OUAF pour Fourmizzz (serveur s5)."],
     ["@author", "Hraesvelg (Outiiil), GuiEpi (Toolzzz), NumeroBis-boop (Fzzz)"],
     ["@license", "GPL-3.0"],
     ["@homepageURL", `https://github.com/${DEPOT}`],

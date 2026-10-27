@@ -239,7 +239,7 @@ class PageAlliance {
         <div class='centre o_marginT15'>
           <button id='o_carteAllianceRefresh' class='o_button f_info'>Charger / Actualiser</button>
           <button id='o_carteAllianceExportForum' class='o_button f_success' style='margin-left:8px;'>Exporter pour le forum</button>
-          <span id='o_carteAllianceStatus' class='reduce' style='margin-left:12px;color:#666;'></span>
+          <span id='o_carteAllianceStatus' class='reduce o_secondaire' style='margin-left:12px;'></span>
         </div>
         <div id='o_carteFiltres' class='left o_marginT15' style='display:none;'></div>
         <div id='o_carteAllianceChart' style='height:800px;margin-top:15px;display:none;'></div>
@@ -1088,7 +1088,7 @@ class PageAlliance {
             html += `Terrain : ${numeral(m.terrain).format()} cm²<br/>`;
             html += `Position : ${pos}`;
             if (m.isMe) {
-              html += `<br/><em style="color:#27ae60">C'est toi</em>`;
+              html += `<br/><em class="o_succesClair">C'est toi</em>`;
             } else {
               const tSans = tempsParcours(m, 0);
               const tAvec = tempsParcours(m, niveauVitesseAttaque);
@@ -1100,7 +1100,7 @@ class PageAlliance {
             html += `<b>${spot.members.length} membres sur cette case</b><br/>`;
             html += `Position : ${pos}`;
             if (spot.isMyGroup) {
-              html += `<br/><em style="color:#27ae60">Tu es ici, avec :</em>`;
+              html += `<br/><em class="o_succesClair">Tu es ici, avec :</em>`;
               spot.members
                 .filter((m) => !m.isMe)
                 .forEach((m) => {

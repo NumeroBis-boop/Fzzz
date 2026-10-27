@@ -4,18 +4,39 @@
  *                                                                     *
  **********************************************************************/
 
+/* Fzzz : charte commune à tous les ajouts de l'extension, sur toutes les
+ * pages. Police : celle du jeu (héritée), jamais imposée. Quatre tailles,
+ * quatre couleurs de sens ; gras pour les titres et les valeurs clés,
+ * italique pour les notes seulement. Les couleurs demandées pour la
+ * messagerie (types de messages) et les graphiques restent à part. */
+:root {
+  /* tailles */
+  --fzzz-titre: 1.1em; /* titres d'encarts */
+  --fzzz-normal: 1em;
+  --fzzz-reduit: 0.9em; /* contenu secondaire, boutons de barre */
+  --fzzz-petit: 0.8em; /* notes, boutons dans les tableaux */
+  /* couleurs de sens, lisibles sur le fond beige du jeu */
+  --fzzz-succes: #287a36;
+  --fzzz-erreur: #b00020;
+  --fzzz-alerte: #9c4b00;
+  --fzzz-info: #31708f;
+  --fzzz-secondaire: #555;
+  /* sur fond sombre (infobulles, encadrés de la colonne) */
+  --fzzz-succes-clair: #27ae60;
+}
+
 /* couleur */
 .black {
   color: #000;
 }
 .green {
-  color: green !important;
+  color: var(--fzzz-succes) !important;
 }
 .green_light {
   color: #77ff4d;
 }
 .red {
-  color: #c5130f !important;
+  color: var(--fzzz-erreur) !important;
 }
 .red_light {
   color: #ff4d4d;
@@ -30,7 +51,7 @@
   color: #3da7cd !important;
 }
 .orange {
-  color: #9c4b00;
+  color: var(--fzzz-alerte);
 }
 .violet {
   color: #6d3a8a;
@@ -52,10 +73,22 @@
   text-align: right;
 }
 .small {
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
+}
+/* Fzzz : texte secondaire, note (petite, italique, grisée), succès sur fond sombre */
+.o_secondaire {
+  color: var(--fzzz-secondaire);
+}
+.o_note {
+  font-size: var(--fzzz-petit);
+  font-style: italic;
+  color: var(--fzzz-secondaire);
+}
+.o_succesClair {
+  color: var(--fzzz-succes-clair);
 }
 .reduce {
-  font-size: 0.9em !important;
+  font-size: var(--fzzz-reduit) !important;
 }
 .souligne:hover {
   text-decoration: underline;
@@ -476,7 +509,7 @@ select:required {
   flex: 0 0 auto;
   order: 1;
   font-style: italic;
-  font-size: 0.85em;
+  font-size: var(--fzzz-petit);
   opacity: 0.85;
   white-space: nowrap;
 }
@@ -1033,9 +1066,9 @@ hr.o_scSepar {
 .o_attaquePartage {
   display: inline-block;
   margin-right: 3px;
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
   font-weight: bold;
-  color: #287a36;
+  color: var(--fzzz-succes);
   cursor: help;
 }
 /* Fzzz : blocs compacts, empilés sans grand espace */
@@ -1045,13 +1078,13 @@ hr.o_scSepar {
 }
 .o_blocAttaques .o_attaquesTitre {
   margin: 2px 0 4px 0;
-  font-size: 1.1em;
+  font-size: var(--fzzz-titre);
 }
 .o_attaquesLancees td.o_troupesCourtes {
   cursor: help;
 }
 .o_attaquesNote td {
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
   padding-top: 2px;
 }
 .o_attaquesBoutons {
@@ -1064,7 +1097,7 @@ hr.o_scSepar {
 .o_attaquesBoutons .o_button {
   margin: 0;
   padding: 2px 8px;
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
 }
 
 /* Lanceur de flood, page : ennemie.php?Attaquer=... */
@@ -1406,7 +1439,7 @@ center > div > #tabMembresAlliance {
 
 /* Fzzz : bouton Lancer mis en évidence à la fin du compte à rebours de synchronisation */
 .o_synchroPret {
-  outline: 3px solid #b00020;
+  outline: 3px solid var(--fzzz-erreur);
   outline-offset: 2px;
 }
 
@@ -1530,10 +1563,10 @@ center > div > #tabMembresAlliance {
   padding: 2px 5px;
 }
 #o_lbChasses tr.green td {
-  color: #1d7a1d;
+  color: var(--fzzz-succes);
 }
 #o_lbChasses tr.red td {
-  color: #b00020;
+  color: var(--fzzz-erreur);
 }
 
 /* Fzzz : messagerie */
@@ -1642,11 +1675,11 @@ tr.en_tete_message > td.td_coche {
 
 /* Fzzz : variations dans les analyses de RC (favorable / défavorable au joueur) */
 .o_varPos {
-  color: #1d7a1d !important;
+  color: var(--fzzz-succes) !important;
   font-weight: bold;
 }
 .o_varNeg {
-  color: #b00020 !important;
+  color: var(--fzzz-erreur) !important;
   font-weight: bold;
 }
 
@@ -1680,11 +1713,11 @@ tr.en_tete_message > td.td_coche {
   border-top: 1px solid #8b7440;
 }
 .o_bilanTable .o_bilanUnite {
-  color: #555;
+  color: var(--fzzz-secondaire);
   font-weight: bold;
 }
 .o_bilanTable .o_bilanXp {
-  color: #555;
+  color: var(--fzzz-secondaire);
 }
 .o_analyseRapport .o_analyseChoix {
   margin-bottom: 4px;
@@ -1746,7 +1779,7 @@ tr.en_tete_message > td.td_coche {
 #o_partageAlliance .o_button {
   margin: 0;
   padding: 3px 10px;
-  font-size: 0.85em;
+  font-size: var(--fzzz-reduit);
   white-space: nowrap;
 }
 
@@ -1765,7 +1798,7 @@ tr.en_tete_message > td.td_coche {
 }
 #o_syntheseChasses .o_syntheseUnites {
   text-align: left;
-  font-size: 0.9em;
+  font-size: var(--fzzz-reduit);
 }
 .o_syntheseBoutons {
   display: flex;
@@ -1776,7 +1809,7 @@ tr.en_tete_message > td.td_coche {
 .o_syntheseBoutons .o_button {
   margin: 0;
   padding: 3px 10px;
-  font-size: 0.85em;
+  font-size: var(--fzzz-reduit);
 }
 
 /* Fzzz : chasses et floods partagés (page membre) */
@@ -1785,9 +1818,9 @@ tr.en_tete_message > td.td_coche {
   font: inherit;
 }
 #o_chassesPartagees .o_partageTitre {
-  color: #287a36;
+  color: inherit;
   font-family: inherit;
-  font-size: 1em;
+  font-size: var(--fzzz-normal);
   margin: 10px 0 4px 0;
 }
 #o_chassesPartagees td {
@@ -1804,7 +1837,7 @@ tr.en_tete_message > td.td_coche {
 }
 #o_chassesPartagees .o_partageSynthese {
   display: inline-block;
-  border: 1px solid #287a36;
+  border: 1px solid var(--fzzz-succes);
   border-radius: 4px;
   padding: 6px 18px;
   background: rgba(255, 255, 255, 0.25);
@@ -1815,15 +1848,15 @@ tr.en_tete_message > td.td_coche {
 .o_attaquesLancees .o_button {
   margin: 0;
   padding: 1px 6px;
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
 }
 .o_attaqueAnnuler a {
   display: inline-block;
   padding: 1px 6px;
-  border: 1px solid #b00020;
+  border: 1px solid var(--fzzz-erreur);
   border-radius: 4px;
-  color: #b00020 !important;
-  font-size: 0.8em;
+  color: var(--fzzz-erreur) !important;
+  font-size: var(--fzzz-petit);
   font-weight: bold;
   text-decoration: none;
 }
@@ -1831,11 +1864,11 @@ tr.en_tete_message > td.td_coche {
   margin: 2px 0 8px 0;
 }
 .o_partagerToutBloc .o_button {
-  font-size: 0.95em;
+  font-size: var(--fzzz-reduit);
   padding: 4px 14px;
 }
 #o_chassesPartagees .o_partageVariation {
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
   padding-left: 6px;
 }
 
@@ -1845,6 +1878,7 @@ tr.en_tete_message > td.td_coche {
   font-weight: bold;
   user-select: none;
   margin: 4px 0;
+  font-size: var(--fzzz-titre);
 }
 .o_spoilerTitre:hover {
   text-decoration: underline;
@@ -1852,7 +1886,7 @@ tr.en_tete_message > td.td_coche {
 .o_spoilerFleche {
   display: inline-block;
   width: 1em;
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
 }
 .o_affichageFzzz {
   display: block;
@@ -1861,8 +1895,8 @@ tr.en_tete_message > td.td_coche {
   cursor: pointer;
 }
 #o_chassesPartagees .o_partageSpoiler {
-  color: #000000;
-  font-size: 1.05em;
+  color: inherit;
+  font-size: var(--fzzz-titre);
   margin: 6px 0;
 }
 
@@ -1878,7 +1912,7 @@ tr.en_tete_message > td.td_coche {
   border: 1px solid #8b7440;
   border-radius: 4px;
   padding: 4px 8px;
-  font-size: 0.85em;
+  font-size: var(--fzzz-reduit);
   pointer-events: none;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
@@ -1940,9 +1974,10 @@ tr.en_tete_message > td.td_coche {
 }
 /* Fzzz : précision sur une prise de flood (plafond des 20 %, hors portée) */
 .o_priseNote {
-  font-size: 0.8em;
+  font-size: var(--fzzz-petit);
   font-style: italic;
   opacity: 0.85;
+  color: var(--fzzz-secondaire);
 }
 
 /* ==================================================================
@@ -2106,17 +2141,17 @@ tr.en_tete_message > td.td_coche {
 
 /* Fzzz : suivi des convois OUAF, devant chaque convoi (page Convois) */
 .o_ouafLigne {
-  font-size: 0.85em;
+  font-size: var(--fzzz-reduit);
   white-space: nowrap;
   margin-right: 6px;
 }
 .o_ouafLigne .o_button {
   margin: 0;
   padding: 1px 6px;
-  font-size: 0.9em;
+  font-size: var(--fzzz-petit);
 }
 .o_ouafOui {
-  color: #287a36;
+  color: var(--fzzz-succes);
   font-weight: bold;
 }
 /* Fzzz : tableau « Joueur à livrer » (page Convois) */
@@ -2128,6 +2163,7 @@ tr.en_tete_message > td.td_coche {
   margin: 0 0 6px;
   padding-bottom: 4px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  font-size: var(--fzzz-titre);
 }
 .o_convoisMembres td,
 .o_convoisMembres th {
@@ -2143,7 +2179,7 @@ tr.en_tete_message > td.td_coche {
 }
 .o_convoisMembreRetirer {
   cursor: pointer;
-  color: #b00020;
+  color: var(--fzzz-erreur);
   font-weight: bold;
 }
 /* champ vers lequel Fzzz renvoie (mot de passe du suivi OUAF à renseigner) */

@@ -581,13 +581,13 @@ const DATEPICKER_OPTION = {
             const max = maxEntrepot(niveau);
             const restant = Math.max(0, max - value);
             const percentReel = max > 0 ? Math.round((value / max) * 1000) / 10 : 0;
-            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentReel}%)<br/><b style="color:#27ae60">Place libre : ${numeral(restant).format()}</b>`;
+            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentReel}%)<br/><b class="o_succesClair">Place libre : ${numeral(restant).format()}</b>`;
           } else if (percentAffiche > 0 && value > 0) {
             // Fallback : type non reconnu (ni Nourriture ni Matériaux) ou
             // niveauConstruction non chargé. On retombe sur l'ancien ratio.
             const max = Math.round(value / (percentAffiche / 100));
             const restant = Math.max(0, max - value);
-            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentAffiche}%)<br/><b style="color:#27ae60">Place libre : ${numeral(restant).format()}</b>`;
+            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentAffiche}%)<br/><b class="o_succesClair">Place libre : ${numeral(restant).format()}</b>`;
           } else {
             html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}`;
           }

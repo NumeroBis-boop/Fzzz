@@ -2272,40 +2272,10 @@ tr.en_tete_message > td.td_coche {
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
   font-size: var(--fzzz-titre);
 }
-/* nom à gauche (il prend la place libre), chiffres serrés et alignés à droite */
-.o_convoisMembres {
-  font-size: var(--fzzz-reduit);
-}
 .o_convoisMembres td,
 .o_convoisMembres th {
   padding: 2px 6px;
   white-space: nowrap;
-}
-.o_convoisMembres .o_cmJoueur {
-  text-align: left !important;
-  width: 100%;
-}
-.o_convoisMembres .o_cmNum {
-  text-align: right !important;
-  font-variant-numeric: tabular-nums;
-}
-.o_convoisMembres th[data-tri] {
-  cursor: pointer;
-  user-select: none;
-}
-.o_triIcone {
-  display: inline-block;
-  min-width: 1.1em;
-  margin-left: 3px;
-  text-align: center;
-  font-size: 0.9em;
-  opacity: 0.45;
-}
-.o_triIcone.o_triActif {
-  opacity: 1;
-}
-.o_convoisMembres tr.o_cmNouveau td {
-  background-color: rgba(255, 220, 0, 0.35);
 }
 .o_convoisMembres tbody tr:nth-child(even) {
   background-color: rgba(0, 0, 0, 0.05);

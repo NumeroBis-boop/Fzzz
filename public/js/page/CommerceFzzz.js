@@ -168,16 +168,9 @@ class CommerceFzzz {
         } catch (e) {}
       },
       ouaf = { restes: null, etat: "attente", membres: [] },
-      // « 8h56 », minutes arrondies : les secondes ne servent pas à choisir un convoi
-      hm = (s) => {
-        let m = Math.round(s / 60);
-        return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
-      },
-      retour = (t) => {
-        let r = Horloge.clic().add(t, "s");
-        return r.isSame(Horloge.clic(), "day") ? r.format("HH:mm") : r.format("DD/MM HH:mm");
-      },
-      tri = { col: null, sens: 1 },
+      deux = (n) => String(n).padStart(2, "0"),
+      hms = (s) =>
+        `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
       trajet = (p) => (connus[p] ? OuafSuivi.trajet(p) : null),
       lien = (p) => {
         let m = connus[p];
@@ -198,110 +191,47 @@ class CommerceFzzz {
         let libres = [...new Set([...Object.keys(connus), ...ouaf.membres])]
           .filter((p) => p && p != monProfil.pseudo && !suivis.includes(p))
           .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
-        return `<select class='o_convoisMembreChoix'><option value=''>— un membre —</option>${libres.map((p) => `<option value='${Utils.echapper(p)}'>${Utils.echapper(p)}</option>`).join("")}</select>`;
+        return `<select class='o_convoisMembreChoix'><option value=''>— choisir un membre —</option>${libres.map((p) => `<option value='${Utils.echapper(p)}'>${Utils.echapper(p)}</option>`).join("")}</select>`;
       },
       ligne = (p) => {
+        if (!p)
+          return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td><td>—</td><td>—</td><td></td></tr>`;
         let t = trajet(p);
-        return `<tr data-pseudo='${Utils.echapper(p)}'><td class='o_cmJoueur'>${lien(p)}</td>
-          <td class='o_cmNum'>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hm(t)}</td>
-          <td class='o_cmNum o_convoisMembreRetour'>${t == null ? "—" : retour(t)}</td>
-          <td class='o_cmNum'>${reste(p)}</td>
-          <td class='o_cmNum'><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
+        return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
+          <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hms(t)}</td>
+          <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
+          <td>${reste(p)}</td>
+          <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
       },
       // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
-          <table class='o_convoisMembres o_maxWidth' cellspacing='0'>
-            <thead><tr><th class='o_cmJoueur' data-tri='joueur' title='Joueur à livrer'>Joueur<span class='o_triIcone'></span></th><th class='o_cmNum' data-tri='trajet' title='Temps de trajet'>Trajet<span class='o_triIcone'></span></th><th class='o_cmNum' data-tri='trajet' title='Horaire de retour d&#39;un convoi lancé maintenant'>Retour<span class='o_triIcone'></span></th><th class='o_cmNum' data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Reste<span class='o_triIcone'></span></th><th></th></tr></thead>
+          <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
+            <thead><tr><th>Joueur à livrer</th><th>Temps de trajet</th><th>Horaire de retour</th><th>Convoi restant à livrer</th><th></th></tr></thead>
             <tbody></tbody>
-            <tfoot><tr><td colspan='5' class='o_convoisMembresAjout'>+ Suivre <span class='o_convoisMembreChoixZone'></span></td></tr></tfoot>
+            <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
           </table>
           ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
         </div>`),
-      // valeur de tri d'un membre ; inconnue (null) toujours en dernier
-      cleTri = (p) =>
-        tri.col == "joueur"
-          ? p.toLowerCase()
-          : tri.col == "trajet"
-            ? trajet(p)
-            : ouaf.restes
-              ? (ouaf.restes.get(p.toLowerCase()) ?? null)
-              : null,
-      ordonnes = () =>
-        !tri.col
-          ? suivis
-          : suivis.slice().sort((a, b) => {
-              let x = cleTri(a),
-                y = cleTri(b);
-              if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
-              return tri.sens * (typeof x == "string" ? x.localeCompare(y, "fr") : x - y);
-            }),
       afficher = () => {
+        let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
         $bloc
           .find("tbody")
-          .html(
-            suivis.length
-              ? ordonnes().map(ligne).join("")
-              : "<tr><td colspan='5' class='small'>Aucun membre suivi : choisis-en un ci-dessous.</td></tr>",
-          );
-        // liste refaite seulement si elle change, et jamais pendant un choix
-        // (sur téléphone, le menu ouvert serait remplacé et le choix perdu)
-        let $zone = $bloc.find(".o_convoisMembreChoixZone"),
-          html = choix();
-        if ($zone.data("html") != html && !$zone.find("select").is(":focus"))
-          $zone.data("html", html).html(html);
-        $bloc.find("th[data-tri]").each((i, th) => {
-          // Trajet et Retour trient pareil : la flèche reste sur l'en-tête cliqué
-          let actif =
-            th.dataset.tri == tri.col && (tri.col != "trajet" || (i == 2) == !!tri.retour);
-          $(th)
-            .find(".o_triIcone")
-            .text(actif ? (tri.sens > 0 ? "▲" : "▼") : "⇅")
-            .toggleClass("o_triActif", actif)
-            .attr(
-              "title",
-              actif
-                ? tri.sens > 0
-                  ? "Trié croissant : clic pour décroissant"
-                  : "Trié décroissant : clic pour l'ordre d'origine"
-                : "Trier par ordre croissant",
-            );
-        });
+          .html(suivis.map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
       };
-    try {
-      Object.assign(tri, JSON.parse(localStorage.getItem(CLE_CONVOIS_MEMBRES + "_tri")) || {});
-    } catch (e) {}
     // sous les convois en cours (dernier élément de la section)
     let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours")),
       $section = $titre.first().nextUntil("h3").addBack();
     if ($titre.length) $bloc.insertAfter($section.last());
     else $("#centre").append($bloc);
     afficher();
-    // tri au clic sur l'en-tête : croissant, décroissant, puis ordre d'origine ; mémorisé
-    $bloc.on("click", "th[data-tri]", (e) => {
-      let col = e.currentTarget.dataset.tri,
-        retourCol = $(e.currentTarget).index() == 2,
-        meme = tri.col == col && !!tri.retour == retourCol;
-      if (meme && tri.sens < 0) Object.assign(tri, { col: null, sens: 1, retour: false });
-      else Object.assign(tri, { col, sens: meme ? -1 : 1, retour: retourCol });
-      try {
-        localStorage.setItem(CLE_CONVOIS_MEMBRES + "_tri", JSON.stringify(tri));
-      } catch (err) {}
-      afficher();
-    });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");
-      $(e.currentTarget).trigger("blur");
       if (!p || suivis.includes(p)) return;
+      $(e.currentTarget).closest("tr").remove();
       suivis.push(p);
       enregistrer();
       afficher();
-      // membre ajouté : surligné un instant, il peut être rangé au milieu par le tri
-      $bloc
-        .find("tr[data-pseudo]")
-        .filter((i, tr) => $(tr).data("pseudo") == p)
-        .addClass("o_cmNouveau");
-      setTimeout(() => $bloc.find(".o_cmNouveau").removeClass("o_cmNouveau"), 2500);
     });
     $bloc.on("click", ".o_convoisMembreRetirer", (e) => {
       let p = String($(e.currentTarget).closest("tr").data("pseudo"));
@@ -309,11 +239,19 @@ class CommerceFzzz {
       enregistrer();
       afficher();
     });
+    $bloc.find("#o_convoisMembreAjouter").on("click", (e) => {
+      e.preventDefault();
+      if ($bloc.find(".o_convoisMembreVide").length) return;
+      $bloc.find("tbody").append(ligne(""));
+    });
     // heure de retour : recalculée chaque minute (affichage seulement)
     setInterval(() => {
       $bloc.find("tr[data-pseudo]").each((i, tr) => {
         let t = trajet(String($(tr).data("pseudo")));
-        if (t != null) $(tr).find(".o_convoisMembreRetour").text(retour(t));
+        if (t != null)
+          $(tr)
+            .find(".o_convoisMembreRetour")
+            .text(Horloge.clic().add(t, "s").format("DD/MM HH:mm"));
       });
     }, 30000);
     // reste à livrer : une lecture du site à l'ouverture de la page

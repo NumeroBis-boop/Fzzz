@@ -498,10 +498,12 @@ const DATEPICKER_OPTION = {
           );
         }
 
-        // Nouveautés au premier chargement après une mise à jour, jusqu'à la croix
+        // Nouveautés au premier chargement après une mise à jour
         const LAST_SEEN_VERSION_KEY = "outiiil_lastSeenVersion";
         let versionVue = localStorage.getItem(LAST_SEEN_VERSION_KEY);
-        if (versionVue !== VERSION)
+        if (versionVue !== VERSION) {
+          // vue dès l'affichage : la notification ne revient pas à chaque page
+          localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION);
           $.toast({
             heading: `${NOM_EXTENSION} mise à jour`,
             text: Nouveautes.html(versionVue, VERSION),
@@ -510,8 +512,8 @@ const DATEPICKER_OPTION = {
             showHideTransition: "slide",
             position: { top: 30, right: 100 },
             icon: "info",
-            afterHidden: () => localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION),
           });
+        }
 
         // Enrichit les tooltips Nourriture / Matériaux du bandeau d'info avec la capacité
         // max estimée et la place libre — répond directement à "il me reste combien pour

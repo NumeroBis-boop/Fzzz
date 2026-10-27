@@ -142,8 +142,24 @@
     width: auto !important;
   }
   /* une longue notification (nouveautés) défile au lieu de sortir de l'écran */
+  /* largeur 100 % + marges intérieures : la croix sortait de l'écran */
   .jq-toast-single {
+    box-sizing: border-box;
     max-height: 45vh;
     overflow-y: auto;
+  }
+  /* croix au doigt : zone de 36 px, au-dessus du texte qui défile */
+  .close-jq-toast-single {
+    position: sticky;
+    float: right;
+    top: 0;
+    right: 0;
+    width: 36px;
+    height: 36px;
+    margin: -8px -6px 0 4px;
+    font-size: 24px;
+    line-height: 36px;
+    text-align: center;
+    z-index: 1;
   }
 }

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.51.1",
+    notes: [
+      "Notification de mise à jour : affichée une seule fois, croix plus grande sur téléphone.",
+    ],
+  },
+  {
     version: "1.51.0",
     notes: [
       "Attaque lancée sans l'extension : TdC de la cible lu sur sa page, prise estimée et partage possibles.",

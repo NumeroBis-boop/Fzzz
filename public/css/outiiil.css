@@ -2349,3 +2349,13 @@ tr.en_tete_message > td.td_coche {
   line-height: 1;
   cursor: pointer;
 }
+
+/* Fzzz : nouveautés dans le toast de mise à jour (Nouveautes.html) */
+.o_nouveautes {
+  margin: 2px 0 6px 16px !important;
+  padding: 0 !important;
+}
+.o_nouveautes li {
+  list-style: disc;
+  margin: 0 !important;
+}

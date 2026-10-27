@@ -498,30 +498,20 @@ const DATEPICKER_OPTION = {
           );
         }
 
-        // Notification "Nouveautés" — toast sticky au 1er chargement après une mise à jour.
-        // hideAfter: false → reste visible tant que l'user ne ferme pas / ne clique pas le lien.
-        // La version est marquée vue dans les deux cas (close X ou clic lien) pour ne pas
-        // ré-apparaître. Si la clé est absente (install avant cette feature), on montre quand
-        // même : un nouvel utilisateur a aussi intérêt à voir le changelog une fois.
+        // Nouveautés au premier chargement après une mise à jour, jusqu'à la croix
         const LAST_SEEN_VERSION_KEY = "outiiil_lastSeenVersion";
-        if (localStorage.getItem(LAST_SEEN_VERSION_KEY) !== VERSION) {
-          // Pointe sur la page des releases (la dernière est en haut), histoire que
-          // l'utilisateur puisse aussi parcourir les versions précédentes qu'il aurait
-          // potentiellement ratées.
-          const releaseUrl = `https://github.com/NumeroBis-boop/Fzzz/releases`;
-          const markSeen = () => localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION);
+        let versionVue = localStorage.getItem(LAST_SEEN_VERSION_KEY);
+        if (versionVue !== VERSION)
           $.toast({
             heading: `${NOM_EXTENSION} mise à jour`,
-            text: `Nouvelle version <b>v${VERSION}</b>. <a href='${releaseUrl}' target='_blank' rel='noopener' id='o_changelogLink'>Voir les nouveautés</a>`,
+            text: Nouveautes.html(versionVue, VERSION),
             hideAfter: false,
             allowToastClose: true,
             showHideTransition: "slide",
             position: { top: 30, right: 100 },
             icon: "info",
-            afterHidden: markSeen,
+            afterHidden: () => localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION),
           });
-          $(document).on("click", "#o_changelogLink", markSeen);
-        }
 
         // Enrichit les tooltips Nourriture / Matériaux du bandeau d'info avec la capacité
         // max estimée et la place libre — répond directement à "il me reste combien pour

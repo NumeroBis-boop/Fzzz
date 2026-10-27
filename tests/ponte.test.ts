@@ -90,7 +90,7 @@ describe("bandeau d'alerte de ponte", () => {
     lancer(p);
     await attendre();
     expect(p.lire(`$("#menu").next().attr("id")`)).toBe("o_alertePonte");
-    expect(p.lire(`$("#o_alertePonte a").attr("href")`)).toBe("/Reine.php");
+    expect(p.lire(`$("#o_alertePonte .o_alertePonteTexte").attr("href")`)).toBe("/Reine.php");
     p.lire(`$(".o_alertePonteFermer").trigger("click")`);
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(0);
     lancer(p);

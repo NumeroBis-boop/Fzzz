@@ -941,11 +941,11 @@ class Utils {
     let texte =
         reste <= 0
           ? "<strong>La reine ne pond plus</strong> : aucune ponte en cours."
-          : `<strong>Ponte bientôt terminée</strong> : fin de la file dans ${Utils.intToTime(reste)} (vers ${Horloge.serveur().add(reste, "s").format("HH[h]mm")}).`,
+          : `<strong>Ponte bientôt terminée</strong> : fin de la file dans ${Utils.intToTime(reste)}.`,
       $bandeau =
         $(`<div id="o_alertePonte" class="${reste <= 0 ? "o_alertePonteArretee" : ""}" role="alert">
         <span class="o_alertePonteSymbole" aria-hidden="true">⚠</span>
-        <span class="o_alertePonteTexte">${texte} <a href="/Reine.php">Relancer la ponte</a></span>
+        <a class="o_alertePonteTexte" href="/Reine.php" title="Aller à la Reine">${texte}</a>
         <button type="button" class="o_alertePonteFermer" title="Masquer pendant 30 min" aria-label="Masquer pendant 30 min">×</button>
       </div>`);
     $bandeau.find(".o_alertePonteFermer").on("click", () => {

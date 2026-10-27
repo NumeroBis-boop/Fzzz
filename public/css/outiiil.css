@@ -2302,52 +2302,50 @@ tr.en_tete_message > td.td_coche {
   font-variant-numeric: tabular-nums;
 }
 
-/* Fzzz : bandeau d'alerte de ponte, sous le menu du jeu (Utils.bandeauPonte) */
+/* Fzzz : bandeau d'alerte de ponte, accolé au menu du jeu (Utils.bandeauPonte) :
+   fin, mais d'une couleur vive pour attirer l'œil */
 #o_alertePonte {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 6px 4px;
-  padding: 8px 10px;
-  background: #fff4e0;
-  border: 2px solid var(--fzzz-alerte);
-  border-left-width: 8px;
-  border-radius: 4px;
-  color: #6b3a00;
+  gap: 6px;
+  margin: 0;
+  padding: 1px 4px 1px 8px;
+  background: #ffe066;
+  border: 2px solid #d32f2f;
+  border-radius: 0 0 4px 4px;
+  color: #8b0000;
   text-align: left;
-  font-size: 1.05em;
+  font-size: 0.9em;
+  line-height: 1.3;
 }
 #o_alertePonte.o_alertePonteArretee {
-  background: #fdecea;
-  border-color: var(--fzzz-erreur);
-  color: #7a1a12;
+  background: #d32f2f;
+  color: #fff;
 }
 .o_alertePonteSymbole {
-  font-size: 1.6em;
+  font-size: 1.15em;
   line-height: 1;
-  color: var(--fzzz-alerte);
+  color: #d32f2f;
 }
 .o_alertePonteArretee .o_alertePonteSymbole {
-  color: var(--fzzz-erreur);
+  color: #fff;
 }
-.o_alertePonteTexte {
+.o_alertePonteTexte,
+.o_alertePonteTexte:visited,
+.o_alertePonteTexte:hover {
   flex: 1;
-}
-.o_alertePonteTexte a {
   color: inherit;
-  font-weight: bold;
-  text-decoration: underline;
-  white-space: nowrap;
+  text-decoration: none;
 }
 .o_alertePonteFermer {
   flex: none;
-  min-width: 32px;
-  min-height: 32px;
-  border: 1px solid currentColor;
-  border-radius: 4px;
+  min-width: 22px;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
   background: transparent;
   color: inherit;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
 }

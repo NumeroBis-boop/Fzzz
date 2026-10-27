@@ -614,16 +614,14 @@ select:required {
 }
 
 /* toolbar avec les outils */
-/* Fzzz : rangée dans la colonne de gauche, sous l'encadré Compte+ */
+/* Fzzz : rangée en bas de l'encadré Compte+ */
 #o_toolbarOutiiil {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin: 6px auto;
-  padding: 4px 0;
-  background-color: rgba(82, 85, 57, 0.5);
-  border: 1px solid #525543;
-  border-radius: 6px;
+  margin: 6px 0 2px;
+  padding: 4px 0 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
 }
 /* encadrés du jeu introuvables : en bas de l'écran */
 #o_toolbarOutiiil.o_toolbarFlottante {

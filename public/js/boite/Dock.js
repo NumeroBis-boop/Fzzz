@@ -35,11 +35,14 @@ class Dock {
    * @method afficher
    */
   afficher() {
-    // Fzzz : rangée d'outils dans la colonne de gauche, sous l'encadré
-    // Compte+ (celui du jeu, ou celui que Fzzz recrée hors C+) ; plus de
-    // bandeau fixe sur le bord droit, gênant sur mobile
-    let $ancre = $("#boiteComptePlus").length ? $("#boiteComptePlus") : $("#boiteInfo");
-    if ($ancre.length) $(this._html).insertAfter($ancre);
+    // Fzzz : rangée d'outils en bas de l'encadré Compte+ (celui du jeu, ou
+    // celui que Fzzz recrée hors C+), dans l'encadré lui-même : le jeu place
+    // ses encadrés en position absolue, un voisin se retrouverait en haut de
+    // la colonne. Plus de bandeau fixe sur le bord droit, gênant sur mobile.
+    let $boite = $("#boiteComptePlus"),
+      $ancre = $boite.find(".contenu_boite_compte_plus").first();
+    if (!$ancre.length) $ancre = $boite;
+    if ($ancre.length) $(this._html).appendTo($ancre);
     else $(this._html).addClass("o_toolbarFlottante").appendTo("body");
     $("#o_toolbarOutiiil .o_toolbarItem").tooltip({
       tooltipClass: "warning-tooltip",

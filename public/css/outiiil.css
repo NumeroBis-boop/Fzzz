@@ -623,11 +623,18 @@ select:required {
 #o_boiteExtension {
   margin-top: 8px;
 }
+/* icônes en colonne ; en ligne si la fenêtre manque de hauteur */
 #o_toolbarOutiiil {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+}
+.o_extensionLigne #o_toolbarOutiiil {
+  flex-direction: row;
   justify-content: center;
   gap: 8px;
-  padding: 4px 0;
 }
 /* encadrés du jeu introuvables : en bas de l'écran */
 #o_boiteExtension.o_toolbarFlottante {

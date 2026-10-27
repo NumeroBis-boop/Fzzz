@@ -203,15 +203,31 @@ class Dock {
         fixe = true;
         break;
       }
-    let z = parseInt(getComputedStyle(ref).zIndex);
+    // au-dessus de la colonne du jeu : z-index le plus haut parmi `ref` et
+    // ses conteneurs positionnés, plus un (sinon l'encadré passe derrière
+    // le fond de la colonne)
+    let z = 0;
+    for (let e = ref; e && e != document.documentElement; e = e.parentElement) {
+      let n = parseInt(getComputedStyle(e).zIndex);
+      if (!isNaN(n)) z = Math.max(z, n);
+    }
+    let haut = r.bottom + ecart;
+    boite.classList.remove("o_extensionLigne");
     Object.assign(boite.style, {
       display: "",
       position: fixe ? "fixed" : "absolute",
       margin: "0",
       left: r.left + (fixe ? 0 : window.scrollX) + "px",
-      top: r.bottom + ecart + (fixe ? 0 : window.scrollY) + "px",
+      top: haut + (fixe ? 0 : window.scrollY) + "px",
       width: r.width + "px",
-      zIndex: isNaN(z) ? "10" : String(z),
+      zIndex: String(Math.max(z + 1, 100)),
     });
+    if (!fixe) return;
+    // colonne fixe : l'encadré doit tenir dans la fenêtre (on ne peut pas
+    // défiler jusqu'à lui). Icônes en colonne si la place le permet, sinon
+    // en ligne ; s'il dépasse encore, il remonte juste ce qu'il faut.
+    if (haut + boite.offsetHeight > window.innerHeight) boite.classList.add("o_extensionLigne");
+    if (haut + boite.offsetHeight > window.innerHeight)
+      boite.style.top = Math.max(0, window.innerHeight - boite.offsetHeight - 4) + "px";
   }
 }

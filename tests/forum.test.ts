@@ -55,3 +55,20 @@ describe("PartageChasses.lireSujet", () => {
     expect(r.floods[0].cible).not.toMatch(/[<>"'&]/);
   });
 });
+
+describe("partages de floods entre appareils", () => {
+  test("le forum fait foi : publiés ailleurs → partagés, retirés ailleurs → à partager", () => {
+    page.lire(
+      `localStorage.setItem("fzzz_floodsPartages", JSON.stringify({ 11: Date.now(), 12: Date.now() }))`,
+    );
+    // forum : 12 et 13 publiés (13 depuis l'autre appareil) ; 11 retiré ailleurs
+    page.lire(`PartageChasses.recalerFloods([12, 13], [11, 12, 13])`);
+    const etat = page.lire<string>(`Object.keys(PartageChasses.floodsPartages()).sort().join(",")`);
+    expect(etat).toBe("12,13");
+  });
+  test("attaques non affichées : leur état n'est pas touché", () => {
+    page.lire(`localStorage.setItem("fzzz_floodsPartages", JSON.stringify({ 50: Date.now() }))`);
+    page.lire(`PartageChasses.recalerFloods([], [11])`);
+    expect(page.lire<string>(`Object.keys(PartageChasses.floodsPartages()).join(",")`)).toBe("50");
+  });
+});

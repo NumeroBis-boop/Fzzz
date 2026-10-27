@@ -405,6 +405,10 @@ class AttaqueLancee {
     });
     majToutAnnuler();
     AttaqueLancee.majPartages();
+    // page d'attaque, ou page Armée sans l'encart des floods reçus (qui lit
+    // déjà le forum) : recalage sur le forum peu après le chargement
+    if (!/^\/Armee\.php/i.test(location.pathname) || !Utils.affichage("floodsRecus"))
+      setTimeout(() => AttaqueLancee.synchroniserPartages(), 1500);
     $(`#${id} .o_attaqueCopier`).on("click", (e) => {
       let a = attaques[parseInt(e.currentTarget.dataset.i)];
       CommerceFzzz.copier(
@@ -541,6 +545,42 @@ class AttaqueLancee {
         attente = setTimeout(ajuster, 150);
       });
     }
+  }
+  /**
+   * Numéros des attaques affichées qui ont un bouton de partage.
+   *
+   * @static
+   * @method idsAffiches
+   * @return {Array<Number>}
+   */
+  static idsAffiches() {
+    return $(".o_attaquePartager, .o_attaqueRetirer")
+      .map((i, b) => parseInt(b.dataset.id))
+      .get()
+      .filter(Boolean);
+  }
+  /**
+   * Partages faits ou retirés depuis un autre appareil : l'état affiché est
+   * recalé sur le sujet « Floods » du forum. Lecture faite une fois, un peu
+   * après le chargement, et repoussée tant qu'un compte à rebours de
+   * synchronisation tourne (pour ne pas gêner un lancement).
+   *
+   * @static
+   * @method synchroniserPartages
+   */
+  static synchroniserPartages(essais = 6) {
+    if (!AttaqueLancee.idsAffiches().length || !monProfil.pseudo) return;
+    let attendre = () => setTimeout(() => AttaqueLancee.synchroniserPartages(essais - 1), 5000);
+    if ($("#o_syncA").text().trim() || document.hidden) {
+      if (essais > 0) attendre();
+      return;
+    }
+    PartageChasses.mesFloodsForum()
+      .then((publies) => {
+        PartageChasses.recalerFloods(publies, AttaqueLancee.idsAffiches());
+        AttaqueLancee.majPartages();
+      })
+      .catch(() => {});
   }
   /**
    * Floods déjà publiés dans le forum de l'alliance : « Partagé ✓ » à la place

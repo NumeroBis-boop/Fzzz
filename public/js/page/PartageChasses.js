@@ -413,6 +413,38 @@ class PartageChasses {
     } catch (e) {}
   }
   /**
+   * Numéros d'attaque publiés dans le sujet « Floods » du joueur, lus sur le
+   * forum (deux lectures : liste des sujets, puis le sien). Vide si le sujet
+   * ou la section n'existe pas.
+   *
+   * @static
+   * @method mesFloodsForum
+   * @return {Promise<Array<Number>>}
+   */
+  static mesFloodsForum() {
+    let pseudo = (monProfil.pseudo || "").toLowerCase();
+    return PartageChasses.sujets().then((sujets) => {
+      let id = sujets[`Floods | ${pseudo}`];
+      return id
+        ? PartageChasses.lireSujet(id).then((d) => d.floods.map((f) => f.id).filter(Boolean))
+        : [];
+    });
+  }
+  /**
+   * État « partagé » des floods affichés recalé sur le forum, qui fait foi
+   * entre appareils : publiés ailleurs → partagés ici, retirés ailleurs →
+   * à partager ici.
+   *
+   * @static
+   * @method recalerFloods
+   * @param {Array<Number>} publies numéros présents dans le sujet du joueur
+   * @param {Array<Number>} affiches numéros des attaques affichées
+   */
+  static recalerFloods(publies, affiches) {
+    PartageChasses.marquerFloodsPartages(publies);
+    PartageChasses.oublierFloodsPartages(affiches.filter((id) => !publies.includes(id)));
+  }
+  /**
    * Ressources.php : groupes de la synthèse des chasses.
    *
    * @static
@@ -653,11 +685,12 @@ class PartageChasses {
     let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
     PartageChasses.charger([moi])
       .then((d) => {
-        // mes floods déjà publiés (y compris depuis un autre navigateur)
-        PartageChasses.marquerFloodsPartages(
+        // mes floods publiés ou retirés, y compris depuis un autre appareil
+        PartageChasses.recalerFloods(
           d.floods
             .filter((f) => f.id && f.lanceur.toLowerCase() == moi.toLowerCase())
             .map((f) => f.id),
+          AttaqueLancee.idsAffiches(),
         );
         AttaqueLancee.majPartages();
         let sim = PartageChasses.simuler(d, { [moi]: Utils.terrain }),

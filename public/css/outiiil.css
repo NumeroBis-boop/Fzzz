@@ -656,12 +656,26 @@ select:required {
 #o_boiteExtension {
   margin-top: 8px;
 }
-/* icônes en ligne */
+/* icônes en ligne, remontées pour loger leur nom dessous */
 #o_toolbarOutiiil {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  padding: 6px 0;
+  gap: 2px;
+  padding: 2px 0 3px;
+}
+.o_toolbarOutil {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 51px;
+  cursor: pointer;
+}
+.o_toolbarLegende {
+  font-size: 10px;
+  line-height: 12px;
+  margin-top: 1px;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
 }
 /* encadrés du jeu introuvables : en bas de l'écran */
 #o_boiteExtension.o_toolbarFlottante {
@@ -683,7 +697,7 @@ select:required {
   border-radius: 4px;
   transition: box-shadow 0.5s ease-in-out;
 }
-#o_toolbarOutiiil .o_toolbarItem:hover {
+#o_toolbarOutiiil .o_toolbarOutil:hover .o_toolbarItem {
   box-shadow: inset 0px 0px 4px 2px #9c9c9c;
 }
 #o_toolbarOutiiil .o_toolbarItem span {

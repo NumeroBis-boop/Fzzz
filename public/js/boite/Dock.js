@@ -17,9 +17,16 @@ class Dock {
     this._html = `<div id="o_boiteExtension" class="boite_compte_plus">
             <div class="titre_colonne_cliquable"><span class="titre_compte_plus">Extension OUAF</span></div>
             <div class="contenu_boite_compte_plus"><div id="o_toolbarOutiiil">
-            <div id="o_toolbarItem6" class="o_toolbarItem" title="Préférence"><span id="o_itemParametre" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
-            <div id="o_toolbarItem2" class="o_toolbarItem" title="Chasse"><span id="o_itemChasse" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
-            <div id="o_toolbarItem3" class="o_toolbarItem" title="Combat"><span id="o_itemCombat" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
+            ${[
+              ["o_toolbarItem6", "o_itemParametre", "Préférences"],
+              ["o_toolbarItem2", "o_itemChasse", "Chasse"],
+              ["o_toolbarItem3", "o_itemCombat", "Combat"],
+            ]
+              .map(
+                ([id, item, legende]) =>
+                  `<div class="o_toolbarOutil"><div id="${id}" class="o_toolbarItem"><span id="${item}" style="background-image: url(${IMG_SPRITE_MENU})"/></div><span class="o_toolbarLegende">${legende}</span></div>`,
+              )
+              .join("")}
             </div></div></div>`;
     /**
      *
@@ -52,18 +59,9 @@ class Dock {
       $boite.insertAfter($cplus);
       Dock.suivre($cplus[0], $boite[0], () => ECART_ENCADRES);
     } else $boite.addClass("o_toolbarFlottante").appendTo("body");
-    $("#o_toolbarOutiiil .o_toolbarItem").tooltip({
-      tooltipClass: "warning-tooltip",
-      content: function () {
-        return $(this).prop("title");
-      },
-      position: { my: "center top", at: "center bottom+10" },
-      hide: { effect: "fade", duration: 10 },
-    });
     // evenement sur le clic d'un item de la boite d'outil
-    $(".o_toolbarItem").click((e) => {
-      // affichage de la boite
-      switch ($(e.currentTarget).find("span").attr("id")) {
+    $(".o_toolbarOutil").click((e) => {
+      switch ($(e.currentTarget).find(".o_toolbarItem span").attr("id")) {
         case "o_itemChasse":
           this._boiteChasse.afficher();
           break;

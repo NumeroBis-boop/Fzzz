@@ -19,6 +19,14 @@ class PageLaboratoire {
      * Armée du joueur pour calculer le rentabilité Armes et Bouclier
      */
     this._armee = new Armee();
+    /**
+     * Vrai si l'armée vient de la page Reine (complète), faux si estimée
+     */
+    this._armeeComplete = false;
+    /**
+     * Raison de l'échec de lecture de la page Reine, le cas échéant
+     */
+    this._raisonReine = "";
   }
   /**
    *
@@ -36,11 +44,21 @@ class PageLaboratoire {
       monProfil.niveauRecherche = niveau;
       monProfil.sauvegarder();
     }
-    // ajout title evolution
-    this._armee.getArmee().then((data) => {
-      this._armee.chargeData(data);
-      // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
-      this.titleBouclier().titleArmes().fdfArmes();
+    // Armée complète (page Reine : garnison et troupes parties comprises),
+    // à défaut garnison d'Armee.php plus les troupes parties d'ici
+    Utils.lireReine().then((reine) => {
+      if (reine.unites) {
+        this._armee.unite = reine.unites;
+        this._armeeComplete = true;
+        this.titleBouclier().titleArmes().fdfArmes();
+        return;
+      }
+      this._raisonReine = reine.raison || "armée absente de la page Reine";
+      this._armee.getArmee().then((data) => {
+        this._armee.chargeData(data);
+        // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
+        this.titleBouclier().titleArmes().fdfArmes();
+      });
     });
     // Rentabilité de l'étable à pucerons, aussi sous Communication avec les animaux
     let $communication = $(".ligneAmelioration").filter((i, elt) =>
@@ -163,8 +181,9 @@ class PageLaboratoire {
       ouvrieres = numeral($ligne.find(".ouvriere").text()).value(),
       niveau = monProfil.niveauRecherche[2] + 1;
     if (!$ligne.length || !ouvrieres || isNaN(niveau)) return this;
-    // garnison (Armee.php) + troupes parties en chasse ou en attaque
-    let dehors = TroupesDehors.total(),
+    // armée complète (Reine), sinon garnison (Armee.php) + troupes parties en
+    // chasse ou en attaque depuis ce navigateur
+    let dehors = this._armeeComplete ? [] : TroupesDehors.total(),
       unites = this._armee.unite.map((n, i) => n + (dehors[i] || 0)),
       fdf = unites.reduce((s, n, i) => s + n * ATT_UNITE[i + 1], 0),
       // calcul entier exact, arrondi supérieur à la fin
@@ -190,7 +209,11 @@ class PageLaboratoire {
       $ligne,
       "o_fdfArmesLigne",
       `<p><strong>FdF HB actuelle : ${numeral(fdf).format()}</strong>
-        <span class='small' title="Garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée totale)</span></p>
+        ${
+          this._armeeComplete
+            ? `<span class='small' title="Lue dans la page Reine : garnison et troupes parties en chasse ou en attaque">(armée complète)</span>`
+            : `<span class='small' title="Page Reine illisible (${Utils.echapper(this._raisonReine || "")}) : garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée estimée)</span>`
+        }</p>
       <table cellspacing='0'>
         <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>FdF HB manquante</td><td class='right'>Unités à pondre</td></tr>
         ${lignes}

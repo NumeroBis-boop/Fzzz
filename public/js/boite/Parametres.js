@@ -29,8 +29,6 @@ class BoiteParametre extends Boite {
       "couleur2",
       "couleur3",
       "couleurTexte",
-      "dockPosition",
-      "dockVisible",
       "boiteShow",
       "boiteHide",
     ];
@@ -94,7 +92,6 @@ class BoiteParametre extends Boite {
         $("#ratioRecolteGroupe").toggle(e.currentTarget.value == "3");
       })
       .trigger("change");
-    $("#dockPosition").on("change", () => Dock.appliquerPosition());
     // Sync de la réserve avec les antisondes quand « Suivre antisondes » est coché.
     // Quand actif : on désactive le spinner et on le force à la somme antisondeTerrain + antisondeDome.
     let syncReserveFlood = () => {
@@ -125,15 +122,11 @@ class BoiteParametre extends Boite {
     let couleurs = ``;
     for (let param of ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"])
       couleurs += monProfil.parametre[param].getForm();
-    let dock = ``;
-    for (let param of ["dockPosition", "dockVisible"]) dock += monProfil.parametre[param].getForm();
     let effets = ``;
     for (let param of ["boiteShow", "boiteHide"]) effets += monProfil.parametre[param].getForm();
     $("#o_tabsParametre3").append(`<form>
             <p class='left reduce gras'>Couleurs des boîtes et du texte</p>
             ${couleurs}
-            <p class='left reduce gras'>Position et visibilité de la barre d'outils</p>
-            ${dock}
             <p class='left reduce gras'>Effets d'animation à l'ouverture et fermeture des boîtes</p>
             ${effets}
         </form>`);

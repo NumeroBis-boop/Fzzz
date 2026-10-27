@@ -10,7 +10,7 @@ class Dock {
     /**
      *
      */
-    this._html = `<div id="o_toolbarOutiiil" ${monProfil.parametre["dockVisible"].valeur == 1 ? "" : "style='display:none'"}>
+    this._html = `<div id="o_toolbarOutiiil">
             <div id="o_toolbarItem2" class="o_toolbarItem" title="Chasse"><span id="o_itemChasse" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             <div id="o_toolbarItem3" class="o_toolbarItem" title="Combat"><span id="o_itemCombat" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
             <div id="o_toolbarItem6" class="o_toolbarItem" title="Préférence"><span id="o_itemParametre" style="background-image: url(${IMG_SPRITE_MENU})"/></div>
@@ -35,42 +35,20 @@ class Dock {
    * @method afficher
    */
   afficher() {
-    $("body").append(this._html);
+    // Fzzz : rangée d'outils dans la colonne de gauche, sous l'encadré
+    // Compte+ (celui du jeu, ou celui que Fzzz recrée hors C+) ; plus de
+    // bandeau fixe sur le bord droit, gênant sur mobile
+    let $ancre = $("#boiteComptePlus").length ? $("#boiteComptePlus") : $("#boiteInfo");
+    if ($ancre.length) $(this._html).insertAfter($ancre);
+    else $(this._html).addClass("o_toolbarFlottante").appendTo("body");
     $("#o_toolbarOutiiil .o_toolbarItem").tooltip({
       tooltipClass: "warning-tooltip",
       content: function () {
         return $(this).prop("title");
       },
+      position: { my: "center top", at: "center bottom+10" },
       hide: { effect: "fade", duration: 10 },
     });
-    Dock.appliquerPosition();
-    // En mobile (écran étroit), le côté droit n'a pas la place — on bascule la
-    // toolbar en bas même si la pref enregistrée est "à droite". On suit la
-    // mediaQuery pour réagir aussi quand on traverse le breakpoint à chaud.
-    Dock._mql.addEventListener("change", () => Dock.appliquerPosition());
-    // selon la pref on cache l'element
-    // Barre masquée : elle apparaît quand la souris approche du bord. Sur écran
-    // tactile (pas de survol), elle resterait introuvable : elle est affichée.
-    if (monProfil.parametre["dockVisible"].valeur == "0") {
-      if (!window.matchMedia("(hover: hover)").matches) $("#o_toolbarOutiiil").show();
-      else {
-        let visible = false;
-        $(document).mousemove((e) => {
-          let proche = Dock.estEnBas()
-            ? $(window).height() - e.clientY < 60
-            : $(window).width() - e.clientX < 60;
-          // une animation par changement d'état, pas une par mouvement de souris
-          if (proche == visible) return;
-          visible = proche;
-          if (Dock.estEnBas())
-            $("#o_toolbarOutiiil").stop(true, true)[proche ? "slideDown" : "slideUp"](500);
-          else
-            $("#o_toolbarOutiiil")
-              .stop(true, true)
-              [proche ? "show" : "hide"]("slide", { direction: "right" }, 500);
-        });
-      }
-    }
     // evenement sur le clic d'un item de la boite d'outil
     $(".o_toolbarItem").click((e) => {
       // affichage de la boite
@@ -89,38 +67,4 @@ class Dock {
       }
     });
   }
-  /**
-   * Applique la position du dock (classe + position des tooltips) selon
-   * la préférence "dockPosition". Appelable à chaud quand l'utilisateur
-   * change le paramètre depuis la BoiteParametre.
-   *
-   * @static
-   * @method appliquerPosition
-   */
-  static appliquerPosition() {
-    let isBas = Dock.estEnBas();
-    let position = isBas
-      ? { my: "center top", at: "center bottom+10" }
-      : { my: "left+10 center", at: "right center" };
-    $("#o_toolbarOutiiil")
-      .toggleClass("o_toolbarBas", isBas)
-      .toggleClass("o_toolbarDroite", !isBas)
-      .find(".o_toolbarItem")
-      .each((i, el) => {
-        if ($(el).tooltip("instance")) $(el).tooltip("option", "position", position);
-      });
-  }
-  /**
-   * Position effective du dock = pref de l'utilisateur, sauf en mobile
-   * où on force "bas" car la rangée verticale à droite n'est pas viable
-   * sur écran étroit. Ne modifie pas la pref enregistrée.
-   *
-   * @static
-   * @method estEnBas
-   */
-  static estEnBas() {
-    return Dock._mql.matches || monProfil.parametre["dockPosition"].valeur == "1";
-  }
 }
-// même seuil que le bloc mobile de outiiil.css
-Dock._mql = window.matchMedia("(max-width: 760px)");

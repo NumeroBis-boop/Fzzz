@@ -42,7 +42,8 @@ describe("Utils.htmlRentabiliteEtable", () => {
 
 describe("Utils.ouvrieresTotales", () => {
   test("page Reine : lit #armee_initial sans requête", async () => {
-    page.lire(`history.replaceState(null, "", "/Reine.php");
+    // chaque test simule un nouveau chargement de page : lecture non partagée
+    page.lire(`Utils._reine = null; history.replaceState(null, "", "/Reine.php");
       document.body.insertAdjacentHTML("beforeend", "<span id='armee_initial'>70481</span>");
       window.requetes = 0; $.get = () => { window.requetes++; return $.Deferred().reject({ status: 0 }); };`);
     expect(await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`)).toBe(
@@ -52,7 +53,7 @@ describe("Utils.ouvrieresTotales", () => {
   });
 
   test("ailleurs : une lecture de Reine.php à chaque chargement", async () => {
-    page.lire(`history.replaceState(null, "", "/laboratoire.php");
+    page.lire(`Utils._reine = null; history.replaceState(null, "", "/laboratoire.php");
       $.get = () => { window.requetes++; return $.Deferred().resolve("<span id='armee_initial'>70 481</span>"); };`);
     const o = JSON.parse(
       await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`),
@@ -63,7 +64,9 @@ describe("Utils.ouvrieresTotales", () => {
   });
 
   test("jeu occupé (503) : en-tête, avec la raison", async () => {
-    page.lire(`$.get = () => { window.requetes++; return $.Deferred().reject({ status: 503 }); };`);
+    page.lire(
+      `Utils._reine = null; $.get = () => { window.requetes++; return $.Deferred().reject({ status: 503 }); };`,
+    );
     const o = JSON.parse(
       await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`),
     );
@@ -72,45 +75,28 @@ describe("Utils.ouvrieresTotales", () => {
   });
 });
 
-describe("alerte de niveau finançable (Armes, Étable à pucerons)", () => {
-  const p = creerPage(["js/data/couts.js", "js/class/Utils.js"]);
-  const calcul = (
-    niveaux: object,
-    ressources: object,
-    enCours = { recherche: "Aucune recherche", construction: "Aucune construction" },
-  ) =>
-    p.lire<{ nom: string; niveau: number; occupe: boolean }[]>(
-      `JSON.parse(JSON.stringify(Utils.niveauxFinancables(${JSON.stringify(niveaux)}, ${JSON.stringify(ressources)}, ${JSON.stringify(enCours)})))`,
-    );
-  // Armes 10 : 153 600 nourriture, 102 400 matériaux, 40 960 ouvrières ; Étable 5 : 24 000 matériaux
-  const juste = { nourriture: 153600, materiaux: 102400, ouvrieres: 40960 };
+describe("Utils.lireReine : armée complète", () => {
+  test("unités par type (#armee_initial1…14), une seule requête partagée", async () => {
+    page.lire(`Utils._reine = null; history.replaceState(null, "", "/laboratoire.php");
+      window.requetes = 0;
+      $.get = () => { window.requetes++; return $.Deferred().resolve(
+        "<span id='armee_initial'>70 481</span><span id='armee_initial1'>1 000</span><span id='armee_initial8'>250</span><span id='armee_initial14'>3</span>"); };`);
+    const r = JSON.parse(await page.lire(`Utils.lireReine().then((r) => JSON.stringify(r))`));
+    expect(r.ouvrieres).toBe(70481);
+    expect(r.unites).toHaveLength(14);
+    expect(r.unites[0]).toBe(1000); // Jeune Soldate Naine
+    expect(r.unites[7]).toBe(250); // Artilleuse
+    expect(r.unites[13]).toBe(3); // Tueuse d'élite
+    expect(r.unites[4]).toBe(0);
+    await page.lire(`Utils.ouvrieresTotales().then(() => 1)`);
+    expect(page.lire(`window.requetes`)).toBe(1);
+  });
 
-  test("ressources suffisantes : les deux niveaux, avec leur numéro", () => {
-    expect(calcul({ armes: 9, etable: 4 }, juste).map((x) => `${x.nom} ${x.niveau}`)).toEqual([
-      "Armes 10",
-      "Étable à pucerons 5",
-    ]);
-  });
-  test("une ressource manque : pas d'alerte pour ce niveau", () => {
-    expect(
-      calcul({ armes: 9, etable: 4 }, { ...juste, ouvrieres: 40959 }).map((x) => x.nom),
-    ).toEqual(["Étable à pucerons"]);
-    expect(
-      calcul({ armes: 9, etable: 4 }, { nourriture: 0, materiaux: 23999, ouvrieres: 0 }),
-    ).toEqual([]);
-  });
-  test("niveau inconnu ou déjà en cours : rien ; autre chantier en cours : signalé occupé", () => {
-    expect(calcul({ armes: -1, etable: -1 }, juste)).toEqual([]);
-    expect(
-      calcul({ armes: 9, etable: 4 }, juste, {
-        recherche: "Armes 3h 02m",
-        construction: "Étable à pucerons",
-      }),
-    ).toEqual([]);
-    const r = calcul({ armes: 9, etable: 4 }, juste, {
-      recherche: "Architecture 2h 55m",
-      construction: "Aucune construction",
-    });
-    expect(r.map((x) => x.occupe)).toEqual([true, false]);
+  test("armée absente de la page : unites null (méthode locale conservée)", async () => {
+    page.lire(
+      `Utils._reine = null; $.get = () => $.Deferred().resolve("<span id='armee_initial'>5</span>");`,
+    );
+    const r = JSON.parse(await page.lire(`Utils.lireReine().then((r) => JSON.stringify(r))`));
+    expect(r).toEqual({ ouvrieres: 5, unites: null, reine: true });
   });
 });

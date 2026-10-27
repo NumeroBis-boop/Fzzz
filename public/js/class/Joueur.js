@@ -95,19 +95,6 @@ class Joueur {
       "color",
       "#787423",
     );
-    this._parametre["dockPosition"] = new Parametre(
-      "dockPosition",
-      "Position des outils",
-      "select",
-      0,
-      ["Droite", "Bas"],
-    );
-    this._parametre["dockVisible"] = new Parametre(
-      "dockVisible",
-      "Outils toujours visible ?",
-      "checkbox",
-      true,
-    );
     this._parametre["boiteShow"] = new Parametre(
       "boiteShow",
       "Effet appariation des boites",

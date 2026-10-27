@@ -26,8 +26,6 @@ const AFFICHAGES_FZZZ = {
   listeAttaques: "Armée et page d'attaque : liste des attaques en cours",
   floodsRecus: "Armée : floods en cours sur moi",
   profilPartages: "Page membre : chasses, floods et évolution du TdC partagés",
-  alerteNiveaux:
-    "Alerte sous l'encart « S5 pseudo » : niveau d'Armes ou d'Étable à pucerons finançable",
 };
 
 // Fzzz : affichages de la page Convois, réglables dans Paramètres → Convoi
@@ -82,88 +80,6 @@ class Utils {
       $("#menuComptePlus a.boutonStatJoueur").text() == "Stat"
       ? true
       : false;
-  }
-  /**
-   * Niveaux suivants d'Armes et d'Étable à pucerons que les ressources
-   * actuelles permettent de payer. Un niveau déjà en cours n'est pas proposé.
-   *
-   * @static
-   * @method niveauxFinancables
-   * @param {{armes: Number, etable: Number}} niveaux niveaux actuels (-1 : inconnu)
-   * @param {{nourriture: Number, materiaux: Number, ouvrieres: Number}} ressources
-   * @param {{recherche: String, construction: String}} enCours libellés en cours
-   * @return {Array<{nom: String, niveau: Number, page: String, cout: String, occupe: Boolean}>}
-   */
-  static niveauxFinancables(niveaux, ressources, enCours) {
-    let liste = [],
-      format = (n) => numeral(n).format("0.[0]a");
-    if (niveaux.armes >= 0 && !/\bArmes\b/i.test(enCours.recherche)) {
-      let item = COUTS_RECHERCHES.labo2,
-        n = niveaux.armes + 1,
-        p = coutsPom(item, n),
-        m = coutsMat(item, n),
-        o = coutsOuv(item, n);
-      if (
-        n <= item.max &&
-        ressources.nourriture >= p &&
-        ressources.materiaux >= m &&
-        ressources.ouvrieres >= o
-      )
-        liste.push({
-          nom: "Armes",
-          niveau: n,
-          page: "laboratoire.php",
-          cout: `${format(p)} nourriture, ${format(m)} matériaux, ${format(o)} ouvrières`,
-          occupe: !/aucune/i.test(enCours.recherche) && /\S/.test(enCours.recherche),
-        });
-    }
-    if (niveaux.etable >= 0 && !/pucerons/i.test(enCours.construction)) {
-      let item = COUTS_CONSTRUCTIONS.cons0,
-        n = niveaux.etable + 1,
-        m = coutsMat(item, n);
-      if (n <= item.max && ressources.materiaux >= m)
-        liste.push({
-          nom: "Étable à pucerons",
-          niveau: n,
-          page: "construction.php",
-          cout: `${format(m)} matériaux`,
-          occupe: !/aucune/i.test(enCours.construction) && /\S/.test(enCours.construction),
-        });
-    }
-    return liste;
-  }
-  /**
-   * Petite alerte sous l'encart « S5 pseudo » quand un niveau d'Armes ou
-   * d'Étable à pucerons est finançable (ressources affichées par le jeu,
-   * aucune requête). Lien vers la page où le lancer.
-   *
-   * @static
-   * @method alerteNiveaux
-   */
-  static alerteNiveaux() {
-    if (!Utils.affichage("alerteNiveaux") || $("#o_alerteNiveaux").length) return;
-    let $boite = $("#boiteInfo");
-    if (!$boite.length) return;
-    let possibles = Utils.niveauxFinancables(
-      {
-        armes: parseInt(monProfil.niveauRecherche[2]),
-        etable: parseInt(monProfil.niveauConstruction[11]),
-      },
-      { nourriture: Utils.nourriture, materiaux: Utils.materiaux, ouvrieres: Utils.ouvrieres },
-      {
-        recherche: $("#ligne_recherche, #o_resteRecherche").first().text().trim(),
-        construction: $("#ligne_construction, #o_resteConstruction").first().text().trim(),
-      },
-    );
-    if (!possibles.length) return;
-    $(
-      `<div id='o_alerteNiveaux'>${possibles
-        .map(
-          (x) =>
-            `<a href='${x.page}' title='Coût : ${x.cout}${x.occupe ? " — " + (x.page == "laboratoire.php" ? "laboratoire" : "chantier") + " occupé pour l’instant" : ""}'>🔔 ${x.nom} ${x.niveau} possible</a>`,
-        )
-        .join("")}</div>`,
-    ).insertAfter($boite);
   }
   /**
    * Renvoie le terrain du joueur en cm².
@@ -447,36 +363,33 @@ class Utils {
     });
   }
   /**
-   * Nombre total d'ouvrières, y compris celles parties en convoi, que le
-   * compteur de l'en-tête ne compte pas : lu dans la page Reine
-   * (#armee_initial).
+   * Données de la page Reine : ouvrières totales (#armee_initial, convois
+   * compris) et armée complète par unité (#armee_initial1 à 14, dans l'ordre
+   * de NOM_UNITE : garnison et troupes parties comprises).
    *
-   * Lu à chaque chargement de Construction et Laboratoire (une requête), ou
-   * directement dans la page Reine. À défaut, compteur de l'en-tête, avec la
-   * raison de l'échec.
+   * Une seule lecture par chargement de page, partagée (Laboratoire :
+   * rentabilité Armes et Étable), ou directement dans la page Reine.
    *
    * @static
-   * @method ouvrieresTotales
-   * @return {Promise} {total, reine, raison}
+   * @method lireReine
+   * @return {Promise} {ouvrieres, unites (Array de 14, ou null), reine, raison}
    */
-  static ouvrieresTotales() {
-    let lire = ($page) => {
-        let n = parseInt($page.find("#armee_initial").text().replace(/\D/g, ""));
-        if (isNaN(n)) throw new Error("nombre d'ouvrières absent de la page");
-        return n;
-      },
-      defaut = (raison) => ({ total: Utils.ouvrieres || 0, reine: false, raison: raison });
+  static lireReine() {
+    if (Utils._reine) return Utils._reine;
+    let defaut = (raison) => ({ ouvrieres: null, unites: null, reine: false, raison: raison }),
+      analyser = ($page) => Utils.analyserReine($page);
     if (/^\/Reine\.php/i.test(location.pathname)) {
       try {
-        return Promise.resolve({ total: lire($(document.body)), reine: true });
+        Utils._reine = Promise.resolve(analyser($(document.body)));
       } catch (e) {
-        return Promise.resolve(defaut(e.message));
+        Utils._reine = Promise.resolve(defaut(e.message));
       }
+      return Utils._reine;
     }
-    return Promise.resolve($.get(location.origin + "/Reine.php")).then(
+    Utils._reine = Promise.resolve($.get(location.origin + "/Reine.php")).then(
       (html) => {
         try {
-          return { total: lire(Utils.parseHtml(html)), reine: true };
+          return analyser(Utils.parseHtml(html));
         } catch (e) {
           return defaut(e.message);
         }
@@ -489,6 +402,50 @@ class Utils {
               ? "pas de réponse du jeu"
               : `erreur ${(jqXHR && jqXHR.status) || "réseau"}`,
         ),
+    );
+    return Utils._reine;
+  }
+  /**
+   * @static
+   * @method analyserReine
+   * @param {Object} $page page Reine (jQuery)
+   * @return {Object} {ouvrieres, unites, reine: true}
+   */
+  static analyserReine($page) {
+    let nombre = (id) =>
+        parseInt(
+          $page
+            .find("#" + id)
+            .text()
+            .replace(/\D/g, ""),
+        ),
+      ouvrieres = nombre("armee_initial");
+    if (isNaN(ouvrieres)) throw new Error("nombre d'ouvrières absent de la page");
+    let unites = [];
+    // 14 unités de combat, suffixe = indice dans NOM_UNITE (0 : ouvrières)
+    for (let i = 1; i <= 14; i++) unites.push(nombre("armee_initial" + i));
+    // armée absente de la page : null (on garde la méthode locale)
+    let lues = unites.filter((n) => !isNaN(n)).length;
+    return {
+      ouvrieres: ouvrieres,
+      unites: lues ? unites.map((n) => (isNaN(n) ? 0 : n)) : null,
+      reine: true,
+    };
+  }
+  /**
+   * Nombre total d'ouvrières, y compris celles parties en convoi, que le
+   * compteur de l'en-tête ne compte pas : lu dans la page Reine. À défaut,
+   * compteur de l'en-tête, avec la raison de l'échec.
+   *
+   * @static
+   * @method ouvrieresTotales
+   * @return {Promise} {total, reine, raison}
+   */
+  static ouvrieresTotales() {
+    return Utils.lireReine().then((r) =>
+      r.reine
+        ? { total: r.ouvrieres, reine: true }
+        : { total: Utils.ouvrieres || 0, reine: false, raison: r.raison },
     );
   }
   /**

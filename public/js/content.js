@@ -476,17 +476,15 @@ const DATEPICKER_OPTION = {
           }
         });
 
-        // Ajout des outils
-        let boite = new Dock();
-        boite.afficher();
-        // boite compte plus
+        // boite compte plus (recréée par Fzzz hors C+)
         let boiteComptePlus = new BoiteComptePlus();
         boiteComptePlus.afficher();
+        // Ajout des outils, sous l'encadré Compte+
+        let boite = new Dock();
+        boite.afficher();
         // Boite radar
         let boiteRadar = new BoiteRadar();
         boiteRadar.afficher();
-        // Fzzz : niveau d'Armes ou d'Étable à pucerons finançable
-        Utils.alerteNiveaux();
 
         // Onglet "Carte" dans le menu d'alliance — injecté sur toutes les pages
         // tant que le joueur a une alliance (présence du lien Membres = preuve).

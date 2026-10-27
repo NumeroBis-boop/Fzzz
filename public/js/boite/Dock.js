@@ -89,24 +89,101 @@ class Dock {
   }
   /**
    * Garde `boite` juste sous `ref`, à `ecart()` px, même colonne, même
-   * largeur ; recalé quand `ref` change de taille ou la fenêtre de taille.
+   * largeur, même apparence. Le jeu place lui-même les encadrés de sa
+   * colonne de gauche (et replace ce qu'on y ajoute) : `boite` est donc
+   * rattaché à la page, hors de la colonne, et positionné d'après la
+   * position mesurée de `ref`, recalculée quand `ref` bouge ou change de
+   * taille (aucune requête au jeu, mesures dans la page seulement).
    *
    * @static
    * @method suivre
    */
   static suivre(ref, boite, ecart) {
-    let caler = () => Dock.caler(ref, boite, ecart());
+    Dock.copierStyle(ref, boite);
+    document.body.appendChild(boite);
+    let attente = null,
+      caler = () => {
+        cancelAnimationFrame(attente);
+        attente = requestAnimationFrame(() => Dock.caler(ref, boite, ecart()));
+      };
     caler();
     if (window.ResizeObserver) new ResizeObserver(caler).observe(ref);
-    $(window).on("load resize", caler);
+    new MutationObserver(caler).observe(ref, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+    if (ref.parentElement)
+      new MutationObserver(caler).observe(ref.parentElement, {
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    $(window).on("load resize scroll", caler);
     // placements du jeu terminés après le chargement
-    setTimeout(caler, 500);
+    [300, 1000, 3000].forEach((ms) => setTimeout(caler, ms));
   }
   /**
-   * Place `boite` sous `ref`. Le jeu place les encadrés de la colonne de
-   * gauche lui-même (colonne fixe, encadrés positionnés) : si l'encadré ne se
-   * retrouve pas naturellement sous `ref`, il est positionné par rapport à
-   * son conteneur, aux coordonnées mesurées de `ref`.
+   * Même apparence que l'encadré de référence (fond, bordure, ombre, titre),
+   * le style du jeu pouvant dépendre de la colonne qu'on quitte.
+   *
+   * @static
+   * @method copierStyle
+   */
+  static copierStyle(ref, boite) {
+    let copier = (de, vers, proprietes) => {
+      if (!de || !vers) return;
+      let c = getComputedStyle(de);
+      proprietes.forEach((p) => (vers.style[p] = c[p]));
+    };
+    copier(ref, boite, [
+      "backgroundColor",
+      "backgroundImage",
+      "backgroundSize",
+      "backgroundRepeat",
+      "borderTop",
+      "borderRight",
+      "borderBottom",
+      "borderLeft",
+      "borderRadius",
+      "boxShadow",
+      "color",
+      "fontFamily",
+      "fontSize",
+      "paddingTop",
+      "paddingRight",
+      "paddingBottom",
+      "paddingLeft",
+    ]);
+    // largeur totale identique à celle de `ref` (bordure et marges comprises)
+    boite.style.boxSizing = "border-box";
+    let titre = (e) => e.querySelector(".titre_colonne_cliquable"),
+      libelle = (e) => e.querySelector(".titre_compte_plus, .titre_colonne_cliquable > *");
+    copier(titre(ref), titre(boite), [
+      "backgroundColor",
+      "backgroundImage",
+      "backgroundSize",
+      "backgroundRepeat",
+      "borderBottom",
+      "borderRadius",
+      "height",
+      "lineHeight",
+      "paddingTop",
+      "paddingBottom",
+      "textAlign",
+      "marginBottom",
+    ]);
+    copier(libelle(ref), libelle(boite), [
+      "color",
+      "fontFamily",
+      "fontSize",
+      "fontWeight",
+      "textShadow",
+      "letterSpacing",
+    ]);
+  }
+  /**
+   * Place `boite` (rattaché à la page) sous `ref` : position fixe si `ref`
+   * est dans un conteneur fixe (colonne qui ne défile pas), sinon absolue
+   * aux coordonnées du document. Masqué si `ref` l'est.
    *
    * @static
    * @method caler
@@ -116,42 +193,25 @@ class Dock {
    */
   static caler(ref, boite, ecart = 8) {
     let r = ref.getBoundingClientRect();
-    if (!r.width) return;
-    Object.assign(boite.style, {
-      position: "",
-      top: "",
-      left: "",
-      width: "",
-      marginTop: ecart + "px",
-    });
-    let b = boite.getBoundingClientRect();
-    if (Math.abs(b.top - (r.bottom + ecart)) <= 1 && Math.abs(b.left - r.left) <= 1) return;
-    // `ref` dans un conteneur fixe qui ne contient pas `boite` : position
-    // fixe, aux coordonnées de la fenêtre (les deux restent ensemble au
-    // défilement)
-    let fixe = null;
-    for (let e = ref; e && e != document.body; e = e.parentElement)
-      if (getComputedStyle(e).position == "fixed") {
-        fixe = e;
-        break;
-      }
-    boite.style.marginTop = "0";
-    if (fixe && !fixe.contains(boite)) {
-      Object.assign(boite.style, {
-        position: "fixed",
-        left: r.left + "px",
-        top: r.bottom + ecart + "px",
-        width: r.width + "px",
-      });
+    if (!r.width || !r.height) {
+      boite.style.display = "none";
       return;
     }
-    boite.style.position = "absolute";
-    let parent = boite.offsetParent || document.body,
-      p = parent.getBoundingClientRect();
+    let fixe = false;
+    for (let e = ref; e && e != document.documentElement; e = e.parentElement)
+      if (getComputedStyle(e).position == "fixed") {
+        fixe = true;
+        break;
+      }
+    let z = parseInt(getComputedStyle(ref).zIndex);
     Object.assign(boite.style, {
-      left: r.left - p.left - parent.clientLeft + parent.scrollLeft + "px",
-      top: r.bottom + ecart - p.top - parent.clientTop + parent.scrollTop + "px",
+      display: "",
+      position: fixe ? "fixed" : "absolute",
+      margin: "0",
+      left: r.left + (fixe ? 0 : window.scrollX) + "px",
+      top: r.bottom + ecart + (fixe ? 0 : window.scrollY) + "px",
       width: r.width + "px",
+      zIndex: isNaN(z) ? "10" : String(z),
     });
   }
 }

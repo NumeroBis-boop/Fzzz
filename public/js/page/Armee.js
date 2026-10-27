@@ -102,6 +102,8 @@ class PageArmee {
     // clic du joueur. L'option « Replacer l'armée automatiquement » ne peut en
     // revanche rien envoyer à la simple ouverture de la page (règlement du s5) :
     // elle met en évidence le bouton de replacement, le joueur clique.
+    // rechargement après un clic (Annuler, transfert…) : même position à l'écran
+    Utils.garderPosition("fzzz_positionArmee");
     if (floodFlag) this.replacerArmee(true);
     else if (
       monProfil.parametre["replacerArmeeAuto"].valeur &&

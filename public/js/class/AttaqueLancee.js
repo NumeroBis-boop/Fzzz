@@ -28,8 +28,6 @@ const DUREE_VIE_CAPTURE = 600;
 const DELAI_ANNULATION = 120;
 // nombre d'attaques qu'un « Tout annuler » n'a pas pu annuler, affiché après rechargement
 const CLE_ANNULATION_ECHEC = "outiiil_annulationEchec";
-// position du tableau à l'écran avant une annulation, rétablie au rechargement
-const CLE_POSITION_ANNULATION = "fzzz_positionAnnulation";
 // recalcul de la taille du tableau au redimensionnement, installé une fois
 let ajustementTailleActif = false;
 
@@ -326,10 +324,7 @@ class AttaqueLancee {
           annuler: $(l.elt).nextAll(`a[href$='annuler=${l.id}']`).first(),
         }));
     // les captures restent synchronisées (partage des floods) même sans la liste
-    if (!attaques.length || !Utils.affichage("listeAttaques")) {
-      AttaqueLancee.retablirPosition();
-      return;
-    }
+    if (!attaques.length || !Utils.affichage("listeAttaques")) return;
     // Fzzz : une seule liste, dans l'ordre d'arrivée : # | Arrivée | Cible (tag
     // coloré) | Troupes (quantité, détail au survol) | Lieu | Copier | Partager
     let conteneur = $(lignes[lignes.length - 1].elt).parent(),
@@ -467,62 +462,43 @@ class AttaqueLancee {
         })
         // navigation GET et non reload() : sur la page Attaquer, la page
         // courante est la réponse du POST de lancement, un reload le rejouerait
-        .finally(() => {
-          AttaqueLancee.memoriserPosition();
-          location.replace(location.pathname + location.search);
-        });
+        .finally(() => location.replace(location.pathname + location.search));
     });
-    // Annuler (lien du jeu) : la page se recharge, au même endroit
-    $(`#${id}`).on("click", ".o_attaqueAnnuler a", () => AttaqueLancee.memoriserPosition());
+    // Annuler (lien du jeu) : la page se recharge, au même endroit (Utils.garderPosition)
+    AttaqueLancee.figerActions();
     AttaqueLancee.ajusterTaille();
-    AttaqueLancee.retablirPosition();
   }
   /**
-   * Avant une annulation : position du tableau des attaques dans la fenêtre.
+   * Colonne des actions : largeur réservée pour l'état le plus large
+   * (« Partagé ✓ » + « Retirer » au lieu de « Partager »), pour que partager
+   * ou retirer un flood ne fasse pas bouger le tableau.
    *
    * @static
-   * @method memoriserPosition
+   * @method figerActions
    */
-  static memoriserPosition() {
-    let $t = $("#o_attaquesLancees");
-    if (!$t.length) return;
-    try {
-      sessionStorage.setItem(
-        CLE_POSITION_ANNULATION,
-        JSON.stringify({
-          ecart: $t[0].getBoundingClientRect().top,
-          y: window.scrollY,
-          t: Date.now(),
-        }),
-      );
-    } catch (e) {}
-  }
-  /**
-   * Après le rechargement qui suit une annulation : le tableau reprend sa
-   * place dans la fenêtre (même s'il a une ligne de moins).
-   *
-   * @static
-   * @method retablirPosition
-   */
-  static retablirPosition() {
-    let p = null;
-    try {
-      p = JSON.parse(sessionStorage.getItem(CLE_POSITION_ANNULATION));
-      sessionStorage.removeItem(CLE_POSITION_ANNULATION);
-    } catch (e) {}
-    if (!p || Date.now() - p.t > 30000) return;
-    // plus d'attaque (dernière annulée) : même défilement qu'avant
-    let placer = () => {
-      let $t = $("#o_attaquesLancees");
-      window.scrollTo(
+  static figerActions() {
+    let $table = $(".o_attaquesLancees").first(),
+      $cellules = $table.find("td.o_attaqueActions");
+    if (!$cellules.length) return;
+    let $essai = $(
+        `<span class="o_attaquePartageBloc"><span class="o_attaquePartage">Partagé ✓</span><button type="button" class="o_button o_attaqueRetirer">Retirer</button></span><button type="button" class="o_button f_info o_attaquePartager">Partager</button>`,
+      ),
+      $cadre = $("<span style='position:absolute;visibility:hidden;white-space:nowrap'></span>")
+        .append($essai)
+        .appendTo($cellules.first()),
+      surplus = Math.max(
         0,
-        $t.length ? window.scrollY + $t[0].getBoundingClientRect().top - p.ecart : p.y,
+        $cadre.children().eq(0).outerWidth() - $cadre.children().eq(1).outerWidth(),
+      ),
+      largeur = 0;
+    $cadre.remove();
+    $cellules.each((i, td) => {
+      largeur = Math.max(
+        largeur,
+        $(td).outerWidth() + ($(td).find(".o_attaquePartager").length ? surplus : 0),
       );
-    };
-    placer();
-    // blocs ajoutés au-dessus après coup (lectures en cours) : on recale
-    setTimeout(placer, 300);
-    $(window).one("load", placer);
+    });
+    $cellules.css("min-width", largeur + "px");
   }
   /**
    * Une attaque par ligne : si le tableau dépasse son cadre, la police

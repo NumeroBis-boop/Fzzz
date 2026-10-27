@@ -2186,3 +2186,11 @@ tr.en_tete_message > td.td_coche {
 .o_champSignale {
   outline: 2px solid #c27c0e;
 }
+
+/* Fzzz : ligne du compte à rebours réservée (page d'attaque), chiffres de largeur fixe */
+.o_syncReserve {
+  min-height: 1.3em;
+}
+#o_decSyncA {
+  font-variant-numeric: tabular-nums;
+}

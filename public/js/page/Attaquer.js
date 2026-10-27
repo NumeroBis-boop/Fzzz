@@ -56,6 +56,8 @@ class PageAttaquer {
     }
     if (!Utils.comptePlus) this.plus();
     AttaqueLancee.afficherTableaux();
+    // rechargement après un clic (Lancer, Annuler…) : même position à l'écran
+    Utils.garderPosition("fzzz_positionAttaquer");
     return this;
   }
   /**
@@ -128,6 +130,12 @@ class PageAttaquer {
       .after(
         `${Utils.affichage("trajet") ? `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">${Utils.duree(monProfil.getTempsParcours2(this._cible))}</span></p>` : ""}<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">${Horloge.clic().add(monProfil.getTempsParcours2(this._cible), "s").format("D MMM à HH[h]mm[m]ss[s]")}</span> (RC : <span id="o_retourArmeeRC" class="gras">${Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()).format("D MMM à HH[h]mm")}</span>).</p>`,
       );
+    // ligne du compte à rebours réservée dès l'affichage : la lancer ne
+    // décale pas le reste de la page
+    if (!$("#o_syncA").length)
+      $("#formulaireChoixArmee fieldset:eq(1)").append(
+        "<p id='o_syncA' class='centre o_syncReserve'>&nbsp;</p>",
+      );
     $("#o_synchro").click((e) => {
       e.preventDefault();
       $("#o_btnSynchro button").prop("disabled", true);
@@ -176,9 +184,12 @@ class PageAttaquer {
     // la latence pendant le décompte est pris en compte.
     let cible = Horloge.clic().valueOf() + attente * 1000,
       arrivee = Horloge.clic().add(attente, "s").add(monProfil.getTempsParcours2(this._cible), "s");
-    $("#formulaireChoixArmee fieldset:eq(1)").append(
-      `<p id="o_syncA" class="centre">Clique sur <b>Lancer</b> dans : <span id='o_decSyncA' class='gras'></span> (arrivée ${arrivee.format("HH[h]mm[m]ss[s]")}, latence ${Horloge.libelleLatence()}).</p>`,
-    );
+    let texte = `Clique sur <b>Lancer</b> dans : <span id='o_decSyncA' class='gras'></span> (arrivée ${arrivee.format("HH[h]mm[m]ss[s]")}, latence ${Horloge.libelleLatence()}).`;
+    if ($("#o_syncA").length) $("#o_syncA").removeClass("red").html(texte);
+    else
+      $("#formulaireChoixArmee fieldset:eq(1)").append(
+        `<p id="o_syncA" class="centre o_syncReserve">${texte}</p>`,
+      );
     let tic = () => {
       let reste = cible - Horloge.clic().valueOf();
       if (reste > 0) {
@@ -186,7 +197,11 @@ class PageAttaquer {
         setTimeout(tic, Math.min(100, reste));
       } else {
         $("#o_syncA").html("<b>Clique sur Lancer maintenant.</b>").addClass("red");
-        $("input[name='ChoixArmee']").addClass("o_synchroPret").focus();
+        // focus sans faire défiler la page
+        $("input[name='ChoixArmee']")
+          .addClass("o_synchroPret")
+          .first()[0]
+          ?.focus({ preventScroll: true });
       }
     };
     tic();
@@ -250,6 +265,8 @@ class PageAttaquer {
       $(e.currentTarget).spinner("value", nombre);
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     });
+    // largeur fixe : « Flood en cours… » ne décale rien
+    Utils.figerLargeur($("#o_lanceFlood"), ["Flood en cours…", "Flood interrompu"]);
     $("#o_lanceFlood").click((e) => {
       // désactivé dès le premier clic : un double clic lançait deux floods en
       // parallèle (chaque attaque partait deux fois)

@@ -808,6 +808,84 @@ class Utils {
     }
   }
   /**
+   * Largeur minimale d'un bouton : celle de son plus long libellé possible,
+   * pour qu'un changement de texte au clic ne décale rien autour.
+   *
+   * @static
+   * @method figerLargeur
+   * @param {Object} $bouton (jQuery)
+   * @param {Array<String>} libelles autres libellés possibles
+   */
+  static figerLargeur($bouton, libelles) {
+    if (!$bouton.length) return;
+    let initial = $bouton.text(),
+      largeur = $bouton.outerWidth();
+    libelles.forEach((l) => {
+      $bouton.text(l);
+      largeur = Math.max(largeur, $bouton.outerWidth());
+    });
+    $bouton.text(initial).css({ minWidth: largeur + "px", boxSizing: "border-box" });
+  }
+  /**
+   * Après un rechargement provoqué par un clic (lancement, annulation…),
+   * l'élément cliqué (ou son plus proche parent identifiable) revient à la
+   * même hauteur à l'écran : rien ne bouge à part les données mises à jour.
+   *
+   * @static
+   * @method garderPosition
+   * @param {String} cle clé de stockage (une par page)
+   */
+  static garderPosition(cle) {
+    // dernier clic : l'élément cliqué et sa position à l'écran
+    let dernier = null,
+      moment = 0;
+    document.addEventListener(
+      "click",
+      (e) => {
+        dernier = e.target;
+        moment = Date.now();
+      },
+      true,
+    );
+    window.addEventListener("pagehide", () => {
+      if (!dernier || Date.now() - moment > 10000) return;
+      // ancres : ancêtres ayant un id, les id stables (sans numéro final,
+      // souvent un rang de ligne qui change au rechargement) d'abord
+      let ancres = [];
+      for (let e = dernier; e && e !== document.body; e = e.parentElement)
+        if (e.id && !/^ui-/.test(e.id))
+          ancres.push({ id: e.id, haut: e.getBoundingClientRect().top });
+      ancres.sort((a, b) => /\d$/.test(a.id) - /\d$/.test(b.id));
+      try {
+        sessionStorage.setItem(
+          cle,
+          JSON.stringify({ ancres, y: window.scrollY, page: location.pathname, t: Date.now() }),
+        );
+      } catch (e) {}
+    });
+    let p = null;
+    try {
+      p = JSON.parse(sessionStorage.getItem(cle));
+      sessionStorage.removeItem(cle);
+    } catch (e) {}
+    if (!p || Date.now() - p.t > 30000 || p.page !== location.pathname) return;
+    // le navigateur ne doit pas replacer la page lui-même
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    let placer = () => {
+      let a = (p.ancres || []).find((x) => document.getElementById(x.id));
+      if (a)
+        window.scrollTo(
+          0,
+          window.scrollY + document.getElementById(a.id).getBoundingClientRect().top - a.haut,
+        );
+      else window.scrollTo(0, p.y);
+    };
+    placer();
+    // blocs ajoutés au-dessus après coup (lectures en cours) : on recale
+    setTimeout(placer, 300);
+    $(window).one("load", placer);
+  }
+  /**
    * Préserve le scrollY à travers une navigation aller-retour sur la même page
    * (ex: clic "Construire" prereq invalide → POST → 302 → on revient en haut).
    * Pose un listener `pagehide` pour sauver la position, et retourne la

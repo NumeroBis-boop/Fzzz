@@ -63,6 +63,9 @@ const AFFICHAGES_CONVOIS = {
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800];
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
+// la croix masque le bandeau ce temps (min) ; ensuite, il ne revient que si la
+// page Reine relue montre toujours une fin de ponte sous le seuil
+const MINUTES_MASQUAGE_PONTE = 10;
 // écart (px) entre le menu principal du jeu et le bandeau d'alerte de ponte
 const ECART_SOUS_MENU = 6;
 
@@ -847,7 +850,7 @@ class Utils {
    * Bandeau d'alerte sous le menu du jeu : la reine ne pond plus, ou sa file
    * se termine sous le seuil (Paramètres → Général). La file est lue sur la
    * page Reine à chaque chargement de page. Rien sur la page Reine. La croix
-   * masque le bandeau 30 min, ou jusqu'à ce que la file repasse au-dessus du
+   * masque le bandeau 10 min, ou jusqu'à ce que la file repasse au-dessus du
    * seuil (ponte relancée) : la fin de ponte suivante est alors signalée.
    *
    * @static
@@ -932,7 +935,7 @@ class Utils {
   }
   /**
    * Bandeau d'alerte de ponte, sous le menu principal du jeu ; sa croix le
-   * masque 30 min.
+   * masque MINUTES_MASQUAGE_PONTE min.
    *
    * @static
    * @method bandeauPonte
@@ -948,11 +951,14 @@ class Utils {
         $(`<div id="o_alertePonte" class="${reste <= 0 ? "o_alertePonteArretee" : ""}" role="alert">
         <span class="o_alertePonteSymbole" aria-hidden="true">⚠</span>
         <a class="o_alertePonteTexte" href="/Reine.php" title="Aller à la Reine">${texte}</a>
-        <button type="button" class="o_alertePonteFermer" title="Masquer pendant 30 min" aria-label="Masquer pendant 30 min">×</button>
+        <button type="button" class="o_alertePonteFermer" title="Masquer pendant ${MINUTES_MASQUAGE_PONTE} min" aria-label="Masquer pendant ${MINUTES_MASQUAGE_PONTE} min">×</button>
       </div>`);
     $bandeau.find(".o_alertePonteFermer").on("click", () => {
       try {
-        localStorage.setItem(CLE_ALERTE_PONTE_MUETTE, String(Date.now() + 30 * 60000));
+        localStorage.setItem(
+          CLE_ALERTE_PONTE_MUETTE,
+          String(Date.now() + MINUTES_MASQUAGE_PONTE * 60000),
+        );
       } catch (e) {}
       $bandeau.remove();
     });

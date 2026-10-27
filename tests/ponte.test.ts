@@ -85,7 +85,7 @@ describe("bandeau d'alerte de ponte", () => {
     expect(p.lire("LECTURES")).toBe(2);
   });
 
-  test("fin de file sous le seuil : bandeau sous le menu, la croix le masque 30 min", async () => {
+  test("fin de file sous le seuil : bandeau sous le menu, la croix le masque 10 min", async () => {
     const p = creer(pageReine([1200]));
     lancer(p);
     await attendre();
@@ -93,6 +93,11 @@ describe("bandeau d'alerte de ponte", () => {
     expect(p.lire(`$("#o_alertePonte .o_alertePonteTexte").attr("href")`)).toBe("/Reine.php");
     p.lire(`$(".o_alertePonteFermer").trigger("click")`);
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(0);
+    expect(
+      p.lire(
+        `Math.round((parseInt(localStorage.getItem("fzzz_alertePonteMuette")) - Date.now()) / 60000)`,
+      ),
+    ).toBe(10);
     lancer(p);
     await attendre();
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(0);
@@ -120,6 +125,17 @@ describe("bandeau d'alerte de ponte", () => {
     lancer(p);
     await attendre();
     expect(p.lire(`$("#o_alertePonte").hasClass("o_alertePonteArretee")`)).toBe(true);
+  });
+
+  test("masquage écoulé, ponte toujours pas relancée : le bandeau revient", async () => {
+    const p = creer(pageReine([1200]));
+    lancer(p);
+    await attendre();
+    p.lire(`$(".o_alertePonteFermer").trigger("click")`);
+    p.lire(`localStorage.setItem("fzzz_alertePonteMuette", String(Date.now() - 1000))`);
+    lancer(p);
+    await attendre();
+    expect(p.lire(`$("#o_alertePonte").length`)).toBe(1);
   });
 
   test("réponse qui n'est pas la page Reine : pas de fausse alerte", async () => {

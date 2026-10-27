@@ -483,6 +483,27 @@ class Joueur {
     return `<a href="Membre.php?Pseudo=${encodeURIComponent(pseudo)}" class="o_lienAttaque" data-pseudo="${pseudo}"><img src="images/icone/icone_degat_attaque.gif" title="Attaquer cette Fourmilière" alt="Attaquer" width="18" height="18"></a>`;
   }
   /**
+   * Épées de portée de flood : rouge si ce joueur peut nous flooder, bleue
+   * (lien d'attaque) si nous pouvons le flooder, rien hors de portée.
+   *
+   * @static
+   * @method epeesPortee
+   * @param {Joueur} joueur
+   * @return {String} html
+   */
+  static epeesPortee(joueur) {
+    if (joueur.estJoueurCourant()) return "";
+    let pseudo = Utils.echapper(joueur.pseudo);
+    return (
+      (joueur.estAttaquant()
+        ? `<span class="o_epee o_epeeRouge" title="Peut te flooder">⚔\uFE0E</span>`
+        : "") +
+      (joueur.estAttaquable()
+        ? `<a href="Membre.php?Pseudo=${encodeURIComponent(joueur.pseudo)}" class="o_lienAttaque o_epee o_epeeBleue" data-pseudo="${pseudo}" title="Tu peux le flooder (clic : attaquer)">⚔\uFE0E</a>`
+        : "")
+    );
+  }
+  /**
    * Clic sur une épée de Joueur.lienAttaque : lit l'id sur le profil puis
    * ouvre la page d'attaque. En cas d'échec, le lien mène au profil.
    *

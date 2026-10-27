@@ -88,11 +88,15 @@ class PageAlliance {
         rang: $(elt).find("td:eq(2)").text().trim().replace(/\//g, "-"),
       });
       this._gradesNatifs[pseudo] = tmpJoueurs[pseudo].rang;
-      if (!Utils.comptePlus && !tmpJoueurs[pseudo].estJoueurCourant()) {
-        if (tmpJoueurs[pseudo].estAttaquable())
-          $(elt).find("td:eq(6)").html(Joueur.lienAttaque(pseudo));
-        if (tmpJoueurs[pseudo].estAttaquant()) $(elt).find("td:eq(4)").html(IMG_DEF);
-      }
+      // rang limité à 12 caractères (en entier au survol), suivi des épées de
+      // portée de flood : la colonne Rang est affichée dans toutes les vues
+      let $rang = $(elt).find("td:eq(2)"),
+        rang = $rang.text().trim();
+      $rang
+        .attr("title", rang)
+        .html(
+          `<span class="o_rangTexte">${Utils.echapper(rang.length > 12 ? rang.slice(0, 12) + "…" : rang)}</span>${Joueur.epeesPortee(tmpJoueurs[pseudo])}`,
+        );
     });
     this._alliance.joueurs = tmpJoueurs;
     Joueur.activerLiensAttaque();

@@ -34,6 +34,8 @@ const AFFICHAGES_CONVOIS = {
   convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
   convoisRetour: "Heure de retour de chaque convoi en cours (hors Compte+)",
   convoisRecherche: "Recherche du destinataire pendant la saisie (hors Compte+)",
+  convoisMembres:
+    "Tableau « Joueur à livrer » sous les convois en cours (trajet, retour, reste à livrer)",
   convoisSuiviLignes:
     "Suivi OUAF devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
 };

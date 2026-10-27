@@ -140,3 +140,20 @@ describe("OuafSuivi.repartir", () => {
     expect([r.ligne, r.convoi, r.avance]).toEqual([null, 0, 3000]);
   });
 });
+
+describe("reste à livrer par joueur", () => {
+  test("demandé − envoyé, cumulé, jamais négatif, sans tenir compte de la casse", () => {
+    const lignes = [
+      { de: "DoggyBag", vers: "Beta", demande: 10000, envoye: 4000 },
+      { de: "DoggyBag", vers: "beta", demande: 5000, envoye: 0 },
+      { de: "DoggyBag", vers: "Gamma", demande: 1000, envoye: 3000 },
+    ];
+    expect(page.lire(`JSON.stringify([...OuafSuivi.restants(${JSON.stringify(lignes)})])`)).toBe(
+      JSON.stringify([
+        ["beta", 11000],
+        ["gamma", 0],
+      ]),
+    );
+    expect(page.lire("OuafSuivi.restants(undefined).size")).toBe(0);
+  });
+});

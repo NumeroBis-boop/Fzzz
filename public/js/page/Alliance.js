@@ -329,6 +329,8 @@ class PageAlliance {
         .filter((j) => j && j.x !== -1 && j.y !== -1)
         .map((j) => ({
           pseudo: j.pseudo,
+          // Fzzz : identifiant, pour le lien de convoi (commerce.php?ID=)
+          id: j.id > 0 ? j.id : null,
           x: j.x,
           y: j.y,
           terrain: j.terrain || 0,

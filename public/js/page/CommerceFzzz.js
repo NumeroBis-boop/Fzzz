@@ -3,6 +3,9 @@
  * NumeroBis-boop
  **********************************************************************/
 
+// pseudos suivis dans le tableau « Joueur à livrer », dans l'ordre d'ajout
+const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
+
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
  * devant chacun son état sur le site de suivi de la OUAF. Rien n'est envoyé
@@ -118,6 +121,146 @@ class CommerceFzzz {
         (e) => {
           convois.forEach((c) => etatLigne(c, "non", "état du site inconnu"));
           if (e.name != "permission") echec(e);
+        },
+      );
+    });
+  }
+  /**
+   * Tableau « Joueur à livrer » sous les convois en cours : pour chaque membre
+   * suivi, temps de trajet (avec la Vitesse d'attaque), heure de retour d'un
+   * convoi lancé maintenant, et reste à livrer d'après le site de suivi OUAF
+   * (lu une fois à l'ouverture, si le mot de passe est enregistré). Les
+   * coordonnées viennent du cache de l'alliance (Membres → Temps de trajet).
+   *
+   * @static
+   * @method membresSuivis
+   */
+  static membresSuivis() {
+    if (!Utils.affichage("convoisMembres") || $("#o_convoisMembres").length) return;
+    let cache = Utils.lireStockage(`outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`),
+      connus = {};
+    (cache.members || []).forEach((m) => {
+      if (m.pseudo && m.pseudo != monProfil.pseudo) connus[m.pseudo] = m;
+    });
+    let suivis = [];
+    try {
+      suivis = JSON.parse(localStorage.getItem(CLE_CONVOIS_MEMBRES)) || [];
+    } catch (e) {}
+    let enregistrer = () => {
+        try {
+          localStorage.setItem(CLE_CONVOIS_MEMBRES, JSON.stringify(suivis));
+        } catch (e) {}
+      },
+      ouaf = { restes: null, etat: "attente", membres: [] },
+      deux = (n) => String(n).padStart(2, "0"),
+      hms = (s) =>
+        `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
+      trajet = (p) => {
+        let m = connus[p];
+        return m && m.x != null && m.y != null && (m.x || m.y)
+          ? monProfil.getTempsParcours2(m)
+          : null;
+      },
+      lien = (p) => {
+        let m = connus[p];
+        return `<a href='${m && m.id ? "commerce.php?ID=" + m.id : "Membre.php?Pseudo=" + encodeURIComponent(p)}' title='${m && m.id ? "Convoyer " + Utils.echapper(p) : "Page de " + Utils.echapper(p)}'>${Utils.echapper(p)}</a>`;
+      },
+      reste = (p) => {
+        if (ouaf.etat == "attente") return "<span class='small'>…</span>";
+        if (ouaf.etat == "code")
+          return "<span class='small' title='Mot de passe du site de suivi à renseigner dans Paramètres → Convoi'>—</span>";
+        if (ouaf.etat == "erreur")
+          return `<span class='small' title='${Utils.echapper(ouaf.erreur || "")}'>?</span>`;
+        let r = ouaf.restes.get(p.toLowerCase());
+        return r == null
+          ? "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>"
+          : numeral(r).format();
+      },
+      choix = () => {
+        let libres = [...new Set([...Object.keys(connus), ...ouaf.membres])]
+          .filter((p) => p && p != monProfil.pseudo && !suivis.includes(p))
+          .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+        return `<select class='o_convoisMembreChoix'><option value=''>— choisir un membre —</option>${libres.map((p) => `<option value='${Utils.echapper(p)}'>${Utils.echapper(p)}</option>`).join("")}</select>`;
+      },
+      ligne = (p) => {
+        if (!p)
+          return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td><td>—</td><td>—</td><td></td></tr>`;
+        let t = trajet(p);
+        return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
+          <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hms(t)}</td>
+          <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
+          <td>${reste(p)}</td>
+          <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
+      },
+      $bloc = $(`<div id='o_convoisMembres' class='o_blocAttaques'>
+          <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
+            <thead><tr><th>Joueur à livrer</th><th>Temps de trajet</th><th>Horaire de retour</th><th>Convoi restant à livrer</th><th></th></tr></thead>
+            <tbody></tbody>
+            <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
+          </table>
+          ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
+        </div>`),
+      afficher = () => {
+        let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
+        $bloc
+          .find("tbody")
+          .html(suivis.map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
+      };
+    // sous les convois en cours (dernier élément de la section)
+    let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours")),
+      $section = $titre.first().nextUntil("h3").addBack();
+    if ($titre.length) $bloc.insertAfter($section.last());
+    else $("#centre").append($bloc);
+    afficher();
+    $bloc.on("change", ".o_convoisMembreChoix", (e) => {
+      let p = String($(e.currentTarget).val() || "");
+      if (!p || suivis.includes(p)) return;
+      $(e.currentTarget).closest("tr").remove();
+      suivis.push(p);
+      enregistrer();
+      afficher();
+    });
+    $bloc.on("click", ".o_convoisMembreRetirer", (e) => {
+      let p = String($(e.currentTarget).closest("tr").data("pseudo"));
+      suivis = suivis.filter((x) => x != p);
+      enregistrer();
+      afficher();
+    });
+    $bloc.find("#o_convoisMembreAjouter").on("click", (e) => {
+      e.preventDefault();
+      if ($bloc.find(".o_convoisMembreVide").length) return;
+      $bloc.find("tbody").append(ligne(""));
+    });
+    // heure de retour : recalculée chaque minute (affichage seulement)
+    setInterval(() => {
+      $bloc.find("tr[data-pseudo]").each((i, tr) => {
+        let t = trajet(String($(tr).data("pseudo")));
+        if (t != null)
+          $(tr)
+            .find(".o_convoisMembreRetour")
+            .text(Horloge.clic().add(t, "s").format("DD/MM HH:mm"));
+      });
+    }, 30000);
+    // reste à livrer : une lecture du site à l'ouverture de la page
+    OuafSuivi.lireCode().then((code) => {
+      if (!code) {
+        ouaf.etat = "code";
+        return afficher();
+      }
+      OuafSuivi.mesConvois().then(
+        (r) => {
+          Object.assign(ouaf, { etat: "ok", restes: r.restes, membres: r.membres });
+          afficher();
+        },
+        (e) => {
+          Object.assign(ouaf, {
+            etat: "erreur",
+            erreur:
+              e.name == "permission"
+                ? "Accès à ouafchaine.fr non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
+                : "Site de suivi injoignable : " + e.message,
+          });
+          afficher();
         },
       );
     });

@@ -14,6 +14,9 @@ const CLE_OUAF_TRANSMIS = "fzzz_ouafTransmis";
 const OUAF_DUREE_VIE = 10 * 86400000;
 // trajet maximal d'un convoi (vitesse 0) : fenêtre de recherche dans l'historique
 const OUAF_TRAJET_MAX = 637200 * 1000;
+// connexion au site, partagée par les lectures d'une même page (cookie de session)
+/** @type {Promise<Object>|null} */
+let connexionOuaf = null;
 
 /**
  * Envoi des convois au site de suivi de la OUAF, au clic du joueur.
@@ -90,6 +93,18 @@ class OuafSuivi {
    * @return {Promise<Object>} session {connecte, pseudo}
    */
   static connecter() {
+    if (connexionOuaf) return connexionOuaf;
+    connexionOuaf = OuafSuivi._connecter();
+    // échec (code absent, refusé, accès) : la prochaine demande réessaie
+    connexionOuaf.catch(() => (connexionOuaf = null));
+    return connexionOuaf;
+  }
+  /**
+   * @private
+   * @static
+   * @method _connecter
+   */
+  static _connecter() {
     return OuafSuivi.lireCode().then((code) => {
       if (!code) {
         let e = new Error("aucun mot de passe enregistré");
@@ -253,6 +268,41 @@ class OuafSuivi {
       reste = ligne ? Math.max(0, Number(ligne.demande || 0) - Number(ligne.envoye || 0)) : 0,
       convoi = Math.min(montant, Math.round(reste));
     return { ligne: ligne || null, convoi: convoi, avance: montant - convoi };
+  }
+  /**
+   * Reste à livrer par destinataire (minuscules) d'après les lignes de
+   * « Mes convois » : demandé − envoyé, jamais négatif, cumulé par joueur.
+   *
+   * @static
+   * @method restants
+   * @param {Array} lignes [{de, vers, demande, envoye}] (celles du joueur connecté)
+   * @return {Map<string, number>}
+   */
+  static restants(lignes) {
+    let restes = new Map();
+    (lignes || []).forEach((l) => {
+      if (!l || !l.vers) return;
+      let cle = String(l.vers).toLowerCase(),
+        reste = Math.max(0, (Number(l.demande) || 0) - (Number(l.envoye) || 0));
+      restes.set(cle, (restes.get(cle) || 0) + reste);
+    });
+    return restes;
+  }
+  /**
+   * Lecture de « Mes convois » sur le site : reste à livrer par destinataire
+   * et membres connus du site.
+   *
+   * @static
+   * @method mesConvois
+   * @return {Promise<{restes: Map<string, number>, membres: Array<string>}>}
+   */
+  static mesConvois() {
+    return OuafSuivi.connecter().then(() =>
+      OuafSuivi.requete("GET", "/api/mes").then((mes) => ({
+        restes: OuafSuivi.restants(mes.lignes),
+        membres: mes.membres || [],
+      })),
+    );
   }
   /**
    * État des convois vis-à-vis du site.

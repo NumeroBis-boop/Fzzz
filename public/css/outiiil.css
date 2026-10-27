@@ -2119,6 +2119,27 @@ tr.en_tete_message > td.td_coche {
   color: #287a36;
   font-weight: bold;
 }
+/* Fzzz : tableau « Joueur à livrer » (page Convois) */
+#o_convoisMembres {
+  margin-top: 10px;
+}
+.o_convoisMembres td,
+.o_convoisMembres th {
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.o_convoisMembres tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+.o_convoisMembres tfoot td {
+  text-align: left;
+  padding-top: 4px;
+}
+.o_convoisMembreRetirer {
+  cursor: pointer;
+  color: #b00020;
+  font-weight: bold;
+}
 /* champ vers lequel Fzzz renvoie (mot de passe du suivi OUAF à renseigner) */
 .o_champSignale {
   outline: 2px solid #c27c0e;

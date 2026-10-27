@@ -22,13 +22,6 @@ class PageReine {
    * @method plus
    */
   plus() {
-    // Affichage de la fin des pontes
-    $(".tableau_leger tr:eq(0)").append("<td><strong>Terminé le</strong></td>");
-    $(".tableau_leger tr:gt(0)").each((i, elt) => {
-      $(elt).append(
-        `<td>${Utils.roundMinute($(elt).next().text().split(",")[0].split("(")[1]).format("D MMM YYYY à HH[h]mm")}</td>`,
-      );
-    });
     $(
       "span[id^='bouton_cout_nombre'], span[id^='bouton_cout_temps'], span[id^='bouton_cout_nourriture'], .icones_unite",
     ).addClass("cliquable3");

@@ -9,9 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
-    version: "1.51.1",
+    version: "1.51.2",
     notes: [
-      "Notification de mise à jour : affichée une seule fois, croix plus grande sur téléphone.",
+      "Notification de mise à jour : affichée une seule fois, tient dans l'écran du téléphone, croix plus grande.",
+      "Page Reine : colonne « Terminé le » retirée (doublon de « Ponte finie » du jeu, elle élargissait le tableau sur téléphone).",
     ],
   },
   {

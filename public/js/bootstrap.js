@@ -8,6 +8,9 @@
  * simulation native quand on arrive sur construction.php#cout par exemple)
  * sans flash.
  *
+ * Il empêche aussi qu'actualiser une page de réponse renvoie le formulaire
+ * qui l'a produite (convoi, attaque envoyés deux fois).
+ *
  * Aucune dépendance, aucun accès jQuery — le DOM est encore vide à cet instant.
  **********************************************************************/
 
@@ -57,4 +60,15 @@
   };
   appliquer();
   window.addEventListener("hashchange", appliquer);
+
+  // Fzzz : une page affichée en réponse à un formulaire (convoi, attaque,
+  // ponte…) ne doit pas renvoyer ce formulaire si on l'actualise : un second
+  // convoi ou une seconde attaque partirait. Remplacer l'entrée d'historique
+  // par la même adresse lui fait oublier les données envoyées ; actualiser
+  // recharge alors simplement la page.
+  try {
+    history.replaceState(history.state, "", location.href);
+  } catch (e) {
+    /* historique inaccessible : comportement du navigateur inchangé */
+  }
 })();

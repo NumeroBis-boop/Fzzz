@@ -130,3 +130,15 @@
   background-color: #3c763d;
   border-color: #d6e9c6;
 }
+
+/* Fzzz : sur téléphone, les notifications passent en bas de l'écran : en haut,
+ * elles recouvraient la croix de fermeture des boîtes (Paramètres, Chasse…) */
+@media (max-width: 768px) {
+  .jq-toast-wrap {
+    top: auto !important;
+    bottom: 12px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+  }
+}

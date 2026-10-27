@@ -743,6 +743,16 @@ select:required {
   top: 10px;
   right: 20px;
   cursor: pointer;
+  /* au-dessus des onglets (position: relative, plus loin dans la boîte) */
+  z-index: 2;
+}
+/* doigt : zone de toucher agrandie à 44 px, sans changer le dessin */
+@media (pointer: coarse) {
+  .o_close::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+  }
 }
 .o_close b {
   display: block;

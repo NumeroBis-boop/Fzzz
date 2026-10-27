@@ -109,11 +109,14 @@ class Boite {
     $(".o_close b:nth-child(2)").css("border-left-color", monProfil.parametre["couleur1"].valeur);
     $(".o_close b:nth-child(3)").css("border-bottom-color", monProfil.parametre["couleur1"].valeur);
     $(".o_close b:nth-child(4)").css("border-right-color", monProfil.parametre["couleur1"].valeur);
-    $(".o_close")
+    let $fermer = $(".o_close")
       .css("background-color", monProfil.parametre["couleur2"].valeur)
       // css() est rappelé à chaque ouverture : sans off(), les survols s'empilaient
-      .off("mouseenter mouseleave")
-      .hover(
+      .off("mouseenter mouseleave");
+    // sur écran tactile, Safari iOS prend le premier toucher d'un élément qui
+    // change au survol pour un survol, sans clic : la croix ne fermait rien
+    if (window.matchMedia("(hover: hover)").matches)
+      $fermer.hover(
         (e) => {
           $(e.currentTarget).animate({ "background-color": "#bb3333" }, 400);
         },

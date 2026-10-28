@@ -593,6 +593,10 @@ const DATEPICKER_OPTION = {
 
         let uri = location.pathname,
           page = null;
+        if (uri != "/commerce.php")
+          try {
+            sessionStorage.removeItem(CLE_TRI_CONVOIS);
+          } catch (e) {}
         // Routing ; une erreur dans le module d'une page reste confinée à cette page
         try {
           switch (true) {

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.8",
+    notes: [
+      "Convois à faire : le tri choisi est conservé tant que tu restes sur la page Convois (même après un envoi).",
+    ],
+  },
+  {
     version: "1.52.7",
     notes: ["Convois à faire : cadre moins large (85 %), centré."],
   },

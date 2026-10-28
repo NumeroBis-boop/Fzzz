@@ -5,6 +5,9 @@
 
 // pseudos suivis dans le tableau « Joueur à livrer », dans l'ordre d'ajout
 const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
+// tri de « Convois à faire » : gardé tant qu'on reste sur la page Convois
+// (envoi d'un convoi = rechargement), oublié au chargement d'une autre page
+const CLE_TRI_CONVOIS = "fzzz_triConvoisMembres";
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
@@ -214,7 +217,13 @@ class CommerceFzzz {
           ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
         </div>`),
       // tri par colonne : croissant, décroissant, puis ordre d'ajout (col null)
-      tri = { col: null, sens: 1 },
+      tri = (() => {
+        try {
+          return { col: null, sens: 1, ...JSON.parse(sessionStorage.getItem(CLE_TRI_CONVOIS)) };
+        } catch (e) {
+          return { col: null, sens: 1 };
+        }
+      })(),
       valeurTri = (p) =>
         tri.col == "joueur"
           ? p.toLowerCase()
@@ -267,6 +276,9 @@ class CommerceFzzz {
       if (tri.col != col) Object.assign(tri, { col, sens: 1 });
       else if (tri.sens > 0) tri.sens = -1;
       else tri.col = null;
+      try {
+        sessionStorage.setItem(CLE_TRI_CONVOIS, JSON.stringify(tri));
+      } catch (err) {}
       afficher();
     });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {

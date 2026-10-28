@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.6",
+    notes: [
+      "Convois à faire : colonnes Joueur, Convoi à faire, Temps de trajet, Horaire de retour ; tableau moins large.",
+    ],
+  },
+  {
     version: "1.52.5",
     notes: [
       "Convois à faire : icône de tri ⇅ dans chaque en-tête ; 1er clic croissant, 2e décroissant, 3e ordre d'origine.",

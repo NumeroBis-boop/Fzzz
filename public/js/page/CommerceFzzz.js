@@ -198,16 +198,16 @@ class CommerceFzzz {
           return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td><td>—</td><td>—</td><td></td></tr>`;
         let t = trajet(p);
         return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
+          <td>${reste(p)}</td>
           <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hms(t)}</td>
           <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
-          <td>${reste(p)}</td>
           <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
       },
       // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
           <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
-            <thead><tr><th data-tri='joueur'>Joueur à livrer<span class='o_triIcone'></span></th><th data-tri='trajet'>Temps de trajet<span class='o_triIcone'></span></th><th data-tri='retour'>Horaire de retour<span class='o_triIcone'></span></th><th data-tri='reste'>Convoi restant à livrer<span class='o_triIcone'></span></th><th></th></tr></thead>
+            <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th><th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
             <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
           </table>

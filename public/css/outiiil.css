@@ -2274,8 +2274,14 @@ tr.en_tete_message > td.td_coche {
 }
 .o_convoisMembres td,
 .o_convoisMembres th {
-  padding: 2px 6px;
+  padding: 2px 4px;
   white-space: nowrap;
+}
+/* en-têtes sur deux lignes au besoin : les colonnes prennent la largeur des valeurs */
+.o_convoisMembres th {
+  white-space: normal;
+  line-height: 1.15;
+  vertical-align: bottom;
 }
 .o_convoisMembres tbody tr:nth-child(even) {
   background-color: rgba(0, 0, 0, 0.05);
@@ -2286,8 +2292,7 @@ tr.en_tete_message > td.td_coche {
 }
 .o_triIcone {
   display: inline-block;
-  min-width: 1.2em;
-  margin-left: 3px;
+  min-width: 1.1em;
   cursor: pointer;
   user-select: none;
   opacity: 0.45;

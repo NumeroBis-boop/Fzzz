@@ -962,10 +962,15 @@ class Utils {
       } catch (e) {}
       $bandeau.remove();
     });
-    if ($("#menu").length) $bandeau.insertAfter("#menu");
+    // « Mes attaques en cours » reste collé au menu : le bandeau passe dessous
+    if ($("#o_attaquesLancees.o_epingle").length) $bandeau.insertAfter("#o_attaquesLancees");
+    else if ($("#menu").length) $bandeau.insertAfter("#menu");
     else if ($("#centre").length) $bandeau.prependTo("#centre");
     else $bandeau.prependTo("body");
-    let caler = () => Utils.calerSousMenu($bandeau[0]);
+    let caler = () =>
+      $bandeau.prev().is("#menu")
+        ? Utils.calerSousMenu($bandeau[0])
+        : $bandeau.css("margin-top", ECART_SOUS_MENU + "px");
     caler();
     // la page peut encore bouger (images, polices, largeur de fenêtre)
     $(window).off(".o_alertePonte").on("load.o_alertePonte resize.o_alertePonte", caler);
@@ -981,7 +986,7 @@ class Utils {
    * @method calerSousMenu
    * @param {HTMLElement} elt
    */
-  static calerSousMenu(elt) {
+  static calerSousMenu(elt, ecart = ECART_SOUS_MENU) {
     let menu = document.getElementById("menu_horizontal") || document.getElementById("menu");
     if (!menu || !elt || !elt.isConnected) return;
     // un menu fixé à l'écran se mesure sans le défilement de la page
@@ -991,7 +996,7 @@ class Utils {
       basMenu = menu.getBoundingClientRect().bottom + (fixe ? 0 : window.scrollY);
     elt.style.marginTop = "0px";
     let haut = elt.getBoundingClientRect().top + window.scrollY;
-    elt.style.marginTop = Math.round(basMenu + ECART_SOUS_MENU - haut) + "px";
+    elt.style.marginTop = Math.round(basMenu + ecart - haut) + "px";
   }
   /**
    * Largeur minimale d'un bouton : celle de son plus long libellé possible,

@@ -406,10 +406,15 @@ class AttaqueLancee {
         ) +
         "</div>",
     );
-    // le menu du jeu est dans #centre : sous le menu (et le bandeau de ponte)
+    // le menu du jeu est dans #centre : juste sous le menu, toujours visible
     let $menu = $("#centre > #menu");
-    if ($menu.length) $bloc.insertAfter($("#o_alertePonte").length ? "#o_alertePonte" : $menu);
-    else $bloc.prependTo("#centre");
+    if ($menu.length) {
+      $bloc.insertAfter($menu);
+      AttaqueLancee.epingler($bloc[0]);
+      // bandeau de ponte déjà affiché : il passe sous le bloc
+      $("#o_alertePonte").insertAfter($bloc);
+      $(window).trigger("resize");
+    } else $bloc.prependTo("#centre");
     AttaqueLancee.colorerTags($(`#${id}`));
     // un clic sur ces boutons ne replie pas l'encart (titre cliquable)
     $(`#${id} .o_attaquesEnTete`).on("click", (e) => e.stopPropagation());
@@ -520,6 +525,52 @@ class AttaqueLancee {
     });
     AttaqueLancee.figerActions();
     AttaqueLancee.ajusterTaille();
+  }
+  /**
+   * Bloc collé sous le menu du jeu et qui le reste en faisant défiler la
+   * page, comme le menu.
+   *
+   * @static
+   * @method epingler
+   * @param {HTMLElement} bloc
+   */
+  static epingler(bloc) {
+    let menu = document.getElementById("menu_horizontal") || document.getElementById("menu");
+    if (!menu) return;
+    // fond opaque : la page défile dessous
+    for (let e = bloc.parentElement; e; e = e.parentElement) {
+      let fond = getComputedStyle(e).backgroundColor;
+      if (fond && fond != "transparent" && !/rgba\(.*,\s*0\)$/.test(fond)) {
+        bloc.style.backgroundColor = fond;
+        break;
+      }
+    }
+    let z = parseInt(getComputedStyle(document.getElementById("menu") || menu).zIndex);
+    bloc.style.zIndex = String(isNaN(z) ? 50 : Math.max(1, z - 1));
+    bloc.classList.add("o_epingle");
+    let caler = () => {
+      // la barre visible (#menu_horizontal) est dans #menu, qui peut être celui fixé
+      let porteur = [menu, document.getElementById("menu")].find(
+          (m) => m && /fixed|sticky/.test(getComputedStyle(m).position),
+        ),
+        bas = menu.getBoundingClientRect().bottom;
+      // position d'origine mesurée hors défilement collant
+      bloc.style.position = "static";
+      Utils.calerSousMenu(bloc, 0);
+      // les marges des blocs sont en !important dans la feuille de style
+      bloc.style.setProperty("margin-top", bloc.style.marginTop, "important");
+      bloc.style.position = "";
+      bloc.style.top =
+        (!porteur
+          ? 0
+          : getComputedStyle(porteur).position == "fixed"
+            ? bas
+            : (parseFloat(getComputedStyle(porteur).top) || 0) +
+              bas -
+              porteur.getBoundingClientRect().top) + "px";
+    };
+    caler();
+    $(window).on("load resize", caler);
   }
   /**
    * Colonne des actions : largeur réservée pour l'état le plus large

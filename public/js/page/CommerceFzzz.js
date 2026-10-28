@@ -211,11 +211,10 @@ class CommerceFzzz {
       hms = (s) =>
         `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
       trajet = (p) => (connus[p] ? OuafSuivi.trajet(p) : null),
-      // identifiant connu : le clic prépare un convoi vers ce joueur ; sinon sa page
-      lien = (p) => {
-        let m = connus[p];
-        return `<a href='${m && m.id ? "commerce.php?ID=" + m.id : "Membre.php?Pseudo=" + encodeURIComponent(p)}' title='${m && m.id ? "Convoyer " + Utils.echapper(p) : "Page de " + Utils.echapper(p)}'>${Utils.echapper(p)}</a>`;
-      },
+      // clic : pseudo écrit dans « Destinataire du convoi » (voir plus bas) ;
+      // Ctrl+clic ou clic du milieu : sa page, par le lien
+      lien = (p) =>
+        `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}' class='o_convoisMembreDestinataire' title='Clic : destinataire du convoi (Ctrl+clic : page de ${Utils.echapper(p)})'>${Utils.echapper(p)}</a>`,
       reste = (p) => {
         if (ouaf.etat == "attente") return "<span class='small'>…</span>";
         if (ouaf.etat == "code")
@@ -319,6 +318,18 @@ class CommerceFzzz {
         sessionStorage.setItem(CLE_TRI_CONVOIS, JSON.stringify(tri));
       } catch (err) {}
       afficher();
+    });
+    $bloc.on("click", ".o_convoisMembreDestinataire", (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+      e.preventDefault();
+      let $champ = $("#pseudo_convoi");
+      if (!$champ.length) return;
+      $champ
+        .val(String($(e.currentTarget).closest("tr").data("pseudo")))
+        .trigger("input")
+        .trigger("change");
+      $champ[0].scrollIntoView({ block: "center", behavior: "smooth" });
+      $champ.trigger("focus");
     });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");

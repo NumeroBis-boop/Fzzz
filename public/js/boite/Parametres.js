@@ -76,7 +76,6 @@ class BoiteParametre extends Boite {
       "Paramètres",
       `<div id='o_tabsParametre' class='o_tabs'><ul>${ONGLETS_PARAMETRE.map((o) => `<li><a href='#o_tabsParametre${o.id}'>${o.titre}</a></li>`).join("")}</ul>${ONGLETS_PARAMETRE.map((o) => `<div id='o_tabsParametre${o.id}'/>`).join("")}</div>`,
     );
-    this._paramStyle = ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"];
     this._paramGeneral = [
       "affectationRessource",
       "methodeFlood",
@@ -157,7 +156,6 @@ class BoiteParametre extends Boite {
    */
   event() {
     super.event();
-    for (let param of this._paramStyle) monProfil.parametre[param].ajouterEvent();
     for (let param of this._paramGeneral) monProfil.parametre[param].ajouterEvent();
     // le curseur de ratio n'a de sens qu'en mode Ratio
     $("#affectationRessource")
@@ -229,7 +227,7 @@ class BoiteParametre extends Boite {
         .join("")}`;
   }
   /**
-   * Toutes les pages : horloge, alerte de ponte, couleurs des boîtes.
+   * Toutes les pages : horloge, alerte de ponte.
    *
    * @method ongletGeneral
    */
@@ -239,8 +237,6 @@ class BoiteParametre extends Boite {
         ${this.cases("General")}
         <p class='o_titreParam'>Ponte</p>
         ${p["alertePonte"].getForm("Alerte si la ponte finit dans moins de")}
-        <p class='o_titreParam'>Couleurs des boîtes</p>
-        <div class='o_grilleParam'>${["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"].map((c) => p[c].getForm()).join("")}</div>
       </form>`);
     return this;
   }
@@ -427,7 +423,7 @@ class BoiteParametre extends Boite {
       <p class='left reduce'>Fork de <a href='https://github.com/GuiEpi/toolzzz' target='_blank' rel='noopener'>Toolzzz</a> (GuiEpi), lui-même fork d'<a href='https://github.com/Hraesvelg/Outiiil' target='_blank' rel='noopener'>Outiiil</a> (Hraesvelg), sous licence <a href='${repo}/blob/main/LICENSE' target='_blank' rel='noopener'>GPL-3.0</a>.</p>
       <hr class='o_marginT15' style='border:0; border-top:1px dashed currentColor; opacity:0.35;'/>
       <p class='o_titreParam'>Réinitialiser les paramètres</p>
-      <p class='left small'><em>Remet toutes les options (couleurs, dock, flood, antisondes, signalement de l'armée à replacer, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
+      <p class='left small'><em>Remet toutes les options (dock, flood, antisondes, signalement de l'armée à replacer, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
       <button id='o_resetParametres' class='o_button f_error'>Réinitialiser</button>
     `);
     $("#o_majFzzz").on("click", (e) => {

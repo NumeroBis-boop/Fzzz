@@ -448,8 +448,12 @@ class Joueur {
    */
   getParametre() {
     let data = Utils.lireStockage("outiiil_parametre");
-    // Si des données sont deja presente et à jour on les charges
-    for (let cle in data) if (this._parametre[cle]) this._parametre[cle].valeur = data[cle];
+    // couleurs des boîtes : plus réglables, valeurs par défaut même si un
+    // ancien choix est enregistré
+    const COULEURS_FIXES = ["couleurTitre", "couleur1", "couleur2", "couleur3", "couleurTexte"];
+    for (let cle in data)
+      if (this._parametre[cle] && !COULEURS_FIXES.includes(cle))
+        this._parametre[cle].valeur = data[cle];
     return this;
   }
   /**

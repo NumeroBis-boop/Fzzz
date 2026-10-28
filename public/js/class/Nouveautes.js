@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.59.2",
+    notes: ["Préférences : réglage « Couleurs des boîtes » retiré (couleurs par défaut)."],
+  },
+  {
     version: "1.59.1",
     notes: [
       "« Rétablir l'affichage d'origine » : les styles de l'extension ne touchent plus non plus les pages concernées (messagerie, attaque, laboratoire…), et l'onglet Général coupe aussi le thème des fenêtres, l'encadré Compte+ refait et le radar.",

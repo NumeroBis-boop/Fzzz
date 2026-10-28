@@ -72,3 +72,16 @@ describe("partages de floods entre appareils", () => {
     expect(page.lire<string>(`Object.keys(PartageChasses.floodsPartages()).join(",")`)).toBe("50");
   });
 });
+
+describe("section cachée du forum", () => {
+  test("nouveau nom reconnu, et créé par l'extension", () => {
+    expect(page.lire(`PartageChasses.estSection(" BDD partagée  cachée ")`)).toBe(true);
+    expect(page.lire(`PartageChasses.estSection("bdd partagée cachée")`)).toBe(true);
+    expect(page.lire(`FORUM_SECTIONS_CHASSES[0]`)).toBe("BDD partagée cachée");
+  });
+  test("anciens noms toujours reconnus, autres sections non", () => {
+    expect(page.lire(`PartageChasses.estSection("Fzzz-Chasses")`)).toBe(true);
+    expect(page.lire(`PartageChasses.estSection("Fzzz_Chasses")`)).toBe(true);
+    expect(page.lire(`PartageChasses.estSection("Discussions")`)).toBe(false);
+  });
+});

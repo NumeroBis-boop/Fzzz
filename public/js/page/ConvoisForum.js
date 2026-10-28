@@ -12,7 +12,7 @@ let fileConvoisForum = Promise.resolve();
  * envoi dans son historique reste une estimation (même joueur, même montant,
  * à peu près au bon moment). Chaque convoi transmis par l'extension est donc
  * noté, avec son numéro, dans le sujet « Convois | pseudo » de la section
- * Fzzz-Chasses : sur tout appareil, un convoi dont le numéro y figure est
+ * « BDD partagée cachée » : sur tout appareil, un convoi dont le numéro y figure est
  * enregistré, sans estimation.
  *
  * Une ligne par convoi : « 27/10/26 21:37 | Kwhwwymwn | 250 000 | #123456 »

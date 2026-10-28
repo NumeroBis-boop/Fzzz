@@ -5,8 +5,8 @@
  **********************************************************************/
 
 // section du forum d'alliance qui sert de stockage partagé (premier nom : celui
-// créé par Fzzz ; les autres sont acceptés s'ils existent déjà)
-const FORUM_SECTIONS_CHASSES = ["Fzzz-Chasses", "Fzzz_Chasses"];
+// créé par l'extension ; les anciens noms restent reconnus)
+const FORUM_SECTIONS_CHASSES = ["BDD partagée cachée", "Fzzz-Chasses", "Fzzz_Chasses"];
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
 
@@ -25,7 +25,7 @@ let fileFloodsForum = Promise.resolve();
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
  * (aucun serveur tiers). Deux sujets par joueur dans la section
- * « Fzzz-Chasses » : « Chasses | pseudo » et « Floods | pseudo » (et
+ * « BDD partagée cachée » : « Chasses | pseudo » et « Floods | pseudo » (et
  * « Convois | pseudo », voir ConvoisForum). Le premier
  * message du sujet contient tout l'historique, une ligne par entrée, et chaque
  * partage le réécrit (fusion sans doublon). La page membre lit les deux
@@ -72,7 +72,9 @@ class PartageChasses {
     } catch (e) {}
   }
   static estSection(nom) {
-    return FORUM_SECTIONS_CHASSES.includes(String(nom).trim());
+    // nom affiché par le forum : casse, espaces et accents composés tolérés
+    let normaliser = (t) => String(t).normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+    return FORUM_SECTIONS_CHASSES.some((n) => normaliser(n) == normaliser(nom));
   }
   /**
    * Requête xajax du forum d'alliance (même protocole que la page Forum).
@@ -1024,17 +1026,24 @@ class PartageChasses {
    */
   static _creerSection() {
     let nom = FORUM_SECTIONS_CHASSES[0];
-    return PartageChasses._xajax("ajoutCategorie", `<xjxquery><q>nom=${nom}</q></xjxquery>`).then(
-      (data) => {
-        let reponse = Utils.parseHtml($(data).find("cmd:eq(1)").text() || "");
-        let id = ($(reponse).find(`input[value='${nom}']`).parent().attr("id") || "").match(/\d+/);
-        if (!id) throw new Error("section non créée");
-        PartageChasses.idSection = id[0];
-        return PartageChasses._xajax(
-          "renommerCategorie",
-          `<xjxquery><q>nom=${nom}&type=cache&ID_cat=${id[0]}&del=Supprimer</q></xjxquery>`,
-        );
-      },
-    );
+    return PartageChasses._xajax(
+      "ajoutCategorie",
+      `<xjxquery><q>nom=${encodeURIComponent(nom)}</q></xjxquery>`,
+    ).then((data) => {
+      let reponse = Utils.parseHtml($(data).find("cmd:eq(1)").text() || "");
+      let id = (
+        $(reponse)
+          .find("input")
+          .filter((i, e) => PartageChasses.estSection(e.value))
+          .parent()
+          .attr("id") || ""
+      ).match(/\d+/);
+      if (!id) throw new Error("section non créée");
+      PartageChasses.idSection = id[0];
+      return PartageChasses._xajax(
+        "renommerCategorie",
+        `<xjxquery><q>nom=${encodeURIComponent(nom)}&type=cache&ID_cat=${id[0]}&del=Supprimer</q></xjxquery>`,
+      );
+    });
   }
 }

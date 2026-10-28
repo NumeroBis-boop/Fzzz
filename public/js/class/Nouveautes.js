@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.53.3",
+    notes: [
+      "Synchroniser / Sonder : l'arrivée tombe de nouveau sur la seconde 00 (le temps de trajet était calculé avec la vitesse d'attaque de la cible au lieu de la tienne).",
+    ],
+  },
+  {
     version: "1.53.2",
     notes: ["Boutons « + partager » en haut de la pile, au-dessus du bouton de lancement."],
   },

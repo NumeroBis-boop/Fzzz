@@ -436,7 +436,8 @@ class Joueur {
     // une minute pleine (seconde :00), en heure serveur + latence. Le clic vise
     // le milieu de la seconde de lancement : ±0,5 s de marge de réaction.
     let maintenant = Horloge.clic().valueOf(),
-      trajet = this.getTempsParcours() * 1000,
+      // trajet depuis ma fourmilière, à MA vitesse d'attaque (pas celle de la cible)
+      trajet = monProfil.getTempsParcours2(this) * 1000,
       arrivee = Math.ceil((maintenant + trajet) / 60000) * 60000,
       lancement = arrivee - trajet + 500;
     if (lancement - maintenant < 2000) lancement += 60000;

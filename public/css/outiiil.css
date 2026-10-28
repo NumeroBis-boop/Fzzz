@@ -2447,4 +2447,10 @@ tr.en_tete_message > td.td_coche {
 /* « Mes attaques en cours » collé sous le menu, visible en défilant (AttaqueLancee.epingler) */
 #o_attaquesLancees.o_epingle {
   position: sticky;
+  box-sizing: border-box;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }

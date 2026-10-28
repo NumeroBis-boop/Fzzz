@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.56.1",
+    notes: [
+      "Mes attaques en cours : fond plus marqué, encadré, plus large que « Troupes en garnison » sans dépasser le menu.",
+    ],
+  },
+  {
     version: "1.56.0",
     notes: [
       "Mes attaques en cours : collé sous le menu et toujours visible en faisant défiler la page.",

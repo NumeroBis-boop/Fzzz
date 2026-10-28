@@ -537,7 +537,7 @@ class AttaqueLancee {
   static epingler(bloc) {
     let menu = document.getElementById("menu_horizontal") || document.getElementById("menu");
     if (!menu) return;
-    // fond opaque : la page défile dessous
+    // fond opaque (la page défile dessous), un peu plus foncé que celui de la page
     for (let e = bloc.parentElement; e; e = e.parentElement) {
       let fond = getComputedStyle(e).backgroundColor;
       if (fond && fond != "transparent" && !/rgba\(.*,\s*0\)$/.test(fond)) {
@@ -545,10 +545,18 @@ class AttaqueLancee {
         break;
       }
     }
+    bloc.style.backgroundImage = "linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08))";
     let z = parseInt(getComputedStyle(document.getElementById("menu") || menu).zIndex);
     bloc.style.zIndex = String(isNaN(z) ? 50 : Math.max(1, z - 1));
     bloc.classList.add("o_epingle");
     let caler = () => {
+      // plus large que le premier cadre du jeu (« Troupes en garnison »,
+      // formulaire d'attaque), sans dépasser le menu : à mi-chemin des deux
+      let cadre = $(".simulateur:not(.o_blocAttaques):first")[0],
+        largeurMenu = menu.getBoundingClientRect().width,
+        largeurCadre = cadre ? cadre.getBoundingClientRect().width : 0;
+      if (largeurCadre && largeurMenu > largeurCadre)
+        bloc.style.width = Math.round((largeurCadre + largeurMenu) / 2) + "px";
       // la barre visible (#menu_horizontal) est dans #menu, qui peut être celui fixé
       let porteur = [menu, document.getElementById("menu")].find(
           (m) => m && /fixed|sticky/.test(getComputedStyle(m).position),

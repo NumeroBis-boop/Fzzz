@@ -240,7 +240,10 @@ class PageReine {
     Promise.all([armee.getArmee(), $.ajax({ url: location.origin + "/Ressources.php" })]).then(
       ([htmlArmee, htmlRessources]) => {
         armee.chargeData(htmlArmee);
-        AttaqueLancee.synchroniser(AttaqueLancee.extraireLignes(Utils.parseHtml(htmlArmee)));
+        AttaqueLancee.synchroniser(
+          AttaqueLancee.extraireLignes(Utils.parseHtml(htmlArmee)),
+          /Troupes en Garnison/i.test(htmlArmee),
+        );
         TroupesDehors.synchroniserChasses(Utils.parseHtml(htmlRessources));
         let dehors = TroupesDehors.total();
         armee.unite.forEach((nombre, i) => afficher(i + 1, nombre + dehors[i]));

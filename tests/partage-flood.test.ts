@@ -70,3 +70,53 @@ describe("attaque non capturée : reconstituée", () => {
     expect(p.lire(`AttaqueLancee.charger().length`)).toBe(2);
   });
 });
+
+describe("« + partager » et annulation", () => {
+  const p = creerPage(
+    ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
+    `var Horloge = { serveur: () => moment() };
+     var TroupesDehors = { ajouterAttaque() {}, synchroniserAttaques() {} };
+     var Armee = class { constructor() { this.unite = []; } };
+     var PARTAGES = [], RETIRES = [];
+     var PartageChasses = {
+       floodsPartages: () => ({ 7: 1 }),
+       partagerFloods(c) { PARTAGES.push(...c.map((x) => x.id)); return Promise.resolve(); },
+       retirerFloods(ids) { RETIRES.push(...ids); return Promise.resolve(); },
+     };`,
+  );
+  const captures = (liste: string) =>
+    p.lire(`localStorage.setItem(CLE_ATTAQUES_LANCEES, JSON.stringify(${liste}));
+      PARTAGES = []; RETIRES = [];`);
+  const futur = "moment().add(1, 'h').valueOf()";
+
+  test("seules les attaques marquées et liées sont partagées, une seule fois", () => {
+    captures(`[
+      { id: 5, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur}, partager: true },
+      { id: 6, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur} },
+      { id: null, cible: "B", lieu: "Terrain de Chasse", unite: {}, lancee: Date.now(), partager: true },
+    ]`);
+    p.lire("AttaqueLancee.partagerMarquees()");
+    expect(p.lire("PARTAGES")).toEqual([5]);
+    p.lire("AttaqueLancee.partagerMarquees()");
+    expect(p.lire("PARTAGES")).toEqual([5]);
+    expect(p.lire(`AttaqueLancee.charger().filter((a) => a.partager).length`)).toBe(1);
+  });
+  test("marque posée à l'enregistrement", () => {
+    captures("[]");
+    p.lire(`AttaqueLancee.enregistrer("C", "Terrain de Chasse", { x: 10 }, { partager: true })`);
+    expect(p.lire(`AttaqueLancee.charger()[0].partager`)).toBe(true);
+  });
+  test("flood partagé puis annulé : retiré du forum", () => {
+    captures(`[
+      { id: 7, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur} },
+      { id: 8, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur} },
+    ]`);
+    p.lire("AttaqueLancee.synchroniser([])");
+    expect(p.lire("RETIRES")).toEqual([7]);
+  });
+  test("page relue peut-être hors du jeu : rien n'est retiré", () => {
+    captures(`[{ id: 7, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur} }]`);
+    p.lire("AttaqueLancee.synchroniser([], false)");
+    expect(p.lire("RETIRES")).toEqual([]);
+  });
+});

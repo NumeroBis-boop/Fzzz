@@ -77,7 +77,12 @@ class PageRessource {
    * @method syntheseChasses
    */
   syntheseChasses() {
-    if (!Utils.affichage("syntheseChasses")) return;
+    let partagerMaintenant = false;
+    try {
+      partagerMaintenant = Number(sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES)) > Date.now();
+      sessionStorage.removeItem(CLE_PARTAGE_CHASSES_APRES);
+    } catch (e) {}
+    if (!Utils.affichage("syntheseChasses") && !partagerMaintenant) return;
     let chasses = [];
     $("#boite_tdc span[id^='chasse_']").each((i, elt) => {
       let $ligne = $(elt).parent(),
@@ -109,7 +114,11 @@ class PageRessource {
       });
       chasses.push({ impact: impact, terrain: terrain || 0, unites: unites });
     });
-    if (!chasses.length) return;
+    if (!chasses.length) {
+      if (partagerMaintenant)
+        $.toast({ ...TOAST_WARNING, text: "Aucune chasse en cours : rien à partager." });
+      return;
+    }
     chasses.sort((a, b) => a.impact - b.impact);
     let groupes = [];
     chasses.forEach((c) => {
@@ -159,6 +168,13 @@ class PageRessource {
       },
       html = `<table class='o_maxWidth centre' cellspacing='0'>
         <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>Unités mises en chasse</td></tr>`;
+    let aPartager = () =>
+      groupes.map((g) => {
+        let s = somme(g.chasses);
+        return { impact: g.impact, terrain: s.terrain, unites: s.detail ? s.detail + "." : "" };
+      });
+    if (partagerMaintenant) PartageChasses.partager(aPartager(), null);
+    if (!Utils.affichage("syntheseChasses")) return;
     groupes.forEach((g, i) => {
       html += ligne(g.impact.format("D MMM [à] HH[h]mm"), g.chasses, i % 2 ? "" : "ligne_paire");
     });
@@ -186,13 +202,7 @@ class PageRessource {
       CommerceFzzz.copier(textes.join("\n"), "Synthèse des chasses copiée dans le presse-papier."),
     );
     $("#o_partagerChasses").on("click", (e) =>
-      PartageChasses.partager(
-        groupes.map((g) => {
-          let s = somme(g.chasses);
-          return { impact: g.impact, terrain: s.terrain, unites: s.detail ? s.detail + "." : "" };
-        }),
-        $(e.currentTarget),
-      ),
+      PartageChasses.partager(aPartager(), $(e.currentTarget)),
     );
   }
   /**
@@ -320,6 +330,7 @@ class PageRessource {
 			</table>
             <br/><div id='o_simuChasse'><table id='o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
             <button class='o_button o_marginT15 f_success' type='button' id='o_chasseEnvoyer'>Envoyer</button>
+            <button class='o_button o_marginT15 f_info' type='button' id='o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button>
             <p class='o_marginT0'><em class='small'>Veuillez rester sur cette page le temps du lancement !</em></p>
             <table id='o_recapChasse' cellspacing=0>
 			<tr class='ligne_paire'><td colspan='3' class='gras'>Récapitulatif</td></tr>
@@ -441,13 +452,23 @@ class PageRessource {
     });
     $(".o_otherHfInputAlt").on("input spin", () => this.mettreAjourPertesTdc());
     // Lancement des chasses
-    $("#o_chasseEnvoyer").click((e) => {
+    $("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").click((e) => {
       if (this._armee.getSommeUnite()) {
-        // désactivé dès le premier clic : un double clic enverrait chaque chasse deux fois
-        $(e.currentTarget).prop("disabled", true).text("Envoi en cours…");
+        // désactivés dès le premier clic : un double clic enverrait chaque chasse deux fois
+        $("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop("disabled", true);
+        $(e.currentTarget).text("Envoi en cours…");
         let terrainChasse = $("#o_chasseTDCRep").spinner("value"),
           nbChasse = $("#o_chasseNbr").spinner("value"),
           intervalle = $("#o_chasseInt").val() * 1000;
+        // partage au rechargement qui suit la dernière chasse ; sans rechargement
+        // (page quittée en route), l'ordre expire
+        if (e.currentTarget.id == "o_chasseEnvoyerPartager")
+          try {
+            sessionStorage.setItem(
+              CLE_PARTAGE_CHASSES_APRES,
+              String(Date.now() + nbChasse * intervalle + 5 * 60000),
+            );
+          } catch (err) {}
         // chaque chasse relit un jeton neuf (Armee.posterChasse)
         this._armee.envoyerChasse(terrainChasse, nbChasse, 0, intervalle);
       } else

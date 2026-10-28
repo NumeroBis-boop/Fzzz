@@ -2378,3 +2378,10 @@ tr.en_tete_message > td.td_coche {
   list-style: disc;
   margin: 0 !important;
 }
+/* boutons « + partager » à côté du lancement */
+#o_lancerPartager,
+#o_lanceFloodPartager,
+#o_mfLancerPartager,
+#o_chasseEnvoyerPartager {
+  margin-left: 6px;
+}

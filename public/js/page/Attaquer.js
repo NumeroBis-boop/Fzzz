@@ -104,6 +104,19 @@ class PageAttaquer {
   ajouterOption() {
     // on deplace le bouton standarf à droite
     $("input[name='ChoixArmee']").unwrap().wrap("<div id='o_btnLancer' class='right'></div>");
+    $("#o_btnLancer").append(
+      `<button type='button' id='o_lancerPartager' class='o_button f_info' title='Lance l&#39;attaque comme le bouton du jeu, puis la publie dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")} (partage des floods)'>Lancer + partager</button>`,
+    );
+    // partage des floods : terrain de chasse seulement (lieu 1)
+    let majPartager = () => $("#o_lancerPartager").toggle($("#lieu").val() == "1");
+    $("#lieu").on("change", majPartager);
+    majPartager();
+    $("#o_lancerPartager").on("click", () => {
+      // le submit part pendant click() : la capture lit l'option à ce moment
+      this._partagerEnvoi = true;
+      $("input[name='ChoixArmee']")[0].click();
+      this._partagerEnvoi = false;
+    });
     // Capture de l'attaque au moment de l'envoi pour le récapitulatif par
     // cible. Hook sur le submit du formulaire : couvre le clic sur le bouton,
     // la touche Entrée, et les lancements programmés (Synchroniser / Sonder).
@@ -114,7 +127,7 @@ class PageAttaquer {
           this._cible.pseudo,
           $("#lieu option:selected").text().trim(),
           this.extraitArmee(),
-          { terrain: this._cible.terrain },
+          { terrain: this._cible.terrain, partager: this._partagerEnvoi },
         );
       });
     // Ajout du bouton pour la synchro simple
@@ -146,6 +159,7 @@ class PageAttaquer {
     const remplirFormulaireSonde = () => {
       let premiereUnite = true;
       $("#lieu").val(3);
+      majPartager();
       for (let i = 1; i < 15; i++)
         if ($("#unite" + i).length) {
           $("#unite" + i).val(premiereUnite ? monProfil.parametre["uniteSonde"].valeur : 0);
@@ -225,6 +239,7 @@ class PageAttaquer {
             <tr class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
             </table>
             <button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
+            <button type='button' id='o_lanceFloodPartager' class='o_button f_info' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button>
             <p class="reduce left">* : place les unités restantes sur l'attaque selectionnée.</p>
             </fieldset>`);
     $("#o_floodTDCA, #o_floodTDCB, #o_floodAntiSonde, input[id^='o_attaque']").spinner({
@@ -267,16 +282,18 @@ class PageAttaquer {
     });
     // largeur fixe : « Flood en cours… » ne décale rien
     Utils.figerLargeur($("#o_lanceFlood"), ["Flood en cours…", "Flood interrompu"]);
-    $("#o_lanceFlood").click((e) => {
-      // désactivé dès le premier clic : un double clic lançait deux floods en
+    $("#o_lanceFlood, #o_lanceFloodPartager").click((e) => {
+      // désactivés dès le premier clic : un double clic lançait deux floods en
       // parallèle (chaque attaque partait deux fois)
-      $(e.currentTarget).prop("disabled", true).text("Flood en cours…");
+      $("#o_lanceFlood, #o_lanceFloodPartager").prop("disabled", true);
+      $("#o_lanceFlood").text("Flood en cours…");
       // contexte pour que envoyerFlood capture chaque attaque confirmée. Le
       // terrain de départ est celui saisi dans la simulation (par défaut celui
       // du profil, modifiable si on connaît une valeur plus fraîche)
       AttaqueLancee.contexteFlood = {
         cible: this._cible.pseudo,
         terrain: $("#o_floodTDCB").spinner("value"),
+        partager: e.currentTarget.id == "o_lanceFloodPartager",
       };
       this._armee.envoyerFlood(
         this._cible.id,

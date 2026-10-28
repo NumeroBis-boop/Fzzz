@@ -12,6 +12,11 @@ const PARTAGE_MAX_ENTREES = 300;
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
+// échéance (ms) du partage des chasses demandé par « Envoyer + partager »
+const CLE_PARTAGE_CHASSES_APRES = "fzzz_partageChassesApres";
+// lectures et écritures du sujet « Floods » d'une page, l'une après l'autre :
+// une lecture partie avant une écriture rendrait un état périmé
+let fileFloodsForum = Promise.resolve();
 
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
@@ -25,12 +30,27 @@ const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
  * Chaque ligne porte un code lisible par Fzzz (« FZC|date|cm²| » pour une
  * chasse, « FZF|date|cible|cm²| » pour un flood) après le texte pour les humains.
  *
- * Requêtes : au clic sur Partager, et la lecture des sujets à l'ouverture
- * d'une page membre. Rien de périodique.
+ * Requêtes : au clic sur Partager, au chargement de page qui suit un envoi
+ * « + partager » ou l'annulation d'un flood partagé, et la lecture des sujets
+ * à l'ouverture d'une page membre. Rien de périodique.
  *
  * @class PartageChasses
  */
 class PartageChasses {
+  /**
+   * Passe `action` (lecture ou écriture du sujet « Floods ») après les
+   * précédentes de la page.
+   *
+   * @static
+   * @method enFile
+   * @param {() => any} action renvoie une promesse
+   * @return {Promise}
+   */
+  static enFile(action) {
+    let p = fileFloodsForum.then(action);
+    fileFloodsForum = p.catch(() => {});
+    return p;
+  }
   static get cle() {
     return "fzzz_forumChasses_" + Utils.serveur;
   }
@@ -336,6 +356,13 @@ class PartageChasses {
     let pseudo = monProfil.pseudo,
       titre = `Floods | ${pseudo}`;
     if ($bouton) $bouton.prop("disabled", true);
+    return PartageChasses.enFile(() => PartageChasses._retirerFloods(ids, $bouton, pseudo, titre));
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _retirerFloods(ids, $bouton, pseudo, titre) {
     return PartageChasses.sujets()
       .then((sujets) => {
         let idSujet = sujets[`Floods | ${pseudo.toLowerCase()}`];
@@ -470,6 +497,14 @@ class PartageChasses {
    * @method partagerFloods
    */
   static partagerFloods(captures, $bouton) {
+    if ($bouton) $bouton.prop("disabled", true);
+    return PartageChasses.enFile(() => PartageChasses._partagerFloods(captures, $bouton));
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _partagerFloods(captures, $bouton) {
     return PartageChasses._avecBouton(
       $bouton,
       "Floods",
@@ -686,7 +721,7 @@ class PartageChasses {
         .first();
     if (!moi || !$titre.length) return;
     let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
-    PartageChasses.charger([moi])
+    PartageChasses.enFile(() => PartageChasses.charger([moi]))
       .then((d) => {
         // mes floods publiés ou retirés, y compris depuis un autre appareil
         PartageChasses.recalerFloods(

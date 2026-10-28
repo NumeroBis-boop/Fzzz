@@ -66,6 +66,7 @@ class AttaqueLancee {
    *            de lier tout de suite l'id et l'arrivée exacte
    *   - terrain : terrain de la cible connu au lancement, pour estimer celui
    *               qu'elle aura à l'arrivée
+   *   - partager : publiée dans le forum dès qu'elle est liée (boutons « + partager »)
    */
   static enregistrer(cible, lieu, unite, options = {}) {
     // clic à vide (aucune unité) : le jeu refusera l'envoi, rien à mémoriser
@@ -98,6 +99,7 @@ class AttaqueLancee {
         ? options.terrain
         : null;
     AttaqueLancee.estimerTerrain(capture, capture.terrainDepart);
+    if (options.partager) capture.partager = true;
     if (options.html) {
       let ligne = AttaqueLancee.extraireLignes(Utils.parseHtml(options.html))
         .filter((l) => l.cible == cible)
@@ -236,32 +238,51 @@ class AttaqueLancee {
    * terrains estimés.
    *
    * @param {Array} lignes lignes extraites de la page
+   * @param {Boolean} retirer retirer du forum les floods partagés annulés
+   *   (faux si la page lue n'est peut-être pas celle du jeu : session expirée)
    * @return {Array} captures à jour
    */
-  static synchroniser(lignes) {
+  static synchroniser(lignes, retirer = true) {
     let liste = AttaqueLancee.charger(),
-      modifie = AttaqueLancee.lier(liste, lignes);
-    // les pages qui listent les attaques en cours les listent toutes : une
-    // capture liée dont la ligne a disparu correspond à une attaque annulée.
+      modifie = AttaqueLancee.lier(liste, lignes),
+      // les pages qui listent les attaques en cours les listent toutes : une
+      // capture liée dont la ligne a disparu correspond à une attaque annulée.
+      annulees = liste.filter((a) => a.id && !lignes.some((l) => l.id == a.id));
     // Elle rend le terrain qu'elle aurait pris aux attaques lancées après elle.
-    liste
-      .filter((a) => a.id && !lignes.some((l) => l.id == a.id))
-      .forEach((annulee) => {
-        let prise = annulee.terrainDepart - annulee.terrainCible;
-        if (prise > 0)
-          liste
-            .filter(
-              (a) =>
-                a.cible == annulee.cible && a.lancee > annulee.lancee && a.terrainDepart != null,
-            )
-            .forEach((a) => (a.terrainDepart += prise));
-        modifie = true;
-      });
+    annulees.forEach((annulee) => {
+      let prise = annulee.terrainDepart - annulee.terrainCible;
+      if (prise > 0)
+        liste
+          .filter(
+            (a) => a.cible == annulee.cible && a.lancee > annulee.lancee && a.terrainDepart != null,
+          )
+          .forEach((a) => (a.terrainDepart += prise));
+      modifie = true;
+    });
     liste = liste.filter((a) => !a.id || lignes.some((l) => l.id == a.id));
     TroupesDehors.synchroniserAttaques(lignes);
     if (AttaqueLancee.recalculerTerrains(liste)) modifie = true;
     if (modifie) AttaqueLancee.sauvegarder(liste);
+    let partages = PartageChasses.floodsPartages(),
+      aRetirer = annulees.map((a) => a.id).filter((id) => partages[id]);
+    if (retirer && aRetirer.length) PartageChasses.retirerFloods(aRetirer);
     return liste;
+  }
+  /**
+   * Attaques lancées avec un bouton « + partager » et déjà liées à leur ligne
+   * du jeu : publiées dans le sujet « Floods » du joueur, une seule fois.
+   *
+   * @static
+   * @method partagerMarquees
+   * @return {Promise}
+   */
+  static partagerMarquees() {
+    let liste = AttaqueLancee.charger(),
+      marquees = liste.filter((a) => a.partager && a.id);
+    if (!marquees.length) return Promise.resolve();
+    marquees.forEach((a) => delete a.partager);
+    AttaqueLancee.sauvegarder(liste);
+    return PartageChasses.partagerFloods(marquees, null);
   }
   /**
    * Heure d'arrivée arrondie à la minute, avec la date si ce n'est pas
@@ -323,6 +344,7 @@ class AttaqueLancee {
           capture: liste.find((a) => a.id == l.id) || null,
           annuler: $(l.elt).nextAll(`a[href$='annuler=${l.id}']`).first(),
         }));
+    AttaqueLancee.partagerMarquees();
     // les captures restent synchronisées (partage des floods) même sans la liste
     if (!attaques.length || !Utils.affichage("listeAttaques")) return;
     // Fzzz : une seule liste, dans l'ordre d'arrivée : # | Arrivée | Cible (tag
@@ -582,7 +604,7 @@ class AttaqueLancee {
       if (essais > 0) attendre();
       return;
     }
-    PartageChasses.mesFloodsForum()
+    PartageChasses.enFile(() => PartageChasses.mesFloodsForum())
       .then((publies) => {
         PartageChasses.recalerFloods(publies, AttaqueLancee.idsAffiches());
         AttaqueLancee.majPartages();

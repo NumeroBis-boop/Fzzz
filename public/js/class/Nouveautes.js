@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.53.0",
+    notes: [
+      "Boutons « Lancer + partager » (attaque au terrain de chasse, lanceur de flood, multi-flood) et « Envoyer + partager » (lanceur de chasses) : lancement puis partage dans le forum, en un clic.",
+      "Un flood partagé puis annulé est retiré du forum au chargement suivant de la page Armée ou Attaquer.",
+    ],
+  },
+  {
     version: "1.52.12",
     notes: ["Rentabilité de l'étable : niveaux notés « Puceron 1, 2… » au lieu de « Étable »."],
   },

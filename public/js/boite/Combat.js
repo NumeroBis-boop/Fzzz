@@ -772,6 +772,7 @@ class BoiteCombat extends Boite {
             <div id="o_mfResultats" class="o_marginT15"></div>
             <p id="o_mfRecap" class="o_marginT15"></p>
             <button id="o_mfLancer" class="o_button f_success o_marginT15" type="button" disabled>Lancer ces attaques</button>
+            <button id="o_mfLancerPartager" class="o_button f_info o_marginT15" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button>
         </div>`);
     /**
      * Cibles sélectionnées par l'utilisateur. Chaque entrée :
@@ -1257,7 +1258,7 @@ class BoiteCombat extends Boite {
         else msg = "Aucune attaque planifiée (cibles bornées par les options ou décochées).";
       }
       $("#o_mfRecap").html(msg ? `<em>${msg}</em>` : "");
-      $("#o_mfLancer").prop("disabled", true);
+      $("#o_mfLancer, #o_mfLancerPartager").prop("disabled", true);
       return;
     }
     // Check capacité armée (garnison). 3 états :
@@ -1277,10 +1278,10 @@ class BoiteCombat extends Boite {
     let fourmisCls = armeeOk ? "" : " red",
       recap = `Ce flood demande <span class="gras">${totalAttaques} attaque${totalAttaques > 1 ? "s" : ""}</span> sur ${cibles} cible${cibles > 1 ? "s" : ""} et <span class="gras${fourmisCls}">${numeral(totalFourmis).format()} fourmis</span>${pctGarnisonHtml} pour <span class="gras green">+${numeral(totalPrise).format()} cm²</span>.`;
     $("#o_mfRecap").html(recap);
-    $("#o_mfLancer").prop("disabled", !armeeOk);
-    $("#o_mfLancer")
+    $("#o_mfLancer, #o_mfLancerPartager").prop("disabled", !armeeOk);
+    $("#o_mfLancer, #o_mfLancerPartager")
       .off("click")
-      .one("click", () => this._mfLancer());
+      .on("click", (e) => this._mfLancer(e.currentTarget.id == "o_mfLancerPartager"));
   }
   /**
    * Lance la séquence multi-flood : pour chaque cible (dans l'ordre de distance),
@@ -1293,7 +1294,7 @@ class BoiteCombat extends Boite {
    * @private
    * @method _mfLancer
    */
-  _mfLancer() {
+  _mfLancer(partager = false) {
     let totalAttaques = 0,
       aLancer = [];
     this._mfResultats.forEach((r) => {
@@ -1316,7 +1317,9 @@ class BoiteCombat extends Boite {
       )
     )
       return;
-    $("#o_mfLancer").prop("disabled", true).text("Lancement…");
+    $("#o_mfLancer, #o_mfLancerPartager").prop("disabled", true);
+    $("#o_mfLancer").text("Lancement…");
+    this._mfPartager = partager;
     // S'assurer que l'armée est chargée (sinon `repartirUniteFlood` n'aura rien à distribuer)
     let prep =
       this._mfArmee && this._mfArmee.unite.some((u) => u > 0)
@@ -1330,6 +1333,8 @@ class BoiteCombat extends Boite {
   _mfLancerCibleSuivante(aLancer, idx) {
     if (idx >= aLancer.length) {
       $.toast({ ...TOAST_SUCCESS, text: "Multi-flood terminé." });
+      // pas de rechargement après un multi-flood : partage tout de suite
+      if (this._mfPartager) AttaqueLancee.partagerMarquees();
       $("#o_mfLancer").text("Lancer ces attaques");
       return;
     }
@@ -1392,6 +1397,7 @@ class BoiteCombat extends Boite {
         AttaqueLancee.enregistrer(cible.pseudo, "Terrain de chasse", unite, {
           html: data,
           terrain: cible.terrain,
+          partager: this._mfPartager,
         });
       }
       setTimeout(

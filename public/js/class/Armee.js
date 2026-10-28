@@ -854,6 +854,7 @@ class Armee {
               {
                 html: data,
                 terrain: AttaqueLancee.contexteFlood.terrain,
+                partager: AttaqueLancee.contexteFlood.partager,
               },
             );
           }

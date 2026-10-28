@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.7",
+    notes: ["Convois à faire : cadre moins large (85 %), centré."],
+  },
+  {
     version: "1.52.6",
     notes: [
       "Convois à faire : colonnes Joueur, Convoi à faire, Temps de trajet, Horaire de retour ; tableau moins large.",

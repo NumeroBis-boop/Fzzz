@@ -2263,7 +2263,11 @@ tr.en_tete_message > td.td_coche {
 }
 /* Fzzz : tableau « Joueur à livrer » (page Convois) */
 #o_convoisMembres {
-  margin-top: 24px;
+  /* 85 % de la page, jamais plus étroit que son tableau (téléphone) */
+  box-sizing: border-box;
+  width: 85%;
+  min-width: min-content;
+  margin: 24px auto 0;
   padding: 6px 10px 10px;
 }
 .o_convoisMembresTitre {

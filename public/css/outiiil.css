@@ -1154,14 +1154,39 @@ hr.o_scSepar {
   color: var(--fzzz-succes);
   cursor: help;
 }
-/* Fzzz : blocs compacts, empilés sans grand espace */
+/* Fzzz : « Mes attaques en cours », en haut de la page, le moins haut possible */
 .o_blocAttaques {
-  margin: 6px 0 !important;
-  padding: 4px 8px !important;
+  margin: 0 0 4px !important;
+  padding: 2px 6px !important;
 }
 .o_blocAttaques .o_attaquesTitre {
-  margin: 2px 0 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 0 0 2px 0;
   font-size: var(--fzzz-titre);
+  line-height: 1.2;
+}
+.o_blocAttaques .o_attaquesEnTete {
+  margin: 0 0 0 auto;
+  font-weight: normal;
+}
+.o_blocAttaques .o_attaquesLancees {
+  margin: 0 auto;
+  line-height: 1.15;
+}
+.o_blocAttaques .o_attaquesLancees td,
+.o_blocAttaques .o_attaquesLancees th {
+  padding: 0 4px;
+}
+.o_blocAttaques .o_attaquesLancees th {
+  white-space: nowrap;
+}
+#o_attaquesLancees .o_button,
+#o_attaquesLancees .o_attaqueAnnuler a {
+  padding: 0 5px;
+  line-height: 1.35;
 }
 .o_attaquesLancees td.o_troupesCourtes {
   cursor: help;
@@ -1942,13 +1967,6 @@ tr.en_tete_message > td.td_coche {
   font-size: var(--fzzz-petit);
   font-weight: bold;
   text-decoration: none;
-}
-.o_partagerToutBloc {
-  margin: 2px 0 8px 0;
-}
-.o_partagerToutBloc .o_button {
-  font-size: var(--fzzz-reduit);
-  padding: 4px 14px;
 }
 #o_chassesPartagees .o_partageVariation {
   font-size: var(--fzzz-petit);

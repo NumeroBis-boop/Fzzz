@@ -133,7 +133,7 @@ describe("arrivée d'une attaque", () => {
       var l = AttaqueLancee.extraireLignes($("<div>- Vous allez attaquer <span><a href='#'>Bob</a></span> dans <span id='attaque_9'>1m</span><script>reste(75, \\"attaque_9\\");</script></div>"))[0];
       return [l.arrivee.valueOf(), Math.floor((avant + 2700) / 1000) * 1000 + 75000];
     })()`);
-    expect(r[0] % 1000).toBe(0);
-    expect(Math.abs(r[0] - r[1])).toBeLessThanOrEqual(1000);
+    expect(r[0]! % 1000).toBe(0);
+    expect(Math.abs(r[0]! - r[1]!)).toBeLessThanOrEqual(1000);
   });
 });

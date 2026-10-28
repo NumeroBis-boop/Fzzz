@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.54.1",
+    notes: [
+      "Mes attaques en cours : en haut de la page, plus compact (boutons groupés sur la ligne du titre).",
+    ],
+  },
+  {
     version: "1.54.0",
     notes: [
       "Mes attaques en cours : arrivée à la seconde (jj/mm hh:mm:ss), calculée à partir de l'instant où le serveur a produit la page ; minute du RC au survol.",

@@ -369,15 +369,13 @@ class AttaqueLancee {
     if (!attaques.length || !Utils.affichage("listeAttaques")) return;
     // Fzzz : une seule liste, dans l'ordre d'arrivée : # | Arrivée | Cible (tag
     // coloré) | Troupes (quantité, détail au survol) | Lieu | Copier | Partager
-    let conteneur = $(lignes[lignes.length - 1].elt).parent(),
-      id = "o_attaquesLancees",
+    let id = "o_attaquesLancees",
       tag = Utils.alliance || "l'alliance";
     attaques.sort((a, b) => a.ligne.arrivee - b.ligne.arrivee);
     let annulables = attaques.filter((a) => a.annuler.length),
-      // type="button" obligatoire : sur la page Attaquer ce bloc est dans le
-      // formulaire de lancement du jeu, un <button> nu le soumettrait
+      // type="button" : un <button> nu soumettrait un formulaire englobant
       html = `<table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">
-        <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Unités envoyées</th><th>Lieu</th><th title="Au plus 20 % du TdC de la cible à l'impact, d'après le TdC connu au lancement et tes attaques précédentes sur elle">TdC pris (estimé)</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Unités</th><th>Lieu</th><th title="Estimé : au plus 20 % du TdC de la cible à l'impact, d'après le TdC connu au lancement et tes attaques précédentes sur elle">TdC pris</th><th></th></tr></thead>
         <tbody>`;
     attaques.forEach((a, i) => {
       html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
@@ -392,12 +390,16 @@ class AttaqueLancee {
             : ""
         }<span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span></td></tr>`;
     });
-    html += `</tbody></table>
-      ${annulables.length > 1 ? `<div class="o_attaquesBoutons"><button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button></div>` : ""}`;
-    conteneur.append(
-      `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">` +
+    html += `</tbody></table>`;
+    // boutons groupés sur la ligne du titre : une rangée de moins
+    let boutons = `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods avec la ${tag}">Partager tous</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`;
+    // en haut de la page ; la liste du jeu sous « Attaque(s) en cours » reste telle
+    // quelle. Pas de classe « simulateur » : Armée et Attaquer visent le premier
+    // .simulateur de la page (tableau de l'armée, formulaire d'attaque)
+    $("#centre").prepend(
+      `<div id="${id}" class="boite_amelioration centre o_blocAttaques">` +
         Utils.spoiler(
-          `Mes attaques en cours (${attaques.length})`,
+          `Mes attaques en cours (${attaques.length})${boutons}`,
           html,
           "attaquesEnCours",
           "o_attaquesTitre",
@@ -405,10 +407,8 @@ class AttaqueLancee {
         "</div>",
     );
     AttaqueLancee.colorerTags($(`#${id}`));
-    // la liste du jeu sous « Attaque(s) en cours » reste telle quelle : boutons
-    // de partage groupé juste au-dessus du tableau
-    let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button></div>`;
-    $(`#${id}`).before(bouton);
+    // un clic sur ces boutons ne replie pas l'encart (titre cliquable)
+    $(`#${id} .o_attaquesEnTete`).on("click", (e) => e.stopPropagation());
     // lien Annuler du jeu copié dans le tableau. Pour une attaque capturée on
     // connaît l'heure de lancement : la copie est retirée dès que la fenêtre
     // d'annulation du jeu est passée.
@@ -643,11 +643,7 @@ class AttaqueLancee {
       retirables = $(".o_attaqueRetirer").length;
     $("#o_attaquesLanceesPartagerTout")
       .prop("disabled", !reste)
-      .text(
-        reste
-          ? `Partager TOUS mes floods avec la ${Utils.alliance || "l'alliance"}`
-          : `Tous mes floods sont partagés avec la ${Utils.alliance || "l'alliance"} ✓`,
-      );
+      .text(reste ? "Partager tous" : "Tous partagés ✓");
     $("#o_attaquesLanceesRetirerTout").toggle(retirables > 0);
   }
 

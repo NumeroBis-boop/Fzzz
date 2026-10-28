@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.60.4",
+    notes: [
+      "Convois : la liste de suggestions ne s'ouvre plus quand un pseudo est mis en destinataire depuis le Récapitulatif.",
+    ],
+  },
+  {
     version: "1.60.3",
     notes: [
       "Convois → Récapitulatif : cliquer sur un pseudo l'écrit dans « Destinataire du convoi » (Ctrl+clic : page du joueur).",

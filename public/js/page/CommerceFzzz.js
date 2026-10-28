@@ -324,10 +324,9 @@ class CommerceFzzz {
       e.preventDefault();
       let $champ = $("#pseudo_convoi");
       if (!$champ.length) return;
-      $champ
-        .val(String($(e.currentTarget).closest("tr").data("pseudo")))
-        .trigger("input")
-        .trigger("change");
+      // sans événement « input » : il lancerait la recherche de l'auto-complétion
+      $champ.val(String($(e.currentTarget).closest("tr").data("pseudo"))).trigger("change");
+      if ($champ.autocomplete("instance")) $champ.autocomplete("close");
       $champ[0].scrollIntoView({ block: "center", behavior: "smooth" });
       $champ.trigger("focus");
     });

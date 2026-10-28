@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.55.0",
+    notes: [
+      "Page Armée : textes d'aide du jeu retirés, « Déplacer son armée » plus compact, « Statistiques » et « Floods en cours sur toi » repliés par défaut.",
+      "Page Armée : « Mes attaques en cours » et la liste « Attaque(s) en cours » du jeu encadrés comme les autres blocs.",
+    ],
+  },
+  {
     version: "1.54.1",
     notes: [
       "Mes attaques en cours : en haut de la page, plus compact (boutons groupés sur la ligne du titre).",

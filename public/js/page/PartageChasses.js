@@ -755,6 +755,7 @@ class PartageChasses {
               html,
               "armeeFloodsRecus",
               "o_attaquesTitre",
+              false,
             ) +
             "</div>",
         );

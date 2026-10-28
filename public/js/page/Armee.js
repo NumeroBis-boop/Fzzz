@@ -69,7 +69,7 @@ class PageArmee {
       ` (${numeral(this._armeeTdc.getSommeUnite() + this._armeeDome.getSommeUnite() + this._armeeLoge.getSommeUnite()).format()})</p>`,
     );
     // Bouton antisonde
-    $(".simulateur:eq(0) tr:eq(0)").after(
+    $(".simulateur:not(.o_blocAttaques):first tr:eq(0)").after(
       `<tr><td colspan="10" class='right'><button id='o_replaceArmee' class='o_button f_success'>Replacer l'armée</button></td></tr>`,
     );
     $("#o_replaceArmee").click(() => {
@@ -80,7 +80,7 @@ class PageArmee {
     if (!Utils.comptePlus) this.plus();
     AttaqueLancee.afficherTableaux();
     // Affichage du temps Hof de votre armée
-    $(".simulateur:first").append(
+    $(".simulateur:not(.o_blocAttaques):first").append(
       "<tr><td colspan=10>Temps <span class='gras' title='Hall Of Fame' >HOF : " +
         Utils.shortcutTime(
           this._armeeTdc.getTemps(0) + this._armeeDome.getTemps(0) + this._armeeLoge.getTemps(0),
@@ -95,6 +95,7 @@ class PageArmee {
     );
     // Affichage des statistiques detaillés
     this.afficherStatistique();
+    this.alleger();
     // Auto-replacer : déclenché en sortie de flood (flag sessionStorage) ou par le param utilisateur.
     let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
     if (floodFlag) sessionStorage.removeItem("outiiil_floodPuisReplacer");
@@ -391,7 +392,7 @@ class PageArmee {
    */
   plus() {
     // Affiche les fléches de deplacement des unités
-    $(".simulateur td").each((i, elt) => {
+    $(".simulateur:not(.o_blocAttaques) td").each((i, elt) => {
       if (/^[0-9,]+$/.test($(elt).text().replace(/ /g, ""))) {
         let info = $(elt).find("span").attr("id").replace(/\(|\)/g, "");
         let nbUnit = info.split(",")[0],
@@ -540,22 +541,64 @@ class PageArmee {
     $(".simulateur tr[align=center]:last").after(line);
   }
   /**
+   * Textes d'aide du jeu retirés, déplacement d'armée resserré.
+   *
+   * @private
+   * @method alleger
+   */
+  alleger() {
+    $("#centre p")
+      .filter((i, e) =>
+        /Vous pouvez répartir vos troupes|Cliquez sur la taille d.une troupe/.test(e.textContent),
+      )
+      .remove();
+    let $deplacer = $("#centre h3")
+      .filter((i, e) => /Déplacer son armée/.test(e.textContent))
+      .closest("table");
+    $deplacer.addClass("o_deplacerArmee");
+    // une ligne par groupe de lieux au lieu d'un lieu par ligne
+    $deplacer.find("input[type=radio]").parent().children("br").remove();
+    let avant = $deplacer[0] && $deplacer[0].previousSibling;
+    while (avant && avant.nodeType == 3 && !avant.textContent.trim()) avant = avant.previousSibling;
+    if (avant && avant.nodeName == "BR") avant.parentNode.removeChild(avant);
+    // liste du jeu « Attaque(s) en cours » encadrée comme les autres blocs.
+    // Déplacement natif : jQuery réexécuterait les scripts reste() du jeu
+    let titre = $("#centre h3").filter((i, e) => /Attaque\(s\) en cours/.test(e.textContent))[0];
+    if (titre) {
+      let cadre = document.createElement("div");
+      cadre.className = "simulateur o_listeAttaquesJeu";
+      titre.parentNode.insertBefore(cadre, titre);
+      while (cadre.nextSibling) cadre.appendChild(cadre.nextSibling);
+      while (
+        cadre.lastChild &&
+        (cadre.lastChild.nodeName == "BR" ||
+          (cadre.lastChild.nodeType == 3 && !cadre.lastChild.textContent.trim()))
+      )
+        cadre.removeChild(cadre.lastChild);
+    }
+  }
+  /**
    *
    */
   afficherStatistique() {
     let bouclier = monProfil.niveauRecherche[1],
       armes = monProfil.niveauRecherche[2];
-    $(".simulateur:first").after(`<br/><div id="o_statArmee" class="simulateur">
-            <h3>Statistiques</h3>
-            <table class="centre o_maxWidth" cellspacing=0>
+    $(".simulateur:not(.o_blocAttaques):first").after(
+      `<br/><div id="o_statArmee" class="simulateur">${Utils.spoiler(
+        "Statistiques",
+        `<table class="centre o_maxWidth" cellspacing=0>
                 <tr class="ligne_paire gras"><td></td><td colspan="2">Non XP</td><td colspan="2">Total</td></tr>
                 <tr class="gras"><td></td><td>HB</td><td>AB</td><td>HB</td><td>AB</td></tr>
                 <tr class="ligne_paire"><td class="left">${IMG_VIE} Vie</td><td>${numeral(this._armeeTdc.getNonXpBaseVie() + this._armeeDome.getNonXpBaseVie() + this._armeeLoge.getNonXpBaseVie()).format()}</td><td>${numeral(this._armeeTdc.getNonXpTotalVie(bouclier) + this._armeeDome.getNonXpTotalVie(bouclier) + this._armeeLoge.getNonXpTotalVie(bouclier)).format()}</td><td>${numeral(this._armeeTdc.getBaseVie() + this._armeeDome.getBaseVie() + this._armeeLoge.getBaseVie()).format()}</td><td>${numeral(this._armeeTdc.getTotalVie(bouclier) + this._armeeDome.getTotalVie(bouclier) + this._armeeLoge.getTotalVie(bouclier)).format()}</td></tr>
                 <tr><td class="left">${IMG_ATT} Attaque</td><td>${numeral(this._armeeTdc.getNonXpBaseAtt() + this._armeeDome.getNonXpBaseAtt() + this._armeeLoge.getNonXpBaseAtt()).format()}</td><td>${numeral(this._armeeTdc.getNonXpTotalAtt(armes) + this._armeeDome.getNonXpTotalAtt(armes) + this._armeeLoge.getNonXpTotalAtt(armes)).format()}</td><td>${numeral(this._armeeTdc.getBaseAtt() + this._armeeDome.getBaseAtt() + this._armeeLoge.getBaseAtt()).format()}</td><td>${numeral(this._armeeTdc.getTotalAtt(armes) + this._armeeDome.getTotalAtt(armes) + this._armeeLoge.getTotalAtt(armes)).format()}</td></tr>
                 <tr class="ligne_paire"><td class="left">${IMG_DEF} Défense</td><td>${numeral(this._armeeTdc.getNonXpBaseDef() + this._armeeDome.getNonXpBaseDef() + this._armeeLoge.getNonXpBaseDef()).format()}</td><td>${numeral(this._armeeTdc.getNonXpTotalDef(armes) + this._armeeDome.getNonXpTotalDef(armes) + this._armeeLoge.getNonXpTotalDef(armes)).format()}</td><td>${numeral(this._armeeTdc.getBaseDef() + this._armeeDome.getBaseDef() + this._armeeLoge.getBaseDef()).format()}</td><td>${numeral(this._armeeTdc.getTotalDef(armes) + this._armeeDome.getTotalDef(armes) + this._armeeLoge.getTotalDef(armes)).format()}</td></tr>
-            </table>
-        </div>`);
-    $("#o_statArmee").width($(".simulateur:first").width());
+            </table>`,
+        "armeeStatistiques",
+        "gras",
+        false,
+      )}</div>`,
+    );
+    $("#o_statArmee").width($(".simulateur:not(.o_blocAttaques):first").width());
   }
   /**
    * Verifie les attaques en cours avec ce qui est sauvegarder.

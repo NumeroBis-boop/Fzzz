@@ -394,10 +394,10 @@ class AttaqueLancee {
     // boutons groupés sur la ligne du titre : une rangée de moins
     let boutons = `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods avec la ${tag}">Partager tous</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`;
     // en haut de la page ; la liste du jeu sous « Attaque(s) en cours » reste telle
-    // quelle. Pas de classe « simulateur » : Armée et Attaquer visent le premier
-    // .simulateur de la page (tableau de l'armée, formulaire d'attaque)
+    // quelle. Armée et Attaquer visent le premier .simulateur qui n'est pas un
+    // .o_blocAttaques (tableau de l'armée, formulaire d'attaque)
     $("#centre").prepend(
-      `<div id="${id}" class="boite_amelioration centre o_blocAttaques">` +
+      `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">` +
         Utils.spoiler(
           `Mes attaques en cours (${attaques.length})${boutons}`,
           html,

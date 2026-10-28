@@ -228,7 +228,7 @@ class PageAttaquer {
     let methode = monProfil.parametre["methodeFlood"].valeur,
       // créneaux d'attaques simultanées encore libres (VA + 1 au total)
       creneaux = Math.max(0, this._nbAttaque);
-    $(".simulateur:eq(0)")
+    $(".simulateur:not(.o_blocAttaques):first")
       .append(`<fieldset id='o_prepaFlood' class='centre'><legend><span class='titre'>Lanceur de Flood</span> <span class='reduce'>(${creneaux} créneau${creneaux > 1 ? "x" : ""} libre${creneaux > 1 ? "s" : ""} sur ${monProfil.niveauRecherche[6] + 1})</span></legend>
             <table id='o_simulationFlood' class='o_maxWidth' cellspacing=0>
 			<tr class='gras'><td>Etape</td><td>Troupes</td><td>Supp.*</td><td>Mon Terrain</td><td>${this._cible.pseudo} (${Utils.intToTime(monProfil.getTempsParcours2(this._cible))})</td></tr>

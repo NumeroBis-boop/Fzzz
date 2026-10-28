@@ -342,13 +342,13 @@ class Utils {
    * @static
    * @method spoiler
    */
-  static spoiler(titre, corps, cle, classeTitre = "") {
-    let ouvert = false;
+  static spoiler(titre, corps, cle, classeTitre = "", ouvertParDefaut = true) {
+    let ouvert = ouvertParDefaut;
     try {
-      // déplié par défaut : seul un repli choisi par le joueur est mémorisé
-      // (clé « spoiler2 » : les états enregistrés quand les encarts étaient
-      // repliés par défaut, en 1.16, sont ignorés)
-      ouvert = localStorage.getItem("fzzz_spoiler2_" + cle) != "0";
+      // seul le choix du joueur est mémorisé (clé « spoiler2 » : les états
+      // enregistrés en 1.16, quand les encarts étaient repliés, sont ignorés)
+      let choix = localStorage.getItem("fzzz_spoiler2_" + cle);
+      if (choix != null) ouvert = choix != "0";
     } catch (e) {}
     if (!Utils._spoilersActifs) {
       Utils._spoilersActifs = true;

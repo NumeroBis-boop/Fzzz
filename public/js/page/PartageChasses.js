@@ -759,6 +759,7 @@ class PartageChasses {
             ) +
             "</div>",
         );
+        if (typeof PageArmee != "undefined") PageArmee.calerLargeurs();
       })
       .catch(() => {});
   }

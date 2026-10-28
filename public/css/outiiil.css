@@ -2441,6 +2441,6 @@ tr.en_tete_message > td.td_coche {
 }
 /* page Armée : même écart vertical entre tous les blocs */
 .o_blocArmee {
-  margin-top: 0 !important;
-  margin-bottom: 10px !important;
+  box-sizing: border-box;
+  margin: 0 auto 10px !important;
 }

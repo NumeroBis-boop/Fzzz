@@ -576,6 +576,8 @@ class PageArmee {
     $("#o_attaquesLancees").addClass("o_blocArmee");
     $(".simulateur:not(.o_blocAttaques):first").addClass("o_blocArmee");
     $deplacer.addClass("o_blocArmee");
+    PageArmee.calerLargeurs();
+    $(window).on("resize", PageArmee.calerLargeurs);
     $(".o_blocArmee").each((i, bloc) => {
       for (let sens of ["previousSibling", "nextSibling"]) {
         let n = bloc[sens];
@@ -586,6 +588,21 @@ class PageArmee {
         }
       }
     });
+  }
+  /**
+   * Blocs « Mes attaques en cours » et « Floods en cours sur … » à la largeur
+   * du bloc « Troupes en garnison ».
+   *
+   * @static
+   * @method calerLargeurs
+   */
+  static calerLargeurs() {
+    let garnison = $(".simulateur:not(.o_blocAttaques):first")[0];
+    if (!garnison) return;
+    $("#o_attaquesLancees, #o_floodsRecus").css(
+      "width",
+      garnison.getBoundingClientRect().width + "px",
+    );
   }
   /**
    * Noms courts des lieux (TdC, Dôme, Loge) dans les textes et infobulles de

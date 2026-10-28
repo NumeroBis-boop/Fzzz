@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.55.3",
+    notes: [
+      "Page Armée : « Mes attaques en cours » et « Floods en cours sur toi » à la largeur de « Troupes en garnison ».",
+    ],
+  },
+  {
     version: "1.55.2",
     notes: [
       "Mes attaques en cours : arrivée au format 29/10 04h20:58.",

@@ -207,17 +207,54 @@ class CommerceFzzz {
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <h3 class='o_convoisMembresTitre'>Convois à faire</h3>
           <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
-            <thead><tr><th>Joueur à livrer</th><th>Temps de trajet</th><th>Horaire de retour</th><th>Convoi restant à livrer</th><th></th></tr></thead>
+            <thead><tr><th data-tri='joueur'>Joueur à livrer<span class='o_triIcone'></span></th><th data-tri='trajet'>Temps de trajet<span class='o_triIcone'></span></th><th data-tri='retour'>Horaire de retour<span class='o_triIcone'></span></th><th data-tri='reste'>Convoi restant à livrer<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
             <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
           </table>
           ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
         </div>`),
+      // tri par colonne : croissant, décroissant, puis ordre d'ajout (col null)
+      tri = { col: null, sens: 1 },
+      valeurTri = (p) =>
+        tri.col == "joueur"
+          ? p.toLowerCase()
+          : tri.col == "reste"
+            ? ouaf.restes
+              ? (ouaf.restes.get(p.toLowerCase()) ?? null)
+              : null
+            : trajet(p),
+      ordonnes = () =>
+        !tri.col
+          ? suivis
+          : suivis.slice().sort((a, b) => {
+              let x = valeurTri(a),
+                y = valeurTri(b);
+              // valeur inconnue (« ? », « — ») toujours en bas
+              if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
+              return tri.sens * (typeof x == "string" ? x.localeCompare(y, "fr") : x - y);
+            }),
+      icones = () =>
+        $bloc.find("th[data-tri]").each((i, th) => {
+          let actif = th.dataset.tri == tri.col;
+          $(th)
+            .find(".o_triIcone")
+            .text(actif ? (tri.sens > 0 ? "▲" : "▼") : "⇅")
+            .toggleClass("o_triActif", actif)
+            .attr(
+              "title",
+              actif
+                ? tri.sens > 0
+                  ? "Trié croissant : clic pour décroissant"
+                  : "Trié décroissant : clic pour l'ordre d'origine"
+                : "Trier par ordre croissant",
+            );
+        }),
       afficher = () => {
         let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
         $bloc
           .find("tbody")
-          .html(suivis.map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
+          .html(ordonnes().map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
+        icones();
       };
     // sous les convois en cours (dernier élément de la section)
     let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours")),
@@ -225,6 +262,13 @@ class CommerceFzzz {
     if ($titre.length) $bloc.insertAfter($section.last());
     else $("#centre").append($bloc);
     afficher();
+    $bloc.on("click", ".o_triIcone", (e) => {
+      let col = $(e.currentTarget).closest("th").data("tri");
+      if (tri.col != col) Object.assign(tri, { col, sens: 1 });
+      else if (tri.sens > 0) tri.sens = -1;
+      else tri.col = null;
+      afficher();
+    });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");
       if (!p || suivis.includes(p)) return;

@@ -2284,6 +2284,17 @@ tr.en_tete_message > td.td_coche {
   text-align: left;
   padding-top: 4px;
 }
+.o_triIcone {
+  display: inline-block;
+  min-width: 1.2em;
+  margin-left: 3px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.45;
+}
+.o_triIcone.o_triActif {
+  opacity: 1;
+}
 .o_convoisMembreRetirer {
   cursor: pointer;
   color: var(--fzzz-erreur);

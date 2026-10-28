@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.61.0",
+    notes: [
+      "Alliance → Membres : la page s'ouvre toujours sur la vue Standard, sans lecture du forum ; les floods et chasses partagés ne sont chargés qu'au clic sur leur vue.",
+    ],
+  },
+  {
     version: "1.60.6",
     notes: [
       "Partage (chasses, floods, convois) : la section cachée du forum s'appelle désormais « BDD partagée cachée » ; l'ancien nom reste reconnu.",

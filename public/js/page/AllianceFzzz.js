@@ -3,6 +3,8 @@
  * NumeroBis-boop
  **********************************************************************/
 
+// vue à rouvrir après le rechargement qui suit « Temps de trajet » synchronisé
+const CLE_VUE_APRES_SYNCHRO = "fzzz_vueMembresApresSynchro";
 // colonnes ajoutées en fin de ligne au tableau des membres
 const ALLIANCE_COLONNES_FZZZ = [
   "Prochaine<br/>variation",
@@ -13,10 +15,11 @@ const ALLIANCE_COLONNES_FZZZ = [
 ];
 
 /**
- * Page Membres de l'alliance : vues « Temps de trajet », « Reset » (tableau
- * du jeu) et « Floods et chasses en cours », et infobulle de l'évolution
- * future du TdC au survol d'une ligne, à partir des chasses et floods
- * partagés dans le forum (PartageChasses).
+ * Page Membres de l'alliance : vues « Standard » (tableau du jeu, à
+ * l'ouverture), « Temps de trajet » et « Floods et chasses en cours ». Les
+ * chasses et floods partagés dans le forum (PartageChasses) ne sont lus qu'au
+ * premier choix de cette dernière vue ; ils remplissent ses colonnes et
+ * l'infobulle de l'évolution future du TdC au survol d'une ligne.
  *
  * @class AllianceFzzz
  */
@@ -52,7 +55,7 @@ class AllianceFzzz {
     }
   }
   /**
-   * Boutons de vue, chargement des partages et infobulle.
+   * Boutons de vue ; partages du forum lus au premier choix de leur vue.
    *
    * @static
    * @method installer
@@ -76,14 +79,20 @@ class AllianceFzzz {
         reset: (i) => autres.includes(i) && i !== numero,
         floods: (i) => [2, 3, 5].includes(i) || fzzz.includes(i),
       },
+      courante = "reset",
+      // partages du forum (une requête par sujet de membre) : lus seulement
+      // quand la vue qui les affiche est choisie
+      partagesLus = false,
       appliquer = (vue) => {
+        courante = vue;
         for (let i = 0; i < n; i++) api.column(i).visible(vues[vue](i), false);
         api.columns.adjust().draw(false);
         $(".o_allVue").removeClass("o_allVueActive");
         $(`.o_allVue[data-vue='${vue}']`).addClass("o_allVueActive");
-        try {
-          sessionStorage.setItem("fzzz_vueMembres", vue);
-        } catch (e) {}
+        if (vue == "floods" && !partagesLus) {
+          partagesLus = true;
+          AllianceFzzz._charger(api);
+        }
       };
     let $boutons = $("#tabMembresAlliance_wrapper .dt-buttons");
     if (!$boutons.length)
@@ -101,8 +110,9 @@ class AllianceFzzz {
       // temps de trajet sans coordonnées en cache : on les récupère, puis on recharge
       if (vue == "trajet" && !avecTrajet) {
         $b.addClass("disabled").find("span").text("Temps de trajet…");
+        // après le rechargement qui suit, la page s'ouvre sur cette vue
         try {
-          sessionStorage.setItem("fzzz_vueMembres", "trajet");
+          sessionStorage.setItem(CLE_VUE_APRES_SYNCHRO, "trajet");
         } catch (err) {}
         synchroniser((faits, total) => $b.find("span").text(`Temps de trajet… (${faits}/${total})`))
           .then(() => location.reload())
@@ -115,9 +125,11 @@ class AllianceFzzz {
       appliquer(vue);
       return false;
     });
-    let initiale = "trajet";
+    // toujours la vue Standard, sauf juste après « Temps de trajet » synchronisé
+    let initiale = "reset";
     try {
-      initiale = sessionStorage.getItem("fzzz_vueMembres") || "trajet";
+      initiale = sessionStorage.getItem(CLE_VUE_APRES_SYNCHRO) || "reset";
+      sessionStorage.removeItem(CLE_VUE_APRES_SYNCHRO);
     } catch (e) {}
     // largeur commune : celle de la vue la plus large, pour que l'encart ne
     // change pas de taille d'une vue à l'autre (les colonnes se répartissent)
@@ -126,7 +138,7 @@ class AllianceFzzz {
       if (window.matchMedia && window.matchMedia("(max-width: 760px)").matches) return;
       let $t = $("#tabMembresAlliance"),
         $w = $("#tabMembresAlliance_wrapper"),
-        courante = sessionStorage.getItem("fzzz_vueMembres") || initiale,
+        vue = courante,
         max = 0;
       $w.css("width", "");
       $t.addClass("o_allMesure");
@@ -143,12 +155,11 @@ class AllianceFzzz {
         max = Math.max(max, $t.outerWidth());
       });
       $w.css("width", max + "px");
-      appliquer(courante);
+      appliquer(vue);
     };
     AllianceFzzz._fixerLargeur = fixerLargeur;
     appliquer(initiale);
     fixerLargeur();
-    AllianceFzzz._charger(api);
   }
   /**
    * Lit les sujets « Chasses » et « Floods » de la section du forum, remplit

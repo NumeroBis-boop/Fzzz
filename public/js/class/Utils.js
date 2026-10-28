@@ -61,6 +61,10 @@ const AFFICHAGES_CONVOIS = {
 
 // Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800];
+// « Rétablir l'affichage d'origine » d'un onglet des préférences (+ id de l'onglet)
+const CLE_ORIGINE = "fzzz_origine_";
+// affichages qui ne dépendent pas de la page courante : coupés avec leur onglet
+const AFFICHAGES_ONGLET = { horloge: "General" };
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
 // fin de la file de ponte lue sur la page Reine : {fin (ms, horloge du PC), lu (ms)}
@@ -319,10 +323,26 @@ class Utils {
    * @param {String} cle clé de AFFICHAGES_FZZZ
    */
   static affichage(cle) {
+    if (AFFICHAGES_ONGLET[cle] && Utils.origine(AFFICHAGES_ONGLET[cle])) return false;
     try {
       return localStorage.getItem("fzzz_affichage_" + cle) != "0";
     } catch (e) {
       return true;
+    }
+  }
+  /**
+   * Onglet des préférences réglé sur « Rétablir l'affichage d'origine » : les
+   * pages de cet onglet restent telles que le jeu les affiche.
+   *
+   * @static
+   * @method origine
+   * @param {String} onglet id de ONGLETS_PARAMETRE
+   */
+  static origine(onglet) {
+    try {
+      return localStorage.getItem(CLE_ORIGINE + onglet) == "1";
+    } catch (e) {
+      return false;
     }
   }
   /**

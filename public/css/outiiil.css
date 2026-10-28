@@ -2521,3 +2521,14 @@ tr.en_tete_message > td.td_coche {
 #o_attaquesLancees .o_attaqueAnnuler a::before {
   content: "• ";
 }
+/* Préférences : onglet réglé sur l'affichage d'origine, le reste grisé */
+.o_origine {
+  display: block;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.3);
+}
+.o_origineActive > :not(.o_origine) {
+  opacity: 0.4;
+  pointer-events: none;
+}

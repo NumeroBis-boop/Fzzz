@@ -49,7 +49,16 @@
   `;
   (document.head || document.documentElement).appendChild(style);
 
+  // onglet Laboratoire réglé sur l'affichage d'origine : le jeu affiche ses pages
+  // Construction et Laboratoire sans rien masquer (voir Utils.origine)
+  let origine = false;
+  try {
+    origine = localStorage.getItem("fzzz_origine_Laboratoire") == "1";
+  } catch (e) {
+    /* stockage inaccessible : comportement habituel */
+  }
   let appliquer = () => {
+    if (origine) return;
     document.documentElement.classList.toggle("toolzzz-mode-couts", location.hash === "#cout");
     // construction.php / laboratoire.php : on cache les `<strong>` (évolutions
     // en cours) avant le parse du body, pour éviter le flash entre le rendu

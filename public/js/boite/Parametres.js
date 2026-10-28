@@ -10,18 +10,55 @@
  * un affichage présent sur deux pages figure dans les deux onglets.
  */
 const ONGLETS_PARAMETRE = [
-  { id: "General", titre: "Général", affichages: ["horloge"] },
-  { id: "Ressources", titre: "Ressources", affichages: ["syntheseChasses", "lanceurChasse"] },
-  { id: "Armee", titre: "Armée", affichages: ["floodsRecus", "listeAttaques"] },
-  { id: "Attaque", titre: "Attaque", affichages: ["trajet", "listeAttaques"] },
-  { id: "Laboratoire", titre: "Laboratoire", affichages: ["rentabilite"] },
+  {
+    id: "General",
+    titre: "Général",
+    affichages: ["horloge"],
+    origine:
+      "horloge, alerte de ponte, onglets Carte et Coûts des menus, infobulles des entrepôts ; l'encadré Extension OUAF reste, pour revenir ici",
+  },
+  {
+    id: "Ressources",
+    titre: "Ressources",
+    affichages: ["syntheseChasses", "lanceurChasse"],
+    origine: "page Ressources",
+  },
+  {
+    id: "Armee",
+    titre: "Armée",
+    affichages: ["floodsRecus", "listeAttaques"],
+    origine: "page Armée",
+  },
+  {
+    id: "Attaque",
+    titre: "Attaque",
+    affichages: ["trajet", "listeAttaques"],
+    origine: "pages d'attaque et liste des ennemis",
+  },
+  {
+    id: "Laboratoire",
+    titre: "Laboratoire",
+    affichages: ["rentabilite"],
+    origine: "pages Laboratoire et Construction",
+  },
   {
     id: "Messagerie",
     titre: "Messagerie",
     affichages: ["messagerieCouleurs", "messagerieCopie", "messagerieAnalyse"],
+    origine: "messagerie",
   },
-  { id: "Convois", titre: "Convois", affichages: Object.keys(AFFICHAGES_CONVOIS) },
-  { id: "Membre", titre: "Page membre", affichages: ["profilPartages"] },
+  {
+    id: "Convois",
+    titre: "Convois",
+    affichages: Object.keys(AFFICHAGES_CONVOIS),
+    origine: "page Convois",
+  },
+  {
+    id: "Membre",
+    titre: "Page membre",
+    affichages: ["profilPartages"],
+    origine: "pages des membres",
+  },
   { id: "Apropos", titre: "À propos", affichages: [] },
 ];
 
@@ -149,6 +186,18 @@ class BoiteParametre extends Boite {
       } catch (err) {}
       $(`#o_tabsParametre input[data-affichage='${cle}']`).prop("checked", coche);
     });
+    // « Rétablir l'affichage d'origine » : tout l'onglet grisé tant que c'est coché
+    let griser = (input) => $(input).closest("form").toggleClass("o_origineActive", input.checked);
+    $("#o_tabsParametre input[data-origine]")
+      .each((i, input) => griser(input))
+      .on("change", (e) => {
+        try {
+          if (e.currentTarget.checked)
+            localStorage.setItem(CLE_ORIGINE + e.currentTarget.dataset.origine, "1");
+          else localStorage.removeItem(CLE_ORIGINE + e.currentTarget.dataset.origine);
+        } catch (err) {}
+        griser(e.currentTarget);
+      });
     // Réinitialiser (À propos) : la page rechargée reconstruit monProfil par défaut
     $("#o_resetParametres").click(() => {
       if (confirm("Réinitialiser tous les paramètres aux valeurs par défaut ?")) {
@@ -168,11 +217,14 @@ class BoiteParametre extends Boite {
     let onglet = ONGLETS_PARAMETRE.find((o) => o.id == id),
       libelles = { ...AFFICHAGES_FZZZ, ...AFFICHAGES_CONVOIS };
     if (!onglet.affichages.length) return "";
-    return `<p class='o_titreParam'>Affichages <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
+    let origine = Utils.origine(id);
+    // l'onglet est grisé tant que la case d'origine est cochée (voir event)
+    return `<label class='o_affichageFzzz o_origine'><input type='checkbox' data-origine='${id}' ${origine ? "checked" : ""}/> <b>Rétablir l'affichage d'origine</b> <span class='o_aideParam'>(${onglet.origine} : tels que le jeu les affiche, au prochain chargement)</span></label>
+      <p class='o_titreParam'>Affichages <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
       ${onglet.affichages
         .map(
           (cle) =>
-            `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichage(cle) ? "checked" : ""}/> ${libelles[cle]}</label>`,
+            `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${localStorage.getItem("fzzz_affichage_" + cle) != "0" ? "checked" : ""}/> ${libelles[cle]}</label>`,
         )
         .join("")}`;
   }

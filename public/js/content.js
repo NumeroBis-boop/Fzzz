@@ -420,6 +420,9 @@ const DATEPICKER_OPTION = {
     monProfil.getParametre();
     // heure du serveur, puis horloge à la seconde au-dessus de l'encart « S5 Pseudo »
     Horloge.initialiser();
+    // « Rétablir l'affichage d'origine » (onglet Général) : ni horloge, ni alerte
+    // de ponte, ni onglets ajoutés aux menus, ni infobulles des entrepôts
+    const origineGenerale = Utils.origine("General");
     if (Utils.affichage("horloge")) Horloge.afficher();
     // des qu'on les inos constructions/recherches et profil on affiches les outils
     Promise.all([
@@ -465,7 +468,7 @@ const DATEPICKER_OPTION = {
         boiteComptePlus.afficher();
         // Fzzz : alerte si la reine ne pond plus ou presque plus
         try {
-          Utils.alertePonte();
+          if (!origineGenerale) Utils.alertePonte();
         } catch (e) {
           console.error("Fzzz : alerte de ponte", e);
         }
@@ -480,7 +483,7 @@ const DATEPICKER_OPTION = {
         // tant que le joueur a une alliance (présence du lien Membres = preuve).
         // Lien réel vers ?Membres#carte : sur cette page, PageAlliance intercepte
         // le clic pour un toggle client-side ; depuis ailleurs, navigation normale.
-        if ($("#menuAlliance .boutonMembres").length) {
+        if (!origineGenerale && $("#menuAlliance .boutonMembres").length) {
           $("#menuAlliance .boutonMembres")
             .parent()
             .after(
@@ -493,7 +496,7 @@ const DATEPICKER_OPTION = {
         // construction.php (#cout) ; PageConstruction intercepte le hash pour
         // masquer la simulation native et n'afficher que les courbes. Classe
         // `boutonDescription` réutilisée pour le look graphique cohérent.
-        if ($("#menuFourmiliere").length && !$("#o_ongletCouts").length) {
+        if (!origineGenerale && $("#menuFourmiliere").length && !$("#o_ongletCouts").length) {
           $("#menuFourmiliere").append(
             `<li><a id='o_ongletCouts' class='boutonDescription' href='construction.php#cout'><span></span>Coûts</a></li>`,
           );
@@ -542,7 +545,7 @@ const DATEPICKER_OPTION = {
           if (type === "Matériaux") return monProfil.niveauConstruction[2];
           return undefined;
         };
-        $(".tooltip_boite_info").each(function () {
+        $(origineGenerale ? [] : ".tooltip_boite_info").each(function () {
           const $td = $(this);
           const original = $td.attr("title") || $td.attr("data-tooltip-original-title");
           if (!original || !/rempli à \d+\s*%/.test(original)) return;
@@ -598,9 +601,20 @@ const DATEPICKER_OPTION = {
           try {
             sessionStorage.removeItem(CLE_TRI_CONVOIS);
           } catch (e) {}
-        // Routing ; une erreur dans le module d'une page reste confinée à cette page
+        // Routing ; une erreur dans le module d'une page reste confinée à cette page.
+        // Pages dont l'onglet des préférences est réglé sur l'affichage d'origine :
+        // laissées au jeu
+        let origine = (onglet) => Utils.origine(onglet);
         try {
           switch (true) {
+            case /^\/(construction|laboratoire)\.php$/.test(uri) && origine("Laboratoire"):
+            case uri == "/Ressources.php" && origine("Ressources"):
+            case uri == "/Armee.php" && origine("Armee"):
+            case uri == "/commerce.php" && origine("Convois"):
+            case uri == "/messagerie.php" && origine("Messagerie"):
+            case /^\/Membre\.php$/.test(uri) && origine("Membre"):
+            case uri == "/ennemie.php" && origine("Attaque"):
+              break;
             case uri == "/Reine.php":
               page = new PageReine(boiteComptePlus);
               // Le Compte+ affiche déjà le nombre d'unités. nombreUnites() passe

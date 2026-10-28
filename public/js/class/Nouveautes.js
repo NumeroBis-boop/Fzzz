@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.59.0",
+    notes: [
+      "Préférences : chaque onglet a une case « Rétablir l'affichage d'origine » qui laisse ses pages telles que le jeu les affiche.",
+    ],
+  },
+  {
     version: "1.58.0",
     notes: [
       "Pages plus rapides : la page Reine n'est plus relue à chaque page quand la fin de ponte est loin du seuil d'alerte (relue au moins toutes les 30 min), ni deux fois sur Construction et Laboratoire.",

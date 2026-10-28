@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.53.2",
+    notes: ["Boutons « + partager » en haut de la pile, au-dessus du bouton de lancement."],
+  },
+  {
     version: "1.53.1",
     notes: ["Boutons « + partager » placés sous le bouton de lancement, à la même largeur."],
   },

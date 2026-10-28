@@ -2378,11 +2378,12 @@ tr.en_tete_message > td.td_coche {
   list-style: disc;
   margin: 0 !important;
 }
-/* bouton de lancement et son « + partager » empilés, même largeur */
+/* bouton de lancement et son « + partager » empilés, même largeur,
+   « + partager » en haut (column-reverse : il suit le bouton dans le HTML) */
 .o_pile,
 #o_btnLancer {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: stretch;
   gap: 4px;
   vertical-align: top;
@@ -2391,6 +2392,13 @@ tr.en_tete_message > td.td_coche {
 #o_btnLancer .o_button {
   margin-left: 0;
   margin-right: 0;
+}
+/* le jeu met margin-top: 10px en ligne sur son bouton : reportée sur la pile */
+#o_btnLancer {
+  padding-top: 10px;
+}
+#o_btnLancer input[name="ChoixArmee"] {
+  margin-top: 0 !important;
 }
 @media (max-width: 760px) {
   #o_btnLancer {

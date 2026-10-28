@@ -548,6 +548,19 @@ class AttaqueLancee {
   static epingler(bloc) {
     let menu = document.getElementById("menu_horizontal") || document.getElementById("menu");
     if (!menu) return;
+    // bandeau du titre aux couleurs du menu principal
+    let titre = bloc.querySelector(".o_attaquesTitre");
+    for (let m of [menu, document.getElementById("menu")]) {
+      if (!m || !titre) continue;
+      let cs = getComputedStyle(m),
+        couleur = cs.backgroundColor != "transparent" && !/,\s*0\)$/.test(cs.backgroundColor);
+      if (cs.backgroundImage != "none" || couleur) {
+        titre.style.background = "none";
+        titre.style.backgroundColor = couleur ? cs.backgroundColor : "";
+        titre.style.backgroundImage = cs.backgroundImage;
+        break;
+      }
+    }
     let z = parseInt(getComputedStyle(document.getElementById("menu") || menu).zIndex);
     bloc.style.zIndex = String(isNaN(z) ? 50 : Math.max(1, z - 1));
     bloc.classList.add("o_epingle");

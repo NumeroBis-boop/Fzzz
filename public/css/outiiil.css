@@ -2466,7 +2466,8 @@ tr.en_tete_message > td.td_coche {
 #o_attaquesLancees .o_attaquesTitre {
   margin: 0;
   padding: 3px 8px;
-  background: linear-gradient(#4f9446, #2f6a2b);
+  /* remplacé au chargement par le fond du menu du jeu (AttaqueLancee.epingler) */
+  background: linear-gradient(#3a3a3a, #1c1c1c);
   border-bottom: 2px solid #6b4423;
   color: #fff;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);

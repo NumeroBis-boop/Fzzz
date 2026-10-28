@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.60.1",
+    notes: ["Convois → Récapitulatif : le pseudo mène à la page du joueur."],
+  },
+  {
     version: "1.60.0",
     notes: [
       "Chasses partagées puis annulées (en masse ou une par une) : retirées du forum à l'ouverture de la page Ressources, la page membre reste juste.",

@@ -211,10 +211,8 @@ class CommerceFzzz {
       hms = (s) =>
         `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
       trajet = (p) => (connus[p] ? OuafSuivi.trajet(p) : null),
-      lien = (p) => {
-        let m = connus[p];
-        return `<a href='${m && m.id ? "commerce.php?ID=" + m.id : "Membre.php?Pseudo=" + encodeURIComponent(p)}' title='${m && m.id ? "Convoyer " + Utils.echapper(p) : "Page de " + Utils.echapper(p)}'>${Utils.echapper(p)}</a>`;
-      },
+      lien = (p) =>
+        `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}' title='Page de ${Utils.echapper(p)}'>${Utils.echapper(p)}</a>`,
       reste = (p) => {
         if (ouaf.etat == "attente") return "<span class='small'>…</span>";
         if (ouaf.etat == "code")

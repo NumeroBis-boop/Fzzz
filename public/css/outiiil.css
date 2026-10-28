@@ -116,31 +116,31 @@
   clear: both;
 }
 /* form */
-input[type="button"][disabled],
-button[disabled] {
+html:not(.o_origineGenerale) input[type="button"][disabled],
+html:not(.o_origineGenerale) button[disabled] {
   color: #c0c0c0;
 }
-input[type="checkbox"],
-input[type="radio"],
+html:not(.o_origineGenerale) input[type="checkbox"],
+html:not(.o_origineGenerale) input[type="radio"],
 .o_vAlign {
   vertical-align: middle;
   position: relative;
   bottom: 1px;
 }
-input[type="radio"] {
+html:not(.o_origineGenerale) input[type="radio"] {
   bottom: 2px;
 }
-input[type="number"] {
+html:not(.o_origineGenerale) input[type="number"] {
   width: 175px;
 }
-select {
+html:not(.o_origineGenerale) select {
   font-size: 1em;
 }
-textarea {
+html:not(.o_origineGenerale) textarea {
   -moz-box-sizing: border-box;
 }
-input:required,
-select:required {
+html:not(.o_origineGenerale) input:required,
+html:not(.o_origineGenerale) select:required {
   box-shadow: none;
 }
 
@@ -316,12 +316,12 @@ select:required {
  **********************************************************************/
 
 /* Boite Compte + */
-#boiteComptePlus .mini_icone_ponte,
-#boiteComptePlus .mini_icone_construction,
-#boiteComptePlus .mini_icone_recherche,
-#boiteComptePlus .mini_icone_attaque,
-#boiteComptePlus .mini_icone_convoi,
-#boiteComptePlus .mini_icone_chasse {
+html:not(.o_origineGenerale) #boiteComptePlus .mini_icone_ponte,
+html:not(.o_origineGenerale) #boiteComptePlus .mini_icone_construction,
+html:not(.o_origineGenerale) #boiteComptePlus .mini_icone_recherche,
+html:not(.o_origineGenerale) #boiteComptePlus .mini_icone_attaque,
+html:not(.o_origineGenerale) #boiteComptePlus .mini_icone_convoi,
+html:not(.o_origineGenerale) #boiteComptePlus .mini_icone_chasse {
   position: relative;
   z-index: 100;
 }
@@ -353,7 +353,7 @@ select:required {
   background: #2ebf23 !important;
   opacity: 0.5;
 }
-#recherche {
+html:not(.o_origineGenerale) #recherche {
   width: 95%;
   text-align: center;
   height: 24px;
@@ -1005,14 +1005,14 @@ form > .o_titreParam:first-child {
  **********************************************************************/
 
 /* Page reine */
-input[id^="input_cout_nombre"],
-input[id^="input_cout_temps"],
-input[id^="input_cout_nourriture"] {
+html:not(.o_originePage) input[id^="input_cout_nombre"],
+html:not(.o_originePage) input[id^="input_cout_temps"],
+html:not(.o_originePage) input[id^="input_cout_nourriture"] {
   border-width: 2px;
 }
 
 /* Page contruction Labo */
-.ligneAmelioration {
+html:not(.o_originePage) .ligneAmelioration {
   border: none !important;
 }
 
@@ -1229,7 +1229,7 @@ hr.o_scSepar {
   padding-left: 10px;
   padding-right: 10px;
 }
-#tabChoixArmee {
+html:not(.o_originePage) #tabChoixArmee {
   width: 100%;
 }
 
@@ -1699,7 +1699,7 @@ center > div > #tabMembresAlliance {
 /* messages non lus : le jeu colore leur titre en bleu, ce que les couleurs
  * ci-dessus masquent ; une pastille bleue le rappelle (disparaît à la lecture,
  * quand le jeu retire .nbr_mess_non_lus_conv) */
-tr.en_tete_message:has(.nbr_mess_non_lus_conv) .intitule_message::before {
+html:not(.o_originePage) tr.en_tete_message:has(.nbr_mess_non_lus_conv) .intitule_message::before {
   content: "● ";
   color: #0000aa;
   font-style: normal;
@@ -1718,7 +1718,7 @@ tr.en_tete_message:has(.nbr_mess_non_lus_conv) .intitule_message::before {
   opacity: 1;
 }
 /* case « tout cocher » et copie de la sélection sur une seule ligne */
-#selection_toutes_checkbox {
+html:not(.o_originePage) #selection_toutes_checkbox {
   white-space: nowrap;
 }
 #o_copieManuelle {
@@ -1739,17 +1739,17 @@ tr.en_tete_message:has(.nbr_mess_non_lus_conv) .intitule_message::before {
   width: 70%;
 }
 /* Fzzz : liste des messages compactée (une ligne par message, titre tronqué) */
-tr.en_tete_message > td {
+html:not(.o_originePage) tr.en_tete_message > td {
   height: auto !important;
   padding-top: 1px !important;
   padding-bottom: 1px !important;
   line-height: 1.25 !important;
   vertical-align: middle !important;
 }
-tr.en_tete_message > td.td_objet {
+html:not(.o_originePage) tr.en_tete_message > td.td_objet {
   white-space: nowrap;
 }
-tr.en_tete_message .intitule_message {
+html:not(.o_originePage) tr.en_tete_message .intitule_message {
   display: inline-block;
   max-width: calc(100% - 7.5em);
   overflow: hidden;
@@ -1757,8 +1757,8 @@ tr.en_tete_message .intitule_message {
   white-space: nowrap;
   vertical-align: bottom;
 }
-tr.en_tete_message > td.td_participants,
-tr.en_tete_message > td.td_coche {
+html:not(.o_originePage) tr.en_tete_message > td.td_participants,
+html:not(.o_originePage) tr.en_tete_message > td.td_coche {
   white-space: nowrap;
 }
 /* Fzzz : boutons « Analyser » sous les rapports de la messagerie */
@@ -2219,18 +2219,18 @@ tr.en_tete_message > td.td_coche {
     box-sizing: border-box;
   }
   /* messagerie : titres sur plusieurs lignes, la liste ne dépasse plus l'écran */
-  tr.en_tete_message > td.td_objet {
+  html:not(.o_originePage) tr.en_tete_message > td.td_objet {
     white-space: normal;
   }
-  tr.en_tete_message .intitule_message {
+  html:not(.o_originePage) tr.en_tete_message .intitule_message {
     display: inline;
     max-width: none;
     white-space: normal;
   }
-  tr.en_tete_message > td.td_participants {
+  html:not(.o_originePage) tr.en_tete_message > td.td_participants {
     white-space: normal;
   }
-  tr.en_tete_message > td.td_coche img.o_copierRapport {
+  html:not(.o_originePage) tr.en_tete_message > td.td_coche img.o_copierRapport {
     display: block;
     margin: 2px 0 0 0;
   }

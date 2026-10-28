@@ -395,11 +395,13 @@ const DATEPICKER_OPTION = {
   // si l'utilisateur est identifié
   if ($(".boite_connexion_titre:first").text() != "Connexion") {
     // Modification du theme jquery humanity
-    $("head").append(
-      // Fzzz : thème jQuery UI « humanity » embarqué (paquet npm jquery-ui-themes 1.12.0,
-      // MIT) au lieu de code.jquery.com : aucune requête vers un site tiers
-      `<link rel='stylesheet' href='${chrome.runtime.getURL("css/lib/jquery-ui-humanity/jquery-ui.min.css")}'/>`,
-    );
+    // Fzzz : thème jQuery UI « humanity » embarqué (paquet npm jquery-ui-themes 1.12.0,
+    // MIT) au lieu de code.jquery.com : aucune requête vers un site tiers. Il
+    // recouvre celui du jeu (infobulles…) : pas de thème en affichage d'origine
+    if (!document.documentElement.classList.contains("o_origineGenerale"))
+      $("head").append(
+        `<link rel='stylesheet' href='${chrome.runtime.getURL("css/lib/jquery-ui-humanity/jquery-ui.min.css")}'/>`,
+      );
     // Chargement du language francais
     numeral.locale("fr");
     moment.locale("fr");
@@ -420,9 +422,10 @@ const DATEPICKER_OPTION = {
     monProfil.getParametre();
     // heure du serveur, puis horloge à la seconde au-dessus de l'encart « S5 Pseudo »
     Horloge.initialiser();
-    // « Rétablir l'affichage d'origine » (onglet Général) : ni horloge, ni alerte
-    // de ponte, ni onglets ajoutés aux menus, ni infobulles des entrepôts
-    const origineGenerale = Utils.origine("General");
+    // « Rétablir l'affichage d'origine » (onglet Général, voir bootstrap.js) : ni
+    // thème, ni horloge, ni alerte de ponte, ni encadré Compte+ refait ou radar,
+    // ni onglets ajoutés aux menus, ni infobulles des entrepôts
+    const origineGenerale = document.documentElement.classList.contains("o_origineGenerale");
     if (Utils.affichage("horloge")) Horloge.afficher();
     // des qu'on les inos constructions/recherches et profil on affiches les outils
     Promise.all([
@@ -465,7 +468,7 @@ const DATEPICKER_OPTION = {
 
         // boite compte plus (recréée par Fzzz hors C+)
         let boiteComptePlus = new BoiteComptePlus();
-        boiteComptePlus.afficher();
+        if (!origineGenerale) boiteComptePlus.afficher();
         // Fzzz : alerte si la reine ne pond plus ou presque plus
         try {
           if (!origineGenerale) Utils.alertePonte();
@@ -477,7 +480,7 @@ const DATEPICKER_OPTION = {
         boite.afficher();
         // Boite radar
         let boiteRadar = new BoiteRadar();
-        boiteRadar.afficher();
+        if (!origineGenerale) boiteRadar.afficher();
 
         // Onglet "Carte" dans le menu d'alliance — injecté sur toutes les pages
         // tant que le joueur a une alliance (présence du lien Membres = preuve).
@@ -602,18 +605,11 @@ const DATEPICKER_OPTION = {
             sessionStorage.removeItem(CLE_TRI_CONVOIS);
           } catch (e) {}
         // Routing ; une erreur dans le module d'une page reste confinée à cette page.
-        // Pages dont l'onglet des préférences est réglé sur l'affichage d'origine :
-        // laissées au jeu
-        let origine = (onglet) => Utils.origine(onglet);
+        // Page dont l'onglet des préférences est réglé sur l'affichage d'origine
+        // (classe posée par bootstrap.js) : laissée au jeu
         try {
           switch (true) {
-            case /^\/(construction|laboratoire)\.php$/.test(uri) && origine("Laboratoire"):
-            case uri == "/Ressources.php" && origine("Ressources"):
-            case uri == "/Armee.php" && origine("Armee"):
-            case uri == "/commerce.php" && origine("Convois"):
-            case uri == "/messagerie.php" && origine("Messagerie"):
-            case /^\/Membre\.php$/.test(uri) && origine("Membre"):
-            case uri == "/ennemie.php" && origine("Attaque"):
+            case document.documentElement.classList.contains("o_originePage"):
               break;
             case uri == "/Reine.php":
               page = new PageReine(boiteComptePlus);

@@ -49,16 +49,32 @@
   `;
   (document.head || document.documentElement).appendChild(style);
 
-  // onglet Laboratoire réglé sur l'affichage d'origine : le jeu affiche ses pages
-  // Construction et Laboratoire sans rien masquer (voir Utils.origine)
-  let origine = false;
-  try {
-    origine = localStorage.getItem("fzzz_origine_Laboratoire") == "1";
-  } catch (e) {
-    /* stockage inaccessible : comportement habituel */
-  }
+  // « Rétablir l'affichage d'origine » (Préférences) : classes posées avant
+  // l'affichage, lues par outiiil.css (règles qui touchent le jeu) et content.js
+  // (modules des pages). Onglet de chaque page modifiée par l'extension :
+  /** @type {Array<[RegExp, String]>} */
+  const ONGLET_PAGE = [
+    [/^\/(construction|laboratoire)\.php$/i, "Laboratoire"],
+    [/^\/ressources\.php$/i, "Ressources"],
+    [/^\/armee\.php$/i, "Armee"],
+    [/^\/ennemie\.php$/i, "Attaque"],
+    [/^\/messagerie\.php$/i, "Messagerie"],
+    [/^\/commerce\.php$/i, "Convois"],
+    [/^\/membre\.php$/i, "Membre"],
+  ];
+  let origine = (onglet) => {
+      try {
+        return localStorage.getItem("fzzz_origine_" + onglet) == "1";
+      } catch (e) {
+        return false;
+      }
+    },
+    ongletPage = ONGLET_PAGE.find(([re]) => re.test(location.pathname)),
+    originePage = !!ongletPage && origine(ongletPage[1]);
+  document.documentElement.classList.toggle("o_origineGenerale", origine("General"));
+  document.documentElement.classList.toggle("o_originePage", originePage);
   let appliquer = () => {
-    if (origine) return;
+    if (originePage) return;
     document.documentElement.classList.toggle("toolzzz-mode-couts", location.hash === "#cout");
     // construction.php / laboratoire.php : on cache les `<strong>` (évolutions
     // en cours) avant le parse du body, pour éviter le flash entre le rendu

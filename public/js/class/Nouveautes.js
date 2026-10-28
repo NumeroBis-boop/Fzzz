@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.59.1",
+    notes: [
+      "« Rétablir l'affichage d'origine » : les styles de l'extension ne touchent plus non plus les pages concernées (messagerie, attaque, laboratoire…), et l'onglet Général coupe aussi le thème des fenêtres, l'encadré Compte+ refait et le radar.",
+    ],
+  },
+  {
     version: "1.59.0",
     notes: [
       "Préférences : chaque onglet a une case « Rétablir l'affichage d'origine » qui laisse ses pages telles que le jeu les affiche.",

@@ -88,14 +88,13 @@ class PageAlliance {
         rang: $(elt).find("td:eq(2)").text().trim().replace(/\//g, "-"),
       });
       this._gradesNatifs[pseudo] = tmpJoueurs[pseudo].rang;
-      // rang limité à 12 caractères (en entier au survol), suivi des épées de
-      // portée de flood : la colonne Rang est affichée dans toutes les vues
+      // rang limité à 12 caractères (en entier au survol)
       let $rang = $(elt).find("td:eq(2)"),
         rang = $rang.text().trim();
       $rang
         .attr("title", rang)
         .html(
-          `<span class="o_rangTexte">${Utils.echapper(rang.length > 12 ? rang.slice(0, 12) + "…" : rang)}</span>${Joueur.epeesPortee(tmpJoueurs[pseudo])}`,
+          `<span class="o_rangTexte">${Utils.echapper(rang.length > 12 ? rang.slice(0, 12) + "…" : rang)}</span>`,
         );
     });
     this._alliance.joueurs = tmpJoueurs;

@@ -143,9 +143,24 @@ class Dock {
     Dock.copierStyle(ref, boite);
     document.body.appendChild(boite);
     let attente = null,
+      // position de `ref` dans le repère de `boite` (fenêtre si fixe, document sinon)
+      repere = () => {
+        let r = ref.getBoundingClientRect(),
+          fixe = boite.style.position == "fixed";
+        return [
+          r.left + (fixe ? 0 : scrollX),
+          r.top + (fixe ? 0 : scrollY),
+          r.width,
+          r.height,
+        ].join();
+      },
+      dernier = "",
       caler = () => {
         cancelAnimationFrame(attente);
-        attente = requestAnimationFrame(() => Dock.caler(ref, boite, ecart()));
+        attente = requestAnimationFrame(() => {
+          Dock.caler(ref, boite, ecart());
+          dernier = repere();
+        });
       };
     caler();
     // le cadre visible est dessiné par les enfants : on les suit aussi
@@ -162,7 +177,9 @@ class Dock {
         attributes: true,
         attributeFilter: ["style", "class"],
       });
-    $(window).on("load resize scroll", caler);
+    $(window).on("load resize", caler);
+    // au défilement, recalage complet seulement si `ref` a bougé dans ce repère
+    $(window).on("scroll", () => repere() != dernier && caler());
     // placements du jeu terminés après le chargement
     [300, 1000, 3000].forEach((ms) => setTimeout(caler, ms));
   }

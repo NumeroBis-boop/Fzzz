@@ -25,8 +25,11 @@ function creer(reine: string) {
 
 const attendre = () => new Promise((r) => setTimeout(r, 20));
 
+/** Un chargement de page : la lecture de la page Reine n'est partagée que dans une même page. */
 function lancer(p: ReturnType<typeof creer>) {
-  p.lire(`$.get = () => { LECTURES++; return Promise.resolve(REINE); }; Utils.alertePonte();`);
+  p.lire(
+    `Utils._pageReine = null; $.get = () => { LECTURES++; return Promise.resolve(REINE); }; Utils.alertePonte();`,
+  );
 }
 
 describe("page Reine : file de ponte", () => {
@@ -75,11 +78,27 @@ describe("page Reine réelle", () => {
 });
 
 describe("bandeau d'alerte de ponte", () => {
-  test("pontes jusqu'à demain : pas de bandeau, page Reine relue à chaque chargement", async () => {
+  test("pontes jusqu'à demain : pas de bandeau, page Reine pas relue tant que la fin est loin", async () => {
     const p = creer(pageReine([3000, 90000]));
     lancer(p);
     await attendre();
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(0);
+    lancer(p);
+    await attendre();
+    expect(p.lire("LECTURES")).toBe(1);
+    // fin connue lue il y a plus de 30 min (ponte annulée ailleurs ?) : relue
+    p.lire(
+      `localStorage.setItem("fzzz_finPonte", JSON.stringify({ fin: Date.now() + 86000e3, lu: Date.now() - 31 * 60000 }))`,
+    );
+    lancer(p);
+    await attendre();
+    expect(p.lire("LECTURES")).toBe(2);
+  });
+
+  test("fin de file proche du seuil : page Reine relue à chaque chargement", async () => {
+    const p = creer(pageReine([3900]));
+    lancer(p);
+    await attendre();
     lancer(p);
     await attendre();
     expect(p.lire("LECTURES")).toBe(2);
@@ -113,8 +132,11 @@ describe("bandeau d'alerte de ponte", () => {
     lancer(p);
     await attendre();
     expect(p.lire(`localStorage.getItem("fzzz_alertePonteMuette")`)).toBeNull();
-    // la nouvelle file arrive à son tour en fin de course : bandeau
+    // la nouvelle file arrive à son tour en fin de course (4 h plus tard) : bandeau
     p.lire(`REINE = ${JSON.stringify(pageReine([900]))}`);
+    p.lire(
+      `localStorage.setItem("fzzz_finPonte", JSON.stringify({ fin: Date.now() + 900e3, lu: Date.now() }))`,
+    );
     lancer(p);
     await attendre();
     expect(p.lire(`$("#o_alertePonte").length`)).toBe(1);

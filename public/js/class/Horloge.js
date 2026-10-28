@@ -184,10 +184,17 @@ class Horloge {
       });
       // police réduite jusqu'à ce que l'heure et la latence tiennent dans le
       // cadre, puis l'heure seule réduite de 30 %
+      // taille estimée d'une mesure (la largeur suit la police), puis corrigée :
+      // deux ou trois mises en page au lieu d'une par pixel essayé
       $("#o_horlogeHeure").css("font-size", "1em");
-      for (let taille = 20; taille >= 10; taille--) {
+      $h.css("font-size", "20px");
+      let h = $h[0],
+        taille = 20;
+      if (h.scrollWidth > h.clientWidth)
+        taille = Math.max(10, Math.floor((20 * h.clientWidth) / h.scrollWidth));
+      for (; taille >= 10; taille--) {
         $h.css("font-size", taille + "px");
-        if ($h[0].scrollWidth <= $h[0].clientWidth) break;
+        if (taille == 20 || h.scrollWidth <= h.clientWidth) break;
       }
       $("#o_horlogeHeure").css("font-size", "0.7em");
     };

@@ -63,6 +63,12 @@ const AFFICHAGES_CONVOIS = {
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800];
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
+// fin de la file de ponte lue sur la page Reine : {fin (ms, horloge du PC), lu (ms)}
+const CLE_FIN_PONTE = "fzzz_finPonte";
+// la page Reine n'est relue que si la fin connue approche du seuil d'alerte
+// (marge) ou si elle date (une ponte annulée ailleurs n'y figure pas)
+const MARGE_RELECTURE_PONTE = 10 * 60000;
+const VALIDITE_FIN_PONTE = 30 * 60000;
 // la croix masque le bandeau ce temps (min) ; ensuite, il ne revient que si la
 // page Reine relue montre toujours une fin de ponte sous le seuil
 const MINUTES_MASQUAGE_PONTE = 10;
@@ -402,6 +408,21 @@ class Utils {
     });
   }
   /**
+   * Page Reine, lue une seule fois par page (alerte de ponte, ouvrières) ;
+   * la page elle-même quand on y est.
+   *
+   * @static
+   * @method pageReine
+   * @return {Promise<Object>} jQuery
+   */
+  static pageReine() {
+    if (!Utils._pageReine)
+      Utils._pageReine = /^\/Reine\.php/i.test(location.pathname)
+        ? Promise.resolve($(document))
+        : Promise.resolve($.get(location.origin + "/Reine.php")).then(Utils.parseHtml);
+    return Utils._pageReine;
+  }
+  /**
    * Données de la page Reine : ouvrières totales (#armee_initial, convois
    * compris) et armée complète par unité (#armee_initial1 à 14, dans l'ordre
    * de NOM_UNITE : garnison et troupes parties comprises).
@@ -425,10 +446,10 @@ class Utils {
       }
       return Utils._reine;
     }
-    Utils._reine = Promise.resolve($.get(location.origin + "/Reine.php")).then(
-      (html) => {
+    Utils._reine = Utils.pageReine().then(
+      ($page) => {
         try {
-          return analyser(Utils.parseHtml(html));
+          return analyser($page);
         } catch (e) {
           return defaut(e.message);
         }
@@ -862,16 +883,30 @@ class Utils {
       noter = (texte) => console.info(`[${NOM_EXTENSION}] alerte de ponte : ${texte}`);
     if (!seuil) return noter("désactivée dans Paramètres → Général");
     let surReine = /^\/Reine\.php/i.test(location.pathname),
-      page = surReine
-        ? Promise.resolve($(document))
-        : Promise.resolve($.get(location.origin + "/Reine.php")).then(Utils.parseHtml);
-    page
+      connue = Utils.lireStockage(CLE_FIN_PONTE, {});
+    // fin de ponte connue, loin du seuil et récente : pas de requête au jeu
+    if (
+      !surReine &&
+      !Utils._pageReine &&
+      connue.fin - Date.now() > seuil * 1000 + MARGE_RELECTURE_PONTE &&
+      Date.now() - connue.lu < VALIDITE_FIN_PONTE
+    )
+      return noter(
+        `fin de la file vers ${moment(connue.fin).format("HH[h]mm")} (lue à ${moment(connue.lu).format("HH[h]mm")}), page Reine non relue`,
+      );
+    Utils.pageReine()
       .then(($page) => {
         // pas la page Reine (session expirée…) : pas d'alerte plutôt qu'une fausse
         if (!Utils.estPageReine($page)) return noter("page Reine illisible");
         let pontes = Utils.pontesReine($page),
           reste = Math.max(0, ...pontes.map((p) => p.secondes)),
           muette = 0;
+        try {
+          localStorage.setItem(
+            CLE_FIN_PONTE,
+            JSON.stringify({ fin: Date.now() + reste * 1000, lu: Date.now() }),
+          );
+        } catch (e) {}
         try {
           // file relancée au-delà du seuil : la prochaine fin de ponte sera signalée
           if (reste > seuil) localStorage.removeItem(CLE_ALERTE_PONTE_MUETTE);

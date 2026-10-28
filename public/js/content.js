@@ -403,17 +403,6 @@ const DATEPICKER_OPTION = {
     // Chargement du language francais
     numeral.locale("fr");
     moment.locale("fr");
-    // Highcharts n'est chargé que sur les pages à graphiques (wxt.config.ts)
-    if (typeof Highcharts !== "undefined")
-      Highcharts.setOptions({
-        lang: {
-          months: MOIS_FR,
-          shortMonths: MOIS_RAC_FR,
-          weekdays: JOUR_FR,
-          decimalPoint: ",",
-          thousandsSep: " ",
-        },
-      });
     // Ajout du tri pour les nombres
     $.fn.dataTable.ext.type.order["quantite-grade-pre"] = (d) => {
       return parseInt(d.replace(/\s/g, ""));
@@ -445,6 +434,18 @@ const DATEPICKER_OPTION = {
         return [null, null, null];
       })
       .then((values) => {
+        // Highcharts n'est chargé que sur les pages à graphiques (wxt.config.ts) ;
+        // le script utilisateur ne l'exécute qu'après ce fichier
+        if (typeof Highcharts !== "undefined")
+          Highcharts.setOptions({
+            lang: {
+              months: MOIS_FR,
+              shortMonths: MOIS_RAC_FR,
+              weekdays: JOUR_FR,
+              decimalPoint: ",",
+              thousandsSep: " ",
+            },
+          });
         // chargement des données du joueur ; une page reçue inattendue ne doit
         // pas empêcher le reste de l'extension de démarrer
         [

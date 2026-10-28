@@ -2063,19 +2063,6 @@ tr.en_tete_message > td.td_coche {
   max-width: calc(13ch + 2.4em);
   white-space: nowrap;
 }
-/* épées de portée de flood après le rang (Joueur.epeesPortee) */
-.o_epee {
-  margin-left: 3px;
-  font-weight: bold;
-  text-decoration: none;
-}
-.o_epeeRouge {
-  color: #c62828;
-}
-.o_epeeBleue,
-.o_epeeBleue:visited {
-  color: #1565c0;
-}
 #tabMembresAlliance th,
 #tabMembresAlliance td {
   text-align: center !important;

@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.58.0",
+    notes: [
+      "Pages plus rapides : la page Reine n'est plus relue à chaque page quand la fin de ponte est loin du seuil d'alerte (relue au moins toutes les 30 min), ni deux fois sur Construction et Laboratoire.",
+      "Horloge et encadrés de gauche : moins de calculs au chargement et au défilement.",
+      "Script utilisateur : Highcharts et le simulateur de Calystène ne sont exécutés que sur les pages qui s'en servent.",
+      "Alliance → Membres : petites épées retirées de la colonne Rang.",
+    ],
+  },
+  {
     version: "1.57.2",
     notes: ["Notification des nouveautés : croix de fermeture plus grande."],
   },

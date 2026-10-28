@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
-import { entete, fichiersManifeste } from "../scripts/userscript";
+import { entete, fichiersManifeste, globales, scriptsDePages } from "../scripts/userscript";
 
 const RACINE = join(import.meta.dir, "..");
 const config = readFileSync(join(RACINE, "wxt.config.ts"), "utf8");
@@ -43,8 +43,40 @@ describe("en-tête du script utilisateur", () => {
     expect(requires[0]).toBe(
       "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@abc123/userscript/shim.js",
     );
-    expect(requires).toHaveLength(js.length + 1);
+    expect(requires).toHaveLength(js.length - scriptsDePages(config).length + 1);
     expect(requires.every((u) => u!.includes("@abc123/"))).toBe(true);
+  });
+
+  test("bibliothèques de certaines pages : ressources exécutées seulement sur ces pages", () => {
+    const script = entete("abc123", "9.9.9", config),
+      dePages = scriptsDePages(config);
+    expect(dePages.map((d) => d.js)).toContain("js/lib/highcharts_6.0.7.js");
+    expect(dePages.find((d) => d.js.includes("calystene"))!.pages).toEqual(["/ressources.php"]);
+    expect(script).not.toMatch(/@require\s+\S*highcharts/);
+    expect(script).toMatch(
+      /@resource\s+fzzzJs0 \S*@abc123\/public\/js\/lib\/highcharts_6\.0\.7\.js/,
+    );
+    expect(script).toContain('["/alliance.php","/construction.php","/messagerie.php"].some(');
+    expect(script).toContain(
+      'if (typeof fzzzLancerCHS2 != \\"undefined\\") window.fzzzLancerCHS2 = fzzzLancerCHS2;',
+    );
+  });
+
+  test("eval d'une bibliothèque : ses déclarations restent accessibles ensuite", () => {
+    const ctx: any = { window: {} };
+    vm.createContext(ctx);
+    const code = "function lancer() { return 42; }\nvar donnee = 1;",
+      exports = globales(code)
+        .map((n) => `window.${n} = ${n};`)
+        .join(" ");
+    // eval direct dans une fonction stricte : les déclarations n'en sortent pas, sauf par window
+    vm.runInContext(
+      `(function () { "use strict"; eval(${JSON.stringify(code + "\n;" + exports)}); })()`,
+      ctx,
+    );
+    expect(ctx.window.lancer()).toBe(42);
+    expect(ctx.window.donnee).toBe(1);
+    expect(ctx.window.interne).toBeUndefined();
   });
 });
 

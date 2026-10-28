@@ -43,7 +43,7 @@ describe("Utils.htmlRentabiliteEtable", () => {
 describe("Utils.ouvrieresTotales", () => {
   test("page Reine : lit #armee_initial sans requête", async () => {
     // chaque test simule un nouveau chargement de page : lecture non partagée
-    page.lire(`Utils._reine = null; history.replaceState(null, "", "/Reine.php");
+    page.lire(`Utils._reine = null; Utils._pageReine = null; history.replaceState(null, "", "/Reine.php");
       document.body.insertAdjacentHTML("beforeend", "<span id='armee_initial'>70481</span>");
       window.requetes = 0; $.get = () => { window.requetes++; return $.Deferred().reject({ status: 0 }); };`);
     expect(await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`)).toBe(
@@ -53,7 +53,7 @@ describe("Utils.ouvrieresTotales", () => {
   });
 
   test("ailleurs : une lecture de Reine.php à chaque chargement", async () => {
-    page.lire(`Utils._reine = null; history.replaceState(null, "", "/laboratoire.php");
+    page.lire(`Utils._reine = null; Utils._pageReine = null; history.replaceState(null, "", "/laboratoire.php");
       $.get = () => { window.requetes++; return $.Deferred().resolve("<span id='armee_initial'>70 481</span>"); };`);
     const o = JSON.parse(
       await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`),
@@ -65,7 +65,7 @@ describe("Utils.ouvrieresTotales", () => {
 
   test("jeu occupé (503) : en-tête, avec la raison", async () => {
     page.lire(
-      `Utils._reine = null; $.get = () => { window.requetes++; return $.Deferred().reject({ status: 503 }); };`,
+      `Utils._reine = null; Utils._pageReine = null; $.get = () => { window.requetes++; return $.Deferred().reject({ status: 503 }); };`,
     );
     const o = JSON.parse(
       await page.lire(`Utils.ouvrieresTotales().then((o) => JSON.stringify(o))`),
@@ -80,7 +80,7 @@ describe("Utils.lireReine : armée complète", () => {
   const douze = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 13, 14];
 
   test("champs lus dans l'ordre, une seule requête partagée", async () => {
-    page.lire(`Utils._reine = null; history.replaceState(null, "", "/laboratoire.php");
+    page.lire(`Utils._reine = null; Utils._pageReine = null; history.replaceState(null, "", "/laboratoire.php");
       window.requetes = 0;
       $.get = () => { window.requetes++; return $.Deferred().resolve(
         "<span id='armee_initial'>70 481</span><span id='armee_initial1'>1 000</span><span id='armee_initial2'>250</span>"); };`);

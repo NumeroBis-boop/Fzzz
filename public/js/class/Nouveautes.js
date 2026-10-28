@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.60.2",
+    notes: [
+      "Convois → Récapitulatif : cliquer sur un pseudo prépare de nouveau un convoi vers ce joueur (retour au fonctionnement de la 1.59).",
+    ],
+  },
+  {
     version: "1.60.1",
     notes: ["Convois → Récapitulatif : le pseudo mène à la page du joueur."],
   },

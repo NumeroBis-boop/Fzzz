@@ -624,7 +624,7 @@ class Utils {
       let gain = 0.5 * o - sacrifiees * (10 + 0.5 * n),
         minimum = sacrifiees * (20 + n) + 1,
         rentable = gain > 0;
-      lignes.push(`<tr><td class='left'>Étable ${n} <span class='small'>(Communication ${requis})</span></td>
+      lignes.push(`<tr><td class='left'>Puceron ${n} <span class='small'>(Communication ${requis})</span></td>
         <td class='right'>${fmt(sacrifiees)}</td>
         <td class='right'>${fmt(capacite(Math.max(0, o - sacrifiees), n))}</td>
         <td class='right ${rentable ? "green" : "red"}'>${gain >= 0 ? "+" : ""}${fmt(gain)}</td>

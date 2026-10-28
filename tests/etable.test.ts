@@ -25,7 +25,7 @@ describe("Utils.htmlRentabiliteEtable", () => {
   test("étable 11 : 327 680 ouvrières sacrifiées, il en manque 10 106 695", () => {
     // Communication 13 : 80 × 2^12 ; minimum = Cₙ × (20 + n) + 1 = 327 680 × 31 + 1
     const t = bandeau({ total: 70481, reine: true });
-    expect(t).toContain("Étable 11 (Communication 13) 327 680");
+    expect(t).toContain("Puceron 11 (Communication 13) 327 680");
     expect(t).toContain("10 106 695 ouvrières");
   });
 

@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.12",
+    notes: ["Rentabilité de l'étable : niveaux notés « Puceron 1, 2… » au lieu de « Étable »."],
+  },
+  {
     version: "1.52.11",
     notes: ["Récapitulatif : titre en rouge, comme les titres des cadres du jeu."],
   },

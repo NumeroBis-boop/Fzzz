@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.53.1",
+    notes: ["Boutons « + partager » placés sous le bouton de lancement, à la même largeur."],
+  },
+  {
     version: "1.53.0",
     notes: [
       "Boutons « Lancer + partager » (attaque au terrain de chasse, lanceur de flood, multi-flood) et « Envoyer + partager » (lanceur de chasses) : lancement puis partage dans le forum, en un clic.",

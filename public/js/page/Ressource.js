@@ -329,8 +329,8 @@ class PageRessource {
 			<tr><td colspan='3'><em>Basé sur le lanceur de <a href='http://alliancead2.free.fr/Outils/Repository/HuntSimv2.00/Simulator_2.00.00.html' class='violet' target='_blank' rel='noopener'>Calystene</a></em></td></tr>
 			</table>
             <br/><div id='o_simuChasse'><table id='o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
-            <button class='o_button o_marginT15 f_success' type='button' id='o_chasseEnvoyer'>Envoyer</button>
-            <button class='o_button o_marginT15 f_info' type='button' id='o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button>
+            <div class='o_pile o_marginT15'><button class='o_button f_success' type='button' id='o_chasseEnvoyer'>Envoyer</button>
+            <button class='o_button f_info' type='button' id='o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button></div>
             <p class='o_marginT0'><em class='small'>Veuillez rester sur cette page le temps du lancement !</em></p>
             <table id='o_recapChasse' cellspacing=0>
 			<tr class='ligne_paire'><td colspan='3' class='gras'>Récapitulatif</td></tr>

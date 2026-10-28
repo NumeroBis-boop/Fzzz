@@ -771,8 +771,8 @@ class BoiteCombat extends Boite {
             <div id="o_mfFormWrap"></div>
             <div id="o_mfResultats" class="o_marginT15"></div>
             <p id="o_mfRecap" class="o_marginT15"></p>
-            <button id="o_mfLancer" class="o_button f_success o_marginT15" type="button" disabled>Lancer ces attaques</button>
-            <button id="o_mfLancerPartager" class="o_button f_info o_marginT15" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button>
+            <div class='o_pile o_marginT15'><button id="o_mfLancer" class="o_button f_success" type="button" disabled>Lancer ces attaques</button>
+            <button id="o_mfLancerPartager" class="o_button f_info" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button></div>
         </div>`);
     /**
      * Cibles sélectionnées par l'utilisateur. Chaque entrée :

@@ -181,6 +181,22 @@ class CommerceFzzz {
     });
   }
   /**
+   * Numéro d'un joueur, retenu dans le cache de la carte d'alliance.
+   *
+   * @static
+   * @method retenirId
+   */
+  static retenirId(pseudo, id) {
+    let cle = `outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`,
+      cache = Utils.lireStockage(cle, null),
+      membre = cache && (cache.members || []).find((m) => m.pseudo == pseudo);
+    if (!membre) return;
+    membre.id = id;
+    try {
+      localStorage.setItem(cle, JSON.stringify(cache));
+    } catch (e) {}
+  }
+  /**
    * Tableau « Joueur à livrer » sous les convois en cours : pour chaque membre
    * suivi, temps de trajet (avec la Vitesse d'attaque), heure de retour d'un
    * convoi lancé maintenant, et reste à livrer d'après le site de suivi OUAF
@@ -211,10 +227,10 @@ class CommerceFzzz {
       hms = (s) =>
         `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
       trajet = (p) => (connus[p] ? OuafSuivi.trajet(p) : null),
-      // clic : pseudo écrit dans « Destinataire du convoi » (voir plus bas) ;
-      // Ctrl+clic ou clic du milieu : sa page, par le lien
+      // clic : commerce.php?ID=…, que le jeu ouvre avec ce joueur en destinataire
+      // (voir plus bas) ; Ctrl+clic ou clic du milieu : sa page, par le lien
       lien = (p) =>
-        `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}' class='o_convoisMembreDestinataire' title='Clic : destinataire du convoi (Ctrl+clic : page de ${Utils.echapper(p)})'>${Utils.echapper(p)}</a>`,
+        `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}' class='o_convoisMembreDestinataire' title='Clic : convoi vers ${Utils.echapper(p)} (Ctrl+clic : sa page)'>${Utils.echapper(p)}</a>`,
       reste = (p) => {
         if (ouaf.etat == "attente") return "<span class='small'>…</span>";
         if (ouaf.etat == "code")
@@ -322,13 +338,26 @@ class CommerceFzzz {
     $bloc.on("click", ".o_convoisMembreDestinataire", (e) => {
       if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
       e.preventDefault();
-      let $champ = $("#pseudo_convoi");
-      if (!$champ.length) return;
-      // sans événement « input » : il lancerait la recherche de l'auto-complétion
-      $champ.val(String($(e.currentTarget).closest("tr").data("pseudo"))).trigger("change");
-      if ($champ.autocomplete("instance")) $champ.autocomplete("close");
-      $champ[0].scrollIntoView({ block: "center", behavior: "smooth" });
-      $champ.trigger("focus");
+      let pseudo = String($(e.currentTarget).closest("tr").data("pseudo")),
+        ouvrir = (id) => (location.href = `commerce.php?ID=${id}`);
+      if (connus[pseudo] && connus[pseudo].id) return ouvrir(connus[pseudo].id);
+      // numéro du joueur inconnu : lu sur son profil, puis retenu dans le cache
+      // de la carte d'alliance pour les fois suivantes
+      let joueur = new Joueur({ pseudo });
+      Promise.resolve(joueur.getProfil())
+        .then((html) => (joueur.chargerProfil(html) && joueur.id > 0 ? joueur.id : null))
+        .catch(() => null)
+        .then((id) => {
+          if (id) {
+            CommerceFzzz.retenirId(pseudo, id);
+            return ouvrir(id);
+          }
+          // profil illisible : pseudo écrit dans le champ, sans le laisser
+          // sélectionné (la sélection ouvre la liste de suggestions)
+          let $champ = $("#pseudo_convoi").val(pseudo).trigger("change");
+          if ($champ.autocomplete("instance")) $champ.autocomplete("close");
+          $champ.trigger("blur");
+        });
     });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");

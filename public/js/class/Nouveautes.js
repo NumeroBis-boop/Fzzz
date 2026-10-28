@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.60.5",
+    notes: [
+      "Convois → Récapitulatif : cliquer sur un pseudo ouvre de nouveau la page Convois avec ce joueur en destinataire, comme en 1.59, y compris quand la carte d'alliance n'a pas son numéro.",
+    ],
+  },
+  {
     version: "1.60.4",
     notes: [
       "Convois : la liste de suggestions ne s'ouvre plus quand un pseudo est mis en destinataire depuis le Récapitulatif.",

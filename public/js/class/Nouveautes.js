@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.57.2",
+    notes: ["Notification des nouveautés : croix de fermeture plus grande."],
+  },
+  {
     version: "1.57.1",
     notes: ["Mes attaques en cours : bandeau du titre de la couleur du menu principal."],
   },

@@ -185,3 +185,21 @@ describe("reste à livrer par joueur", () => {
     expect(page.lire("OuafSuivi.restants(undefined).size")).toBe(0);
   });
 });
+
+describe("avance notée sur le site", () => {
+  test("une ligne de plus, l'avance précédente vers le même joueur reste telle quelle", () => {
+    expect(
+      page.lire(
+        `OuafSuivi.ajouterAvance([{ de: "DoggyBag", vers: "Kwhwwymwn", montant: "224164", id: 7 }], "DoggyBag", "Kwhwwymwn", 127239)`,
+      ),
+    ).toEqual([
+      { de: "DoggyBag", vers: "Kwhwwymwn", montant: 224164 },
+      { de: "DoggyBag", vers: "Kwhwwymwn", montant: 127239 },
+    ]);
+  });
+  test("aucune avance encore : la seule ligne envoyée", () => {
+    expect(page.lire(`OuafSuivi.ajouterAvance(undefined, "A", "B", 10)`)).toEqual([
+      { de: "A", vers: "B", montant: 10 },
+    ]);
+  });
+});

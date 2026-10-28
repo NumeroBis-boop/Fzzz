@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.59.4",
+    notes: [
+      "Convois envoyés au suivi en avance : une ligne par convoi, au lieu d'additionner à l'avance déjà notée vers ce joueur.",
+    ],
+  },
+  {
     version: "1.59.3",
     notes: [
       "Lanceur « Budget de pertes » : ne fige plus la page Ressources en attendant le jeu.",

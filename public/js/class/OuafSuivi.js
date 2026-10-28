@@ -38,6 +38,24 @@ let connexionOuaf = null;
  */
 class OuafSuivi {
   /**
+   * Avances du joueur après un convoi noté en avance : une ligne de plus, les
+   * précédentes vers le même joueur restent telles quelles (comme une avance
+   * saisie sur le site). Le site attend la liste complète.
+   *
+   * @static
+   * @method ajouterAvance
+   * @param {Array} lignes avances lues sur le site
+   * @param {String} de
+   * @param {String} vers
+   * @param {Number} montant
+   * @return {Array} {de, vers, montant}
+   */
+  static ajouterAvance(lignes, de, vers, montant) {
+    return (lignes || [])
+      .map((l) => ({ de: l.de, vers: l.vers, montant: Number(l.montant) || 0 }))
+      .concat([{ de, vers, montant }]);
+  }
+  /**
    * @static
    * @method lireCode
    * @return {Promise<String>} code enregistré, ou ""
@@ -430,25 +448,15 @@ class OuafSuivi {
                       }),
                     )
                     .then((m) => (mes = { ...mes, ...m, pseudo, membres }));
-                // surplus, ou convoi hors prévision : ajouté à l'avance vers ce joueur
+                // surplus, ou convoi hors prévision : une avance de plus vers ce joueur
                 if (r.avance > 0)
                   etape = etape
                     .then(() => OuafSuivi.requete("GET", "/api/avances"))
-                    .then((av) => {
-                      let lignes = (av.lignes || []).map((l) => ({
-                          de: l.de,
-                          vers: l.vers,
-                          montant: Number(l.montant) || 0,
-                        })),
-                        existante = lignes.find(
-                          (l) =>
-                            String(l.de).toLowerCase() == pseudo.toLowerCase() &&
-                            String(l.vers).toLowerCase() == nom.toLowerCase(),
-                        );
-                      if (existante) existante.montant += r.avance;
-                      else lignes.push({ de: pseudo, vers: nom, montant: r.avance });
-                      return OuafSuivi.requete("PUT", "/api/avances", { lignes });
-                    });
+                    .then((av) =>
+                      OuafSuivi.requete("PUT", "/api/avances", {
+                        lignes: OuafSuivi.ajouterAvance(av.lignes, pseudo, nom, r.avance),
+                      }),
+                    );
                 return etape.then(
                   () => {
                     OuafSuivi.marquerTransmis(c.cle);

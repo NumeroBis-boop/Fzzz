@@ -120,3 +120,20 @@ describe("« + partager » et annulation", () => {
     expect(p.lire("RETIRES")).toEqual([]);
   });
 });
+
+describe("arrivée d'une attaque", () => {
+  // décalage serveur : +2,7 s sur l'horloge du PC
+  const p = creerPage(
+    ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
+    `var Horloge = { serveurA: (ms) => moment(ms + 2700) };`,
+  );
+  test("seconde où le serveur a produit la page + compteur du jeu", () => {
+    const r = p.lire<number[]>(`(() => {
+      var avant = Date.now();
+      var l = AttaqueLancee.extraireLignes($("<div>- Vous allez attaquer <span><a href='#'>Bob</a></span> dans <span id='attaque_9'>1m</span><script>reste(75, \\"attaque_9\\");</script></div>"))[0];
+      return [l.arrivee.valueOf(), Math.floor((avant + 2700) / 1000) * 1000 + 75000];
+    })()`);
+    expect(r[0] % 1000).toBe(0);
+    expect(Math.abs(r[0] - r[1])).toBeLessThanOrEqual(1000);
+  });
+});

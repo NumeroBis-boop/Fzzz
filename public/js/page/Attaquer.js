@@ -211,11 +211,9 @@ class PageAttaquer {
         setTimeout(tic, Math.min(100, reste));
       } else {
         $("#o_syncA").html("<b>Clique sur Lancer maintenant.</b>").addClass("red");
-        // focus sans faire défiler la page
-        $("input[name='ChoixArmee']")
-          .addClass("o_synchroPret")
-          .first()[0]
-          ?.focus({ preventScroll: true });
+        // cadre autour des deux boutons de lancement ; focus sans faire défiler la page
+        $("#o_btnLancer").addClass("o_synchroPret");
+        $("input[name='ChoixArmee']").first()[0]?.focus({ preventScroll: true });
       }
     };
     tic();

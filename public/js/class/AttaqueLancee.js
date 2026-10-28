@@ -121,7 +121,13 @@ class AttaqueLancee {
    * @return {Array} liste {elt, id, cible (null pour un renfort), cibleHtml, secondes, arrivee}
    */
   static extraireLignes(racine = $(document)) {
-    let lignes = [];
+    // le compteur du jeu est un nombre entier de secondes restantes au moment
+    // où le serveur a produit la page : arrivée = cette seconde + compteur
+    let produite = Horloge.serveurA(
+        racine[0] === document ? AttaqueLancee.receptionPage() : Date.now(),
+      ).valueOf(),
+      secondeProduite = Math.floor(produite / 1000) * 1000,
+      lignes = [];
     racine.find("span[id^='attaque_']").each((i, elt) => {
       // le compteur du jeu est alimenté par un script voisin : reste(secondes, "attaque_<id>")
       let secondes = parseInt($(elt).nextAll("script").first().text().split("(")[1]);
@@ -143,12 +149,28 @@ class AttaqueLancee {
         // le titre du tableau pour garder les pseudos cliquables (issue #25)
         cibleHtml: $(elt).prev().find("a").length ? $(elt).prev().html() : null,
         secondes: secondes,
-        arrivee: Horloge.serveur().add(secondes, "s"),
+        arrivee: moment(secondeProduite + secondes * 1000),
         lieuNatif: lieu ? lieu[1] : null,
         troupesNatif: troupes ? troupes[1] : null,
       });
     });
     return lignes.sort((a, b) => a.id - b.id);
+  }
+  /**
+   * Instant (horloge du PC, ms) où la page courante a commencé d'arriver,
+   * juste après sa production par le serveur ; à défaut, maintenant.
+   *
+   * @static
+   * @method receptionPage
+   */
+  static receptionPage() {
+    try {
+      let nav = /** @type {PerformanceNavigationTiming} */ (
+        performance.getEntriesByType("navigation")[0]
+      );
+      if (nav && nav.responseStart > 0) return performance.timeOrigin + nav.responseStart;
+    } catch (e) {}
+    return Date.now();
   }
   /**
    * Lie les captures encore orphelines aux lignes affichées : pour une cible
@@ -319,12 +341,10 @@ class AttaqueLancee {
    * arrivée, terrain estimé, annulation unitaire ou groupée, et copie au
    * format texte du jeu pour le forum.
    *
-   * Les tableaux remplacent les lignes natives « Vous allez attaquer »
-   * (toutes les attaques, capturées ou non). Le span du compte à rebours et
-   * le lien Annuler du jeu sont déplacés dans le tableau, pas recréés : le
-   * compteur natif (fonction reste() du jeu) retrouve le span par son id et
-   * continue de le mettre à jour. Pour une attaque non capturée, lieu et
-   * troupes viennent du texte du jeu quand il les donne (C+), sinon « ? ».
+   * Le tableau s'ajoute sous la liste du jeu, laissée telle quelle (toutes
+   * les attaques, capturées ou non), avec une copie de chaque lien Annuler.
+   * Pour une attaque non capturée, lieu et troupes viennent du texte du jeu
+   * quand il les donne (C+), sinon « ? ».
    */
   static afficherTableaux() {
     let echecs = sessionStorage.getItem(CLE_ANNULATION_ECHEC);
@@ -361,7 +381,7 @@ class AttaqueLancee {
         <tbody>`;
     attaques.forEach((a, i) => {
       html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
-        <td>${Utils.roundMinute(a.ligne.secondes).format("DD/MM HH[h]mm")}</td>
+        <td title="RC à ${Utils.minuteRC(a.ligne.arrivee).format("HH[h]mm")}">${a.ligne.arrivee.format("DD/MM HH:mm:ss")}</td>
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
         <td class="o_lieuAttaque" title="${AttaqueLancee.lieu(a) || "Lieu inconnu"}">${AttaqueLancee.lieuCourt(a)}</td>
@@ -370,7 +390,7 @@ class AttaqueLancee {
           /terrain/i.test(AttaqueLancee.lieu(a) || "")
             ? `<button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager ce flood avec la ${tag}">Partager</button>`
             : ""
-        }<span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span><span id="${id}Reste${i}" style="display:none;"></span></td></tr>`;
+        }<span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span></td></tr>`;
     });
     html += `</tbody></table>
       ${annulables.length > 1 ? `<div class="o_attaquesBoutons"><button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button></div>` : ""}`;
@@ -385,48 +405,31 @@ class AttaqueLancee {
         "</div>",
     );
     AttaqueLancee.colorerTags($(`#${id}`));
-    // « Partager TOUS mes floods » sous la ligne « Attaque(s) en cours … » du jeu
-    let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button></div>`,
-      $compte = $("#centre *")
-        .filter((k, e) => !e.children.length && /Attaque\(s\) en cours/.test(e.textContent))
-        .first();
-    if ($compte.length) {
-      // les sauts de ligne du jeu sous le compteur creusaient un grand vide
-      let n = $compte[0].nextSibling;
-      while (n && (n.nodeName == "BR" || (n.nodeType == 3 && !n.textContent.trim()))) {
-        let suivant = n.nextSibling;
-        if (n.nodeName == "BR") n.parentNode.removeChild(n);
-        n = suivant;
-      }
-      $compte.after(bouton);
-    } else $(`#${id}`).before(bouton);
-    // compteur et lien Annuler natifs : déplacés dans le tableau (compteur masqué).
-    // Pour une attaque capturée on connaît l'heure de lancement : le lien
-    // est retiré dès que la fenêtre d'annulation du jeu est passée.
+    // la liste du jeu sous « Attaque(s) en cours » reste telle quelle : boutons
+    // de partage groupé juste au-dessus du tableau
+    let bouton = `<div class="o_attaquesBoutons o_partagerToutBloc"><button type="button" id="${id}PartagerTout" class="o_button f_info">Partager TOUS mes floods avec la ${tag}</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button></div>`;
+    $(`#${id}`).before(bouton);
+    // lien Annuler du jeu copié dans le tableau. Pour une attaque capturée on
+    // connaît l'heure de lancement : la copie est retirée dès que la fenêtre
+    // d'annulation du jeu est passée.
     let majToutAnnuler = () => {
       if (attaques.filter((a) => $(a.cellule).find("a").length).length < 2)
         $(`#${id}ToutAnnuler`).hide();
     };
     attaques.forEach((a, i) => {
-      let natifs = AttaqueLancee.noeudsLigne(a.ligne.elt),
-        restant =
-          a.capture && !a.capture.reconstituee
-            ? a.capture.lancee + DELAI_ANNULATION * 1000 - Date.now()
-            : null;
+      let restant =
+        a.capture && !a.capture.reconstituee
+          ? a.capture.lancee + DELAI_ANNULATION * 1000 - Date.now()
+          : null;
       a.cellule = `#${id}Annuler${i}`;
-      $(a.ligne.elt).appendTo(`#${id}Reste${i}`);
-      if (a.annuler.length) {
-        if (restant !== null && restant <= 0) a.annuler.remove();
-        else {
-          a.annuler.appendTo(a.cellule);
-          if (restant !== null)
-            setTimeout(() => {
-              $(a.cellule).empty();
-              majToutAnnuler();
-            }, restant);
-        }
+      if (a.annuler.length && !(restant !== null && restant <= 0)) {
+        a.annuler.clone().appendTo(a.cellule);
+        if (restant !== null)
+          setTimeout(() => {
+            $(a.cellule).empty();
+            majToutAnnuler();
+          }, restant);
       }
-      natifs.forEach((n) => n.parentNode && n.parentNode.removeChild(n));
     });
     majToutAnnuler();
     AttaqueLancee.majPartages();

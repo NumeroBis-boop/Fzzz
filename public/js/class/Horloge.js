@@ -107,6 +107,17 @@ class Horloge {
     return moment(Date.now() + (decalageServeur || 0));
   }
   /**
+   * Heure du serveur à un instant donné de l'horloge du PC (ms).
+   *
+   * @static
+   * @method serveurA
+   * @param {Number} local
+   * @return {Object} moment
+   */
+  static serveurA(local) {
+    return moment(local + (decalageServeur || 0));
+  }
+  /**
    * Heure serveur à laquelle un clic fait maintenant sera pris en compte :
    * heure du serveur + latence.
    *

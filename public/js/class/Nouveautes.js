@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.54.0",
+    notes: [
+      "Mes attaques en cours : arrivée à la seconde (jj/mm hh:mm:ss), calculée à partir de l'instant où le serveur a produit la page ; minute du RC au survol.",
+      "La liste d'attaques du jeu sous « Attaque(s) en cours » est de nouveau affichée telle quelle.",
+      "Synchroniser : le cadre rouge entoure aussi « Lancer + partager ».",
+    ],
+  },
+  {
     version: "1.53.3",
     notes: [
       "Synchroniser / Sonder : l'arrivée tombe de nouveau sur la seconde 00 (le temps de trajet était calculé avec la vitesse d'attaque de la cible au lieu de la tienne).",

@@ -34,6 +34,42 @@ class CommerceFzzz {
       .filter((i, e) => /^\s*-/.test($(e).text()) && $(e).text().includes("dans"));
   }
   /**
+   * Cadre « Organiser un convoi » du jeu : le tableau du formulaire, ou son
+   * ancêtre encadré s'il en a un.
+   *
+   * @static
+   * @method cadreConvoi
+   */
+  static cadreConvoi() {
+    let $t = $("#centre form table").first();
+    if (!$t.length) return null;
+    let cadre = $t[0];
+    $t.parentsUntil("#centre").each((i, e) => {
+      let st = getComputedStyle(e);
+      if (st.borderTopStyle != "none" && parseFloat(st.borderTopWidth) > 0) cadre = e;
+    });
+    return cadre;
+  }
+  /**
+   * Même largeur et même bord gauche que le cadre « Organiser un convoi ».
+   *
+   * @static
+   * @method calerSurCadreConvoi
+   */
+  static calerSurCadreConvoi($bloc) {
+    let cadre = CommerceFzzz.cadreConvoi(),
+      parent = $bloc.parent()[0];
+    if (!cadre || !parent) return;
+    let r = cadre.getBoundingClientRect(),
+      rp = parent.getBoundingClientRect(),
+      gauche = r.left - rp.left - parseFloat(getComputedStyle(parent).paddingLeft || "0");
+    if (!r.width) return;
+    $bloc.css({ width: `${r.width}px`, marginLeft: `${Math.max(0, gauche)}px`, marginRight: "0" });
+    // tableau plus large que le cadre (téléphone) : débord réparti des deux côtés
+    let deborde = $bloc.outerWidth() - r.width;
+    if (deborde > 0) $bloc.css("marginLeft", `${Math.max(0, gauche - deborde / 2)}px`);
+  }
+  /**
    * Devant chaque convoi envoyé, son état sur le site de suivi de la OUAF :
    * « ✅ Enregistré », ou un bouton « 📤 Envoyer au suivi ». À l'ouverture de
    * la page, l'historique du site est lu (si le mot de passe est enregistré
@@ -271,6 +307,8 @@ class CommerceFzzz {
     if ($titre.length) $bloc.insertAfter($section.last());
     else $("#centre").append($bloc);
     afficher();
+    CommerceFzzz.calerSurCadreConvoi($bloc);
+    $(window).on("resize", () => CommerceFzzz.calerSurCadreConvoi($bloc));
     $bloc.on("click", ".o_triIcone", (e) => {
       let col = $(e.currentTarget).closest("th").data("tri");
       if (tri.col != col) Object.assign(tri, { col, sens: 1 });

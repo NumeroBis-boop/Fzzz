@@ -2263,7 +2263,7 @@ tr.en_tete_message > td.td_coche {
 }
 /* Fzzz : tableau « Joueur à livrer » (page Convois) */
 #o_convoisMembres {
-  /* 85 % de la page, jamais plus étroit que son tableau (téléphone) */
+  /* largeur du cadre « Organiser un convoi » (CommerceFzzz.calerSurCadreConvoi), jamais plus étroit que son tableau */
   box-sizing: border-box;
   width: 85%;
   min-width: min-content;

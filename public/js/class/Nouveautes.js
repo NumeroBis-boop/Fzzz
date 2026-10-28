@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.55.1",
+    notes: [
+      "Page Armée : TdC, Dôme et Loge au lieu des noms longs ; blocs à égale distance ; Statistiques dans le bloc « Troupes en garnison ».",
+      "Page Armée : la liste « Attaque(s) en cours » du jeu retrouve son affichage d'origine, hors cadre.",
+    ],
+  },
+  {
     version: "1.55.0",
     notes: [
       "Page Armée : textes d'aide du jeu retirés, « Déplacer son armée » plus compact, « Statistiques » et « Floods en cours sur toi » repliés par défaut.",

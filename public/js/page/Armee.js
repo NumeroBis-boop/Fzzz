@@ -558,33 +558,71 @@ class PageArmee {
     $deplacer.addClass("o_deplacerArmee");
     // une ligne par groupe de lieux au lieu d'un lieu par ligne
     $deplacer.find("input[type=radio]").parent().children("br").remove();
-    let avant = $deplacer[0] && $deplacer[0].previousSibling;
-    while (avant && avant.nodeType == 3 && !avant.textContent.trim()) avant = avant.previousSibling;
-    if (avant && avant.nodeName == "BR") avant.parentNode.removeChild(avant);
-    // liste du jeu « Attaque(s) en cours » encadrée comme les autres blocs.
-    // Déplacement natif : jQuery réexécuterait les scripts reste() du jeu
-    let titre = $("#centre h3").filter((i, e) => /Attaque\(s\) en cours/.test(e.textContent))[0];
-    if (titre) {
-      let cadre = document.createElement("div");
-      cadre.className = "simulateur o_listeAttaquesJeu";
-      titre.parentNode.insertBefore(cadre, titre);
-      while (cadre.nextSibling) cadre.appendChild(cadre.nextSibling);
-      while (
-        cadre.lastChild &&
-        (cadre.lastChild.nodeName == "BR" ||
-          (cadre.lastChild.nodeType == 3 && !cadre.lastChild.textContent.trim()))
-      )
-        cadre.removeChild(cadre.lastChild);
-    }
+    // la liste du jeu « Attaque(s) en cours » garde son affichage d'origine
+    let titre = $("#centre h3").filter((i, e) => /Attaque\(s\) en cours/.test(e.textContent))[0],
+      horsListe = (n) =>
+        !titre ||
+        !(titre === n || titre.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING);
+    this.libellesCourts(horsListe);
+    // blocs à égale distance : sauts de ligne du jeu entre eux retirés
+    $("#o_attaquesLancees").addClass("o_blocArmee");
+    $(".simulateur:not(.o_blocAttaques):first").addClass("o_blocArmee");
+    $deplacer.addClass("o_blocArmee");
+    $(".o_blocArmee").each((i, bloc) => {
+      for (let sens of ["previousSibling", "nextSibling"]) {
+        let n = bloc[sens];
+        while (n && (n.nodeName == "BR" || (n.nodeType == 3 && !n.textContent.trim()))) {
+          let suivant = n[sens];
+          if (n.nodeName == "BR" && horsListe(n)) n.parentNode.removeChild(n);
+          n = suivant;
+        }
+      }
+    });
   }
   /**
+   * Noms courts des lieux (TdC, Dôme, Loge) dans les textes et infobulles de
+   * la page, hors des nœuds que `garder` exclut.
    *
+   * @private
+   * @method libellesCourts
+   * @param {(n: Node) => Boolean} garder
+   */
+  libellesCourts(garder) {
+    const COURTS = [
+      [/la Fourmili[èe]re/g, "le Dôme"],
+      [/la Loge Imp[ée]riale/gi, "la Loge"],
+      [/Terrain de [Cc]hasse/g, "TdC"],
+      [/Fourmili[èe]re/g, "Dôme"],
+      [/Loge [Ii]mp[ée]riale/g, "Loge"],
+    ];
+    let raccourcir = (t) => COURTS.reduce((r, [re, court]) => r.replace(re, court), t),
+      centre = document.getElementById("centre");
+    if (!centre) return;
+    let parcours = document.createTreeWalker(centre, NodeFilter.SHOW_TEXT),
+      n;
+    while ((n = parcours.nextNode()))
+      if (
+        n.parentNode &&
+        n.parentNode.nodeName != "SCRIPT" &&
+        !$(n.parentNode).closest("#menu, nav").length &&
+        garder(n)
+      ) {
+        let court = raccourcir(n.textContent);
+        if (court != n.textContent) n.textContent = court;
+      }
+    $("#centre [title]").each((i, e) => {
+      if (garder(e) && !$(e).closest("#menu, nav").length)
+        e.setAttribute("title", raccourcir(e.getAttribute("title")));
+    });
+  }
+  /**
+   * Statistiques de l'armée, repliées, en dernière ligne du bloc « Troupes en garnison ».
    */
   afficherStatistique() {
     let bouclier = monProfil.niveauRecherche[1],
       armes = monProfil.niveauRecherche[2];
-    $(".simulateur:not(.o_blocAttaques):first").after(
-      `<br/><div id="o_statArmee" class="simulateur">${Utils.spoiler(
+    $(".simulateur:not(.o_blocAttaques):first").append(
+      `<tr><td colspan="10" id="o_statArmee">${Utils.spoiler(
         "Statistiques",
         `<table class="centre o_maxWidth" cellspacing=0>
                 <tr class="ligne_paire gras"><td></td><td colspan="2">Non XP</td><td colspan="2">Total</td></tr>
@@ -596,9 +634,8 @@ class PageArmee {
         "armeeStatistiques",
         "gras",
         false,
-      )}</div>`,
+      )}</td></tr>`,
     );
-    $("#o_statArmee").width($(".simulateur:not(.o_blocAttaques):first").width());
   }
   /**
    * Verifie les attaques en cours avec ce qui est sauvegarder.

@@ -2426,9 +2426,6 @@ tr.en_tete_message > td.td_coche {
   }
 }
 /* page Armée : déplacement d'armée resserré */
-.o_deplacerArmee {
-  margin-top: 4px;
-}
 .o_deplacerArmee h3 {
   margin: 0 0 2px;
 }
@@ -2439,12 +2436,10 @@ tr.en_tete_message > td.td_coche {
   margin-right: 6px;
 }
 #o_statArmee .o_spoilerTitre {
-  margin: 2px 0;
+  margin: 4px 0 2px;
 }
-.o_listeAttaquesJeu {
-  margin-top: 6px;
-  padding: 4px 8px;
-}
-.o_listeAttaquesJeu h3 {
-  margin: 0 0 4px;
+/* page Armée : même écart vertical entre tous les blocs */
+.o_blocArmee {
+  margin-top: 0 !important;
+  margin-bottom: 10px !important;
 }

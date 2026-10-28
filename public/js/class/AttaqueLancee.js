@@ -396,7 +396,7 @@ class AttaqueLancee {
     // en haut de la page ; la liste du jeu sous « Attaque(s) en cours » reste telle
     // quelle. Armée et Attaquer visent le premier .simulateur qui n'est pas un
     // .o_blocAttaques (tableau de l'armée, formulaire d'attaque)
-    $("#centre").prepend(
+    let $bloc = $(
       `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">` +
         Utils.spoiler(
           `Mes attaques en cours (${attaques.length})${boutons}`,
@@ -406,6 +406,10 @@ class AttaqueLancee {
         ) +
         "</div>",
     );
+    // le menu du jeu est dans #centre : sous le menu (et le bandeau de ponte)
+    let $menu = $("#centre > #menu");
+    if ($menu.length) $bloc.insertAfter($("#o_alertePonte").length ? "#o_alertePonte" : $menu);
+    else $bloc.prependTo("#centre");
     AttaqueLancee.colorerTags($(`#${id}`));
     // un clic sur ces boutons ne replie pas l'encart (titre cliquable)
     $(`#${id} .o_attaquesEnTete`).on("click", (e) => e.stopPropagation());
@@ -847,7 +851,7 @@ class AttaqueLancee {
    */
   static lieuCourt(a) {
     let lieu = AttaqueLancee.lieu(a) || "";
-    if (/terrain/i.test(lieu)) return "TDC";
+    if (/terrain/i.test(lieu)) return "TdC";
     if (/d[ôo]me|fourmili/i.test(lieu)) return "Dôme";
     if (/loge/i.test(lieu)) return "Loge";
     return lieu || "?";

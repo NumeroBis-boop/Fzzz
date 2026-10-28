@@ -749,7 +749,7 @@ class PartageChasses {
         }
         $("#o_floodsRecus").remove();
         $ancre.before(
-          "<div id='o_floodsRecus' class='boite_amelioration simulateur centre o_blocAttaques'>" +
+          "<div id='o_floodsRecus' class='boite_amelioration simulateur centre o_blocAttaques o_blocArmee'>" +
             Utils.spoiler(
               `Floods en cours sur ${moi} partagés avec la ${Utils.alliance} (${recus.length})`,
               html,

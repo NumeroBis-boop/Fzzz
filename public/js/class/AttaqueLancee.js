@@ -379,7 +379,7 @@ class AttaqueLancee {
         <tbody>`;
     attaques.forEach((a, i) => {
       html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
-        <td title="RC à ${Utils.minuteRC(a.ligne.arrivee).format("HH[h]mm")}">${a.ligne.arrivee.format("DD/MM HH:mm:ss")}</td>
+        <td title="RC à ${Utils.minuteRC(a.ligne.arrivee).format("HH[h]mm")}">${a.ligne.arrivee.format("DD/MM HH[h]mm:ss")}</td>
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
         <td class="o_lieuAttaque" title="${AttaqueLancee.lieu(a) || "Lieu inconnu"}">${AttaqueLancee.lieuCourt(a)}</td>

@@ -556,8 +556,16 @@ class PageArmee {
       .filter((i, e) => /Déplacer son armée/.test(e.textContent))
       .closest("table");
     $deplacer.addClass("o_deplacerArmee");
-    // une ligne par groupe de lieux au lieu d'un lieu par ligne
-    $deplacer.find("input[type=radio]").parent().children("br").remove();
+    // « De » et « Vers » en tête de leur colonne de lieux, côte à côte
+    $deplacer
+      .find("input[type=radio]")
+      .parent()
+      .each((i, td) => {
+        let $libelle = $(td).prev("td");
+        if (!/^\s*(De|Vers)\s*$/.test($libelle.text())) return;
+        $(td).prepend(`<span class="gras">${$libelle.text().trim()}</span><br/>`).addClass("left");
+        $libelle.remove();
+      });
     // la liste du jeu « Attaque(s) en cours » garde son affichage d'origine
     let titre = $("#centre h3").filter((i, e) => /Attaque\(s\) en cours/.test(e.textContent))[0],
       horsListe = (n) =>

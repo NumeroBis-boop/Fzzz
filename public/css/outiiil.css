@@ -2432,8 +2432,9 @@ tr.en_tete_message > td.td_coche {
 .o_deplacerArmee td {
   padding: 1px 4px;
 }
-.o_deplacerArmee label {
-  margin-right: 6px;
+.o_deplacerArmee td.left {
+  padding: 1px 10px;
+  vertical-align: top;
 }
 #o_statArmee .o_spoilerTitre {
   margin: 4px 0 2px;

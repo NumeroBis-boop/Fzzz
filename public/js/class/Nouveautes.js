@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.55.2",
+    notes: [
+      "Mes attaques en cours : arrivée au format 29/10 04h20:58.",
+      "Déplacer son armée : « De » et « Vers » en colonnes (TdC, Dôme, Loge), côte à côte.",
+    ],
+  },
+  {
     version: "1.55.1",
     notes: [
       "Page Armée : TdC, Dôme et Loge au lieu des noms longs ; blocs à égale distance ; Statistiques dans le bloc « Troupes en garnison ».",

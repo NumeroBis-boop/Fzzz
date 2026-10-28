@@ -12,6 +12,10 @@ const PARTAGE_MAX_ENTREES = 300;
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
+// dernière minute d'impact des chasses partagées depuis ce navigateur
+// ("AAAA-MM-JJ HH:mm") : tant qu'elle n'est pas passée, la page Ressources
+// recale le sujet « Chasses » sur les chasses encore en cours
+const CLE_FIN_CHASSES_PARTAGEES = "fzzz_finChassesPartagees";
 // échéance (ms) du partage des chasses demandé par « Envoyer + partager »
 const CLE_PARTAGE_CHASSES_APRES = "fzzz_partageChassesApres";
 // lectures et écritures du sujet « Floods » d'une page, l'une après l'autre :
@@ -267,6 +271,7 @@ class PartageChasses {
             }
             return true;
           });
+        if (type == "Chasses") PartageChasses.noterFinChasses(entrees.map((e) => e.date));
         // les entrées passées sont retirées du sujet à chaque partage
         let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
           aVenir = anciennes.filter((e) => e.date >= maintenant);
@@ -291,6 +296,108 @@ class PartageChasses {
               )
         ).then(() => nouvelles.length);
       });
+    });
+  }
+  /**
+   * @private
+   * @static
+   */
+  static noterFinChasses(dates) {
+    try {
+      let connue = localStorage.getItem(CLE_FIN_CHASSES_PARTAGEES),
+        fin = [connue == "-" ? "" : connue || "", ...dates].sort().pop();
+      if (fin) localStorage.setItem(CLE_FIN_CHASSES_PARTAGEES, fin);
+    } catch (e) {}
+  }
+  /**
+   * Chasses du sujet à garder d'après les chasses en cours : une entrée est
+   * gardée si un groupe de chasses (minutes d'impact consécutives) couvre sa
+   * minute, à une minute près, avec la minute et le TdC actuels du groupe
+   * (une chasse du groupe a pu être annulée) ; sinon elle est retirée.
+   *
+   * @static
+   * @method recalerListeChasses
+   * @param {Array} anciennes entrées du sujet {date, terrain}
+   * @param {Array} groupes {debut, fin, terrain}, dates "AAAA-MM-JJ HH:mm"
+   * @param {String} maintenant "AAAA-MM-JJ HH:mm"
+   * @return {Object} {lignes, change}
+   */
+  static recalerListeChasses(anciennes, groupes, maintenant) {
+    let minute = (d) => moment(d, "YYYY-MM-DD HH:mm").valueOf() / 60000,
+      aVenir = anciennes.filter((e) => e.date >= maintenant),
+      lignes = [];
+    aVenir.forEach((e) => {
+      let m = minute(e.date),
+        g = groupes.find((g) => m >= minute(g.debut) - 1 && m <= minute(g.fin) + 1);
+      if (g && !lignes.some((l) => l.date == g.fin))
+        lignes.push({ date: g.fin, terrain: g.terrain });
+    });
+    let change =
+      lignes.length != aVenir.length ||
+      lignes.some((l, i) => l.date != aVenir[i].date || l.terrain != aVenir[i].terrain);
+    return { lignes, change };
+  }
+  /**
+   * Page Ressources : chasses partagées puis annulées (en masse ou une par
+   * une) retirées du sujet « Chasses » du joueur. Le forum n'est lu que si une
+   * chasse partagée est encore à venir (ou la première fois, repère inconnu).
+   *
+   * @static
+   * @method recalerChasses
+   * @param {Array} groupes chasses en cours {debut, fin, terrain}
+   * @return {Promise}
+   */
+  static recalerChasses(groupes) {
+    let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+      pseudo = monProfil.pseudo,
+      fin = null;
+    try {
+      fin = localStorage.getItem(CLE_FIN_CHASSES_PARTAGEES);
+    } catch (e) {}
+    // "-" : aucune chasse à venir dans le sujet ; null : jamais vérifié
+    if ((fin != null && fin < maintenant) || !pseudo) return Promise.resolve();
+    let titre = `Chasses | ${pseudo}`;
+    return PartageChasses.enFile(() =>
+      PartageChasses.sujets().then((sujets) => {
+        let idSujet = sujets[`Chasses | ${pseudo.toLowerCase()}`],
+          retenir = (lignes) => {
+            try {
+              localStorage.setItem(
+                CLE_FIN_CHASSES_PARTAGEES,
+                lignes
+                  .map((e) => e.date)
+                  .sort()
+                  .pop() || "-",
+              );
+            } catch (e) {}
+          };
+        if (!idSujet) return retenir([]);
+        return PartageChasses.lireSujet(idSujet).then((d) => {
+          let r = PartageChasses.recalerListeChasses(d.chasses, groupes, maintenant);
+          retenir(r.lignes);
+          if (!r.change) return;
+          // un sujet ne peut pas être vide : ligne neutre, ignorée à la lecture
+          let message =
+              r.lignes.map((e) => PartageChasses._ligne("Chasses", e)).join("\n") ||
+              "Aucune chasse en cours.",
+            q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
+          return PartageChasses._xajax(
+            "envoiEditTopic",
+            `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
+          ).then(() => {
+            $.toast({
+              ...TOAST_INFO,
+              text: `Chasses annulées : partage mis à jour dans le forum de la ${Utils.alliance || "l'alliance"}.`,
+            });
+          });
+        });
+      }),
+    ).catch((e) => {
+      // pas de section de partage dans le forum : rien à recaler, ne plus le lire
+      if (e && e.message == "absente")
+        try {
+          localStorage.setItem(CLE_FIN_CHASSES_PARTAGEES, "-");
+        } catch (err) {}
     });
   }
   /**

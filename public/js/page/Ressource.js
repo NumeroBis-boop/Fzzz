@@ -82,7 +82,8 @@ class PageRessource {
       partagerMaintenant = Number(sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES)) > Date.now();
       sessionStorage.removeItem(CLE_PARTAGE_CHASSES_APRES);
     } catch (e) {}
-    if (!Utils.affichage("syntheseChasses") && !partagerMaintenant) return;
+    // page Ressources réelle (pas une page de connexion) : elle liste toutes les chasses
+    if (!$("#boite_tdc").length) return;
     let chasses = [];
     $("#boite_tdc span[id^='chasse_']").each((i, elt) => {
       let $ligne = $(elt).parent(),
@@ -115,6 +116,8 @@ class PageRessource {
       chasses.push({ impact: impact, terrain: terrain || 0, unites: unites });
     });
     if (!chasses.length) {
+      // chasses annulées ou arrivées : plus rien à garder dans le forum
+      PartageChasses.recalerChasses([]);
       if (partagerMaintenant)
         $.toast({ ...TOAST_WARNING, text: "Aucune chasse en cours : rien à partager." });
       return;
@@ -174,6 +177,15 @@ class PageRessource {
         return { impact: g.impact, terrain: s.terrain, unites: s.detail ? s.detail + "." : "" };
       });
     if (partagerMaintenant) PartageChasses.partager(aPartager(), null);
+    // chasses partagées puis annulées (ici ou par le lien du jeu) : retirées du forum
+    else
+      PartageChasses.recalerChasses(
+        groupes.map((g) => ({
+          debut: g.chasses[0].impact.format("YYYY-MM-DD HH:mm"),
+          fin: g.impact.format("YYYY-MM-DD HH:mm"),
+          terrain: somme(g.chasses).terrain,
+        })),
+      );
     if (!Utils.affichage("syntheseChasses")) return;
     groupes.forEach((g, i) => {
       html += ligne(g.impact.format("D MMM [à] HH[h]mm"), g.chasses, i % 2 ? "" : "ligne_paire");

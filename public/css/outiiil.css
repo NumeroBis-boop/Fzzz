@@ -2447,10 +2447,89 @@ tr.en_tete_message > td.td_coche {
 /* « Mes attaques en cours » collé sous le menu, visible en défilant (AttaqueLancee.epingler) */
 #o_attaquesLancees.o_epingle {
   position: sticky;
-  box-sizing: border-box;
   margin-left: auto !important;
   margin-right: auto !important;
-  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+/* « Mes attaques en cours » : parchemin dans un cadre de bois, bandeau vert,
+   boutons-onglets colorés (fond opaque : la page défile dessous) */
+#o_attaquesLancees {
+  box-sizing: border-box;
+  padding: 0 !important;
+  background: linear-gradient(#f6ecd3, #efe1bf);
+  border: 3px solid #6b4423;
+  border-radius: 5px;
+  box-shadow:
+    inset 0 0 0 1px #c9a46a,
+    0 3px 6px rgba(0, 0, 0, 0.35);
+  color: #3b2a17;
+}
+#o_attaquesLancees .o_attaquesTitre {
+  margin: 0;
+  padding: 3px 8px;
+  background: linear-gradient(#4f9446, #2f6a2b);
+  border-bottom: 2px solid #6b4423;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+#o_attaquesLancees .o_spoilerCorps {
+  padding: 4px 6px 6px;
+}
+#o_attaquesLancees .o_attaquesEnTete .o_button {
+  padding: 1px 10px;
+  border: 2px solid rgba(0, 0, 0, 0.35);
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  color: #fff !important;
+  font-weight: bold;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+#o_attaquesLancees .o_attaquesEnTete .f_info {
+  background: linear-gradient(#2d6f7c, #1d4f59);
+}
+#o_attaquesLancees .o_attaquesEnTete .f_error {
+  background: linear-gradient(#b5523f, #8a3527);
+}
+#o_attaquesLancees .o_attaquesEnTete .o_button:disabled {
+  background: linear-gradient(#7d8f6a, #5e6e4d);
+  opacity: 1;
+}
+#o_attaquesLancees .o_attaquesLancees {
+  border-collapse: collapse;
+}
+#o_attaquesLancees .o_attaquesLancees thead th {
+  padding: 2px 6px;
+  background: #d8c194;
+  color: #4a3720;
+  text-align: left;
+}
+#o_attaquesLancees .o_attaquesLancees td {
+  padding: 2px 6px;
+  text-align: left;
+  border-top: 1px solid rgba(107, 68, 35, 0.15);
+}
+#o_attaquesLancees .o_attaquesLancees tbody tr {
+  background: #f7eed8;
+}
+#o_attaquesLancees .o_attaquesLancees tbody tr.ligne_paire {
+  background: #eee0bd;
+}
+#o_attaquesLancees td.o_attaqueActions .o_button {
+  border: 1px solid #b89a63;
+  border-radius: 3px;
+  background: #f3e4c1;
+  color: #4a3720;
+}
+#o_attaquesLancees td.o_attaqueActions .o_attaquePartager {
+  background: #d5e9ec;
+  border-color: #6d9aa3;
+  color: #1d4f59;
+}
+#o_attaquesLancees .o_attaqueAnnuler a {
+  padding: 0;
+  border: 0;
+  color: #2e7d32 !important;
+  font-weight: bold;
+}
+#o_attaquesLancees .o_attaqueAnnuler a::before {
+  content: "• ";
 }

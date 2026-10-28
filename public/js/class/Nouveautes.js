@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.57.0",
+    notes: [
+      "Mes attaques en cours : nouvel habillage (parchemin, cadre bois, bandeau vert, boutons en onglets).",
+      "« Annuler » affiche le délai d'annulation restant (attaques lancées depuis cet appareil).",
+    ],
+  },
+  {
     version: "1.56.1",
     notes: [
       "Mes attaques en cours : fond plus marqué, encadré, plus large que « Troupes en garnison » sans dépasser le menu.",

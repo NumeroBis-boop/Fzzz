@@ -432,12 +432,23 @@ class AttaqueLancee {
           : null;
       a.cellule = `#${id}Annuler${i}`;
       if (a.annuler.length && !(restant !== null && restant <= 0)) {
-        a.annuler.clone().appendTo(a.cellule);
-        if (restant !== null)
-          setTimeout(() => {
-            $(a.cellule).empty();
-            majToutAnnuler();
-          }, restant);
+        let $lien = a.annuler.clone().text("Annuler").appendTo(a.cellule);
+        // délai d'annulation restant affiché à côté du lien (affichage seul)
+        if (restant !== null) {
+          let fin = Date.now() + restant,
+            $reste = $("<span class='o_annulerReste'></span>").appendTo($lien),
+            tic = () => {
+              let s = Math.ceil((fin - Date.now()) / 1000);
+              if (s <= 0) {
+                $(a.cellule).empty();
+                majToutAnnuler();
+                return;
+              }
+              $reste.text(` ${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`);
+              setTimeout(tic, 250);
+            };
+          tic();
+        }
       }
     });
     majToutAnnuler();
@@ -537,15 +548,6 @@ class AttaqueLancee {
   static epingler(bloc) {
     let menu = document.getElementById("menu_horizontal") || document.getElementById("menu");
     if (!menu) return;
-    // fond opaque (la page défile dessous), un peu plus foncé que celui de la page
-    for (let e = bloc.parentElement; e; e = e.parentElement) {
-      let fond = getComputedStyle(e).backgroundColor;
-      if (fond && fond != "transparent" && !/rgba\(.*,\s*0\)$/.test(fond)) {
-        bloc.style.backgroundColor = fond;
-        break;
-      }
-    }
-    bloc.style.backgroundImage = "linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08))";
     let z = parseInt(getComputedStyle(document.getElementById("menu") || menu).zIndex);
     bloc.style.zIndex = String(isNaN(z) ? 50 : Math.max(1, z - 1));
     bloc.classList.add("o_epingle");

@@ -267,11 +267,24 @@ class PageRessource {
     );
     // Budget de pertes : simulateur de Calystène d'origine avec son greffon CHS2B
     // (lib/calystene-chs2), construit au premier choix puis placé sous le sélecteur
-    let appliquer = (v) => {
-      if (v == "budget" && !$("#CHS2_MainFrame").length) {
+    let enCours = false,
+      demarrer = (pages) => {
         try {
-          // pages servies sans requête au démarrage du simulateur (voir
-          // fzzzAjaxSync) : niveaux déjà connus de Fzzz, page Armée déjà lue
+          window.fzzzPagesCHS2 = pages;
+          fzzzLancerCHS2();
+          window.fzzzPagesCHS2 = null;
+        } catch (e) {
+          console.error("[Fzzz] simulateur de Calystène :", e);
+          $.toast({ ...TOAST_ERROR, text: "Le simulateur de Calystène n'a pas pu démarrer." });
+        }
+        $("#CHS2_MainFrame").insertAfter("#o_choixLanceur");
+        $("#CHS2_MainFrame").toggle($("#o_choixLanceurSelect").val() == "budget");
+      },
+      appliquer = (v) => {
+        if (v == "budget" && !$("#CHS2_MainFrame").length && !enCours) {
+          // le simulateur lit ces pages par requêtes synchrones (fzzzAjaxSync),
+          // qui figent la page le temps de la réponse du jeu : elles lui sont
+          // fournies d'avance, celles qui manquent lues ici sans bloquer
           let niveaux = (liste) =>
               liste.every((n) => n >= 0)
                 ? liste
@@ -285,19 +298,23 @@ class PageRessource {
               "/construction.php": niveaux(monProfil.niveauConstruction),
               "/laboratoire.php": niveaux(monProfil.niveauRecherche),
               "/Armee.php": this._htmlArmee || null,
-            };
-          window.fzzzPagesCHS2 = pages;
-          fzzzLancerCHS2();
-          window.fzzzPagesCHS2 = null;
-        } catch (e) {
-          console.error("[Fzzz] simulateur de Calystène :", e);
-          $.toast({ ...TOAST_ERROR, text: "Le simulateur de Calystène n'a pas pu démarrer." });
+            },
+            manquantes = Object.keys(pages).filter((url) => pages[url] == null);
+          enCours = true;
+          Promise.all(
+            manquantes.map((url) =>
+              Promise.resolve($.get(location.origin + url)).then(
+                (html) => (pages[url] = html),
+                () => null,
+              ),
+            ),
+          )
+            .then(() => demarrer(pages))
+            .finally(() => (enCours = false));
         }
-        $("#CHS2_MainFrame").insertAfter("#o_choixLanceur");
-      }
-      $("#o_prepaChasse").toggle(v == "standard");
-      $("#CHS2_MainFrame").toggle(v == "budget");
-    };
+        $("#o_prepaChasse").toggle(v == "standard");
+        $("#CHS2_MainFrame").toggle(v == "budget");
+      };
     $("#o_choixLanceurSelect")
       .val(choix)
       .on("change", (e) => {

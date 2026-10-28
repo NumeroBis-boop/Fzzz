@@ -331,6 +331,30 @@ class Utils {
     }
   }
   /**
+   * Une ligne dans la console (F12) sur le temps de chargement de la page :
+   * connexion au jeu, attente de sa réponse, réception, puis démarrage de
+   * l'extension (de son premier script à la fin des outils de la page).
+   *
+   * @static
+   * @method noterChargement
+   * @param {Number} debutExtension performance.now() au début de content.js
+   */
+  static noterChargement(debutExtension) {
+    let finExtension = performance.now(),
+      noter = () => {
+        let n = /** @type {PerformanceNavigationTiming} */ (
+          performance.getEntriesByType("navigation")[0]
+        );
+        if (!n) return;
+        let ms = (a, b) => Math.max(0, Math.round(b - a)) + " ms";
+        console.info(
+          `[${NOM_EXTENSION}] chargement de la page : connexion ${ms(n.startTime, n.requestStart)}, réponse du jeu ${ms(n.requestStart, n.responseStart)}, réception ${ms(n.responseStart, n.responseEnd)}, page affichée à ${ms(0, n.domContentLoadedEventEnd)} ; extension ${ms(debutExtension, finExtension)} (de ${ms(0, debutExtension)} à ${ms(0, finExtension)})`,
+        );
+      };
+    if (document.readyState == "complete") setTimeout(noter, 0);
+    else window.addEventListener("load", () => setTimeout(noter, 0));
+  }
+  /**
    * Onglet des préférences réglé sur « Rétablir l'affichage d'origine » : les
    * pages de cet onglet restent telles que le jeu les affiche.
    *

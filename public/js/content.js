@@ -392,6 +392,7 @@ const DATEPICKER_OPTION = {
  * @class Main
  */
 !(function () {
+  const debutExtension = performance.now();
   // si l'utilisateur est identifié
   if ($(".boite_connexion_titre:first").text() != "Connexion") {
     // Modification du theme jquery humanity
@@ -696,6 +697,7 @@ const DATEPICKER_OPTION = {
             text: `${NOM_EXTENSION} : une erreur a empêché certains outils de s'afficher sur cette page.`,
           });
         }
+        Utils.noterChargement(debutExtension);
       });
   }
 })();

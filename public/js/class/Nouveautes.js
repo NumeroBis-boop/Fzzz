@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.59.3",
+    notes: [
+      "Lanceur « Budget de pertes » : ne fige plus la page Ressources en attendant le jeu.",
+      "Console (F12) : une ligne par page indique où passe le temps de chargement (jeu ou extension).",
+    ],
+  },
+  {
     version: "1.59.2",
     notes: ["Préférences : réglage « Couleurs des boîtes » retiré (couleurs par défaut)."],
   },

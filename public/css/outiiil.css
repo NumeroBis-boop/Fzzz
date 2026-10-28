@@ -2274,7 +2274,6 @@ tr.en_tete_message > td.td_coche {
   margin: 0 0 6px;
   padding-bottom: 4px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
-  font-size: var(--fzzz-titre);
 }
 .o_convoisMembres td,
 .o_convoisMembres th {

@@ -51,55 +51,6 @@ class CommerceFzzz {
     return cadre;
   }
   /**
-   * Titre « Convois » du cadre du jeu : premier élément de #centre, avant les
-   * convois en cours, dont le texte seul est « Convois ».
-   *
-   * @static
-   * @method titreConvoi
-   */
-  static titreConvoi() {
-    let trouve = null;
-    $("#centre *").each((i, e) => {
-      if ($(e).is("h3") && $(e).text().includes("Convois en cours")) return false;
-      if (e.closest("#o_convoisMembres")) return;
-      let propre = Array.from(e.childNodes)
-        .filter((n) => n.nodeType == 3)
-        .map((n) => n.textContent)
-        .join("")
-        .trim();
-      if (/^Convois?\s*:?$/i.test(propre)) {
-        trouve = e;
-        return false;
-      }
-    });
-    return trouve;
-  }
-  /**
-   * Même typographie que le titre « Convois » du jeu.
-   *
-   * @static
-   * @method calerTitre
-   */
-  static calerTitre($bloc) {
-    let titre = CommerceFzzz.titreConvoi();
-    if (!titre) return;
-    let st = getComputedStyle(titre),
-      css = {};
-    for (let k of [
-      "fontFamily",
-      "fontSize",
-      "fontWeight",
-      "fontStyle",
-      "color",
-      "letterSpacing",
-      "textTransform",
-      "textAlign",
-      "textShadow",
-    ])
-      css[k] = st[k];
-    $bloc.find(".o_convoisMembresTitre").css(css);
-  }
-  /**
    * Même largeur et même bord gauche que le cadre « Organiser un convoi ».
    *
    * @static
@@ -293,7 +244,7 @@ class CommerceFzzz {
       },
       // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
-          <h3 class='o_convoisMembresTitre'>Récapitulatif</h3>
+          <div class='o_convoisMembresTitre'><span class='titre'>Récapitulatif</span></div>
           <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
             <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th><th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
@@ -357,7 +308,6 @@ class CommerceFzzz {
     else $("#centre").append($bloc);
     afficher();
     CommerceFzzz.calerSurCadreConvoi($bloc);
-    CommerceFzzz.calerTitre($bloc);
     $(window).on("resize", () => CommerceFzzz.calerSurCadreConvoi($bloc));
     $bloc.on("click", ".o_triIcone", (e) => {
       let col = $(e.currentTarget).closest("th").data("tri");

@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.52.10",
+    notes: ["Convois à faire devient « Récapitulatif », titre écrit comme « Convois » au-dessus."],
+  },
+  {
     version: "1.52.9",
     notes: [
       "Convois à faire : cadre de la même largeur que le cadre « Convoi » du jeu, juste au-dessus.",

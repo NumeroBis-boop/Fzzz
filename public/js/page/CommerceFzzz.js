@@ -138,11 +138,18 @@ class CommerceFzzz {
             TOAST_ERROR,
           );
       },
+      noterForum = (liste) =>
+        ConvoisForum.noter(liste).catch((e) =>
+          toast(
+            `${liste.length > 1 ? "Convois notés" : "Convoi noté"} sur le site de suivi, mais pas dans le forum de l'alliance (${e.message == "absente" ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » introuvable" : Utils.echapper(e.message)}) : sur un autre appareil, ${liste.length > 1 ? "ils pourront" : "il pourra"} s'afficher « Pas encore noté ».`,
+            TOAST_WARNING,
+          ),
+        ),
       envoyer = (c) => {
         etatLigne(c, "envoi");
         OuafSuivi.envoyer([c], (x, statut, detail) => {
           etatLigne(x, statut, detail);
-          if (statut == "envoye") ConvoisForum.noter([x]);
+          if (statut == "envoye") noterForum([x]);
         }).then(
           (b) => {
             if (b.introuvables)
@@ -161,7 +168,7 @@ class CommerceFzzz {
     convois.forEach((c) => etatLigne(c, "verif"));
     // ouverture de la page : numéros notés dans le forum (exacts), puis
     // historique du site pour les convois qui n'y sont pas
-    let forum = ConvoisForum.transmis();
+    let forum = ConvoisForum.notes();
     OuafSuivi.lireCode().then((code) => {
       let site = code
         ? OuafSuivi.etat(convois).then(
@@ -170,11 +177,24 @@ class CommerceFzzz {
           )
         : Promise.resolve({ transmis: new Set() });
       Promise.all([forum, site]).then(([notes, r]) => {
+        let ids = new Set(notes.map((n) => n.id)),
+          // convoi sans numéro (lien Annuler disparu, autre appareil) : reconnu
+          // dans le forum par destinataire, montant et arrivée
+          pris = new Set(convois.map((c) => c.id).filter((id) => id && ids.has(id))),
+          aNoter = [];
         convois.forEach((c) => {
-          if (c.id && notes.has(c.id)) etatLigne(c, "transmis", "Noté dans le forum de l'alliance");
-          else if (r.transmis) etatLigne(c, r.transmis.has(c.cle) ? "transmis" : "non");
-          else etatLigne(c, "non", "état du site inconnu");
+          let retrouve = !c.id && OuafSuivi.retrouver(notes, c, pris);
+          if (retrouve) pris.add(retrouve.id);
+          if ((c.id && ids.has(c.id)) || retrouve)
+            etatLigne(c, "transmis", "Noté dans le forum de l'alliance");
+          else if (r.transmis) {
+            let fait = r.transmis.has(c.cle);
+            etatLigne(c, fait ? "transmis" : "non");
+            // noté sur le site mais pas dans le forum : ajouté pour les autres appareils
+            if (fait && c.id) aNoter.push(c);
+          } else etatLigne(c, "non", "état du site inconnu");
         });
+        if (aNoter.length) noterForum(aNoter);
         // site injoignable à l'ouverture de la page : expliqué au clic sur un envoi
         if (r.erreur && r.erreur.name != "permission" && r.erreur.name != "reseau") echec(r.erreur);
       });

@@ -18,7 +18,8 @@ let fileConvoisForum = Promise.resolve();
  * Une ligne par convoi : « 27/10/26 21:37 | Kwhwwymwn | 250 000 | #123456 »
  * (arrivée, destinataire, montant). Les convois arrivés sont retirés à chaque
  * écriture. Requêtes : lecture à l'ouverture de la page Convois, écriture
- * après un envoi au suivi.
+ * après un envoi au suivi, ou à l'ouverture pour un convoi déjà noté sur le
+ * site mais absent du sujet.
  *
  * @class ConvoisForum
  */
@@ -92,18 +93,20 @@ class ConvoisForum {
     });
   }
   /**
-   * Numéros des convois notés dans le sujet du joueur ; vide si la section ou
-   * le sujet n'existe pas.
+   * Convois notés dans le sujet du joueur ; vide si la section ou le sujet
+   * n'existe pas.
    *
    * @static
-   * @method transmis
-   * @return {Promise<Set<Number>>}
+   * @method notes
+   * @return {Promise<Array>} [{id, vers, montant, arrivee (ms)}]
    */
-  static transmis() {
+  static notes() {
     return ConvoisForum._sujet()
       .then((s) => ConvoisForum._contenu(s.id))
-      .then((convois) => new Set(convois.map((c) => c.id)))
-      .catch(() => new Set());
+      .then((convois) =>
+        convois.map((c) => ({ ...c, arrivee: moment(c.arrivee, "YYYY-MM-DD HH:mm").valueOf() })),
+      )
+      .catch(() => []);
   }
   /**
    * Ajoute des convois transmis au sujet du joueur (créé au premier envoi).
@@ -112,7 +115,7 @@ class ConvoisForum {
    * @static
    * @method noter
    * @param {Array} convois voir OuafSuivi.convoisJeu (id requis)
-   * @return {Promise}
+   * @return {Promise} rejetée si l'écriture a échoué
    */
   static noter(convois) {
     let nouveaux = convois
@@ -124,7 +127,7 @@ class ConvoisForum {
         id: c.id,
       }));
     if (!nouveaux.length) return Promise.resolve();
-    fileConvoisForum = fileConvoisForum
+    let ecriture = fileConvoisForum
       .then(() => ConvoisForum._sujet())
       .then((s) =>
         ConvoisForum._contenu(s.id).then((anciens) => {
@@ -143,8 +146,10 @@ class ConvoisForum {
                 `<xjxquery><q>cat=${PartageChasses.idSection}&${q}&type=normal&question=&reponse[]=&reponse[]=&reponse[]=</q></xjxquery>`,
               );
         }),
-      )
-      .catch((e) => console.error(`[${NOM_EXTENSION}] convois : note dans le forum impossible`, e));
-    return fileConvoisForum;
+      );
+    fileConvoisForum = ecriture.catch((e) =>
+      console.error(`[${NOM_EXTENSION}] convois : note dans le forum impossible`, e),
+    );
+    return ecriture;
   }
 }

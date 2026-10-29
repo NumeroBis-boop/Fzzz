@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.61.1",
+    notes: [
+      "Convois : un convoi envoyé au suivi reste « Enregistré » après la disparition de son lien Annuler, et sur un autre appareil.",
+      "Convois : un avertissement s'affiche si le convoi n'a pas pu être noté dans le forum de l'alliance ; un convoi retrouvé sur le site de suivi mais absent du forum y est ajouté.",
+    ],
+  },
+  {
     version: "1.61.0",
     notes: [
       "Alliance → Membres : la page s'ouvre toujours sur la vue Standard, sans lecture du forum ; les floods et chasses partagés ne sont chargés qu'au clic sur leur vue.",

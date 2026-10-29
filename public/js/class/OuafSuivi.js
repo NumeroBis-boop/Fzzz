@@ -10,6 +10,11 @@ const OUAF_SITE = "http://ouafchaine.fr/";
 const CLE_OUAF_CODE = "fzzz_ouafCode";
 // convois transmis depuis ce navigateur : {clé du convoi: date (ms)}
 const CLE_OUAF_TRANSMIS = "fzzz_ouafTransmis";
+// numéros des convois vus avec leur lien Annuler : {numéro: {vers, montant, arrivee (ms)}}
+const CLE_OUAF_NUMEROS = "fzzz_ouafNumeros";
+// écart d'arrivée toléré pour reconnaître un convoi sans son lien Annuler
+// (heure lue à la seconde près ici, à la minute dans le forum)
+const OUAF_ECART_ARRIVEE = 2 * 60000;
 // au-delà, un convoi est forcément arrivé : son marquage local est oublié
 const OUAF_DUREE_VIE = 10 * 86400000;
 // trajet maximal d'un convoi (vitesse 0) : fenêtre de recherche dans l'historique
@@ -151,7 +156,7 @@ class OuafSuivi {
    * @return {Array} [{elt, cle, id, vers, montant, arrivee (ms), depart (ms, null si trajet inconnu)}]
    */
   static convoisJeu() {
-    return CommerceFzzz.lignes()
+    let convois = CommerceFzzz.lignes()
       .get()
       .map((elt) => {
         let texte = CommerceFzzz.texte(elt),
@@ -164,14 +169,9 @@ class OuafSuivi {
           montant = nombre(m[1]) + nombre(m[2]),
           arrivee = Horloge.serveur().valueOf() + Utils.timeToInt(m[4]) * 1000,
           trajet = OuafSuivi.trajet(vers),
-          annuler = OuafSuivi._lienAnnuler(elt),
-          // numéro d'annulation du jeu, sinon destinataire, montant et minute d'arrivée
-          cle = annuler
-            ? "id" + annuler
-            : `${vers.toLowerCase()}|${montant}|${Math.round(arrivee / 60000)}`;
+          annuler = OuafSuivi._lienAnnuler(elt);
         return {
           elt,
-          cle,
           // numéro du convoi dans le jeu (lien Annuler), noté dans le forum
           id: annuler ? parseInt(annuler) : null,
           vers,
@@ -181,6 +181,65 @@ class OuafSuivi {
         };
       })
       .filter(Boolean);
+    OuafSuivi.numeroter(convois);
+    // numéro d'annulation du jeu, sinon destinataire, montant et minute d'arrivée
+    convois.forEach(
+      (c) =>
+        (c.cle = c.id
+          ? "id" + c.id
+          : `${c.vers.toLowerCase()}|${c.montant}|${Math.round(c.arrivee / 60000)}`),
+    );
+    return convois;
+  }
+  /**
+   * Le lien Annuler d'un convoi peut disparaître avant son arrivée : son numéro,
+   * retenu quand il était visible, lui est rendu (même destinataire, même
+   * montant, même arrivée).
+   *
+   * @static
+   * @method numeroter
+   * @param {Array} convois voir convoisJeu (sans cle)
+   */
+  static numeroter(convois) {
+    let maintenant = Date.now(),
+      retenus = Utils.lireStockage(CLE_OUAF_NUMEROS, {});
+    for (let id in retenus) if (retenus[id].arrivee < maintenant) delete retenus[id];
+    convois
+      .filter((c) => c.id)
+      .forEach(
+        (c) =>
+          (retenus[c.id] = { vers: c.vers.toLowerCase(), montant: c.montant, arrivee: c.arrivee }),
+      );
+    let liste = Object.keys(retenus).map((id) => ({ ...retenus[id], id: parseInt(id) })),
+      pris = new Set(convois.map((c) => c.id).filter(Boolean));
+    convois
+      .filter((c) => !c.id)
+      .forEach((c) => {
+        let n = OuafSuivi.retrouver(liste, c, pris);
+        if (n) pris.add((c.id = n.id));
+      });
+    try {
+      localStorage.setItem(CLE_OUAF_NUMEROS, JSON.stringify(retenus));
+    } catch (e) {}
+  }
+  /**
+   * Convoi noté (forum ou ce navigateur) correspondant à un convoi de la page.
+   *
+   * @static
+   * @method retrouver
+   * @param {Array} notes [{id, vers, montant, arrivee (ms)}]
+   * @param {Object} c {vers, montant, arrivee (ms)}
+   * @param {Set<Number>} pris numéros déjà attribués, non réutilisés
+   * @return {Object|undefined}
+   */
+  static retrouver(notes, c, pris) {
+    return notes.find(
+      (n) =>
+        !pris.has(n.id) &&
+        String(n.vers).toLowerCase() == c.vers.toLowerCase() &&
+        n.montant == c.montant &&
+        Math.abs(n.arrivee - c.arrivee) <= OUAF_ECART_ARRIVEE,
+    );
   }
   /**
    * Temps de trajet (s) d'un convoi vers un membre, d'après ses coordonnées

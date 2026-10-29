@@ -203,3 +203,48 @@ describe("avance notée sur le site", () => {
     ]);
   });
 });
+
+describe("numéro d'un convoi dont le lien Annuler a disparu", () => {
+  const arrivee = Date.now() + 3 * 3600000;
+  const numeroter = (convois: object[]) =>
+    page.lire<{ id: number | null }[]>(
+      `(() => { let c = ${JSON.stringify(convois)}; OuafSuivi.numeroter(c); return c; })()`,
+    );
+
+  test("numéro rendu au même convoi, pas à un autre montant ni à un autre joueur", () => {
+    page.lire(`localStorage.clear()`);
+    numeroter([{ id: 777, vers: "Alpha", montant: 280000, arrivee }]);
+    expect(
+      numeroter([
+        { id: null, vers: "beta", montant: 280000, arrivee },
+        { id: null, vers: "alpha", montant: 280001, arrivee },
+        { id: null, vers: "alpha", montant: 280000, arrivee: arrivee + 1000 },
+      ]).map((c) => c.id),
+    ).toEqual([null, null, 777]);
+  });
+
+  test("deux convois identiques : le numéro ne sert qu'une fois", () => {
+    page.lire(`localStorage.clear()`);
+    numeroter([{ id: 5, vers: "Alpha", montant: 100, arrivee }]);
+    expect(
+      numeroter([
+        { id: null, vers: "Alpha", montant: 100, arrivee },
+        { id: null, vers: "Alpha", montant: 100, arrivee },
+      ]).map((c) => c.id),
+    ).toEqual([5, null]);
+  });
+
+  test("arrivée trop différente ou convoi déjà arrivé : pas de numéro", () => {
+    page.lire(`localStorage.clear()`);
+    numeroter([
+      { id: 6, vers: "Alpha", montant: 100, arrivee },
+      { id: 7, vers: "Gamma", montant: 100, arrivee: Date.now() - 60000 },
+    ]);
+    expect(
+      numeroter([
+        { id: null, vers: "Alpha", montant: 100, arrivee: arrivee + 5 * 60000 },
+        { id: null, vers: "Gamma", montant: 100, arrivee: Date.now() - 60000 },
+      ]).map((c) => c.id),
+    ).toEqual([null, null]);
+  });
+});

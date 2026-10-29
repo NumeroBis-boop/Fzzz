@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.61.2",
+    notes: [
+      "Mes attaques en cours : l'heure d'arrivée n'est plus en avance sur téléphone après une mise en veille (écart égal à la durée de veille).",
+    ],
+  },
+  {
     version: "1.61.1",
     notes: [
       "Convois : un convoi envoyé au suivi reste « Enregistré » après la disparition de son lien Annuler, et sur un autre appareil.",

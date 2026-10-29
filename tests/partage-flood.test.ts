@@ -137,3 +137,21 @@ describe("arrivée d'une attaque", () => {
     expect(Math.abs(r[0]! - r[1]!)).toBeLessThanOrEqual(1000);
   });
 });
+
+describe("heure de réception de la page", () => {
+  test("timeOrigin en retard (téléphone sorti de veille) : ignoré", () => {
+    // horloge de performance arrêtée 20 min pendant la veille : timeOrigin + responseStart
+    // retarde de 20 min, l'écart now() − responseStart reste juste
+    const ecart = page.lire<number>(`(() => {
+      let vrais = [performance.getEntriesByType, performance.now], maintenant = 60000;
+      performance.getEntriesByType = () => [{ responseStart: maintenant - 3000 }];
+      performance.now = () => maintenant;
+      Object.defineProperty(performance, "timeOrigin", { value: Date.now() - maintenant - 20 * 60000, configurable: true });
+      let r = AttaqueLancee.receptionPage();
+      [performance.getEntriesByType, performance.now] = vrais;
+      return Date.now() - r;
+    })()`);
+    expect(ecart).toBeGreaterThanOrEqual(3000);
+    expect(ecart).toBeLessThan(3500);
+  });
+});

@@ -168,7 +168,11 @@ class AttaqueLancee {
       let nav = /** @type {PerformanceNavigationTiming} */ (
         performance.getEntriesByType("navigation")[0]
       );
-      if (nav && nav.responseStart > 0) return performance.timeOrigin + nav.responseStart;
+      // délai écoulé mesuré sur l'horloge de performance, sans timeOrigin : sur
+      // téléphone, cette horloge s'arrête pendant la veille et timeOrigin peut
+      // retarder de la durée de veille sur l'heure du PC
+      if (nav && nav.responseStart > 0)
+        return Date.now() - Math.max(0, performance.now() - nav.responseStart);
     } catch (e) {}
     return Date.now();
   }

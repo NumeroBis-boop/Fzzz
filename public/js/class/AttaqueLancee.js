@@ -118,7 +118,8 @@ class AttaqueLancee {
    * d'un document, triées par id d'attaque croissant (= ordre de lancement).
    *
    * @param {jQuery} racine document (ou fragment) à parcourir
-   * @return {Array} liste {elt, id, cible (null pour un renfort), cibleHtml, secondes, arrivee}
+   * @return {Array} liste {elt, id, cible (null pour un renfort), cibleHtml, secondes, arrivee,
+   *   minuteJeu (ms ou null), incertaine (arrivée à la minute du jeu, horloge décalée)}
    */
   static extraireLignes(racine = $(document)) {
     // le compteur du jeu est un nombre entier de secondes restantes au moment
@@ -138,7 +139,13 @@ class AttaqueLancee {
       let natifs = AttaqueLancee.noeudsLigne(elt),
         texte = natifs.map((n) => n.textContent).join(" "),
         lieu = texte.match(/\((terrain de chasse|fourmilière|loge impériale)\)/i),
-        troupes = texte.match(/Troupes en attaques?\s*:\s*(.+?)\s*(?:Arrivée|$)/i);
+        troupes = texte.match(/Troupes en attaques?\s*:\s*(.+?)\s*(?:Arrivée|$)/i),
+        arrivee = moment(secondeProduite + secondes * 1000),
+        minuteJeu = AttaqueLancee.minuteJeu(texte, arrivee),
+        // l'horloge du navigateur peut être décalée (veille, cache) : la minute
+        // écrite par le serveur fait foi, les secondes sont alors inconnues
+        incertaine = minuteJeu != null && !AttaqueLancee.memeMinute(arrivee, minuteJeu);
+      if (incertaine) arrivee = moment(minuteJeu + 30000);
       lignes.push({
         elt: elt,
         id: parseInt($(elt).attr("id").split("_")[1]),
@@ -149,12 +156,44 @@ class AttaqueLancee {
         // le titre du tableau pour garder les pseudos cliquables (issue #25)
         cibleHtml: $(elt).prev().find("a").length ? $(elt).prev().html() : null,
         secondes: secondes,
-        arrivee: moment(secondeProduite + secondes * 1000),
+        arrivee: arrivee,
+        minuteJeu: minuteJeu,
+        incertaine: incertaine,
         lieuNatif: lieu ? lieu[1] : null,
         troupesNatif: troupes ? troupes[1] : null,
       });
     });
     return lignes.sort((a, b) => a.id - b.id);
+  }
+  /**
+   * Minute d'arrivée écrite par le jeu (« Arrivée à 17h59 », C+), placée au
+   * jour le plus proche de l'arrivée calculée ; null si absente.
+   *
+   * @static
+   * @method minuteJeu
+   * @param {String} texte texte de la ligne d'attaque
+   * @param {Object} arrivee moment, arrivée calculée
+   * @return {Number|null} ms
+   */
+  static minuteJeu(texte, arrivee) {
+    let m = String(texte).match(/Arrivée à (\d{1,2})h(\d{2})/i);
+    if (!m) return null;
+    let minute = arrivee.clone().hours(parseInt(m[1])).minutes(parseInt(m[2])).startOf("minute"),
+      ecart = minute.diff(arrivee, "hours", true);
+    if (ecart > 12) minute.subtract(1, "day");
+    else if (ecart < -12) minute.add(1, "day");
+    return minute.valueOf();
+  }
+  /**
+   * L'arrivée calculée correspond-elle à la minute du jeu ? Tolérance d'une
+   * minute de chaque côté : le jeu peut tronquer ou arrondir.
+   *
+   * @static
+   * @method memeMinute
+   */
+  static memeMinute(arrivee, minuteJeu) {
+    let ecart = arrivee.valueOf() - minuteJeu;
+    return ecart >= -60000 && ecart < 120000;
   }
   /**
    * Instant (horloge du PC, ms) où la page courante a commencé d'arriver,
@@ -286,6 +325,15 @@ class AttaqueLancee {
       modifie = true;
     });
     liste = liste.filter((a) => !a.id || lignes.some((l) => l.id == a.id));
+    // arrivée capturée avec une horloge décalée : celle de la page la remplace
+    liste.forEach((a) => {
+      let l = a.id && lignes.find((x) => x.id == a.id);
+      if (l && l.minuteJeu != null && a.arrivee && Math.abs(a.arrivee - l.arrivee) > 90000) {
+        a.arrivee = l.arrivee.valueOf();
+        AttaqueLancee.noterDehors(a);
+        modifie = true;
+      }
+    });
     TroupesDehors.synchroniserAttaques(lignes);
     if (AttaqueLancee.recalculerTerrains(liste)) modifie = true;
     if (modifie) AttaqueLancee.sauvegarder(liste);
@@ -383,7 +431,11 @@ class AttaqueLancee {
         <tbody>`;
     attaques.forEach((a, i) => {
       html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
-        <td title="RC à ${Utils.minuteRC(a.ligne.arrivee).format("HH[h]mm")}">${a.ligne.arrivee.format("DD/MM HH[h]mm:ss")}</td>
+        ${
+          a.ligne.incertaine
+            ? `<td class="o_arriveeIncertaine" title="Heure du jeu, à la minute : l'horloge de ce navigateur est décalée (mise en veille, cache). Recharge la page pour retrouver les secondes.">${a.ligne.arrivee.format("DD/MM HH[h]mm")}</td>`
+            : `<td title="RC à ${Utils.minuteRC(a.ligne.arrivee).format("HH[h]mm")}">${a.ligne.arrivee.format("DD/MM HH[h]mm:ss")}</td>`
+        }
         <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
         <td class="o_lieuAttaque" title="${AttaqueLancee.lieu(a) || "Lieu inconnu"}">${AttaqueLancee.lieuCourt(a)}</td>

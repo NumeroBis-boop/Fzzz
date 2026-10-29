@@ -1132,6 +1132,10 @@ hr.o_scSepar {
 .o_attaquesLancees td.o_attaqueActions {
   text-align: left;
 }
+/* minute du jeu seule : horloge du navigateur décalée */
+.o_attaquesLancees td.o_arriveeIncertaine {
+  font-style: italic;
+}
 /* seuls les titres passent à la ligne */
 .o_attaquesLancees th {
   white-space: normal;

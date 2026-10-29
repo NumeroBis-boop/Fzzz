@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
-const page = creerPage(["js/class/Utils.js", "js/class/AttaqueLancee.js"]);
+const page = creerPage(
+  ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
+  // heure serveur = heure du PC + DECALAGE (horloge de l'extension faussée si non nul)
+  "var DECALAGE = 0; var Horloge = { serveurA: (t) => moment(t + DECALAGE) };",
+);
 const partage = (capture: string) =>
   page.lire<string>(
     `JSON.stringify(AttaqueLancee.pourPartage({
@@ -153,5 +157,36 @@ describe("heure de réception de la page", () => {
     })()`);
     expect(ecart).toBeGreaterThanOrEqual(3000);
     expect(ecart).toBeLessThan(3500);
+  });
+});
+
+describe("arrivée d'une attaque, minute écrite par le jeu", () => {
+  const S = 13711;
+  // page du jeu (C+) : compte à rebours en secondes et « Arrivée à HHhMM »
+  const lire = (decalage: number) =>
+    page.lire<{ arrivee: number; incertaine: boolean; reelle: number }>(`(() => {
+      DECALAGE = ${decalage};
+      let reelle = Date.now() + ${S} * 1000,
+        html = '<h3>Attaque(s) en cours</h3>- Vous allez attaquer <span class="gras"><a href="Membre.php?Pseudo=Callisto">Callisto</a></span> (Terrain de chasse) dans <span class="gras" id="attaque_98529">3H 48m 31s</span><script>reste(${S}, "attaque_98529");</script> - <a href="/ennemie.php?annuler=98529">Annuler</a><br /><small><em> Troupes en attaques : 1 Jeune Soldate Naine.<br />Arrivée à ' + moment(reelle).format("HH[h]mm") + '</em></small><br/>',
+        l = AttaqueLancee.extraireLignes(Utils.parseHtml(html))[0];
+      return { arrivee: l.arrivee.valueOf(), incertaine: l.incertaine, reelle };
+    })()`);
+
+  test("horloge juste : arrivée calculée à la seconde", () => {
+    const r = lire(0);
+    expect(r.incertaine).toBe(false);
+    expect(Math.abs(r.arrivee - r.reelle)).toBeLessThan(1000);
+  });
+  test("horloge en retard de 20 min : minute du jeu, sans secondes", () => {
+    const r = lire(-20 * 60000);
+    expect(r.incertaine).toBe(true);
+    expect(r.arrivee % 60000).toBe(30000);
+    expect(Math.floor(r.arrivee / 60000)).toBe(Math.floor(r.reelle / 60000));
+  });
+  test("minute du jeu au jour le plus proche (arrivée après minuit)", () => {
+    const calcule = page.lire<number>(
+      `AttaqueLancee.minuteJeu("Arrivée à 00h05", moment("2026-10-29T23:58:00"))`,
+    );
+    expect(calcule).toBe(page.lire<number>(`moment("2026-10-30T00:05:00").valueOf()`));
   });
 });

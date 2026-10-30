@@ -36,19 +36,13 @@ describe("clic sur un montant du Récapitulatif", () => {
     expect(champs()[0]).toBe("5000");
   });
 
-  test("après rechargement : appliqué une fois, seulement pour le bon destinataire", () => {
-    formulaire("3460273", "Missyl");
-    page.lire(
-      `sessionStorage.setItem("fzzz_montantConvoi", JSON.stringify({ pseudo: "missyl", montant: 353765, quand: Date.now() })); CommerceFzzz.appliquerMontant()`,
-    );
-    expect(champs()[0]).toBe("353765");
-    formulaire("3460273", "Missyl");
-    page.lire(`CommerceFzzz.appliquerMontant()`);
-    expect(champs()[0]).toBe("");
-    formulaire("3460273", "Grim");
-    page.lire(
-      `sessionStorage.setItem("fzzz_montantConvoi", JSON.stringify({ pseudo: "Missyl", montant: 353765, quand: Date.now() })); CommerceFzzz.appliquerMontant()`,
-    );
-    expect(champs()[0]).toBe("");
+  test("destinataire écrit sans focus ni événement (pas de liste de suggestions)", () => {
+    formulaire("3460273");
+    const r = page.lire<{ val: string; focus: boolean; evts: number }>(`(() => {
+      let n = 0, $c = $("#pseudo_convoi").on("focus input change keyup keydown", () => n++);
+      CommerceFzzz.remplirDestinataire("Missyl");
+      return { val: $c.val(), focus: document.activeElement === $c[0], evts: n };
+    })()`);
+    expect(r).toEqual({ val: "Missyl", focus: false, evts: 0 });
   });
 });

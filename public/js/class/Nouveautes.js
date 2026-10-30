@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.62.1",
+    notes: [
+      "Convois → Récapitulatif : un clic sur un pseudo ou un montant écrit directement le destinataire (et les matériaux) dans le bloc Convoi, sans recharger la page.",
+    ],
+  },
+  {
     version: "1.62.0",
     notes: [
       "Convois → Récapitulatif : cliquer sur le montant d'un convoi à faire prépare le convoi vers ce joueur avec ce montant en matériaux (au plus ton stock). Tu valides toi-même.",

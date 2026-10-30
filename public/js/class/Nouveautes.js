@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.62.2",
+    notes: [
+      "Convois → Récapitulatif : le clic sur un montant garde à la fourmilière les ouvrières qui exploitent ton terrain ; le montant est réduit à ce que les autres peuvent porter (un message l'indique).",
+    ],
+  },
+  {
     version: "1.62.1",
     notes: [
       "Convois → Récapitulatif : un clic sur un pseudo ou un montant écrit directement le destinataire (et les matériaux) dans le bloc Convoi, sans recharger la page.",

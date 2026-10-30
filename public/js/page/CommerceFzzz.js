@@ -216,22 +216,25 @@ class CommerceFzzz {
     if (document.activeElement === $champ[0]) $champ.trigger("blur");
   }
   /**
-   * Quantité de matériaux à écrire : le montant dû, au plus le stock, en
-   * chiffres seuls (le champ du jeu refuse les espaces).
+   * Quantité de matériaux à écrire, en chiffres seuls (le champ du jeu refuse
+   * les espaces) : le montant dû, au plus le stock et au plus ce que peuvent
+   * porter les ouvrières qui ne sont pas nécessaires au terrain.
    *
    * @static
    * @method montantMateriaux
    * @param {Number} du montant restant à livrer
    * @param {Number} stock matériaux en stock (NaN si inconnu)
+   * @param {Number} [portable] ressources transportables en plus de la nourriture déjà saisie (NaN si inconnu)
    * @return {String}
    */
-  static montantMateriaux(du, stock) {
-    let n = Math.floor(isNaN(stock) ? du : Math.min(du, stock));
-    return String(Math.max(0, n));
+  static montantMateriaux(du, stock, portable = NaN) {
+    let n = Math.min(du, isNaN(stock) ? du : stock, isNaN(portable) ? du : portable);
+    return String(Math.max(0, Math.floor(n)));
   }
   /**
-   * Écrit les matériaux du convoi (nourriture inchangée) et recalcule les
-   * ouvrières, comme les liens « arrondir… ».
+   * Écrit les matériaux du convoi (nourriture inchangée) et les ouvrières
+   * nécessaires. Les ouvrières qui exploitent le terrain (une par cm²)
+   * restent à la fourmilière : seules les autres partent en convoi.
    *
    * @static
    * @method remplirMateriaux
@@ -239,13 +242,25 @@ class CommerceFzzz {
    */
   static remplirMateriaux(du) {
     if (!$("#input_nbMateriaux").length) return;
-    let mat = CommerceFzzz.montantMateriaux(du, Utils.materiaux),
+    let parOuvriere = 10 + monProfil.niveauConstruction[11] / 2,
+      total = Utils.ouvrieres,
+      libres = total - Math.min(total, Utils.terrain || 0),
       nou = Math.floor(parseFloat($("#nbNourriture").val())) || 0,
-      ouvrieres = Math.floor((parseInt(mat) + nou) / (10 + monProfil.niveauConstruction[11] / 2));
+      mat = CommerceFzzz.montantMateriaux(du, Utils.materiaux, libres * parOuvriere - nou),
+      ouvrieres = Math.ceil((parseInt(mat) + nou) / parOuvriere);
     $("#input_nbMateriaux").val(mat);
     $("#nbMateriaux").val(mat);
     $("#input_nbOuvriere").val(String(ouvrieres));
     $("#nbOuvriere").val(ouvrieres);
+    if (parseInt(mat) < Math.floor(du))
+      $.toast({
+        ...TOAST_INFO,
+        text: `Matériaux réduits à ${numeral(mat).format()} sur ${numeral(du).format()} : ${
+          parseInt(mat) >= Utils.materiaux
+            ? "stock"
+            : "ouvrières à garder pour exploiter le terrain"
+        }.`,
+      });
   }
   /**
    * Tableau « Joueur à livrer » sous les convois en cours : pour chaque membre

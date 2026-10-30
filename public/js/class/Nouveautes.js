@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.62.0",
+    notes: [
+      "Convois → Récapitulatif : cliquer sur le montant d'un convoi à faire prépare le convoi vers ce joueur avec ce montant en matériaux (au plus ton stock). Tu valides toi-même.",
+    ],
+  },
+  {
     version: "1.61.3",
     notes: [
       "Mes attaques en cours : l'heure d'arrivée est vérifiée avec celle qu'écrit le jeu (« Arrivée à … »). Si l'horloge du navigateur est décalée, l'heure du jeu s'affiche, à la minute (en italique), et c'est elle qui est partagée.",

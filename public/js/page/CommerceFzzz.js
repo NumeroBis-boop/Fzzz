@@ -8,6 +8,11 @@ const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
 // tri du « Récapitulatif » : gardé tant qu'on reste sur la page Convois
 // (envoi d'un convoi = rechargement), oublié au chargement d'une autre page
 const CLE_TRI_CONVOIS = "fzzz_triConvoisMembres";
+// montant à écrire dans Matériaux après le rechargement commerce.php?ID=… :
+// {pseudo, montant, quand}, appliqué une fois
+const CLE_MONTANT_CONVOI = "fzzz_montantConvoi";
+// au-delà, le rechargement n'a pas eu lieu (clic abandonné) : montant oublié
+const VALIDITE_MONTANT_CONVOI = 60000;
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
@@ -201,6 +206,58 @@ class CommerceFzzz {
     });
   }
   /**
+   * Quantité de matériaux à écrire : le montant dû, au plus le stock, en
+   * chiffres seuls (le champ du jeu refuse les espaces).
+   *
+   * @static
+   * @method montantMateriaux
+   * @param {Number} du montant restant à livrer
+   * @param {Number} stock matériaux en stock (NaN si inconnu)
+   * @return {String}
+   */
+  static montantMateriaux(du, stock) {
+    let n = Math.floor(isNaN(stock) ? du : Math.min(du, stock));
+    return String(Math.max(0, n));
+  }
+  /**
+   * Écrit les matériaux du convoi (nourriture inchangée) et recalcule les
+   * ouvrières, comme les liens « arrondir… ».
+   *
+   * @static
+   * @method remplirMateriaux
+   * @param {Number} du montant restant à livrer
+   */
+  static remplirMateriaux(du) {
+    if (!$("#input_nbMateriaux").length) return;
+    let mat = CommerceFzzz.montantMateriaux(du, Utils.materiaux),
+      nou = Math.floor(parseFloat($("#nbNourriture").val())) || 0,
+      ouvrieres = Math.floor((parseInt(mat) + nou) / (10 + monProfil.niveauConstruction[11] / 2));
+    $("#input_nbMateriaux").val(mat);
+    $("#nbMateriaux").val(mat);
+    $("#input_nbOuvriere").val(String(ouvrieres));
+    $("#nbOuvriere").val(ouvrieres);
+  }
+  /**
+   * Après le rechargement commerce.php?ID=… demandé par un clic sur un montant
+   * du Récapitulatif : matériaux écrits si le destinataire est bien celui-là.
+   *
+   * @static
+   * @method appliquerMontant
+   */
+  static appliquerMontant() {
+    let demande = null;
+    try {
+      demande = JSON.parse(sessionStorage.getItem(CLE_MONTANT_CONVOI));
+      sessionStorage.removeItem(CLE_MONTANT_CONVOI);
+    } catch (e) {}
+    if (!demande || Date.now() - demande.quand > VALIDITE_MONTANT_CONVOI) return;
+    let destinataire = String($("#pseudo_convoi").val() || "")
+      .trim()
+      .toLowerCase();
+    if (destinataire == String(demande.pseudo).toLowerCase())
+      CommerceFzzz.remplirMateriaux(demande.montant);
+  }
+  /**
    * Numéro d'un joueur, retenu dans le cache de la carte d'alliance.
    *
    * @static
@@ -258,8 +315,10 @@ class CommerceFzzz {
         if (ouaf.etat == "erreur")
           return `<span class='small' title='${Utils.echapper(ouaf.erreur || "")}'>?</span>`;
         let r = ouaf.restes.get(p.toLowerCase());
-        return r == null
-          ? "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>"
+        if (r == null)
+          return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>";
+        return r > 0
+          ? `<a href='#' class='o_convoisMembreMontant' data-montant='${Math.round(r)}' title='Clic : convoi vers ${Utils.echapper(p)} avec ce montant en matériaux (au plus ton stock)'>${numeral(r).format()}</a>`
           : numeral(r).format();
       },
       choix = () => {
@@ -355,11 +414,18 @@ class CommerceFzzz {
       } catch (err) {}
       afficher();
     });
-    $bloc.on("click", ".o_convoisMembreDestinataire", (e) => {
-      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
-      e.preventDefault();
-      let pseudo = String($(e.currentTarget).closest("tr").data("pseudo")),
-        ouvrir = (id) => (location.href = `commerce.php?ID=${id}`);
+    // destinataire (et montant en matériaux) préremplis ; le joueur valide lui-même
+    let preparer = (pseudo, montant = null) => {
+      let ouvrir = (id) => {
+        if (montant != null)
+          try {
+            sessionStorage.setItem(
+              CLE_MONTANT_CONVOI,
+              JSON.stringify({ pseudo, montant, quand: Date.now() }),
+            );
+          } catch (err) {}
+        location.href = `commerce.php?ID=${id}`;
+      };
       if (connus[pseudo] && connus[pseudo].id) return ouvrir(connus[pseudo].id);
       // numéro du joueur inconnu : lu sur son profil, puis retenu dans le cache
       // de la carte d'alliance pour les fois suivantes
@@ -377,7 +443,20 @@ class CommerceFzzz {
           let $champ = $("#pseudo_convoi").val(pseudo).trigger("change");
           if ($champ.autocomplete("instance")) $champ.autocomplete("close");
           $champ.trigger("blur");
+          if (montant != null) CommerceFzzz.remplirMateriaux(montant);
         });
+    };
+    $bloc.on("click", ".o_convoisMembreDestinataire", (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+      e.preventDefault();
+      preparer(String($(e.currentTarget).closest("tr").data("pseudo")));
+    });
+    $bloc.on("click", ".o_convoisMembreMontant", (e) => {
+      e.preventDefault();
+      preparer(
+        String($(e.currentTarget).closest("tr").data("pseudo")),
+        parseInt($(e.currentTarget).data("montant")) || 0,
+      );
     });
     $bloc.on("change", ".o_convoisMembreChoix", (e) => {
       let p = String($(e.currentTarget).val() || "");

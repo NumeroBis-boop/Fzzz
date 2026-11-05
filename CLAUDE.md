@@ -25,6 +25,7 @@ The maintainer describes changes with these words (full guide: the « Lexique Ex
 - **encart « S5 Pseudo »**, **encart Compte +**, **boîte « Extension OUAF »** = the left column boxes; **Préférences** = the settings window and its tabs.
 - **Lanceur → cible** = direction of a flood (same text on both players' timelines; the sign and colour of the variation do not change).
 - When the place or the expected effect is unclear, ask for: page, bloc, element, what happens (click, hover, load), and what must not change. Never infer « comme avant » without checking what « avant » did.
+- When the maintainer uses a wrong or inexact term (menu for onglet, extension for script utilisateur, « pull » for a branch without pull request…), say so at the start of the answer, briefly, with the right term — the maintainer asked for it.
 
 ## Commands
 

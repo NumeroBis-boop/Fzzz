@@ -182,27 +182,6 @@ class SimulationChasse {
     return chasses;
   }
   /**
-   * Simulation complète : nombre et terrain des chasses, ratio, pertes, répartition.
-   *
-   * @param {Object} p unites, armes, bouclier, tdcLancement, tdcArrivee, ratio,
-   *   nombreMax, et en option nombreFixe / terrainFixe (0 = calculé)
-   */
-  static simuler(p) {
-    let tdcArrivee = Math.max(1, p.tdcArrivee),
-      tdcLancement = Math.max(1, p.tdcLancement),
-      attArmee = SimulationChasse.attaqueArmee(p.unites, p.armes),
-      { nombre, terrain } = SimulationChasse.calculerChasses(
-        p.ratio,
-        attArmee,
-        p.nombreMax,
-        tdcArrivee,
-        Math.round(tdcLancement / 4),
-        p.nombreFixe || 0,
-        p.terrainFixe || 0,
-      );
-    return SimulationChasse.plan(p, nombre, terrain);
-  }
-  /**
    * Chiffres d'une salve de `nombre` chasses de `terrain` cm² : difficulté,
    * ratio, pertes, durée, part du temps de ponte et rendement, sans la
    * répartition (sert à comparer des salves).
@@ -237,19 +216,18 @@ class SimulationChasse {
     };
   }
   /**
-   * Salve complète : chiffres et répartition de l'armée. Avec `reduire`, la
-   * marge de JSN max est réduite uniformément quand le stock ne la permet pas
-   * pour toutes les chasses (sinon les dernières servies partent sans JSN),
-   * puis le rééquilibrage JSN → SN → NE est appliqué si demandé.
+   * Salve complète : chiffres et répartition de l'armée. La marge de JSN max
+   * est réduite uniformément quand le stock ne la permet pas pour toutes les
+   * chasses (sinon les dernières servies partent sans JSN), puis le
+   * rééquilibrage JSN → SN → NE est appliqué si demandé.
    *
    * @param {Object} p ceux d'`evaluer`, plus facteur (marge de JSN max, défaut
    *   FACTEUR_SECURITE) et reequilibrer
    */
-  static plan(p, nombre, terrain, reduire = false) {
+  static plan(p, nombre, terrain) {
     let salve = SimulationChasse.evaluer(p, nombre, terrain),
       marge = p.facteur == null ? SimulationChasse.FACTEUR_SECURITE : p.facteur,
-      facteur =
-        reduire && salve.pertes.MAX > 0 ? Math.min(marge, p.unites[0] / salve.pertes.MAX) : marge,
+      facteur = salve.pertes.MAX > 0 ? Math.min(marge, p.unites[0] / salve.pertes.MAX) : marge,
       chasses = SimulationChasse.repartir(
         p.unites,
         Math.max(1, p.tdcArrivee),
@@ -259,7 +237,7 @@ class SimulationChasse {
         p.bouclier,
         facteur,
       ),
-      residuel = reduire && p.reequilibrer ? SimulationChasse.reequilibrer(chasses, marge) : null;
+      residuel = p.reequilibrer ? SimulationChasse.reequilibrer(chasses, marge) : null;
     chasses = chasses.map((c) => {
       let att = SimulationChasse.attaqueArmee(c.unites, p.armes);
       return { ...c, att, ratio: att / c.difficulte };
@@ -421,7 +399,7 @@ class SimulationChasse {
           : meilleur(candidats, (c, m) => c.rendement > m.rendement)
         : meilleur(candidats, (c, m) => c.rendement > m.rendement);
     return {
-      ...SimulationChasse.plan(p, choix.nombre, choix.terrain, true),
+      ...SimulationChasse.plan(p, choix.nombre, choix.terrain),
       limite: choix.limite,
       plafonne: choix.plafonne,
       infaisable: choix.infaisable,
@@ -463,34 +441,6 @@ class SimulationChasse {
       });
     }
     return besoin.map((b) => Math.max(0, Math.round(b)));
-  }
-  /**
-   * Ce que donnerait chaque ratio de la liste en laissant le simulateur choisir
-   * le nombre et le terrain, pour les libellés de la liste.
-   */
-  static apercusRatios(p) {
-    let tdcArrivee = Math.max(1, p.tdcArrivee),
-      attArmee = SimulationChasse.attaqueArmee(p.unites, p.armes),
-      terrainMin = Math.round(Math.max(1, p.tdcLancement) / 4);
-    return RATIO_CHASSE.map((r, i) => {
-      if (!attArmee) return null;
-      let { nombre, terrain } = SimulationChasse.calculerChasses(
-        r,
-        attArmee,
-        p.nombreMax,
-        tdcArrivee,
-        terrainMin,
-      );
-      return {
-        nombre,
-        terrain,
-        pertes: SimulationChasse.pertes(
-          i,
-          SimulationChasse.difficulteTotale(tdcArrivee, terrain, nombre),
-          p.bouclier,
-        ),
-      };
-    });
   }
   /**
    * Pertes si le TdC vaut `nouveauTdc` au lieu du `tdcArrivee` prévu quand les

@@ -273,7 +273,6 @@ class Armee {
   /**
    * calcul le nombre d'unité de l'armee.
    *
-   * @private
    * @method getSommeUnite
    * @return {Integer} la somme des unités
    */
@@ -506,25 +505,6 @@ class Armee {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Lance le simulateur de chasse sur cette armée et garde la répartition pour
-   * envoyerChasse. Cf. class/SimulationChasse.js.
-   *
-   * @private
-   * @method simulerChasse
-   * @param {Object} p tout ce que SimulationChasse.simuler attend, sauf l'armée et les niveaux
-   * @return {Object} le résultat de la simulation
-   */
-  simulerChasse(p) {
-    let resultat = SimulationChasse.simuler({
-      ...p,
-      unites: this._unite,
-      armes: monProfil.niveauRecherche[2],
-      bouclier: monProfil.niveauRecherche[1],
-    });
-    this._repartition = resultat.chasses.map((c) => c.unites);
-    return resultat;
-  }
-  /**
    * Salve d'après ce que le joueur fixe (SimulationChasse.resoudre), avec
    * l'armée et les niveaux du joueur ; mémorise la répartition pour l'envoi.
    *
@@ -596,7 +576,6 @@ class Armee {
   /**
    * Envoie une chasse.
    *
-   * @private
    * @method envoyerChasse
    * @param {Integer} indice
    */

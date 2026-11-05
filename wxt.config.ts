@@ -136,6 +136,7 @@ export default defineConfig({
           "js/class/OuafSuivi.js",
           "js/class/Parametre.js",
           "js/class/SimulationChasse.js",
+          "js/class/LanceurChasse.js",
           "js/class/TroupesDehors.js",
           "js/boite/ComptePlus.js",
           "js/boite/Radar.js",

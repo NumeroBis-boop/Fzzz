@@ -198,12 +198,6 @@ describe("SimulationChasse.plan : marge de JSN", () => {
       expect(Math.abs(c.unites[0] - c.pertes.MAX * plan.facteur)).toBeLessThanOrEqual(1);
     expect(plan.chasses.reduce((s: number, c: any) => s + c.unites[0], 0)).toBe(10);
   });
-
-  test("simuler garde le facteur entier (comportement historique)", () => {
-    const simu = appel("simuler", { ...BASE, ...PEU, ratio: 9, nombreFixe: 3 });
-    expect(simu.facteur).toBe(2);
-    expect(simu.residuel).toBeNull();
-  });
 });
 
 describe("SimulationChasse.reequilibrer", () => {

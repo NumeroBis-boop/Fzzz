@@ -21,6 +21,7 @@ const page = creerPage(
     "js/class/Armee.js",
     "js/class/Combat.js",
     "js/class/SimulationChasse.js",
+    "js/class/LanceurChasse.js",
     "js/boite/ImportArmee.js",
     "js/page/PartageChasses.js",
     "js/page/Ressource.js",
@@ -44,10 +45,9 @@ function creerLanceur(avant = "") {
       niveauConstruction: [0, 0, 0, 20, 10, 0, 0, 0, 0, 0, 0, 0, 0],
     });
     ${avant}
-    var lanceur = new PageRessource(null);
-    lanceur._armee.parseArmee(${JSON.stringify(ARMEE)});
-    lanceur._armee._nbrJSN = lanceur._armee.unite[0];
-    lanceur.lanceur();
+    var armee = new Armee().parseArmee(${JSON.stringify(ARMEE)});
+    armee._nbrJSN = armee.unite[0];
+    var lanceur = new LanceurChasse(armee, 9).afficher($("#boite_tdc"));
   `);
 }
 const lire = <T = any>(expr: string) => page.lire<T>(expr);

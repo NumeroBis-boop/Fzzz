@@ -22,6 +22,7 @@ function dansLeFuseau(tz: string): Record<string, unknown> {
         return [m.valueOf(), m.format("YYYY-MM-DD HH:mm")];
       })(),
       changementHeure: moment(Date.UTC(2026, 9, 24, 23, 0)).add(3, "hours").format("HH:mm"),
+      local: Horloge.heureLocale(Date.UTC(2026, 10, 5, 17, 30)),
     })\`)));
   `;
   const r = Bun.spawnSync({
@@ -47,9 +48,18 @@ describe("heures du jeu (Paris) quel que soit le fuseau du PC", () => {
     });
   }
 
+  test("info-bulle de l'horloge : heure locale et écart avec le jeu", () => {
+    expect(dansLeFuseau("America/Toronto").local).toBe(
+      "Chez toi : 12:30 (6 h de moins que le jeu)",
+    );
+    expect(dansLeFuseau("UTC").local).toBe("Chez toi : 17:30 (1 h de moins que le jeu)");
+    expect(dansLeFuseau("Asia/Kolkata").local).toBe("Chez toi : 23:00 (4 h 30 de plus que le jeu)");
+  });
+
   test("PC à l'heure de Paris : moment garde l'heure du PC", () => {
     const r = dansLeFuseau("Europe/Paris");
     expect(r.zone).toBeNull();
+    expect(r.local).toBeNull();
     expect(r.hiver).toBe("2026-11-05 18:30");
     expect(r.lu).toBe(Date.UTC(2026, 10, 5, 17, 30));
     expect(r.changementHeure).toBe("03:00");

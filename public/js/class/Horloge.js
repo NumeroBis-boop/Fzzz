@@ -269,13 +269,30 @@ class Horloge {
     if (!$("#o_horloge").length) return;
     $("#o_horlogeHeure").text(Horloge.clic().format("HH:mm:ss"));
     $("#o_latenceValeur").text(Horloge.libelleLatence());
+    let local = Horloge.heureLocale(Horloge.maintenant()),
+      titre = Horloge.estSynchronisee()
+        ? `Heure du serveur${local ? " (Paris)" : ""} + latence`
+        : "Heure du PC : l’heure du serveur sera connue après le chargement d’une page du jeu";
     $("#o_horloge")
       .toggleClass("o_horlogePC", !Horloge.estSynchronisee())
-      .attr(
-        "title",
-        Horloge.estSynchronisee()
-          ? "Heure du serveur + latence"
-          : "Heure du PC : l’heure du serveur sera connue après le chargement d’une page du jeu",
-      );
+      .attr("title", local ? `${titre}\n${local}` : titre);
+  }
+  /**
+   * Heure locale du joueur dont le PC n'est pas à l'heure de Paris, pour
+   * l'info-bulle de l'horloge (le reste de l'extension suit l'heure du jeu).
+   *
+   * @static
+   * @method heureLocale
+   * @param {Number} instant ms
+   * @return {String|null} null sur un PC à l'heure de Paris
+   */
+  static heureLocale(instant) {
+    if (typeof PC_AUTRE_FUSEAU == "undefined" || !PC_AUTRE_FUSEAU) return null;
+    let local = moment(instant).local(),
+      ecart = local.utcOffset() - moment.tz(instant, FUSEAU_JEU).utcOffset(),
+      heures = Math.floor(Math.abs(ecart) / 60),
+      minutes = Math.abs(ecart) % 60,
+      duree = `${heures} h${minutes ? " " + String(minutes).padStart(2, "0") : ""}`;
+    return `Chez toi : ${local.format("HH:mm")}${ecart ? ` (${duree} ${ecart < 0 ? "de moins" : "de plus"} que le jeu)` : ""}`;
   }
 }

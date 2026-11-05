@@ -25,7 +25,7 @@ The maintainer describes changes with these words (full guide: the « Lexique Ex
 - **encart « S5 Pseudo »**, **encart Compte +**, **boîte « Extension OUAF »** = the left column boxes; **Préférences** = the settings window and its tabs.
 - **Lanceur → cible** = direction of a flood (same text on both players' timelines; the sign and colour of the variation do not change).
 - When the place or the expected effect is unclear, ask for: page, bloc, element, what happens (click, hover, load), and what must not change. Never infer « comme avant » without checking what « avant » did.
-- **lien de l'extension** / « lien pour mettre à jour l'extension » = the userscript link to share with players, https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js (installs or updates it in Violentmonkey/Tampermonkey). Give it directly, without correcting the term; the signed Firefox `.xpi` only when Firefox or xpi is named.
+- **lien de l'extension** / « lien pour mettre à jour l'extension » = the userscript link to share with players, https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js (installs or updates it in Violentmonkey/Tampermonkey). Give it directly, without correcting the term. The Firefox `.xpi` is no longer maintained (see Release pipeline): if it is asked for, say so and give this link.
 - When the maintainer uses a wrong or inexact term (menu for onglet, extension for script utilisateur except in the update link above, « pull » for a branch without pull request…), say so at the start of the answer, briefly, with the right term — the maintainer asked for it.
 
 ## Commands
@@ -129,6 +129,8 @@ Firefox exposes `chrome.*` as an alias for `browser.*`, so `chrome.runtime.*` wo
 
 ## Firefox publication specifics
 
+Kept for reference: the Firefox build is no longer published (see Release pipeline).
+
 - `browser_specific_settings.gecko.id` is `fzzz@numerobis-boop.github.io` — this ID must stay stable across uploads to AMO (changing it breaks updates for installed users).
 - `strict_min_version: "142.0"` — Firefox **142** is when `data_collection_permissions` is honored on **Firefox for Android** (desktop got it earlier, but AMO's review surfaces an Android-specific warning if `strict_min_version` is below 142). Lower values let AMO accept the upload but warn that the privacy declaration is ignored on older Firefox/Android.
 - AMO requires non-minified sources for review — keep the vendored libs in `public/js/lib/` readable (they currently are).
@@ -149,6 +151,8 @@ If you modify files that oxfmt would reformat, let the pre-commit hook handle it
 Note: oxfmt's `.ts` config loader used to break in CI on Node 20 (version-check bug: 20.20.2 read as not matching `^20.19.0`). CI now runs Node 22 (required by WXT 0.21) so that bug is moot, but there is no reason to switch — stay on `.oxfmtrc.json`.
 
 ## Release pipeline
+
+**The Firefox build is no longer published (maintainer decision, 1.83.0).** Every player uses the userscript, Firefox included. Do not run `release-firefox.yml` or propose a Firefox release; the last signed build (1.80.3, the GitHub release marked _latest_) stays as it is. The rest of this section describes the former pipeline.
 
 Releasing is split into two independent workflows that both trigger on `v*.*.*` tag push and on `workflow_dispatch` (version read from `package.json`, release `vX.Y.Z` created by the workflow):
 

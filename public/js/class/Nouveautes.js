@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.82.0",
+    notes: [
+      "Boîte Combat, temps de trajet : les coordonnées viennent de l'export public des joueurs, gardé une heure dans le navigateur, au lieu de lire la page de chaque joueur. Avec toi en joueur 1, les temps partaient d'une mauvaise position : corrigé. Un pseudo inconnu est signalé au lieu de donner une ligne fausse.",
+    ],
+  },
+  {
     version: "1.81.1",
     notes: [
       "Actualiser une page ouverte par un lien d'action du jeu (construire, rechercher, déplacer des troupes avec les flèches de la page Armée, annuler un convoi) ne refait plus l'action : la page est simplement rechargée.",

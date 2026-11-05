@@ -1697,29 +1697,21 @@ class BoiteCombat extends Boite {
    *
    */
   calculerTemps(ref, joueurs, dernierMvt = "", delaiCaptureSec = 60) {
-    let promise = new Array();
-    // promise qui recup le profil du ref
-    if (!ref.estJoueurCourant()) promise.push(ref.getProfil());
-    // promise pour recup les joueurs
-    for (let joueur of joueurs) promise.push(joueur.getProfil());
-    // Execution des requetes
-    Promise.all(promise).then((values) => {
-      let rows = new Array(),
-        ind = 0;
-      // charge les donnes du ref
-      if (!ref.estJoueurCourant()) {
-        ref.chargerProfil(values[ind]);
-        ind++;
-      }
+    ExportJoueurs.completer([ref, ...joueurs]).then((introuvables) => {
+      if (introuvables.length)
+        $.toast({
+          ...TOAST_WARNING,
+          text: `Joueur introuvable : ${introuvables.map((j) => Utils.echapper(j.pseudo)).join(", ")}.`,
+        });
+      if (introuvables.includes(ref)) return;
+      let rows = new Array();
       // si on peut calculer une heure de lancement (ref = ennemi à chopper, pas moi)
       const capturePossible = dernierMvt && !ref.estJoueurCourant();
       const tempsMoiVersRef = capturePossible ? monProfil.getTempsParcours2(ref) : 0;
       // heure serveur + latence : « Lancer à » se lit directement sur l'horloge Fzzz
       const maintenant = Horloge.clic();
-      // on calcule les temps de trajet vers les joueurs
-      for (let i = 0; i < joueurs.length; i++) {
-        joueurs[i].chargerProfil(values[i + ind]);
-        let tempsP = ref.getTempsParcours2(joueurs[i]);
+      for (let joueur of joueurs.filter((j) => !introuvables.includes(j))) {
+        let tempsP = ref.getTempsParcours2(joueur);
         let retour = dernierMvt ? moment(dernierMvt, "DD-MM-YYYY HH:mm").add(tempsP, "s") : null;
         let cellRetour = retour ? retour.format("D MMM à HH[h]mm[m]ss[s]") : "";
         let cellLancer = "";
@@ -1732,7 +1724,7 @@ class BoiteCombat extends Boite {
         }
         rows.push(
           $(
-            `<tr${rowClass ? ` class="${rowClass}"` : ""}><td>${joueurs[i].pseudo}</td><td>${numeral(joueurs[i].terrain).format()}</td><td>${Utils.intToTime(tempsP)}</td><td>${cellRetour}</td><td>${cellLancer}</td></tr>`,
+            `<tr${rowClass ? ` class="${rowClass}"` : ""}><td>${Utils.echapper(joueur.pseudo)}</td><td>${numeral(joueur.terrain).format()}</td><td>${Utils.intToTime(tempsP)}</td><td>${cellRetour}</td><td>${cellLancer}</td></tr>`,
           )[0],
         );
       }

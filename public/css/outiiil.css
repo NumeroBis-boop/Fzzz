@@ -1056,7 +1056,7 @@ html:not(.o_originePage) .ligneAmelioration {
   vertical-align: bottom;
   margin-right: 3px;
 }
-#o_lanceurChasse tr {
+.o_lanceurChasse tr {
   height: 25px;
 }
 #o_recapChasse {
@@ -1728,16 +1728,16 @@ html:not(.o_desactivee) center > div > #tabMembresAlliance {
   cursor: pointer;
 }
 /* colonnes stables : les textes de la colonne de droite changent souvent */
-#o_lanceurChasse {
+.o_lanceurChasse {
   table-layout: fixed;
 }
-#o_lanceurChasse td:first-child {
+.o_lanceurChasse td:first-child {
   width: 32%;
 }
-#o_lanceurChasse td:nth-child(2) {
+.o_lanceurChasse td:nth-child(2) {
   width: 34%;
 }
-#o_lanceurChasse .ui-spinner {
+.o_lanceurChasse .ui-spinner {
   max-width: 100%;
   box-sizing: border-box;
 }

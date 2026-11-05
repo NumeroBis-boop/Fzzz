@@ -12,16 +12,30 @@
 const CLE_LANCEUR_CHASSE = "fzzz_lanceurChasse";
 
 /**
+ * Plusieurs lanceurs peuvent coexister dans une page (celui de Ressources.php,
+ * les onglets « Simuler » et « Lancer » de la boîte Chasse) : chaque instance
+ * préfixe ses ids ; celle qui lance garde les ids historiques (le marquage des
+ * chasses envoyées, dans Armee.envoyerChasse, les attend).
+ *
  * @class LanceurChasse
  */
 class LanceurChasse {
   /**
    * @param {Armee} armee garnison du joueur (Armee.php)
    * @param {Number} nbChasse places de chasse libres
+   * @param {Object} options prefixe des ids ("" par défaut), simulation (sans
+   *   lancement), cadre (encadré et titre, vrai par défaut)
    */
-  constructor(armee, nbChasse) {
+  constructor(armee, nbChasse, options = {}) {
     this._armee = armee;
     this._nbChasse = Math.max(0, nbChasse || 0);
+    this._p = options.prefixe || "";
+    this._simulation = !!options.simulation;
+    this._cadre = options.cadre !== false;
+    /**
+     * Racine du formulaire, une fois affiché
+     */
+    this._$racine = null;
     /**
      * Dernière simulation
      */
@@ -35,6 +49,37 @@ class LanceurChasse {
      * Armée et niveaux de la dernière simulation
      */
     this._parametresSimu = null;
+  }
+  /**
+   * Éléments de ce lanceur : les ids « #o_… » reçoivent le préfixe de
+   * l'instance, les autres sélecteurs sont cherchés sous sa racine.
+   *
+   * @private
+   * @method $
+   */
+  $(selecteur) {
+    if (typeof selecteur != "string") return $(selecteur);
+    let resultat = $();
+    for (let partie of selecteur.split(",")) {
+      partie = partie.trim();
+      resultat = resultat.add(
+        partie.includes("#o_")
+          ? $(partie.replace(/#o_/g, "#" + this._p + "o_"))
+          : this._$racine
+            ? this._$racine.find(partie)
+            : $(),
+      );
+    }
+    return resultat;
+  }
+  /**
+   * Id sans le préfixe de l'instance (comparaisons et tables d'ids).
+   *
+   * @private
+   * @method _sansPrefixe
+   */
+  _sansPrefixe(id) {
+    return this._p && id.startsWith(this._p) ? id.slice(this._p.length) : id;
   }
   /**
    * Réglages mémorisés du lanceur : ce qui ne dépend pas de la salve du moment,
@@ -87,17 +132,17 @@ class LanceurChasse {
           `<option value='${r}' label='${r.toFixed(1)} → Rep10% : ${this._replique(i)}'></option>`,
       ).join(""),
       auto = (id, coche, titre = "") =>
-        `<input id='${id}' type='checkbox' class='o_chasseAuto'${coche ? " checked='checked'" : ""}/><label for='${id}'${titre ? ` title='${titre}'` : ""}>Auto</label>`;
+        `<input id='${this._p}${id}' type='checkbox' class='o_chasseAuto'${coche ? " checked='checked'" : ""}/><label for='${this._p}${id}'${titre ? ` title='${titre}'` : ""}>Auto</label>`;
     $ancre[
       position
-    ](`<br/><div id='o_prepaChasse' class='boite_amelioration simulateur centre'><h2>Lanceur de Chasses</h2>
-            <div class='o_spoilerCadre o_marginT15' id='o_chasseParamCadre'>
-              <div class='o_spoilerBandeau' id='o_chasseParamToggle' title='Voir ou modifier l&#39;armée et les niveaux que le lanceur utilise'><span class='o_fleche'>▶</span> Armée et niveaux utilisés <span class='small o_chasseParamAide'>(cliquer pour voir ou modifier)</span></div>
-              <div class='o_spoilerContenu'>Garder des JSN <input value='0' size='12' id='o_chasseJSN'/> <span class='small'>max : <span id='o_chasseJSNMax'>${numeral(this._armee.nbrJSN).format()}</span></span></div>
-              <div id='o_chasseParam' style='display:none' class='o_spoilerContenu'>
+    ](`${this._cadre ? "<br/>" : ""}<div id='${this._p}o_prepaChasse' class='${this._cadre ? "boite_amelioration simulateur " : ""}centre'>${this._cadre ? "<h2>Lanceur de Chasses</h2>" : ""}
+            <div class='o_spoilerCadre o_marginT15' id='${this._p}o_chasseParamCadre'>
+              <div class='o_spoilerBandeau' id='${this._p}o_chasseParamToggle' title='Voir ou modifier l&#39;armée et les niveaux que le lanceur utilise'><span class='o_fleche'>▶</span> Armée et niveaux utilisés <span class='small o_chasseParamAide'>(cliquer pour voir ou modifier)</span></div>
+              <div class='o_spoilerContenu'>Garder des JSN <input value='0' size='12' id='${this._p}o_chasseJSN'/> <span class='small'>max : <span id='${this._p}o_chasseJSNMax'>${numeral(this._armee.nbrJSN).format()}</span></span></div>
+              <div id='${this._p}o_chasseParam' style='display:none' class='o_spoilerContenu'>
                 <table class='o_maxWidth'><tr><td valign='top'>
-                  <table id='o_chasseParamArmee'>
-                    <tr class='gras entete'><td>Armée <span id='o_chasseParamImporter' class='cursor' title='Importer une armée (texte collé : page Armée, rapport, « 30 jsn et 27 artilleuses »…)'>${IMG_COPY}</span></td><td></td></tr>
+                  <table id='${this._p}o_chasseParamArmee'>
+                    <tr class='gras entete'><td>Armée <span id='${this._p}o_chasseParamImporter' class='cursor' title='Importer une armée (texte collé : page Armée, rapport, « 30 jsn et 27 artilleuses »…)'>${IMG_COPY}</span></td><td></td></tr>
                     ${NOM_UNITE.slice(1)
                       .map(
                         (nom, i) =>
@@ -106,7 +151,7 @@ class LanceurChasse {
                       .join("")}
                   </table>
                 </td><td valign='top'>
-                  <table id='o_chasseParamNiveau'>
+                  <table id='${this._p}o_chasseParamNiveau'>
                     <tr class='gras entete'><td colspan='2'>Niveaux</td></tr>
                     ${[
                       ["o_cpArmes", "Armes"],
@@ -118,49 +163,55 @@ class LanceurChasse {
                     ]
                       .map(
                         ([id, nom]) =>
-                          `<tr><td><input id='${id}' value='0' size='6'/></td><td class='left'>${nom}</td></tr>`,
+                          `<tr><td><input id='${this._p}${id}' value='0' size='6'/></td><td class='left'>${nom}</td></tr>`,
                       )
                       .join("")}
                     <tr class='gras entete'><td colspan='2'>Chasse</td></tr>
-                    <tr><td><input id='o_cpTdcLancement' value='0' size='12' title='Fixe la durée des chasses'/></td><td class='left'>TdC au lancement</td></tr>
-                    <tr><td><input id='o_cpPlaces' value='0' size='6'/></td><td class='left'>Places de chasse libres</td></tr>
-                    <tr><td colspan='2'><button type='button' id='o_chasseParamRetablir' class='o_button'>Rétablir mes valeurs</button></td></tr>
+                    <tr><td><input id='${this._p}o_cpTdcLancement' value='0' size='12' title='Fixe la durée des chasses'/></td><td class='left'>TdC au lancement</td></tr>
+                    <tr><td><input id='${this._p}o_cpPlaces' value='0' size='6'/></td><td class='left'>Places de chasse libres</td></tr>
+                    <tr><td colspan='2'><button type='button' id='${this._p}o_chasseParamRetablir' class='o_button'>Rétablir mes valeurs</button></td></tr>
                   </table>
                   <p class='small'><em>Modifiés, ces paramètres servent à simuler : le lancement est alors désactivé.</em></p>
                 </td></tr></table>
               </div>
             </div>
-            <table id='o_lanceurChasse' class='o_maxWidth o_marginT15' cellspacing=0>
-			<tr class='ligne_paire'><td>Terrain à l'arrivée</td><td><input value='${Math.min(Utils.terrain || 0, monProfil.parametre["tdcArriveeMax"].valeur || Infinity)}' size='21' id='o_chasseTDCDep'/></td><td></td></tr>
-			<tr><td>Nombre de chasse</td><td><input value='0' size='21' id='o_chasseNbr'/></td><td>${auto("o_chasseNbrAuto", true)}</td></tr>
-			<tr class='ligne_paire'><td>Terrain par chasse</td><td><input value='0' size='21' id='o_chasseTDCRep'/></td><td>${auto("o_chasseTDCRepAuto", true, "Calculé, ou fixé ici ou par l&#39;heure de retour")}</td></tr>
-			<tr><td>Retour le</td><td><input value='' size='21' id='o_chasseDateArrivee' placeholder='JJ-MM-AAAA HH:mm'/></td><td class='small'>= terrain par chasse</td></tr>
-			<tr class='ligne_paire'><td>Difficulté</td><td><input value='9' size='21' id='o_chasseDiff' list='o_chasseDiffListe' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse. Les valeurs de la liste sont celles des tables de pertes ; entre deux, les pertes estimées sont celles de la valeur du dessous.'/><datalist id='o_chasseDiffListe'>${ratios}</datalist></td><td>${auto("o_chasseDiffAuto", false, `Difficulté la plus basse que les pertes acceptées permettent, jamais sous ${SimulationChasse.RATIO_PLANCHER}`)} <span id='o_chasseDiffInfo' class='small'></span></td></tr>
-			<tr><td title='Part du temps de ponte de JSN consacrée à remplacer les pertes moyennes'>Pertes acceptées (% de la ponte) <span class='o_chasseCible' id='o_chasseCiblePertes' title='Ce que le lanceur minimise : la salve la moins coûteuse qui atteint le rendement fixé'>🎯</span></td><td><input value='${R.budget}' size='21' id='o_chasseBudget'/></td><td>${auto("o_chasseBudgetAuto", true)} <span id='o_chasseBudgetInfo' class='small'></span></td></tr>
-			<tr class='ligne_paire'><td title='TdC chassé par heure de chasse'>Rendement (cm² / h) <span class='o_chasseCible' id='o_chasseCibleRendement' title='Ce que le lanceur maximise, dans les limites fixées'>🎯</span></td><td><input value='0' size='21' id='o_chasseRendement'/></td><td>${auto("o_chasseRendementAuto", true, "Fixé : la salve la moins coûteuse qui l&#39;atteint")} <span id='o_chasseRendementInfo' class='small'></span></td></tr>
-			<tr><td colspan='3'><em>Basé sur le lanceur de <a href='http://alliancead2.free.fr/Outils/Repository/HuntSimv2.00/Simulator_2.00.00.html' class='violet' target='_blank' rel='noopener'>Calystene</a></em> · <a id='o_chasseReglagesDefaut' class='cursor souligne small' title='Oublie les réglages mémorisés (difficulté, pertes acceptées, intervalle, marge, rééquilibrage, JSN gardées)'>réglages par défaut</a></td></tr>
+            <table id='${this._p}o_lanceurChasse' class='o_lanceurChasse o_maxWidth o_marginT15' cellspacing=0>
+			<tr class='ligne_paire'><td>Terrain à l'arrivée</td><td><input value='${Math.min(Utils.terrain || 0, monProfil.parametre["tdcArriveeMax"].valeur || Infinity)}' size='21' id='${this._p}o_chasseTDCDep'/></td><td></td></tr>
+			<tr><td>Nombre de chasse</td><td><input value='0' size='21' id='${this._p}o_chasseNbr'/></td><td>${auto("o_chasseNbrAuto", true)}</td></tr>
+			<tr class='ligne_paire'><td>Terrain par chasse</td><td><input value='0' size='21' id='${this._p}o_chasseTDCRep'/></td><td>${auto("o_chasseTDCRepAuto", true, "Calculé, ou fixé ici ou par l&#39;heure de retour")}</td></tr>
+			<tr><td>Retour le</td><td><input value='' size='21' id='${this._p}o_chasseDateArrivee' placeholder='JJ-MM-AAAA HH:mm'/></td><td class='small'>= terrain par chasse</td></tr>
+			<tr class='ligne_paire'><td>Difficulté</td><td><input value='9' size='21' id='${this._p}o_chasseDiff' list='${this._p}o_chasseDiffListe' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse. Les valeurs de la liste sont celles des tables de pertes ; entre deux, les pertes estimées sont celles de la valeur du dessous.'/><datalist id='${this._p}o_chasseDiffListe'>${ratios}</datalist></td><td>${auto("o_chasseDiffAuto", false, `Difficulté la plus basse que les pertes acceptées permettent, jamais sous ${SimulationChasse.RATIO_PLANCHER}`)} <span id='${this._p}o_chasseDiffInfo' class='small'></span></td></tr>
+			<tr><td title='Part du temps de ponte de JSN consacrée à remplacer les pertes moyennes'>Pertes acceptées (% de la ponte) <span class='o_chasseCible' id='${this._p}o_chasseCiblePertes' title='Ce que le lanceur minimise : la salve la moins coûteuse qui atteint le rendement fixé'>🎯</span></td><td><input value='${R.budget}' size='21' id='${this._p}o_chasseBudget'/></td><td>${auto("o_chasseBudgetAuto", true)} <span id='${this._p}o_chasseBudgetInfo' class='small'></span></td></tr>
+			<tr class='ligne_paire'><td title='TdC chassé par heure de chasse'>Rendement (cm² / h) <span class='o_chasseCible' id='${this._p}o_chasseCibleRendement' title='Ce que le lanceur maximise, dans les limites fixées'>🎯</span></td><td><input value='0' size='21' id='${this._p}o_chasseRendement'/></td><td>${auto("o_chasseRendementAuto", true, "Fixé : la salve la moins coûteuse qui l&#39;atteint")} <span id='${this._p}o_chasseRendementInfo' class='small'></span></td></tr>
+			<tr><td colspan='3'><em>Basé sur le lanceur de <a href='http://alliancead2.free.fr/Outils/Repository/HuntSimv2.00/Simulator_2.00.00.html' class='violet' target='_blank' rel='noopener'>Calystene</a></em> · <a id='${this._p}o_chasseReglagesDefaut' class='cursor souligne small' title='Oublie les réglages mémorisés (difficulté, pertes acceptées, intervalle, marge, rééquilibrage, JSN gardées)'>réglages par défaut</a></td></tr>
 			</table>
-            <p id='o_chasseAlerte' class='o_marginT15'></p>
-            <div class='o_marginT15'><span title='Au plus marge × pertes max de JSN partent en tampon avec chaque chasse ; au-delà, les JSN sont des attaquantes. Si le stock ne permet pas ce tampon à toutes les chasses, il est réduit pour toutes. Dès × 1, les pertes max sont couvertes.'>Marge JSN max <input value='${R.marge}' size='12' id='o_chasseMarge'/> × pertes max</span> &nbsp; <input id='o_chasseReequilibrer' type='checkbox'${R.reequilibrer ? " checked='checked'" : ""}/><label for='o_chasseReequilibrer' title='Redistribue les JSN au prorata des pertes max de chaque chasse, puis complète avec les SN et les NE (totaux inchangés).'>Rééquilibrer JSN → SN → NE</label></div>
-            <div id='o_simuChasse'><table id='o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
-            <div class='o_marginT15'>Intervalle entre les chasses <select id='o_chasseInt' title='Intervalle entre les chasses'><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></div>
-            <div class='o_pile o_marginT15'><button class='o_button f_success' type='button' id='o_chasseEnvoyer'>Envoyer</button>
-            <button class='o_button f_info' type='button' id='o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button></div>
+            <p id='${this._p}o_chasseAlerte' class='o_marginT15'></p>
+            <div class='o_marginT15'><span title='Au plus marge × pertes max de JSN partent en tampon avec chaque chasse ; au-delà, les JSN sont des attaquantes. Si le stock ne permet pas ce tampon à toutes les chasses, il est réduit pour toutes. Dès × 1, les pertes max sont couvertes.'>Marge JSN max <input value='${R.marge}' size='12' id='${this._p}o_chasseMarge'/> × pertes max</span> &nbsp; <input id='${this._p}o_chasseReequilibrer' type='checkbox'${R.reequilibrer ? " checked='checked'" : ""}/><label for='${this._p}o_chasseReequilibrer' title='Redistribue les JSN au prorata des pertes max de chaque chasse, puis complète avec les SN et les NE (totaux inchangés).'>Rééquilibrer JSN → SN → NE</label></div>
+            <div id='${this._p}o_simuChasse'><table id='${this._p}o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
+            ${
+              this._simulation
+                ? ""
+                : `
+            <div class='o_marginT15'>Intervalle entre les chasses <select id='${this._p}o_chasseInt' title='Intervalle entre les chasses'><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></div>
+            <div class='o_pile o_marginT15'><button class='o_button f_success' type='button' id='${this._p}o_chasseEnvoyer'>Envoyer</button>
+            <button class='o_button f_info' type='button' id='${this._p}o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button></div>
             <p class='o_marginT0'><em class='small'>Veuillez rester sur cette page le temps du lancement !</em></p>
-            <table id='o_recapChasse' cellspacing=0>
+`
+            }
+            <table id='${this._p}o_recapChasse' cellspacing=0>
 			<tr class='ligne_paire'><td colspan='3' class='gras'>Récapitulatif</td></tr>
-			<tr><td>Chasse(s)</td><td>:</td><td id='o_chasseTotal'></td><td></td></tr>
-			<tr class='ligne_paire'><td>Temps requis</td><td>:</td><td id='o_chasseTemps'></td></tr>
-			<tr><td>Retour</td><td>:</td><td id='o_chasseRetour'></td></tr>
-			<tr class='ligne_paire'><td>Rentabilité</td><td>:</td><td id='o_chasseRentabilite'></td></tr>
-			<tr><td>Difficulté</td><td>:</td><td id='o_chasseRefDiff'></td></tr>
-			<tr class='ligne_paire'><td>Perte estimé</td><td>:</td><td id='o_chassePerte'></td></tr>
-			<tr><td>Limité par</td><td>:</td><td id='o_chasseLimite'></td></tr>
+			<tr><td>Chasse(s)</td><td>:</td><td id='${this._p}o_chasseTotal'></td><td></td></tr>
+			<tr class='ligne_paire'><td>Temps requis</td><td>:</td><td id='${this._p}o_chasseTemps'></td></tr>
+			<tr><td>Retour</td><td>:</td><td id='${this._p}o_chasseRetour'></td></tr>
+			<tr class='ligne_paire'><td>Rentabilité</td><td>:</td><td id='${this._p}o_chasseRentabilite'></td></tr>
+			<tr><td>Difficulté</td><td>:</td><td id='${this._p}o_chasseRefDiff'></td></tr>
+			<tr class='ligne_paire'><td>Perte estimé</td><td>:</td><td id='${this._p}o_chassePerte'></td></tr>
+			<tr><td>Limité par</td><td>:</td><td id='${this._p}o_chasseLimite'></td></tr>
 			</table>
             <div class='o_marginT15'>
-              <a id='o_chassePertesTdcToggle' class='cursor souligne'>▼ Pertes selon le niveau de TdC à l'arrivée ▼</a>
-              <div id='o_chassePertesTdc' style='display:none' class='o_marginT15'>
-                <table id='o_chassePertesTdcTable' class='o_maxWidth' cellspacing='0'>
+              <a id='${this._p}o_chassePertesTdcToggle' class='cursor souligne'>▼ Pertes selon le niveau de TdC à l'arrivée ▼</a>
+              <div id='${this._p}o_chassePertesTdc' style='display:none' class='o_marginT15'>
+                <table id='${this._p}o_chassePertesTdcTable' class='o_maxWidth' cellspacing='0'>
                   <thead>
                     <tr class='gras ligne_paire'>
                       <td>TdC à l'arrivée</td>
@@ -171,7 +222,7 @@ class LanceurChasse {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr class='gras'><td><span id='o_otherHfRefValue'>—</span> cm² <span class='small'>(Terrain à l'arrivée)</span></td><td class='right o_otherHfMin' data-idx='0'>—</td><td class='right o_otherHfAvg' data-idx='0'>—</td><td class='right o_otherHfMax' data-idx='0'>—</td><td class='right'>—</td></tr>
+                    <tr class='gras'><td><span id='${this._p}o_otherHfRefValue'>—</span> cm² <span class='small'>(Terrain à l'arrivée)</span></td><td class='right o_otherHfMin' data-idx='0'>—</td><td class='right o_otherHfAvg' data-idx='0'>—</td><td class='right o_otherHfMax' data-idx='0'>—</td><td class='right'>—</td></tr>
                     ${[
                       1000000, 5000000, 10000000, 15000000, 20000000, 30000000, 40000000, 50000000,
                       75000000, 100000000,
@@ -185,28 +236,33 @@ class LanceurChasse {
                 </table>
               </div>
             </div></div>`);
-    $("#o_chasseTDCDep").spinner({ min: 0, numberFormat: "i" });
-    $("#o_chasseJSN").spinner({
+    this._$racine = this.$("#o_prepaChasse");
+    this.$("#o_chasseTDCDep").spinner({ min: 0, numberFormat: "i" });
+    this.$("#o_chasseJSN").spinner({
       min: 0,
       max: this._armee.nbrJSN,
       numberFormat: "i",
     });
-    $("#o_chasseTDCRep").spinner({ min: 1, numberFormat: "i" });
-    $("#o_chasseNbr").spinner({ min: 1, max: this._nbChasse, numberFormat: "i" });
-    $("#o_chasseBudget").spinner({ min: 0.1, step: 0.1, numberFormat: "i" });
-    $("#o_chasseRendement").spinner({ min: 1, numberFormat: "i" });
+    this.$("#o_chasseTDCRep").spinner({ min: 1, numberFormat: "i" });
+    this.$("#o_chasseNbr").spinner({ min: 1, max: this._nbChasse, numberFormat: "i" });
+    this.$("#o_chasseBudget").spinner({ min: 0.1, step: 0.1, numberFormat: "i" });
+    this.$("#o_chasseRendement").spinner({ min: 1, numberFormat: "i" });
     // le widget pose autocomplete=off, qui peut cacher la liste des ratios de référence
-    $("#o_chasseDiff").spinner({ min: 1, step: 0.1, numberFormat: "i" }).removeAttr("autocomplete");
-    $("#o_chasseMarge").spinner({ min: 0, step: 0.1, numberFormat: "i" });
-    $("input[name='o_cpUnite'], #o_cpTdcLancement").spinner({ min: 0, numberFormat: "i" });
-    $("#o_cpArmes, #o_cpBouclier, #o_cpVitesse, #o_cpCouveuse, #o_cpSolarium, #o_cpPonte").spinner({
+    this.$("#o_chasseDiff")
+      .spinner({ min: 1, step: 0.1, numberFormat: "i" })
+      .removeAttr("autocomplete");
+    this.$("#o_chasseMarge").spinner({ min: 0, step: 0.1, numberFormat: "i" });
+    this.$("input[name='o_cpUnite'], #o_cpTdcLancement").spinner({ min: 0, numberFormat: "i" });
+    this.$(
+      "#o_cpArmes, #o_cpBouclier, #o_cpVitesse, #o_cpCouveuse, #o_cpSolarium, #o_cpPonte",
+    ).spinner({
       min: 0,
       max: 50,
       numberFormat: "i",
     });
-    $("#o_cpPlaces").spinner({ min: 0, max: 20, numberFormat: "i" });
+    this.$("#o_cpPlaces").spinner({ min: 0, max: 20, numberFormat: "i" });
     this._remplirParametres();
-    $("#o_chasseDateArrivee").datetimepicker({
+    this.$("#o_chasseDateArrivee").datetimepicker({
       ...DATEPICKER_OPTION,
       dateFormat: "dd-mm-yy",
       timeFormat: "HH:mm",
@@ -215,7 +271,7 @@ class LanceurChasse {
       minuteText: "Minute",
       minDate: 0,
     });
-    $(".o_otherHfInputAlt").spinner({ min: 0, numberFormat: "i" });
+    this.$(".o_otherHfInputAlt").spinner({ min: 0, numberFormat: "i" });
     // Completion des valeurs
     this._restaurerReglages();
     this._majVerrous();
@@ -229,18 +285,18 @@ class LanceurChasse {
       // Globalize affiche avec une virgule de milliers (« 1,804 »)
       if (
         !ui &&
-        ["o_chasseDiff", "o_chasseBudget"].includes(e.currentTarget.id) &&
+        ["o_chasseDiff", "o_chasseBudget"].includes(this._sansPrefixe(e.currentTarget.id)) &&
         /^\d+,\d{1,2}$/.test(e.currentTarget.value)
       )
         e.currentTarget.value = e.currentTarget.value.replace(",", ".");
       let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
       $(e.currentTarget).spinner("value", nombre);
-      if (e.currentTarget.id == "o_chasseDiff") this._majCouleurDiff();
+      if (this._sansPrefixe(e.currentTarget.id) == "o_chasseDiff") this._majCouleurDiff();
       this._sauverReglages();
       this.preparerChasse();
     });
-    $(".o_chasseAuto").on("change", (e) => {
-      this._majVerrous(e.currentTarget.id);
+    this.$(".o_chasseAuto").on("change", (e) => {
+      this._majVerrous(this._sansPrefixe(e.currentTarget.id));
       this._sauverReglages();
       this.preparerChasse();
     });
@@ -252,32 +308,34 @@ class LanceurChasse {
       o_chasseRendement: "#o_chasseRendementAuto",
       o_chasseDiff: "#o_chasseDiffAuto",
     };
-    $("#o_chasseNbr, #o_chasseTDCRep, #o_chasseBudget, #o_chasseRendement, #o_chasseDiff")
+    this.$("#o_chasseNbr, #o_chasseTDCRep, #o_chasseBudget, #o_chasseRendement, #o_chasseDiff")
       .parent(".ui-spinner")
-      .on("click", (e) => this._fixerAuClic($(e.currentTarget).find("input").attr("id"), cases));
-    $("#o_chasseNbr, #o_chasseTDCRep, #o_chasseBudget, #o_chasseRendement, #o_chasseDiff").on(
+      .on("click", (e) =>
+        this._fixerAuClic(this._sansPrefixe($(e.currentTarget).find("input").attr("id")), cases),
+      );
+    this.$("#o_chasseNbr, #o_chasseTDCRep, #o_chasseBudget, #o_chasseRendement, #o_chasseDiff").on(
       "focus",
-      (e) => this._fixerAuClic(e.currentTarget.id, cases),
+      (e) => this._fixerAuClic(this._sansPrefixe(e.currentTarget.id), cases),
     );
-    $("#o_chasseInt").change(() => this._sauverReglages());
-    $("#o_chasseReglagesDefaut").click(() => {
+    this.$("#o_chasseInt").change(() => this._sauverReglages());
+    this.$("#o_chasseReglagesDefaut").click(() => {
       try {
         localStorage.removeItem(CLE_LANCEUR_CHASSE);
       } catch (e) {}
-      $("#o_chasseReequilibrer").prop("checked", this.reglagesLanceur.reequilibrer);
-      $("#o_chasseMarge").spinner("value", this.reglagesLanceur.marge);
+      this.$("#o_chasseReequilibrer").prop("checked", this.reglagesLanceur.reequilibrer);
+      this.$("#o_chasseMarge").spinner("value", this.reglagesLanceur.marge);
       this._restaurerReglages();
       this._majVerrous();
       this.preparerChasse();
     });
-    $("#o_chasseJSN").on("input spin", (e, ui) => {
+    this.$("#o_chasseJSN").on("input spin", (e, ui) => {
       let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
       $(e.currentTarget).spinner("value", nombre);
       this._sauverReglages();
       this.preparerChasse();
     });
-    $("#o_chasseDateArrivee").on("change", () => this.terrainDepuisDate());
-    $("#o_chasseMarge").on("input spin", (e, ui) => {
+    this.$("#o_chasseDateArrivee").on("change", () => this.terrainDepuisDate());
+    this.$("#o_chasseMarge").on("input spin", (e, ui) => {
       if (!ui && /^\d+,\d{1,2}$/.test(e.currentTarget.value))
         e.currentTarget.value = e.currentTarget.value.replace(",", ".");
       let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
@@ -285,55 +343,55 @@ class LanceurChasse {
       this._sauverReglages();
       this.preparerChasse();
     });
-    $("#o_chasseParam input").on("input spin", (e, ui) => {
+    this.$("#o_chasseParam input").on("input spin", (e, ui) => {
       let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
       $(e.currentTarget).spinner("value", nombre);
       this._majParametres();
       this.preparerChasse();
     });
-    $("#o_chasseParamImporter").click(() =>
+    this.$("#o_chasseParamImporter").click(() =>
       ouvrirImportArmee((armee) => {
-        $("input[name='o_cpUnite']").each((_, elt) =>
+        this.$("input[name='o_cpUnite']").each((_, elt) =>
           $(elt).spinner("value", armee.unite[$(elt).data("i")] || 0),
         );
         this._majParametres();
         this.preparerChasse();
       }),
     );
-    $("#o_chasseParamRetablir").click(() => {
+    this.$("#o_chasseParamRetablir").click(() => {
       this._remplirParametres();
       this.preparerChasse();
     });
-    $("#o_chasseParamToggle").click(() => {
-      let ouvert = !$("#o_chasseParam").is(":visible");
-      $("#o_chasseParam").toggle(ouvert);
-      $("#o_chasseParamToggle")
+    this.$("#o_chasseParamToggle").click(() => {
+      let ouvert = !this.$("#o_chasseParam").is(":visible");
+      this.$("#o_chasseParam").toggle(ouvert);
+      this.$("#o_chasseParamToggle")
         .toggleClass("o_ouvert", ouvert)
         .find(".o_fleche")
         .text(ouvert ? "▼" : "▶");
     });
-    $("#o_chasseReequilibrer").on("change", () => {
+    this.$("#o_chasseReequilibrer").on("change", () => {
       this._sauverReglages();
       this.preparerChasse();
     });
-    $("#o_chassePertesTdcToggle").click(() => {
-      let $div = $("#o_chassePertesTdc");
+    this.$("#o_chassePertesTdcToggle").click(() => {
+      let $div = this.$("#o_chassePertesTdc");
       $div.toggle();
       let arrow = $div.is(":visible") ? "▲" : "▼";
-      $("#o_chassePertesTdcToggle").text(
+      this.$("#o_chassePertesTdcToggle").text(
         `${arrow} Pertes selon le niveau de TdC à l'arrivée ${arrow}`,
       );
     });
-    $(".o_otherHfInputAlt").on("input spin", () => this.mettreAjourPertesTdc());
+    this.$(".o_otherHfInputAlt").on("input spin", () => this.mettreAjourPertesTdc());
     // Lancement des chasses
-    $("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").click((e) => {
+    this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").click((e) => {
       if (this._armee.getSommeUnite() && this._simu && !this._parametresModifies()) {
         // désactivés dès le premier clic : un double clic enverrait chaque chasse deux fois
-        $("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop("disabled", true);
+        this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop("disabled", true);
         $(e.currentTarget).text("Envoi en cours…");
         let terrainChasse = this._simu.terrain,
           nbChasse = this._simu.nombre,
-          intervalle = $("#o_chasseInt").val() * 1000;
+          intervalle = this.$("#o_chasseInt").val() * 1000;
         // partage au rechargement qui suit la dernière chasse ; sans rechargement
         // (page quittée en route), l'ordre expire
         if (e.currentTarget.id == "o_chasseEnvoyerPartager")
@@ -362,16 +420,16 @@ class LanceurChasse {
    */
   _sauverReglages() {
     let R = this.reglagesLanceur,
-      auto = (id) => $(id).is(":checked"),
-      valeur = (id) => $(id).spinner("value") || 0,
+      auto = (id) => this.$(id).is(":checked"),
+      valeur = (id) => this.$(id).spinner("value") || 0,
       cases = { ratio: auto("#o_chasseDiffAuto"), budget: auto("#o_chasseBudgetAuto") };
     this.reglagesLanceur = {
       auto: cases,
       ratio: cases.ratio ? R.ratio : valeur("#o_chasseDiff"),
       budget: cases.budget ? R.budget : valeur("#o_chasseBudget"),
-      intervalle: parseInt($("#o_chasseInt").val()) || 2,
+      intervalle: parseInt(this.$("#o_chasseInt").val()) || 2,
       marge: Math.max(0, valeur("#o_chasseMarge")),
-      reequilibrer: $("#o_chasseReequilibrer").is(":checked"),
+      reequilibrer: this.$("#o_chasseReequilibrer").is(":checked"),
       jsn: valeur("#o_chasseJSN"),
     };
   }
@@ -383,13 +441,16 @@ class LanceurChasse {
    */
   _restaurerReglages() {
     let R = this.reglagesLanceur;
-    $("#o_chasseDiffAuto").prop("checked", R.auto.ratio);
-    $("#o_chasseBudgetAuto").prop("checked", R.auto.budget);
-    $("#o_chasseDiff").spinner("value", R.ratio);
+    this.$("#o_chasseDiffAuto").prop("checked", R.auto.ratio);
+    this.$("#o_chasseBudgetAuto").prop("checked", R.auto.budget);
+    this.$("#o_chasseDiff").spinner("value", R.ratio);
     this._majCouleurDiff();
-    $("#o_chasseBudget").spinner("value", R.budget);
-    $("#o_chasseInt").val(String(R.intervalle));
-    $("#o_chasseJSN").spinner("value", Math.min(R.jsn, $("#o_chasseJSN").spinner("option", "max")));
+    this.$("#o_chasseBudget").spinner("value", R.budget);
+    this.$("#o_chasseInt").val(String(R.intervalle));
+    this.$("#o_chasseJSN").spinner(
+      "value",
+      Math.min(R.jsn, this.$("#o_chasseJSN").spinner("option", "max")),
+    );
     return this;
   }
   /**
@@ -421,7 +482,7 @@ class LanceurChasse {
    */
   _remplirParametres() {
     let P = this._parametresReels();
-    $("input[name='o_cpUnite']").each((_, elt) =>
+    this.$("input[name='o_cpUnite']").each((_, elt) =>
       $(elt).spinner("value", P.unites[$(elt).data("i")]),
     );
     for (let [id, cle] of [
@@ -434,7 +495,7 @@ class LanceurChasse {
       ["#o_cpTdcLancement", "tdcLancement"],
       ["#o_cpPlaces", "nombreMax"],
     ])
-      $(id).spinner("value", P[cle]);
+      this.$(id).spinner("value", P[cle]);
     this._majParametres();
     return this;
   }
@@ -445,9 +506,9 @@ class LanceurChasse {
    * @method _parametres
    */
   _parametres() {
-    let valeur = (id) => $(id).spinner("value") || 0,
+    let valeur = (id) => this.$(id).spinner("value") || 0,
       unites = new Array(14).fill(0);
-    $("input[name='o_cpUnite']").each((_, elt) => (unites[$(elt).data("i")] = valeur(elt)));
+    this.$("input[name='o_cpUnite']").each((_, elt) => (unites[$(elt).data("i")] = valeur(elt)));
     return {
       unites,
       armes: valeur("#o_cpArmes"),
@@ -478,10 +539,10 @@ class LanceurChasse {
    */
   _majParametres() {
     let jsn = this._parametres().unites[0];
-    $("#o_chasseJSN").spinner("option", "max", jsn);
-    if ($("#o_chasseJSN").spinner("value") > jsn) $("#o_chasseJSN").spinner("value", jsn);
-    $("#o_chasseJSNMax").text(numeral(jsn).format());
-    $("#o_chasseNbr").spinner("option", "max", Math.max(1, this._parametres().nombreMax));
+    this.$("#o_chasseJSN").spinner("option", "max", jsn);
+    if (this.$("#o_chasseJSN").spinner("value") > jsn) this.$("#o_chasseJSN").spinner("value", jsn);
+    this.$("#o_chasseJSNMax").text(numeral(jsn).format());
+    this.$("#o_chasseNbr").spinner("option", "max", Math.max(1, this._parametres().nombreMax));
     return this;
   }
   /**
@@ -494,7 +555,7 @@ class LanceurChasse {
    * @param {Object} cases id du champ → sélecteur de sa case Auto
    */
   _fixerAuClic(id, cases) {
-    let $case = $(cases[id]);
+    let $case = this.$(cases[id]);
     if (!$case.length || !$case.is(":checked") || $case.prop("disabled")) return;
     $case.prop("checked", false);
     this._majVerrous(cases[id].slice(1));
@@ -514,11 +575,11 @@ class LanceurChasse {
    * @param {String} declencheur id de la case qui vient de changer
    */
   _majVerrous(declencheur = "") {
-    let auto = (id) => $(id).is(":checked"),
+    let auto = (id) => this.$(id).is(":checked"),
       tout = !auto("#o_chasseNbrAuto") && !auto("#o_chasseTDCRepAuto");
     for (let id of ["#o_chasseDiffAuto", "#o_chasseBudgetAuto", "#o_chasseRendementAuto"]) {
-      if (tout) $(id).prop("checked", true);
-      $(id).prop("disabled", tout);
+      if (tout) this.$(id).prop("checked", true);
+      this.$(id).prop("disabled", tout);
     }
     if (
       !tout &&
@@ -527,9 +588,9 @@ class LanceurChasse {
       auto("#o_chasseRendementAuto")
     ) {
       if (declencheur == "o_chasseDiffAuto") {
-        $("#o_chasseBudgetAuto").prop("checked", false);
-        $("#o_chasseBudget").spinner("value", this.reglagesLanceur.budget);
-      } else $("#o_chasseDiffAuto").prop("checked", false);
+        this.$("#o_chasseBudgetAuto").prop("checked", false);
+        this.$("#o_chasseBudget").spinner("value", this.reglagesLanceur.budget);
+      } else this.$("#o_chasseDiffAuto").prop("checked", false);
     }
     // calculé : en lecture seule et grisé, mais cliquable (un clic le fixe)
     for (let [champ, id] of [
@@ -539,13 +600,13 @@ class LanceurChasse {
       ["#o_chasseRendement", "#o_chasseRendementAuto"],
       ["#o_chasseDiff", "#o_chasseDiffAuto"],
     ])
-      $(champ)
+      this.$(champ)
         .prop("readonly", auto(id))
         .parent(".ui-spinner")
         .toggleClass("o_chasseCalcule", auto(id));
     // la cible : le rendement, ou les pertes quand le rendement est fixé
-    $("#o_chasseCibleRendement").toggle(!tout && auto("#o_chasseRendementAuto"));
-    $("#o_chasseCiblePertes").toggle(!tout && !auto("#o_chasseRendementAuto"));
+    this.$("#o_chasseCibleRendement").toggle(!tout && auto("#o_chasseRendementAuto"));
+    this.$("#o_chasseCiblePertes").toggle(!tout && !auto("#o_chasseRendementAuto"));
     return this;
   }
   /**
@@ -555,9 +616,9 @@ class LanceurChasse {
    * @method preparerChasse
    */
   preparerChasse() {
-    let tdcArrivee = $("#o_chasseTDCDep").spinner("value"),
-      auto = (id) => $(id).is(":checked"),
-      valeur = (id) => $(id).spinner("value") || 0,
+    let tdcArrivee = this.$("#o_chasseTDCDep").spinner("value"),
+      auto = (id) => this.$(id).is(":checked"),
+      valeur = (id) => this.$(id).spinner("value") || 0,
       autoNb = auto("#o_chasseNbrAuto"),
       autoTerrain = auto("#o_chasseTDCRepAuto"),
       autoRatio = auto("#o_chasseDiffAuto"),
@@ -601,7 +662,7 @@ class LanceurChasse {
         terrain: p.terrain || 1,
       });
     this._simu = plan && !plan.erreur ? plan : null;
-    $("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop(
+    this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop(
       "disabled",
       !this._simu || this._parametresModifies(),
     );
@@ -617,26 +678,27 @@ class LanceurChasse {
               ? `Armée trop faible pour ce TdC : la difficulté ${SimulationChasse.RATIO_PLANCHER} ne tient même pas sur 1 cm².`
               : "Rien ne borne le coût : fixe la difficulté, les pertes acceptées ou le rendement.",
       ]);
-      $("#o_simulationChasse").empty();
-      $("#o_chasseLimite").text("");
+      this.$("#o_simulationChasse").empty();
+      this.$("#o_chasseLimite").text("");
       return;
     }
-    if (autoNb) $("#o_chasseNbr").spinner("value", plan.nombre);
-    if (autoTerrain) $("#o_chasseTDCRep").spinner("value", plan.terrain);
-    if (autoBudget) $("#o_chasseBudget").spinner("value", Math.round(plan.budget * 1000) / 10);
-    if (autoRendement) $("#o_chasseRendement").spinner("value", Math.round(plan.rendement * 3600));
+    if (autoNb) this.$("#o_chasseNbr").spinner("value", plan.nombre);
+    if (autoTerrain) this.$("#o_chasseTDCRep").spinner("value", plan.terrain);
+    if (autoBudget) this.$("#o_chasseBudget").spinner("value", Math.round(plan.budget * 1000) / 10);
+    if (autoRendement)
+      this.$("#o_chasseRendement").spinner("value", Math.round(plan.rendement * 3600));
     // l'heure de retour suit le terrain par chasse
     this._dateAffichee = Utils.roundMinute(plan.duree).format("DD-MM-YYYY HH:mm");
-    $("#o_chasseDateArrivee").val(this._dateAffichee);
-    $("#o_chasseBudgetInfo").text(`≈ ${fmt((plan.budget * 86400) / tempsPonte)} JSN / jour`);
-    $("#o_chasseRendementInfo").text(`≈ ${fmt(plan.rendement * 86400)} cm² / jour`);
+    this.$("#o_chasseDateArrivee").val(this._dateAffichee);
+    this.$("#o_chasseBudgetInfo").text(`≈ ${fmt((plan.budget * 86400) / tempsPonte)} JSN / jour`);
+    this.$("#o_chasseRendementInfo").text(`≈ ${fmt(plan.rendement * 86400)} cm² / jour`);
     this.majSimulation(this._armee.repartition, unites);
     this.majRecapitulatif(plan);
     // Difficulté calculée (ratio atteint), ou redescendue si l'armée ne tient
     // pas celle choisie (ou si nombre et terrain sont fixés à la main) ; sinon
     // la valeur saisie reste
     if (autoRatio || plan.ratio < ratioChoisi - 0.0001) {
-      $("#o_chasseDiff").spinner("value", Math.round(plan.ratio * 100) / 100);
+      this.$("#o_chasseDiff").spinner("value", Math.round(plan.ratio * 100) / 100);
       this._majCouleurDiff();
     }
     this._majInfoDiff(plan, tdcArrivee, ratioChoisi, autoNb && autoTerrain, autoRatio);
@@ -676,7 +738,7 @@ class LanceurChasse {
       infos.push(
         `Tampon JSN × ${fmt(Math.min(...couvJsn), 2)} des pertes max (max × ${fmt(R.marge, 2)} : ${fmt(unites[0])} JSN pour ${fmt(plan.pertes.MAX)} de pertes max).`,
       );
-    if (this._parametresModifies())
+    if (!this._simulation && this._parametresModifies())
       alertes.push(
         "Simulation seulement : armée ou niveaux modifiés (« Rétablir mes valeurs » pour lancer).",
       );
@@ -689,7 +751,7 @@ class LanceurChasse {
    * @method _alerter
    */
   _alerter(alertes, infos = []) {
-    $("#o_chasseAlerte").html(
+    this.$("#o_chasseAlerte").html(
       [
         ...alertes.map((t) => `<span class='red gras'>${t}</span>`),
         ...infos.map((t) => `<span class='small'>${t}</span>`),
@@ -727,7 +789,7 @@ class LanceurChasse {
     else if (!auto) info += " — nombre ou terrain fixé : la difficulté en découle.";
     else if (choisi > max + 0.0001)
       info += ` — ${numeral(choisi).format("0.0")} impossible, max ${numeral(max).format("0.00")} avec cette armée (une chasse de 1 cm²).`;
-    $("#o_chasseDiffInfo").text(info);
+    this.$("#o_chasseDiffInfo").text(info);
   }
   /**
    * Met à jour la couleur du champ Difficulté selon le seuil de ratio.
@@ -736,9 +798,9 @@ class LanceurChasse {
    * @method _majCouleurDiff
    */
   _majCouleurDiff() {
-    let value = $("#o_chasseDiff").spinner("value") || 0,
+    let value = this.$("#o_chasseDiff").spinner("value") || 0,
       color = value <= 4 ? "black" : value <= 6 ? "red" : value <= 7.5 ? "orange" : "green";
-    $("#o_chasseDiff").css("color", color);
+    this.$("#o_chasseDiff").css("color", color);
   }
   /**
    * Fixe le terrain par chasse pour qu'une chasse parte maintenant et revienne
@@ -749,7 +811,7 @@ class LanceurChasse {
    * @method terrainDepuisDate
    */
   terrainDepuisDate() {
-    let raw = $("#o_chasseDateArrivee").val();
+    let raw = this.$("#o_chasseDateArrivee").val();
     // datetimepicker redéclenche `change` au blur : seule une valeur différente
     // de celle affichée par la simulation est une saisie
     if (!raw || raw === this._dateAffichee) return;
@@ -762,8 +824,8 @@ class LanceurChasse {
       this._alerter([secondsLeft <= 0 ? "Date de retour passée." : "Retour trop tôt."]);
       return;
     }
-    $("#o_chasseTDCRepAuto").prop("checked", false);
-    $("#o_chasseTDCRep").spinner("enable").spinner("value", terrain);
+    this.$("#o_chasseTDCRepAuto").prop("checked", false);
+    this.$("#o_chasseTDCRep").spinner("enable").spinner("value", terrain);
     this._majVerrous("o_chasseTDCRepAuto");
     this.preparerChasse();
   }
@@ -778,7 +840,7 @@ class LanceurChasse {
    */
   mettreAjourPertesTdc() {
     let simu = this._simu,
-      tdcCourant = $("#o_chasseTDCDep").spinner("value");
+      tdcCourant = this.$("#o_chasseTDCDep").spinner("value");
     if (!simu) return;
     let pertesA = (tdc) =>
         SimulationChasse.pertesAutreTdc(
@@ -792,22 +854,22 @@ class LanceurChasse {
         ),
       curPertes = simu.pertes;
     // Ligne 0 = référence (TdC courant, miroir live de #o_chasseTDCDep)
-    $("#o_otherHfRefValue").text(numeral(tdcCourant).format());
-    $(".o_otherHfMin[data-idx='0']").text(numeral(Math.round(curPertes.MIN)).format());
-    $(".o_otherHfAvg[data-idx='0']").text(numeral(Math.round(curPertes.AVG)).format());
-    $(".o_otherHfMax[data-idx='0']").text(numeral(Math.round(curPertes.MAX)).format());
+    this.$("#o_otherHfRefValue").text(numeral(tdcCourant).format());
+    this.$(".o_otherHfMin[data-idx='0']").text(numeral(Math.round(curPertes.MIN)).format());
+    this.$(".o_otherHfAvg[data-idx='0']").text(numeral(Math.round(curPertes.AVG)).format());
+    this.$(".o_otherHfMax[data-idx='0']").text(numeral(Math.round(curPertes.MAX)).format());
     // Lignes 1..10 = alternatives, variation calculée vs ligne 0
-    $(".o_otherHfInputAlt").each((_, el) => {
+    this.$(".o_otherHfInputAlt").each((_, el) => {
       let $el = $(el),
         i = $el.data("idx"),
         p = pertesA($el.spinner("value") || 0);
-      $(`.o_otherHfMin[data-idx='${i}']`).text(numeral(Math.round(p.MIN)).format());
-      $(`.o_otherHfAvg[data-idx='${i}']`).text(numeral(Math.round(p.AVG)).format());
-      $(`.o_otherHfMax[data-idx='${i}']`).text(numeral(Math.round(p.MAX)).format());
+      this.$(`.o_otherHfMin[data-idx='${i}']`).text(numeral(Math.round(p.MIN)).format());
+      this.$(`.o_otherHfAvg[data-idx='${i}']`).text(numeral(Math.round(p.AVG)).format());
+      this.$(`.o_otherHfMax[data-idx='${i}']`).text(numeral(Math.round(p.MAX)).format());
       let varAvg = curPertes.AVG > 0 ? ((p.AVG - curPertes.AVG) / curPertes.AVG) * 100 : 0,
         sign = varAvg >= 0 ? "+" : "",
         cls = varAvg > 0.5 ? "red" : varAvg < -0.5 ? "green" : "";
-      $(`.o_otherHfVar[data-idx='${i}']`).html(
+      this.$(`.o_otherHfVar[data-idx='${i}']`).html(
         `<span class='${cls}'>${sign}${varAvg.toFixed(1)} %</span>`,
       );
     });
@@ -837,8 +899,8 @@ class LanceurChasse {
       );
       simulation += `</tr>`;
     }
-    $("#o_simulationChasse").html(simulation);
-    $("#o_simulationChasse tr:even").addClass("ligne_paire");
+    this.$("#o_simulationChasse").html(simulation);
+    this.$("#o_simulationChasse tr:even").addClass("ligne_paire");
   }
   /**
    * Affiche le compte rendu de la simulation.
@@ -851,7 +913,7 @@ class LanceurChasse {
     let nbChasse = plan.nombre,
       terrainChasse = plan.terrain,
       temps = plan.duree;
-    $("#o_chasseTotal").html(
+    this.$("#o_chasseTotal").html(
       nbChasse +
         " x " +
         numeral(terrainChasse).format() +
@@ -859,19 +921,19 @@ class LanceurChasse {
         numeral(nbChasse * terrainChasse).format() +
         "</span> cm²",
     );
-    $("#o_chasseTemps").text(Utils.intToTime(temps));
+    this.$("#o_chasseTemps").text(Utils.intToTime(temps));
     let dateLong = Utils.roundMinute(temps).format("dddd D MMM YYYY [à] HH[h]mm");
-    $("#o_chasseRetour").text(dateLong.charAt(0).toUpperCase() + dateLong.slice(1));
-    $("#o_chasseRentabilite").text(
+    this.$("#o_chasseRetour").text(dateLong.charAt(0).toUpperCase() + dateLong.slice(1));
+    this.$("#o_chasseRentabilite").text(
       numeral(Math.round(plan.rendement * 3600)).format() +
         " cm² / h (" +
         numeral(Math.round(plan.rendement * 86400)).format() +
         " / jour)",
     );
-    $("#o_chasseRefDiff").text(
+    this.$("#o_chasseRefDiff").text(
       numeral(plan.ratio).format("0.00") + " ~ " + RATIO_CHASSE[plan.indexRef].toFixed(1),
     );
-    $("#o_chassePerte").text(
+    this.$("#o_chassePerte").text(
       numeral(Math.round(plan.pertes.AVG)).format() +
         " JSN (max : " +
         numeral(Math.round(plan.pertes.MAX)).format() +
@@ -879,7 +941,7 @@ class LanceurChasse {
         numeral(100 * plan.budget).format("0.0") +
         " % du temps de ponte",
     );
-    $("#o_chasseLimite").text(
+    this.$("#o_chasseLimite").text(
       {
         fixe: "nombre et terrain fixés",
         ratio: "la difficulté choisie",

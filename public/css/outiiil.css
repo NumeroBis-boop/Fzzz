@@ -1671,6 +1671,27 @@ html:not(.o_desactivee) center > div > #tabMembresAlliance {
   min-width: 3.4em;
   text-align: center;
 }
+/* PC hors du fuseau de Paris : son heure sur une ligne en bas de l'horloge,
+   hors de la rangée heure + latence dont la taille est calculée en JS */
+#o_horloge #o_horlogeLocale {
+  display: none;
+}
+#o_horloge.o_horlogeAvecLocale {
+  padding-bottom: 0.9em !important;
+}
+#o_horloge.o_horlogeAvecLocale #o_horlogeLocale {
+  display: block;
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 2px;
+  font-size: 0.6em;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit !important;
+}
 
 /* Fzzz : bandeau « Estimer le niveau de rentabilité du niveau supérieur »
    sous une ligne du Laboratoire ou de la Construction (Utils.ajouterSpoilerRentabilite) */

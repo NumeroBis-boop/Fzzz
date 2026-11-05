@@ -353,7 +353,7 @@ class PageRessource {
               </div>
             </div>
             <table id='o_lanceurChasse' class='o_maxWidth o_marginT15' cellspacing=0>
-			<tr class='ligne_paire'><td>Terrain à l'arrivée</td><td><input value='${Utils.terrain}' size='21' id='o_chasseTDCDep'/></td><td></td></tr>
+			<tr class='ligne_paire'><td>Terrain à l'arrivée</td><td><input value='${Math.min(Utils.terrain || 0, monProfil.parametre["tdcArriveeMax"].valeur || Infinity)}' size='21' id='o_chasseTDCDep'/></td><td></td></tr>
 			<tr><td>Nombre de chasse</td><td><input value='0' size='21' id='o_chasseNbr'/></td><td>${auto("o_chasseNbrAuto", true)}</td></tr>
 			<tr class='ligne_paire'><td>Terrain par chasse</td><td><input value='0' size='21' id='o_chasseTDCRep'/></td><td>${auto("o_chasseTDCRepAuto", true, "Calculé, ou fixé ici ou par l&#39;heure de retour")}</td></tr>
 			<tr><td>Retour le</td><td><input value='' size='21' id='o_chasseDateArrivee' placeholder='JJ-MM-AAAA HH:mm'/></td><td class='small'>= terrain par chasse</td></tr>

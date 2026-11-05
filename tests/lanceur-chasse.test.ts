@@ -33,8 +33,8 @@ const page = creerPage(
 
 const ARMEE = "5000000 jsn, 400000 sn, 100000 ne, 50000 js, 20000 s, 30000 a, 2000 tk, 1000 tu";
 
-/** Un lanceur neuf sur la page, avec le profil et l'armée du test. */
-function creerLanceur() {
+/** Un lanceur neuf sur la page, avec le profil et l'armée du test ; `avant` s'exécute entre les deux. */
+function creerLanceur(avant = "") {
   page.lire(`
     localStorage.removeItem("fzzz_affichage_lanceurChasse");
     $("#o_prepaChasse").remove();
@@ -43,6 +43,7 @@ function creerLanceur() {
       niveauRecherche: [15, 8, 10, 0, 0, 8, 0, 0, 0, 0],
       niveauConstruction: [0, 0, 0, 20, 10, 0, 0, 0, 0, 0, 0, 0, 0],
     });
+    ${avant}
     var lanceur = new PageRessource(null);
     lanceur._armee.parseArmee(${JSON.stringify(ARMEE)});
     lanceur._armee._nbrJSN = lanceur._armee.unite[0];
@@ -209,9 +210,11 @@ describe("lanceur : réglages mémorisés", () => {
 });
 
 describe("lanceur : terrain à l'arrivée", () => {
-  test("par défaut le TdC courant, même au-delà d'un million", () => {
+  test("par défaut le TdC courant, au plus le paramètre tdcArriveeMax (2 000 000)", () => {
     lire(`$("#quantite_tdc").text("2500000")`);
     creerLanceur();
+    expect(valeur("o_chasseTDCDep")).toBe(2000000);
+    creerLanceur(`monProfil.parametre["tdcArriveeMax"].valeur = 3000000;`);
     expect(valeur("o_chasseTDCDep")).toBe(2500000);
     expect(plan().difficulte).toBeCloseTo(
       lire(

@@ -213,7 +213,7 @@ class PageReine {
     let listePonte = Utils.pontesReine($(document)).map((p) => ({
       unite: p.unite.substr(0, 1).toUpperCase() + p.unite.substr(1),
       nombre: p.nombre,
-      exp: moment().add(p.secondes, "s"),
+      exp: Horloge.serveur().add(p.secondes, "s"),
     }));
     if (listePonte.length) this.savePonte(listePonte);
     return this;
@@ -264,7 +264,7 @@ class PageReine {
         $("#boiteComptePlus").length)
     ) {
       this._boiteComptePlus.ponte = listePonte;
-      this._boiteComptePlus.startPonte = moment();
+      this._boiteComptePlus.startPonte = Horloge.serveur();
       this._boiteComptePlus.sauvegarder().majPonte();
     }
     return this;

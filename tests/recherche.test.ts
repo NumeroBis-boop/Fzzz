@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
 const page = creerPage(
-  ["js/class/Utils.js", "js/class/Parametre.js", "js/class/Joueur.js"],
+  ["js/class/Utils.js", "js/class/Parametre.js", "js/class/Joueur.js", "js/class/Horloge.js"],
   "var METHODE_FLOOD = [], AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {};",
 );
 

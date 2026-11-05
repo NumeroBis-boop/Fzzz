@@ -675,8 +675,8 @@ class Joueur {
       if (!dataEvo.hasOwnProperty("construction")) {
         // si on pas les infos en localstorage
         dataEvo.construction = construction.substr(0, 1).toUpperCase() + construction.substr(1);
-        dataEvo.expConstruction = moment().add(time, "s");
-        dataEvo.startConstruction = moment();
+        dataEvo.expConstruction = Horloge.serveur().add(time, "s");
+        dataEvo.startConstruction = Horloge.serveur();
         localStorage.setItem("outiiil_evolution", JSON.stringify(dataEvo));
       }
     }
@@ -719,7 +719,7 @@ class Joueur {
     let $ligne = $("#ligne_recherche");
     if (!$ligne.length) return false;
     let avant = Utils.lireStockage(CLE_RECHERCHE_EN_COURS),
-      maintenant = Date.now(),
+      maintenant = Horloge.maintenant(),
       secondes = parseInt(
         ($ligne
           .find("script")
@@ -757,8 +757,8 @@ class Joueur {
       if (!dataEvo.hasOwnProperty("recherche")) {
         // si on pas les infos en localstorage
         dataEvo.recherche = recherche;
-        dataEvo.expRecherche = moment().add(time, "s");
-        dataEvo.startRecherche = moment();
+        dataEvo.expRecherche = Horloge.serveur().add(time, "s");
+        dataEvo.startRecherche = Horloge.serveur();
         localStorage.setItem("outiiil_evolution", JSON.stringify(dataEvo));
       }
     }

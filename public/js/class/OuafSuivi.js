@@ -201,7 +201,7 @@ class OuafSuivi {
    * @param {Array} convois voir convoisJeu (sans cle)
    */
   static numeroter(convois) {
-    let maintenant = Date.now(),
+    let maintenant = Horloge.maintenant(),
       retenus = Utils.lireStockage(CLE_OUAF_NUMEROS, {});
     for (let id in retenus) if (retenus[id].arrivee < maintenant) delete retenus[id];
     convois

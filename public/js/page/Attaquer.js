@@ -806,7 +806,7 @@ class PageAttaquer {
           listeAttaque[0]["exp"].diff(dataEvo.attaque[0]["exp"], "s") > 1))
     ) {
       dataEvo.attaque = listeAttaque;
-      dataEvo.startAttaque = moment();
+      dataEvo.startAttaque = Horloge.serveur();
       localStorage.setItem("outiiil_evolution", JSON.stringify(dataEvo));
       if (!Utils.comptePlus && $("#boiteComptePlus").length) {
         this._boiteComptePlus.attaque = dataEvo.attaque;

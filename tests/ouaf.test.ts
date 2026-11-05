@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
-const page = creerPage(["js/class/Utils.js", "js/class/OuafSuivi.js"]);
+const page = creerPage(["js/class/Utils.js", "js/class/OuafSuivi.js", "js/class/Horloge.js"]);
 
 const JOUR = 86400000;
 const maintenant = Date.parse("2026-10-26T18:00:00Z");

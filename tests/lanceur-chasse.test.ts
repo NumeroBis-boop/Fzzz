@@ -28,7 +28,7 @@ const page = creerPage(
     "js/content.js",
   ],
   `var chrome = { runtime: { getManifest: () => ({ version: "0" }), getURL: (p) => p } };
-   var Horloge = { serveur: () => moment() };
+   var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
    document.body.innerHTML = "<div class='boite_connexion_titre'>Connexion</div><span id='pseudo'>Test</span><span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>1000000</span><div id='boite_tdc'>TdC</div>";`,
 );
 

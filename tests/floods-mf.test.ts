@@ -3,7 +3,7 @@ import { creerPage } from "./harnais";
 
 const page = creerPage(
   ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
-  `var Horloge = { serveurA: (t) => moment(t), serveur: () => moment() };
+  `var Horloge = { serveurA: (t) => moment(t), serveur: () => moment(), maintenant: () => Date.now() };
    var DEHORS = [];
    var TroupesDehors = { ajouterAttaque: (id) => DEHORS.push(id), synchroniserAttaques() {} };
    class Armee { constructor(o) { this.unite = o.unite; } }

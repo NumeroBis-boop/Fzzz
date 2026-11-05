@@ -16,7 +16,7 @@ function creer(reine: string) {
   return creerPage(
     ["js/class/Utils.js"],
     `var monProfil = { parametre: { alertePonte: { valeur: 3 } } };
-     var Horloge = { serveur: () => moment() };
+     var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
      moment.duration.fn.format = moment.duration.fn.format || function () { return this.asSeconds() + "s"; };
      var REINE = ${JSON.stringify(reine)}, LECTURES = 0;
      document.body.innerHTML = "<div id='centre'><nav id='menu'></nav><p>page</p></div>";`,

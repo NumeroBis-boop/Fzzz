@@ -106,7 +106,19 @@ class Horloge {
    * @return {Object} moment
    */
   static serveur() {
-    return moment(Date.now() + (decalageServeur || 0));
+    return moment(Horloge.maintenant());
+  }
+  /**
+   * Heure du serveur maintenant, en ms (à défaut, heure du PC). Une heure de
+   * jeu (arrivée, retour, fin de ponte…) se compare à elle, pas à Date.now() :
+   * l'horloge du PC peut être fausse.
+   *
+   * @static
+   * @method maintenant
+   * @return {Number} ms
+   */
+  static maintenant() {
+    return Date.now() + (decalageServeur || 0);
   }
   /**
    * Heure du serveur à un instant donné de l'horloge du PC (ms).
@@ -128,7 +140,7 @@ class Horloge {
    * @return {Object} moment
    */
   static clic() {
-    return moment(Date.now() + (decalageServeur || 0) + Horloge.latence);
+    return moment(Horloge.maintenant() + Horloge.latence);
   }
   /**
    * Libellé de la latence, ex. « +0,3 s ».

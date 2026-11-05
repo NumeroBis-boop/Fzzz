@@ -129,7 +129,7 @@ class PageCommerce {
         sens: $(elt).text().includes("livrer"),
         nou: nombres[0],
         mat: nombres[1],
-        exp: moment().add(Utils.timeToInt($(elt).text().split("dans")[1].trim()), "s"),
+        exp: Horloge.serveur().add(Utils.timeToInt($(elt).text().split("dans")[1].trim()), "s"),
       });
     });
     // tri les convois par ordre d'arrivée
@@ -157,7 +157,7 @@ class PageCommerce {
         $("#boiteComptePlus").length)
     ) {
       this._boiteComptePlus.convoi = liste;
-      this._boiteComptePlus.startConvoi = moment();
+      this._boiteComptePlus.startConvoi = Horloge.serveur();
       this._boiteComptePlus.sauvegarder().majConvoi();
     }
     return this;

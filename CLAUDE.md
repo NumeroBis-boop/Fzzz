@@ -99,6 +99,12 @@ The `data_collection_permissions.required: ["none"]` declaration in the manifest
 
 **Default target = TEST (maintainer rule since 1.82.0).** Unless the maintainer says otherwise (« en version finale », « sur main », « publie »…), every change goes to the `test` branch only: commit there, run the usual checks, `bun run userscript:test`, commit `fzzz-test.user.js`, push `test`, give the link https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/test/fzzz-test.user.js. No version bump and no `NOUVEAUTES` entry on `test` (the timestamp suffix already makes each build an update). Promotion to `main` happens only on request, by cherry-picking those commits — never merge `test` into `main`: it also holds unreleased work (Grim's hunt launcher, reverted on `main` in 1.80.1) — then the usual release steps on `main`.
 
+### Game time — server clock and Paris time (Fzzz TEST, after 1.82.0)
+
+- Every game time (arrival, return, end of a ponte, construction, research, convoy or hunt; any time displayed or shared in the forum) uses the server clock: `Horloge.serveur()` (moment) or `Horloge.maintenant()` (ms), never `moment()` or `Date.now()`, because the PC clock can be wrong. `content.js` starts the page modules only once the stored clock offset is read.
+- The PC clock is kept only for local durations measured on that same clock, ids, caches and request pacing. `tests/horloge-pc.test.ts` counts every PC clock read per file: a new one fails until it is classified there, with its reason.
+- Times are Paris time: `public/js/class/Fuseau.js` makes it moment-timezone's default zone when the PC is set to another zone (`tests/fuseau.test.ts`).
+
 ### « Rétablir l'affichage d'origine » — mandatory for every change (Fzzz 1.59)
 
 Each preferences tab (`ONGLETS_PARAMETRE` in `public/js/boite/Parametres.js`) has a « Rétablir l'affichage d'origine » checkbox (`fzzz_origine_<tab>` in localStorage). When it is checked, the pages of that tab must look exactly as the game displays them, and the « Général » tab does the same for everything the extension changes on all pages. The maintainer requires this for every update and new feature:

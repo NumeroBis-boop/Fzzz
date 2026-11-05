@@ -4,7 +4,7 @@ import { creerPage } from "./harnais";
 const page = creerPage(
   ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
   // heure serveur = heure du PC + DECALAGE (horloge de l'extension faussée si non nul)
-  "var DECALAGE = 0; var Horloge = { serveurA: (t) => moment(t + DECALAGE) };",
+  "var DECALAGE = 0; var Horloge = { serveurA: (t) => moment(t + DECALAGE), maintenant: () => Date.now() + DECALAGE };",
 );
 const partage = (capture: string) =>
   page.lire<string>(
@@ -40,7 +40,7 @@ describe("attaque non capturée : reconstituée", () => {
   const p = creerPage(
     ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
     `var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine", "Soldate Naine", "Naine d’Elite", "Jeune Soldate", "Soldate"];
-     var Horloge = { serveur: () => moment() };
+     var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
      var monProfil = { getTempsParcours2: () => 3600 };
      var TroupesDehors = { ajouterAttaque() {} };
      var Armee = class { constructor() { this.unite = []; } };
@@ -78,7 +78,7 @@ describe("attaque non capturée : reconstituée", () => {
 describe("« + partager » et annulation", () => {
   const p = creerPage(
     ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
-    `var Horloge = { serveur: () => moment() };
+    `var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
      var TroupesDehors = { ajouterAttaque() {}, synchroniserAttaques() {} };
      var Armee = class { constructor() { this.unite = []; } };
      var PARTAGES = [], RETIRES = [], PARTAGE_ECHOUE = false, PUBLIES = { 7: 1 };
@@ -151,7 +151,7 @@ describe("arrivée d'une attaque", () => {
   // décalage serveur : +2,7 s sur l'horloge du PC
   const p = creerPage(
     ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
-    `var Horloge = { serveurA: (ms) => moment(ms + 2700) };`,
+    `var Horloge = { serveurA: (ms) => moment(ms + 2700), maintenant: () => Date.now() + 2700 };`,
   );
   test("seconde où le serveur a produit la page + compteur du jeu", () => {
     const r = p.lire<number[]>(`(() => {

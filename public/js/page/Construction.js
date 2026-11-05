@@ -303,17 +303,17 @@ class PageConstruction {
     if (
       construction &&
       (!this._boiteComptePlus.construction ||
-        moment().diff(moment(this._boiteComptePlus.expConstruction), "s") > 0) &&
+        Horloge.serveur().diff(moment(this._boiteComptePlus.expConstruction), "s") > 0) &&
       !Utils.comptePlus &&
       $("#boiteComptePlus").length
     ) {
       this._boiteComptePlus.construction =
         construction.substr(0, 1).toUpperCase() + construction.substr(1);
-      this._boiteComptePlus.expConstruction = moment().add(
+      this._boiteComptePlus.expConstruction = Horloge.serveur().add(
         parseInt(str.split(",")[0].split("(")[1]),
         "s",
       );
-      this._boiteComptePlus.startConstruction = moment();
+      this._boiteComptePlus.startConstruction = Horloge.serveur();
       this._boiteComptePlus.sauvegarder().majConstruction();
     }
     return this;

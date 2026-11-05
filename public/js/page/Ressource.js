@@ -122,7 +122,7 @@ class PageRessource {
       // durée : écoulé depuis le lancement + reste du jeu, sinon estimée
       let envoi = dehors[parseInt($(elt).attr("id").split("_")[1])],
         duree = envoi
-          ? Math.max(1, secondes + (Date.now() - envoi.lancee) / 1000)
+          ? Math.max(1, secondes + (Horloge.maintenant() - envoi.lancee) / 1000)
           : Math.max(1, SimulationChasse.duree(tdc, terrain || 0, vitesse)),
         armee = envoi ? envoi.unite : this._armeeDepuisNoms(unites),
         difficulte = SimulationChasse.difficulte(tdc, terrain || 0),
@@ -349,7 +349,10 @@ class PageRessource {
     $("span[id^=chasse_]").each((i, elt) => {
       listeChasse.push({
         quantite: numeral($(elt).parent().text().split("conquérir")[1].split("cm²")[0]).value(),
-        exp: moment().add($(elt).parent().next().text().split("reste(")[1].split(",")[0], "s"),
+        exp: Horloge.serveur().add(
+          $(elt).parent().next().text().split("reste(")[1].split(",")[0],
+          "s",
+        ),
       });
       $(elt)
         .parent()
@@ -616,7 +619,7 @@ class PageRessource {
         $("#boiteComptePlus").length)
     ) {
       this._boiteComptePlus.chasse = listeChasse;
-      this._boiteComptePlus.startChasse = moment();
+      this._boiteComptePlus.startChasse = Horloge.serveur();
       this._boiteComptePlus.sauvegarder().majChasse();
     }
     return this;

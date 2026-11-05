@@ -966,8 +966,8 @@ class Utils {
     if (
       !surReine &&
       !Utils._pageReine &&
-      connue.fin - Date.now() > seuil * 1000 + MARGE_RELECTURE_PONTE &&
-      Date.now() - connue.lu < VALIDITE_FIN_PONTE
+      connue.fin - Horloge.maintenant() > seuil * 1000 + MARGE_RELECTURE_PONTE &&
+      Horloge.maintenant() - connue.lu < VALIDITE_FIN_PONTE
     )
       return noter(
         `fin de la file vers ${moment(connue.fin).format("HH[h]mm")} (lue à ${moment(connue.lu).format("HH[h]mm")}), page Reine non relue`,
@@ -982,7 +982,7 @@ class Utils {
         try {
           localStorage.setItem(
             CLE_FIN_PONTE,
-            JSON.stringify({ fin: Date.now() + reste * 1000, lu: Date.now() }),
+            JSON.stringify({ fin: Horloge.maintenant() + reste * 1000, lu: Horloge.maintenant() }),
           );
         } catch (e) {}
         try {
@@ -995,7 +995,7 @@ class Utils {
             ? "pas de bandeau"
             : surReine
               ? "pas de bandeau sur la page Reine"
-              : Date.now() < muette
+              : Horloge.maintenant() < muette
                 ? `masquée jusqu'à ${moment(muette).format("HH[h]mm")} (croix du bandeau)`
                 : "bandeau affiché";
         noter(
@@ -1070,7 +1070,7 @@ class Utils {
       try {
         localStorage.setItem(
           CLE_ALERTE_PONTE_MUETTE,
-          String(Date.now() + MINUTES_MASQUAGE_PONTE * 60000),
+          String(Horloge.maintenant() + MINUTES_MASQUAGE_PONTE * 60000),
         );
       } catch (e) {}
       $bandeau.remove();

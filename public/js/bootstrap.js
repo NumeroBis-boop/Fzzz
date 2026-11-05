@@ -9,7 +9,8 @@
  * sans flash.
  *
  * Il empêche aussi qu'actualiser une page de réponse renvoie le formulaire
- * qui l'a produite (convoi, attaque envoyés deux fois).
+ * qui l'a produite (convoi, attaque envoyés deux fois) ou refasse l'action
+ * du lien qui l'a ouverte (construction, déplacement de troupes).
  *
  * Aucune dépendance, aucun accès jQuery — le DOM est encore vide à cet instant.
  **********************************************************************/
@@ -95,9 +96,21 @@
   // convoi ou une seconde attaque partirait. Remplacer l'entrée d'historique
   // par la même adresse lui fait oublier les données envoyées ; actualiser
   // recharge alors simplement la page.
-  try {
-    if (!desactivee) history.replaceState(history.state, "", location.href);
-  } catch (e) {
-    /* historique inaccessible : comportement du navigateur inchangé */
-  }
+  let remplacerAdresse = (adresse) => {
+    try {
+      history.replaceState(history.state, "", adresse);
+    } catch (e) {
+      /* historique inaccessible : comportement du navigateur inchangé */
+    }
+  };
+  if (desactivee) return;
+  remplacerAdresse(location.href);
+  // Les liens d'action du jeu (construire, rechercher, déplacer des troupes,
+  // annuler un convoi) portent le jeton t : les recharger referait l'action.
+  // L'entrée garde la page sans paramètres, une fois les scripts du jeu passés
+  // (ils peuvent lire l'adresse pendant le chargement).
+  if (!/[?&]t=/.test(location.search)) return;
+  let sansAction = () => remplacerAdresse(location.pathname + location.hash);
+  if (document.readyState == "loading") document.addEventListener("DOMContentLoaded", sansAction);
+  else sansAction();
 })();

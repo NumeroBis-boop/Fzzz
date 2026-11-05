@@ -208,6 +208,21 @@ describe("lanceur : réglages mémorisés", () => {
   });
 });
 
+describe("lanceur : terrain à l'arrivée", () => {
+  test("par défaut le TdC courant, même au-delà d'un million", () => {
+    lire(`$("#quantite_tdc").text("2500000")`);
+    creerLanceur();
+    expect(valeur("o_chasseTDCDep")).toBe(2500000);
+    expect(plan().difficulte).toBeCloseTo(
+      lire(
+        `SimulationChasse.difficulteTotale(2500000, lanceur._simu.terrain, lanceur._simu.nombre)`,
+      ),
+      6,
+    );
+    lire(`$("#quantite_tdc").text("1000000")`);
+  });
+});
+
 describe("lanceur : armée et niveaux utilisés", () => {
   test("préremplis avec le compte, lancement possible", () => {
     expect(lire(`$("input[name='o_cpUnite'][data-i='0']").spinner("value")`)).toBe(5000000);

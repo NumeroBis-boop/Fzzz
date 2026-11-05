@@ -6,7 +6,8 @@
  * réplique, prédateurs tués, unités perdues. Ce n'est pas le code du jeu :
  * la structure du tirage et ses constantes sont ajustées aux mesures (pertes
  * moyennes à ±3 % près), les tirages de petites difficultés (< 5 000)
- * s'en écartent un peu plus.
+ * s'en écartent un peu plus. Pas encore affiché : la base d'une estimation
+ * de la dispersion des pertes (quantiles, pire cas) pour le lanceur.
  **********************************************************************/
 
 /**

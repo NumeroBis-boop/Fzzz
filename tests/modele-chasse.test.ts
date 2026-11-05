@@ -164,39 +164,3 @@ describe("ModeleChasse.salve", () => {
     expect(res.total.pire[0]).toBeGreaterThanOrEqual(res.total.jsn.p95 * 0.99);
   });
 });
-
-describe("BoiteChasse.htmlSimulation", () => {
-  const pageBoite = creerPage(
-    [
-      "js/lib/jquery-ui_1.12.1.js",
-      "js/class/Utils.js",
-      "js/class/Parametre.js",
-      "js/class/Joueur.js",
-      "js/class/Armee.js",
-      "js/class/Combat.js",
-      "js/class/SimulationChasse.js",
-      "js/class/ModeleChasse.js",
-      "js/class/LanceurChasse.js",
-      "js/boite/Boite.js",
-      "js/boite/Chasse.js",
-      "js/content.js",
-    ],
-    `var chrome = { runtime: { getManifest: () => ({ version: "0" }), getURL: (p) => p } };
-     document.body.innerHTML = "<div class='boite_connexion_titre'>Connexion</div>";`,
-  );
-
-  test("une ligne par chasse, la salve, et les unités perdues", () => {
-    const html = pageBoite.lire<string>(`(() => {
-      let unites = ${JSON.stringify(armeeJsn(0))}; unites[0] = 120000; unites[7] = 2000;
-      let p = { unites, armes: 5, bouclier: 3, tdcArrivee: ${TDC}, tdcLancement: ${TDC}, vitesse: 0, facteur: 2, reequilibrer: true },
-        plan = SimulationChasse.plan(p, 3, ${TERRAIN}),
-        res = ModeleChasse.salve({ tdcArrivee: ${TDC}, terrain: ${TERRAIN}, armes: 5, bouclier: 3, chasses: plan.chasses }, 100, 9);
-      return BoiteChasse.htmlSimulation(plan, res); })()`);
-    const lignes = (html.match(/<tbody>([\s\S]*?)<\/tbody>/)![1]!.match(/<tr/g) || []).length;
-    expect(lignes).toBe(4); // 3 chasses + salve
-    expect(html).toContain("100 tirages");
-    expect(html).toContain("Unités perdues par salve");
-    expect(html).toContain("Pire tirage");
-    expect(html).toContain("<th class='right'>JSN</th>");
-  });
-});

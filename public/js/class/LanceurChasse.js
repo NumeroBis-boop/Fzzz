@@ -137,7 +137,7 @@ class LanceurChasse {
     let R = this.reglagesLanceur,
       ratios = RATIO_CHASSE.map(
         (r, i) =>
-          `<option value='${r}' label='${r.toFixed(1)} → Rep10% : ${this._replique(i)}'></option>`,
+          `<div class='o_chasseDiffItem ${r <= 4 ? "black" : r <= 6 ? "red" : r <= 7.5 ? "orange" : "green"}' data-ratio='${r}'>${r.toFixed(1)} → Rep10% : ${this._replique(i)}</div>`,
       ).join(""),
       auto = (id, coche, titre = "") =>
         `<input id='${this._p}${id}' type='checkbox' class='o_chasseAuto'${coche ? " checked='checked'" : ""}/><label for='${this._p}${id}'${titre ? ` title='${titre}'` : ""}>Auto</label>`;
@@ -188,7 +188,7 @@ class LanceurChasse {
 			<tr><td>Nombre de chasse</td><td><input value='0' size='21' id='${this._p}o_chasseNbr'/></td><td>${auto("o_chasseNbrAuto", true)}</td></tr>
 			<tr class='ligne_paire'><td>Terrain par chasse</td><td><input value='0' size='21' id='${this._p}o_chasseTDCRep'/></td><td>${auto("o_chasseTDCRepAuto", true, "Calculé, ou fixé ici ou par l&#39;heure de retour")}</td></tr>
 			<tr><td>Retour le</td><td><input value='' size='21' id='${this._p}o_chasseDateArrivee' placeholder='JJ-MM-AAAA HH:mm'/></td><td class='small'>= terrain par chasse</td></tr>
-			<tr class='ligne_paire'><td>Difficulté</td><td><input value='9' size='21' id='${this._p}o_chasseDiff' list='${this._p}o_chasseDiffListe' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse. Les valeurs de la liste sont celles des tables de pertes ; entre deux, les pertes estimées sont celles de la valeur du dessous.'/><datalist id='${this._p}o_chasseDiffListe'>${ratios}</datalist></td><td>${auto("o_chasseDiffAuto", false, `Difficulté la plus basse que les pertes acceptées permettent, jamais sous ${SimulationChasse.RATIO_PLANCHER}`)} <span id='${this._p}o_chasseDiffInfo' class='small'></span></td></tr>
+			<tr class='ligne_paire'><td>Difficulté</td><td class='o_chasseDiffCellule'><input value='9' size='17' id='${this._p}o_chasseDiff' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse. Valeur libre ; la liste ▾ donne les ratios de référence des tables de pertes.'/><a id='${this._p}o_chasseDiffBouton' class='o_chasseDiffBouton' title='Ratios de référence'>▾</a><div id='${this._p}o_chasseDiffMenu' class='o_chasseDiffMenu' style='display:none'>${ratios}</div></td><td>${auto("o_chasseDiffAuto", false, `Difficulté la plus basse que les pertes acceptées permettent, jamais sous ${SimulationChasse.RATIO_PLANCHER}`)} <span id='${this._p}o_chasseDiffInfo' class='small'></span></td></tr>
 			<tr><td title='Part du temps de ponte de JSN consacrée à remplacer les pertes moyennes'>Pertes acceptées (% de la ponte) <span class='o_chasseCible' id='${this._p}o_chasseCiblePertes' title='Ce que le lanceur minimise : la salve la moins coûteuse qui atteint le rendement fixé'>🎯</span></td><td><input value='${R.budget}' size='21' id='${this._p}o_chasseBudget'/></td><td>${auto("o_chasseBudgetAuto", true)} <span id='${this._p}o_chasseBudgetInfo' class='small'></span></td></tr>
 			<tr class='ligne_paire'><td title='TdC chassé par heure de chasse'>Rendement (cm² / h) <span class='o_chasseCible' id='${this._p}o_chasseCibleRendement' title='Ce que le lanceur maximise, dans les limites fixées'>🎯</span></td><td><input value='0' size='21' id='${this._p}o_chasseRendement'/></td><td>${auto("o_chasseRendementAuto", true, "Fixé : la salve la moins coûteuse qui l&#39;atteint")} <span id='${this._p}o_chasseRendementInfo' class='small'></span></td></tr>
 			<tr><td colspan='3'><em>Basé sur le lanceur de <a href='http://alliancead2.free.fr/Outils/Repository/HuntSimv2.00/Simulator_2.00.00.html' class='violet' target='_blank' rel='noopener'>Calystene</a></em> · <a id='${this._p}o_chasseReglagesDefaut' class='cursor souligne small' title='Oublie les réglages mémorisés (difficulté, pertes acceptées, intervalle, marge, rééquilibrage, JSN gardées)'>réglages par défaut</a></td></tr>
@@ -249,10 +249,7 @@ class LanceurChasse {
     this.$("#o_chasseNbr").spinner({ min: 1, max: this._nbChasse, numberFormat: "i" });
     this.$("#o_chasseBudget").spinner({ min: 0.1, step: 0.1, numberFormat: "i" });
     this.$("#o_chasseRendement").spinner({ min: 1, numberFormat: "i" });
-    // le widget pose autocomplete=off, qui peut cacher la liste des ratios de référence
-    this.$("#o_chasseDiff")
-      .spinner({ min: 1, step: 0.1, numberFormat: "i" })
-      .removeAttr("autocomplete");
+    this.$("#o_chasseDiff").spinner({ min: 1, step: 0.1, numberFormat: "i" });
     this.$("#o_chasseMarge").spinner({ min: 0, step: 0.1, numberFormat: "i" });
     this.$("input[name='o_cpUnite'], #o_cpTdcLancement").spinner({ min: 0, numberFormat: "i" });
     this.$(
@@ -320,6 +317,28 @@ class LanceurChasse {
       (e) => this._fixerAuClic(this._sansPrefixe(e.currentTarget.id), cases),
     );
     this.$("#o_chasseInt").change(() => this._sauverReglages());
+    // liste des ratios de référence : choisir en fixe la difficulté
+    this.$("#o_chasseDiffBouton").on("click", (e) => {
+      e.stopPropagation();
+      this.$("#o_chasseDiffMenu").toggle();
+    });
+    this.$("#o_chasseDiffMenu").on("click", ".o_chasseDiffItem", (e) => {
+      this.$("#o_chasseDiffMenu").hide();
+      this.$("#o_chasseDiff").spinner("value", parseFloat($(e.currentTarget).data("ratio")));
+      this._majCouleurDiff();
+      if (
+        this.$("#o_chasseDiffAuto").is(":checked") &&
+        !this.$("#o_chasseDiffAuto").prop("disabled")
+      ) {
+        this.$("#o_chasseDiffAuto").prop("checked", false);
+        this._majVerrous("o_chasseDiffAuto");
+      }
+      this._sauverReglages();
+      this.preparerChasse();
+    });
+    $(document).on("click." + this._p + "o_chasseDiffMenu", () =>
+      this.$("#o_chasseDiffMenu").hide(),
+    );
     this.$("#o_chasseReglagesDefaut").click(() => {
       try {
         localStorage.removeItem(CLE_LANCEUR_CHASSE);

@@ -320,3 +320,22 @@ describe("lanceur : plusieurs instances dans la page", () => {
     lire(`$("#o_tabsChasse3").remove()`);
   });
 });
+
+describe("lanceur : liste des ratios de référence", () => {
+  test("le bouton ▾ ouvre la liste, un choix remplit et fixe la difficulté", () => {
+    cocher("o_chasseDiffAuto", true);
+    expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).toBe("none");
+    lire(`$("#o_chasseDiffBouton").trigger("click")`);
+    expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).not.toBe("none");
+    expect(lire(`$("#o_chasseDiffMenu .o_chasseDiffItem").length`)).toBe(13);
+    lire(`$("#o_chasseDiffMenu .o_chasseDiffItem[data-ratio='7.5']").trigger("click")`);
+    expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).toBe("none");
+    expect(valeur("o_chasseDiff")).toBe(7.5);
+    expect(coche("o_chasseDiffAuto")).toBe(false);
+    expect(plan().limite).toBe("ratio");
+    expect(plan().ratio).toBeGreaterThanOrEqual(7.5);
+    // la valeur libre reste possible
+    saisir("o_chasseDiff", 8.3);
+    expect(valeur("o_chasseDiff")).toBe(8.3);
+  });
+});

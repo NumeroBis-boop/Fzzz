@@ -1721,6 +1721,34 @@ html:not(.o_desactivee) center > div > #tabMembresAlliance {
 .o_chasseCible {
   cursor: help;
 }
+/* difficulté : champ libre + liste déroulante des ratios de référence */
+.o_chasseDiffCellule {
+  position: relative;
+  white-space: nowrap;
+}
+.o_chasseDiffBouton {
+  cursor: pointer;
+  padding: 0 5px;
+  user-select: none;
+  font-weight: bold;
+}
+.o_chasseDiffMenu {
+  position: absolute;
+  left: 0;
+  z-index: 20;
+  background: #d7c384;
+  border: 1px solid #8b7440;
+  border-radius: 4px;
+  text-align: left;
+}
+.o_chasseDiffItem {
+  padding: 2px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.o_chasseDiffItem:hover {
+  background: #cfb978;
+}
 /* champ calculé : grisé, un clic le fixe */
 .o_chasseCalcule,
 .o_chasseCalcule input {

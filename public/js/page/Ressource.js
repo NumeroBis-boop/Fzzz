@@ -78,7 +78,11 @@ class PageRessource {
    * Fzzz : synthèse des chasses en cours par minute d'impact. Les chasses qui
    * arrivent sur des minutes consécutives (13h05, 13h06, 13h07…) forment un
    * seul groupe, affiché à la minute la plus tardive. Pour chaque groupe :
-   * heure d'impact, TdC chassé et unités mises en chasse (détail au survol).
+   * heure d'impact, TdC chassé, TdC par heure, JSN perdues par heure (estimées
+   * d'après l'armée envoyée et le TdC courant) et unités mises en chasse.
+   * La durée d'une chasse lancée d'ici est connue (TroupesDehors retient
+   * l'heure de lancement) ; sinon elle est estimée comme si la chasse partait
+   * maintenant, et la ligne le signale.
    *
    * @private
    * @method syntheseChasses
@@ -91,7 +95,16 @@ class PageRessource {
     } catch (e) {}
     // page Ressources réelle (pas une page de connexion) : elle liste toutes les chasses
     if (!$("#boite_tdc").length) return;
-    let chasses = [];
+    let chasses = [],
+      dehors = {},
+      niveau = (n) => Math.max(0, n || 0),
+      vitesse = niveau(monProfil.niveauRecherche[5]),
+      armes = niveau(monProfil.niveauRecherche[2]),
+      bouclier = niveau(monProfil.niveauRecherche[1]),
+      tdc = Math.max(1, Utils.terrain || 1);
+    TroupesDehors.charger().forEach((t) => {
+      if (t.type == "chasse" && t.id) dehors[t.id] = t;
+    });
     $("#boite_tdc span[id^='chasse_']").each((i, elt) => {
       let $ligne = $(elt).parent(),
         secondes = parseInt($ligne.nextAll("script").first().text().split("(")[1]),
@@ -120,7 +133,30 @@ class PageRessource {
         let m = morceau.trim().match(/^([\d\s ]+)\s+(.+)$/);
         if (m) unites[m[2].trim()] = numeral(m[1]).value();
       });
-      chasses.push({ impact: impact, terrain: terrain || 0, unites: unites });
+      // durée : écoulé depuis le lancement + reste du jeu, sinon estimée
+      let envoi = dehors[parseInt($(elt).attr("id").split("_")[1])],
+        duree = envoi
+          ? Math.max(1, secondes + (Date.now() - envoi.lancee) / 1000)
+          : Math.max(1, SimulationChasse.duree(tdc, terrain || 0, vitesse)),
+        armee = envoi ? envoi.unite : this._armeeDepuisNoms(unites),
+        difficulte = SimulationChasse.difficulte(tdc, terrain || 0),
+        attaque = SimulationChasse.attaqueArmee(armee, armes),
+        pertes =
+          attaque > 0
+            ? SimulationChasse.pertes(
+                SimulationChasse.indexRatioRef(attaque / difficulte),
+                difficulte,
+                bouclier,
+              ).AVG
+            : 0;
+      chasses.push({
+        impact: impact,
+        terrain: terrain || 0,
+        unites: unites,
+        duree: duree,
+        estime: !envoi,
+        pertes: pertes,
+      });
     });
     if (!chasses.length) {
       // chasses annulées ou arrivées : plus rien à garder dans le forum
@@ -140,9 +176,15 @@ class PageRessource {
     });
     let somme = (liste) => {
         let terrain = 0,
+          tdcHeure = 0,
+          jsnHeure = 0,
+          estime = false,
           unites = {};
         liste.forEach((c) => {
           terrain += c.terrain;
+          tdcHeure += (c.terrain / c.duree) * 3600;
+          jsnHeure += (c.pertes / c.duree) * 3600;
+          estime = estime || c.estime;
           // singulier et pluriel (« 1 Tank », « 3 Tanks ») sous la même clé
           for (let nom in c.unites) {
             let cle = nom.toLowerCase().replace(/s\b/g, "");
@@ -163,6 +205,9 @@ class PageRessource {
           total = detail.reduce((t, u) => t + u.nb, 0);
         return {
           terrain: terrain,
+          tdcHeure: tdcHeure,
+          jsnHeure: jsnHeure,
+          estime: estime,
           total: total,
           detail: detail.map((u) => `${numeral(u.nb).format()} ${u.nom}`).join(", "),
         };
@@ -170,14 +215,17 @@ class PageRessource {
       textes = [],
       ligne = (libelle, liste, classe) => {
         let s = somme(liste),
-          unites = s.detail ? s.detail + "." : "";
+          unites = s.detail ? s.detail + "." : "",
+          // ~ : durée estimée (chasse lancée ailleurs qu'ici) ; les pertes sont toujours une estimation
+          tdcHeure = `${s.estime ? "~" : ""}${numeral(Math.round(s.tdcHeure)).format()}`,
+          jsnHeure = `≈ ${numeral(Math.round(s.jsnHeure)).format()}`;
         textes.push(
-          `${libelle} : ${liste.length} chasse${liste.length > 1 ? "s" : ""}, ${numeral(s.terrain).format()} cm², ${unites}`,
+          `${libelle} : ${liste.length} chasse${liste.length > 1 ? "s" : ""}, ${numeral(s.terrain).format()} cm², ${tdcHeure} cm²/h, ${jsnHeure} JSN/h perdues, ${unites}`,
         );
-        return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td class='o_syntheseUnites'>${unites}</td></tr>`;
+        return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td title='${s.estime ? "~ : durée estimée comme si la chasse partait maintenant (lancée ailleurs que d&#39;ici)" : "Durée réelle depuis le lancement"}'>${tdcHeure}</td><td title='Pertes moyennes estimées d&#39;après l&#39;armée envoyée et le TdC courant'>${jsnHeure}</td><td class='o_syntheseUnites'>${unites}</td></tr>`;
       },
       html = `<table class='o_maxWidth centre' cellspacing='0'>
-        <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>Unités mises en chasse</td></tr>`;
+        <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>TdC / h</td><td>JSN / h</td><td>Unités mises en chasse</td></tr>`;
     let aPartager = () =>
       groupes.map((g) => {
         let s = somme(g.chasses);
@@ -223,6 +271,25 @@ class PageRessource {
     $("#o_partagerChasses").on("click", (e) =>
       PartageChasses.partager(aPartager(), $(e.currentTarget)),
     );
+  }
+  /**
+   * Armée (ordre d'Armee.unite) d'après les unités nommées par le jeu
+   * (« Troupes en chasse : 1 000 Jeunes Soldates Naines, … »).
+   *
+   * @private
+   * @method _armeeDepuisNoms
+   * @param {Object} unites nom → nombre
+   * @return {Array}
+   */
+  _armeeDepuisNoms(unites) {
+    let armee = new Array(14).fill(0),
+      noms = [...NOM_UNITES, ...NOM_UNITE].map((n) => n.toLowerCase().replace(/['’]/g, "'"));
+    for (let nom in unites) {
+      let i = noms.indexOf(nom.toLowerCase().replace(/['’]/g, "'")),
+        u = i == -1 ? -1 : (i % NOM_UNITES.length) - 1;
+      if (u >= 0) armee[u] += unites[nom] || 0;
+    }
+    return armee;
   }
   /**
    * Ajoute un bouton "Annuler toutes les chasses" dans la boîte de chasse en cours.

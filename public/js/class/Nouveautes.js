@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.81.0",
+    notes: [
+      "Temps de trajet de la page Membres et carte de l'alliance : les coordonnées viennent de l'export public des joueurs du jeu (une seule requête), au lieu de lire la page de chaque membre. Seuls les membres arrivés depuis le dernier export sont lus un par un.",
+      "Boîte « Extension OUAF » : message si Optizzz est aussi active, avec les fonctions à y couper pour que les deux extensions ne se gênent pas.",
+    ],
+  },
+  {
     version: "1.80.3",
     notes: [
       "Lanceur de flood, méthode « Optimisée » : l'attaque « limite » amène la cible à exactement la moitié de ton TdC (encore à portée) au lieu de garder 1 cm² de marge : 1 cm² de plus par flood optimisé.",

@@ -2,7 +2,7 @@
 const ECART_ENCADRES = 6;
 // « Désactiver l'extension » : lu aussi par bootstrap.js, avant l'affichage
 const CLE_DESACTIVEE = "fzzz_desactivee";
-// Toolzzz et Outiiil (dont Fzzz descend) ajoutent leur barre d'outils avec cet id, hors de notre encadré
+// barre d'outils de Toolzzz et d'Outiiil (même id que la nôtre, hors de notre encadré)
 const ID_BARRE_TOOLZZZ = "o_toolbarOutiiil";
 
 /**
@@ -89,27 +89,45 @@ class Dock {
     });
   }
   /**
-   * Toolzzz ou Outiiil active en même temps (les deux se gênent : mêmes id,
-   * mêmes modifications des pages) ; elle peut s'afficher après nous.
+   * Autres extensions Fourmizzz actives en même temps, repérées à ce qu'elles
+   * ajoutent à la page. Toolzzz et Outiiil (dont Fzzz descend) : même id de
+   * barre d'outils, hors de notre encadré. Optizzz : classe sur <html> et
+   * bouton dans le menu du jeu.
    *
    * @static
-   * @method autreExtension
-   * @return {Boolean}
+   * @method autresExtensions
+   * @return {Array<String>} « Toolzzz ou Outiiil », « Optizzz »
    */
-  static autreExtension() {
-    return [...document.querySelectorAll(`[id="${ID_BARRE_TOOLZZZ}"]`)].some(
-      (e) => !e.closest("#o_boiteExtension"),
-    );
+  static autresExtensions() {
+    let trouvees = [];
+    if (
+      [...document.querySelectorAll(`[id="${ID_BARRE_TOOLZZZ}"]`)].some(
+        (e) => !e.closest("#o_boiteExtension"),
+      )
+    )
+      trouvees.push("Toolzzz ou Outiiil");
+    if (
+      document.documentElement.classList.contains("optizzz-game-look") ||
+      document.querySelector("[data-optizzz-bar-button]")
+    )
+      trouvees.push("Optizzz");
+    return trouvees;
   }
   static signalerAutreExtension($boite) {
-    let verifier = () => {
-      if ($boite.find(".o_autreExtension").length || !Dock.autreExtension()) return;
-      $boite
-        .find(".contenu_boite_compte_plus")
-        .append(
-          `<div class="o_autreExtension">Toolzzz ou Outiiil est aussi active : désactive-la, les deux extensions se gênent.</div>`,
-        );
+    const MESSAGES = {
+      "Toolzzz ou Outiiil":
+        "Toolzzz ou Outiiil est aussi active : désactive-la, les deux extensions se gênent.",
+      Optizzz:
+        "Optizzz est aussi active : coupe dans ses « Fonctionnalités » les anti-sondes, le lanceur de chasse et les colonnes de la page Membres, sinon les deux extensions se gênent.",
     };
+    let verifier = () =>
+      Dock.autresExtensions().forEach((nom) => {
+        if ($boite.find(`.o_autreExtension[data-nom="${nom}"]`).length) return;
+        $("<div class='o_autreExtension'></div>")
+          .attr("data-nom", nom)
+          .text(MESSAGES[nom])
+          .appendTo($boite.find(".contenu_boite_compte_plus"));
+      });
     verifier();
     $(window).on("load", verifier);
     [1000, 3000].forEach((ms) => setTimeout(verifier, ms));

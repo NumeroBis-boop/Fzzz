@@ -124,6 +124,7 @@ export default defineConfig({
           "js/data/couts.js",
           "js/data/menuRapide.js",
           "js/class/Utils.js",
+          "js/class/ExportJoueurs.js",
           "js/class/Alliance.js",
           "js/class/Armee.js",
           "js/class/AttaqueLancee.js",

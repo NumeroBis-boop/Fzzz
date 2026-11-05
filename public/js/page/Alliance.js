@@ -304,7 +304,10 @@ class PageAlliance {
     return this;
   }
   /**
-   * Fetch des coords pour tous les membres + persistance localStorage.
+   * Coordonnées de tous les membres + persistance localStorage. Lues dans
+   * l'export public des joueurs (une requête) ; les pages de profil ne sont
+   * lues que pour les membres absents de l'export (arrivés depuis), ou pour
+   * tous si l'export ne répond pas.
    * Ne touche pas à l'UI — résolveurs (Carte / tableau Membres) gèrent leur propre feedback.
    *
    * @private
@@ -317,41 +320,53 @@ class PageAlliance {
       return Promise.reject(new Error("Aucun membre détecté dans l'alliance."));
     }
     const cacheKey = `outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`;
-    let faits = 0;
-    const promises = pseudos.map((pseudo) => {
-      const joueur = this._alliance.joueurs[pseudo];
-      return joueur
-        .getProfil()
-        .then((html) => {
-          joueur.chargerProfil(html);
-          return joueur;
-        })
-        .catch(() => null)
-        .then((j) => {
-          progres(++faits, pseudos.length);
-          return j;
+    return ExportJoueurs.lire()
+      .catch(() => new Map())
+      .then((exportJoueurs) => {
+        let faits = 0;
+        const promises = pseudos.map((pseudo) => {
+          const joueur = this._alliance.joueurs[pseudo],
+            exporte = exportJoueurs.get(pseudo);
+          if (exporte) {
+            Object.assign(joueur, { id: exporte.id, x: exporte.x, y: exporte.y });
+            if (!(joueur.terrain > 0)) joueur.terrain = exporte.terrain;
+            progres(++faits, pseudos.length);
+            return Promise.resolve(joueur);
+          }
+          return joueur
+            .getProfil()
+            .then((html) => {
+              joueur.chargerProfil(html);
+              return joueur;
+            })
+            .catch(() => null)
+            .then((j) => {
+              progres(++faits, pseudos.length);
+              return j;
+            });
         });
-    });
-    return Promise.all(promises).then((joueurs) => {
-      const members = joueurs
-        .filter((j) => j && j.x !== -1 && j.y !== -1)
-        .map((j) => ({
-          pseudo: j.pseudo,
-          // Fzzz : identifiant, pour le lien de convoi (commerce.php?ID=)
-          id: j.id > 0 ? j.id : null,
-          x: j.x,
-          y: j.y,
-          terrain: j.terrain || 0,
-        }));
-      if (!members.length) throw new Error("Aucune coordonnée récupérée.");
-      const timestamp = Date.now();
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({ timestamp, members }));
-      } catch (e) {
-        console.warn("outiiil: localStorage write failed", e);
-      }
-      return { members, timestamp };
-    });
+        return Promise.all(promises);
+      })
+      .then((joueurs) => {
+        const members = joueurs
+          .filter((j) => j && j.x !== -1 && j.y !== -1)
+          .map((j) => ({
+            pseudo: j.pseudo,
+            // identifiant, pour le lien de convoi (commerce.php?ID=)
+            id: j.id > 0 ? j.id : null,
+            x: j.x,
+            y: j.y,
+            terrain: j.terrain || 0,
+          }));
+        if (!members.length) throw new Error("Aucune coordonnée récupérée.");
+        const timestamp = Date.now();
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ timestamp, members }));
+        } catch (e) {
+          console.warn("outiiil: localStorage write failed", e);
+        }
+        return { members, timestamp };
+      });
   }
   /**
    * Refresh de la Carte (UI Carte + render Highcharts).

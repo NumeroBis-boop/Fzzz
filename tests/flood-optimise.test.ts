@@ -26,9 +26,13 @@ describe("lanceur de flood, méthode « Optimisée »", () => {
     expect(optimise(17000, 10000, 2000)).toEqual([0, 2000]);
   });
   test("assez d'unités : attaque « limite » gardée, elle prend plus", () => {
-    // 999 puis 20 % de 9 001
-    expect(optimise(17000, 10000, 5000)).toEqual([0, 999, 1800]);
-    expect(optimise(10000, 10000, 50000, 4)).toEqual([0, 2000, 1332, 1333]);
+    // 1 000 puis 20 % de 9 000 : la cible finit à exactement la moitié, encore à portée
+    expect(optimise(17000, 10000, 5000)).toEqual([0, 1000, 1800]);
+    expect(optimise(10000, 10000, 50000, 4)).toEqual([0, 2000, 1333, 1333]);
+  });
+  test("la cible reste à portée de la dernière attaque après la « limite »", () => {
+    // cas réel du 05/11/26 (SerPounce → LabraDrungor) : 16 524, 11 231 puis 10 973
+    expect(optimise(81975, 82620, 50000)).toEqual([0, 16524, 11231, 10973]);
   });
   test("jamais d'attaque négative", () => {
     for (let mien = 15000; mien <= 20000; mien += 7)

@@ -95,7 +95,6 @@ class BoiteParametre extends Boite {
       "replacerArmeeAuto",
       "ratioRecolte",
       "alertePonte",
-      "tdcArriveeMax",
     ];
   }
   /**
@@ -270,8 +269,6 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Ouvrières <span class='o_aideParam'>(répartition préparée à l'ouverture de la page, à valider dans le formulaire du jeu${Utils.comptePlus ? " ; le mode Ratio coupe l'affectation automatique du C+" : ""})</span></p>
         ${p["affectationRessource"].getForm("Affectation")}
         ${p["ratioRecolte"].getForm()}
-        <p class='o_titreParam'>Lanceur de chasses <span class='o_aideParam'>(le TdC à l'arrivée proposé est le TdC courant, jusqu'à cette valeur ; au-delà, les chasses durent trop pour que le TdC du moment soit une prévision : à renseigner soi-même)</span></p>
-        ${p["tdcArriveeMax"].getForm("TdC à l'arrivée proposé, au plus", " cm²")}
       </form>`);
     return this;
   }

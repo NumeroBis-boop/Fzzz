@@ -273,6 +273,7 @@ class Armee {
   /**
    * calcul le nombre d'unité de l'armee.
    *
+   * @private
    * @method getSommeUnite
    * @return {Integer} la somme des unités
    */
@@ -505,23 +506,23 @@ class Armee {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Salve d'après ce que le joueur fixe (SimulationChasse.resoudre), avec
-   * l'armée et les niveaux du joueur ; mémorise la répartition pour l'envoi.
+   * Lance le simulateur de chasse sur cette armée et garde la répartition pour
+   * envoyerChasse. Cf. class/SimulationChasse.js.
    *
-   * @method resoudreChasse
-   * @param {Object} p tout ce que SimulationChasse.resoudre attend ; sans
-   *   unites, armes ou bouclier, ceux du joueur
-   * @return {Object|null} le plan, { erreur } ou null
+   * @private
+   * @method simulerChasse
+   * @param {Object} p tout ce que SimulationChasse.simuler attend, sauf l'armée et les niveaux
+   * @return {Object} le résultat de la simulation
    */
-  resoudreChasse(p) {
-    let plan = SimulationChasse.resoudre({
+  simulerChasse(p) {
+    let resultat = SimulationChasse.simuler({
+      ...p,
       unites: this._unite,
       armes: monProfil.niveauRecherche[2],
       bouclier: monProfil.niveauRecherche[1],
-      ...p,
     });
-    this._repartition = plan && plan.chasses ? plan.chasses.map((c) => c.unites) : [];
-    return plan;
+    this._repartition = resultat.chasses.map((c) => c.unites);
+    return resultat;
   }
   /**
    * Champs du formulaire d'AcquerirTerrain.php pour une chasse. Le jeu numérote
@@ -576,6 +577,7 @@ class Armee {
   /**
    * Envoie une chasse.
    *
+   * @private
    * @method envoyerChasse
    * @param {Integer} indice
    */
@@ -666,10 +668,10 @@ class Armee {
       if (donneesFlood.unite <= 0) return;
     }
     // attaque « limite » : prend le plus possible en laissant la cible à la
-    // moitié de mon terrain (portée) pour la dernière. Inutile si elle y est
-    // déjà (0 unité ou moins), ou si le reste ne dépasse pas 20 % : tout
-    // envoyer d'un coup prend alors autant
-    let limite = Math.floor((donneesFlood.tdcCible * 2 - donneesFlood.tdcAtt) / 3) - 1;
+    // moitié de mon terrain, encore à portée (Utils.aPortee) pour la dernière.
+    // Inutile si elle y est déjà (0 unité), ou si le reste ne dépasse pas
+    // 20 % : tout envoyer d'un coup prend alors autant
+    let limite = Math.floor((donneesFlood.tdcCible * 2 - donneesFlood.tdcAtt) / 3);
     if (
       donneesFlood.reste > 1 &&
       limite > 0 &&

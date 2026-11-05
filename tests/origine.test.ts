@@ -71,7 +71,9 @@ describe("styles de l'extension et affichage d'origine", () => {
     const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8"),
       // un élément de l'extension (o_…, bibliothèques) dans le sélecteur, ou le préfixe
       // html:not(.o_originePage) / html:not(.o_origineGenerale) : rien à couper
-      jeu = selecteurs(css).filter((s) => !/o_|toolzzz|jq-|xdsoft|ui-|dataTable|dt-|:root/.test(s));
+      jeu = selecteurs(css).filter(
+        (s) => !/o_|toolzzz|jq-|xdsoft|ui-|dataTable|dt-|CHS2|:root/.test(s),
+      );
     expect(jeu.filter((s) => !AUTORISES.has(s))).toEqual([]);
   });
 });

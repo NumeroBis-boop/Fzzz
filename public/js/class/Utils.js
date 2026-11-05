@@ -140,6 +140,21 @@ class Utils {
    * @static
    * @method echapper
    */
+  /**
+   * Cible attaquable par le lanceur : TdC d'au moins la moitié et d'au plus
+   * le triple − 1 du sien.
+   *
+   * @static
+   * @method aPortee
+   * @param {Number} tdcCible
+   * @param {Number} tdcLanceur
+   * @return {Boolean}
+   */
+  static aPortee(tdcCible, tdcLanceur) {
+    // moitié comprise : vérifié sur le RC du 05/11/26 (54 865 cm² face à
+    // 109 730, conquis 10 973) ; triple − 1 : borne héritée, non vérifiée
+    return tdcCible >= tdcLanceur / 2 && tdcCible <= tdcLanceur * 3 - 1;
+  }
   static echapper(texte) {
     return String(texte ?? "").replace(
       /[&<>"']/g,

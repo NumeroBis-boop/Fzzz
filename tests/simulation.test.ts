@@ -38,13 +38,29 @@ describe("PartageChasses.simuler : règle des 20 % et portée", () => {
     expect(e.statut).toBe("ok");
   });
 
-  test("cible hors portée à l'impact (< 50 % + 1 du lanceur) : aucune prise", () => {
+  test("cible hors portée à l'impact (sous la moitié du lanceur) : aucune prise", () => {
     const e = simuler(
       { chasses: {}, floods: [flood({ lanceur: "A", cible: "B", unites: 1000, terrain: 1000 })] },
-      { A: 10000, B: 5000 },
+      { A: 10000, B: 4999 },
     ).evenements[0];
     expect(e.prise).toBe(0);
     expect(e.statut).toBe("portee");
+  });
+
+  test("cible à exactement la moitié : à portée (RC du 05/11/26, SerPounce → LabraDrungor)", () => {
+    const sim = simuler(
+      {
+        chasses: {},
+        floods: [
+          flood({ lanceur: "SerPounce", cible: "LabraDrungor", unites: 16524, id: 1 }),
+          flood({ lanceur: "SerPounce", cible: "LabraDrungor", unites: 11231, id: 2 }),
+          flood({ lanceur: "SerPounce", cible: "LabraDrungor", unites: 10973, id: 3 }),
+        ],
+      },
+      { SerPounce: 81975, LabraDrungor: 82620 },
+    );
+    // conquis en jeu : 16 524, 11 231 puis 10 973 cm²
+    expect(sim.evenements.map((e: { prise: number }) => e.prise)).toEqual([16524, 11231, 10973]);
   });
 
   test("cible hors portée (> 300 % − 1 du lanceur) : aucune prise", () => {

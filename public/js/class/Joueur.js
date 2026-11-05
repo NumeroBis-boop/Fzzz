@@ -209,15 +209,6 @@ class Joueur {
         unite: " %",
       },
     );
-    // Fzzz : TdC à l'arrivée proposé par le lanceur de chasses = le TdC courant,
-    // au plus cette valeur : au-delà les chasses durent trop longtemps pour que
-    // le TdC du moment soit une prévision sensée, à renseigner soi-même
-    this._parametre["tdcArriveeMax"] = new Parametre(
-      "tdcArriveeMax",
-      "TdC à l'arrivée proposé, au plus",
-      "number",
-      2000000,
-    );
     return this;
   }
   /**
@@ -424,13 +415,13 @@ class Joueur {
    *
    */
   estAttaquable() {
-    return this._terrain >= Utils.terrain * 0.5 + 1 && this._terrain <= Utils.terrain * 3 - 1;
+    return Utils.aPortee(this._terrain, Utils.terrain);
   }
   /**
    *
    */
   estAttaquant() {
-    return this._terrain * 0.5 + 1 <= Utils.terrain && this._terrain * 3 - 1 >= Utils.terrain;
+    return Utils.aPortee(Utils.terrain, this._terrain);
   }
   /**
    *

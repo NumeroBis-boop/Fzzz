@@ -9,6 +9,24 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.80.3",
+    notes: [
+      "Lanceur de flood, méthode « Optimisée » : l'attaque « limite » amène la cible à exactement la moitié de ton TdC (encore à portée) au lieu de garder 1 cm² de marge : 1 cm² de plus par flood optimisé.",
+    ],
+  },
+  {
+    version: "1.80.2",
+    notes: [
+      "Floods partagés : une cible à exactement la moitié du TdC du lanceur est à portée (vérifié sur un rapport de combat). La prise de ces floods n'est plus comptée à tort comme « hors portée » ; les épées de la page Membres suivent la même règle.",
+    ],
+  },
+  {
+    version: "1.80.1",
+    notes: [
+      "Retour au lanceur de chasse d'avant la 1.80.0 (page Ressources, onglet « Simuler » de la boîte Chasse) et au simulateur de Calystène : le nouveau lanceur est retiré en attendant d'être mis au point.",
+    ],
+  },
+  {
     version: "1.80.0",
     notes: [
       "Chasses (travail de Grim) : un seul lanceur, sur la page Ressources et dans l'onglet « Simuler » de la boîte Chasse. Tu fixes ce que tu veux (nombre de chasses, terrain ou heure de retour, difficulté, pertes acceptées, rendement en cm²/h) et le lanceur calcule le reste. Le simulateur de Calystène est remplacé par ce lanceur.",

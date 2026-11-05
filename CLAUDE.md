@@ -99,7 +99,7 @@ The `data_collection_permissions.required: ["none"]` declaration in the manifest
 
 **Default target = TEST (maintainer rule since 1.82.0).** Unless the maintainer says otherwise (« en version finale », « sur main », « publie »…), every change goes to the `test` branch only: commit there, run the usual checks, `bun run userscript:test`, commit `fzzz-test.user.js`, push `test`, give the link https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/test/fzzz-test.user.js. No version bump and no `NOUVEAUTES` entry on `test` (the timestamp suffix already makes each build an update). Promotion to `main` happens only on request, by cherry-picking those commits — never merge `test` into `main`: it also holds unreleased work (Grim's hunt launcher, reverted on `main` in 1.80.1) — then the usual release steps on `main`.
 
-### Game time — server clock and Paris time (Fzzz TEST, after 1.82.0)
+### Game time — server clock and Paris time (Fzzz 1.83)
 
 - Every game time (arrival, return, end of a ponte, construction, research, convoy or hunt; any time displayed or shared in the forum) uses the server clock: `Horloge.serveur()` (moment) or `Horloge.maintenant()` (ms), never `moment()` or `Date.now()`, because the PC clock can be wrong. `content.js` starts the page modules only once the stored clock offset is read.
 - The PC clock is kept only for local durations measured on that same clock, ids, caches and request pacing. `tests/horloge-pc.test.ts` counts every PC clock read per file: a new one fails until it is classified there, with its reason.
@@ -247,6 +247,7 @@ Two people now change the code: the maintainer (with Claude) and contributors su
 - Every change still follows the s5 rules and « Rétablir l'affichage d'origine » above, with a test for any calculation it changes.
 - **Cross-cutting change** (clock, time zone, a storage key or format, the forum line format, a helper used in many files): search every use first, change them all in the same change, add a test that catches a missed or new use, and tell the maintainer what was changed and what was deliberately left as is (maintainer rule).
 - Publishing (maintainer, after merge): bump version + new `NOUVEAUTES` entry, run the checks, commit, push, `bun run userscript`, commit and push `fzzz.user.js`.
+- **Before every publication** (final or TEST): review the whole diff since the last published commit (`git diff <last published>..HEAD`, file list then hunks) and check that every changed file and hunk belongs to the intended change; report the result, and anything else found, to the maintainer (maintainer rule).
 - Template: `.github/pull_request_template.md`. Body: only `## Summary` (2-3 concise bullets), no « Test plan » section; checks are discussed with the maintainer.
 
 ## License

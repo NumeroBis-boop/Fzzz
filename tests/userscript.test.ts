@@ -56,7 +56,7 @@ describe("en-tête du script utilisateur", () => {
     );
     expect(script).toContain('["/alliance.php","/construction.php","/messagerie.php"].some(');
     expect(script).toContain(
-      'eval(GM_getResourceText("fzzzJs0") + "\\n;"); // js/lib/highcharts_6.0.7.js',
+      'eval(fzzzScript("fzzzJs0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@abc123/public/js/lib/highcharts_6.0.7.js") + "\\n;"); // js/lib/highcharts_6.0.7.js',
     );
   });
 

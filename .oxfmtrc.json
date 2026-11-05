@@ -5,6 +5,7 @@
     ".wxt/**",
     "public/js/lib/**",
     "public/css/lib/**",
-    "fzzz.user.js"
+    "fzzz.user.js",
+    "fzzz-test.user.js"
   ]
 }

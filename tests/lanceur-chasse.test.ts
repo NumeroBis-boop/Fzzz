@@ -292,19 +292,19 @@ describe("lanceur : réglages par défaut", () => {
 });
 
 describe("lanceur : plusieurs instances dans la page", () => {
-  test("simulation préfixée à côté du lanceur : ids distincts, pas de lancement, calculs indépendants", () => {
+  test("second lanceur préfixé à côté du premier : ids distincts, calculs indépendants", () => {
     lire(`
       $("#o_tabsChasse3").remove();
       $("body").append("<div id='o_tabsChasse3'></div>");
       var armee2 = new Armee().parseArmee("300000 jsn, 20000 sn");
       armee2._nbrJSN = armee2.unite[0];
-      var simu = new LanceurChasse(armee2, 4, { prefixe: "s_", simulation: true, cadre: false }).afficher($("#o_tabsChasse3"), "append");
+      var simu = new LanceurChasse(armee2, 4, { prefixe: "s_", cadre: false }).afficher($("#o_tabsChasse3"), "append");
     `);
     expect(lire(`$("#o_chasseNbr").length`)).toBe(1);
     expect(lire(`$("#s_o_chasseNbr").length`)).toBe(1);
     expect(lire(`$("#s_o_prepaChasse").hasClass("boite_amelioration")`)).toBe(false);
     expect(lire(`$("#s_o_prepaChasse h2").length`)).toBe(0);
-    expect(lire(`$("#s_o_chasseEnvoyer, #s_o_chasseInt").length`)).toBe(0);
+    expect(lire(`$("#s_o_chasseEnvoyer").length`)).toBe(1);
     expect(lire(`$("#o_chasseEnvoyer").length`)).toBe(1);
     expect(lire(`simu._simu.attArmee`)).not.toBe(lire(`lanceur._simu.attArmee`));
     // une action dans la simulation ne touche pas le lanceur
@@ -312,7 +312,7 @@ describe("lanceur : plusieurs instances dans la page", () => {
     expect(lire(`$("#s_o_chasseNbrAuto").is(":checked")`)).toBe(false);
     expect(coche("o_chasseNbrAuto")).toBe(true);
     lire(`$("#s_o_cpArmes").spinner("value", 12); $("#s_o_cpArmes").trigger("input")`);
-    expect(lire(`$("#s_o_chasseAlerte").text()`)).not.toContain("Simulation seulement");
+    expect(lire(`$("#s_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
     expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
     // le lanceur, lui, verrouille toujours
     lire(`$("#o_cpArmes").spinner("value", 12); $("#o_cpArmes").trigger("input")`);

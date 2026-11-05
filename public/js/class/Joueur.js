@@ -209,6 +209,15 @@ class Joueur {
         unite: " %",
       },
     );
+    // Fzzz : TdC à l'arrivée proposé par le lanceur de chasses = le TdC courant,
+    // au plus cette valeur : au-delà les chasses durent trop longtemps pour que
+    // le TdC du moment soit une prévision sensée, à renseigner soi-même
+    this._parametre["tdcArriveeMax"] = new Parametre(
+      "tdcArriveeMax",
+      "TdC à l'arrivée proposé, au plus",
+      "number",
+      2000000,
+    );
     return this;
   }
   /**

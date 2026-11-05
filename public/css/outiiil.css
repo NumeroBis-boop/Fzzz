@@ -1087,46 +1087,6 @@ h2:has(+ .o_nbUnite) {
   cursor: help;
 }
 
-/* Simulateur de chasse, boîte Outils pour Chasseur */
-#o_scForm .entete td {
-  border-bottom: 1px solid;
-  padding: 10px 0 4px;
-}
-#o_scArmee tr,
-#o_scNiveau tr {
-  height: 22px;
-}
-#o_scArmee td:nth-child(2),
-#o_scNiveau td:nth-child(2) {
-  padding-left: 8px;
-}
-#o_scNombreAuto,
-#o_scTdcChasseAuto {
-  vertical-align: bottom;
-  margin: 0 3px 0 8px;
-}
-#o_scDetails td,
-#o_scPertes td,
-#o_scPertes th,
-#o_scRepartition td,
-#o_scRepartition th,
-#o_scAutresTdc td,
-#o_scAutresTdc th {
-  padding: 2px 6px;
-}
-#o_scDetails td:nth-child(3) {
-  padding-left: 28px;
-}
-.o_scDefile {
-  overflow-x: auto;
-}
-hr.o_scSepar {
-  border: 0;
-  border-top: 1px dashed currentColor;
-  opacity: 0.35;
-  margin: 18px 0 0;
-}
-
 /* Filtres de la carte de l'alliance, page : alliance.php?Membres */
 #o_carteFiltres label {
   display: inline-block;
@@ -1754,23 +1714,32 @@ html:not(.o_desactivee) center > div > #tabMembresAlliance {
   padding: 1px 6px;
 }
 
-/* Fzzz : sélecteur de lanceur de chasses et lanceur par budget de pertes */
-#o_choixLanceur {
-  margin-bottom: 8px;
-  padding: 6px;
+/* Fzzz : lanceur de chasses, encart « Armée et niveaux utilisés » et cible */
+.o_chasseParamAide {
+  font-weight: normal;
 }
-#o_lanceurBudget input {
-  text-align: right;
+.o_chasseCible {
+  cursor: help;
 }
-#o_lbChasses th,
-#o_lbChasses td {
-  padding: 2px 5px;
+/* champ calculé : grisé, un clic le fixe */
+.o_chasseCalcule,
+.o_chasseCalcule input {
+  color: #8b7440;
+  cursor: pointer;
 }
-#o_lbChasses tr.green td {
-  color: var(--fzzz-succes);
+/* colonnes stables : les textes de la colonne de droite changent souvent */
+#o_lanceurChasse {
+  table-layout: fixed;
 }
-#o_lbChasses tr.red td {
-  color: var(--fzzz-erreur);
+#o_lanceurChasse td:first-child {
+  width: 32%;
+}
+#o_lanceurChasse td:nth-child(2) {
+  width: 34%;
+}
+#o_lanceurChasse .ui-spinner {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Fzzz : messagerie (couleurs : COULEURS_MESSAGES, posées par MessagerieFzzz.decorer) */
@@ -2349,12 +2318,6 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
     text-align: left;
   }
   /* simulateur de Calystène (affichage d'origine) : défilement horizontal */
-  #CHS2_MainFrame {
-    max-width: calc(100vw - 24px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    box-sizing: border-box;
-  }
   /* formulaires Toolzzz (lanceurs de chasse et de flood, page d'attaque) */
   fieldset#o_prepaFlood,
   #o_prepaChasse,

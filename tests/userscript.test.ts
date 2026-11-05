@@ -16,7 +16,6 @@ describe("en-tête du script utilisateur", () => {
     expect(js.indexOf("js/lib/jquery_3.2.1.js")).toBeLessThan(js.indexOf("js/class/Utils.js"));
     expect(js.indexOf("js/class/Utils.js")).toBeLessThan(js.indexOf("js/class/OuafSuivi.js"));
     expect(js).toContain("js/lib/highcharts_6.0.7.js");
-    expect(js).toContain("js/lib/calystene-chs2_2.00.35.03.js");
     expect(css).toEqual(["css/outiiil.css", "css/toasts.css", "css/datatables.css"]);
     for (const f of [...js, ...css]) expect(existsSync(join(RACINE, "public", f))).toBe(true);
   });
@@ -51,14 +50,13 @@ describe("en-tête du script utilisateur", () => {
     const script = entete("abc123", "9.9.9", config),
       dePages = scriptsDePages(config);
     expect(dePages.map((d) => d.js)).toContain("js/lib/highcharts_6.0.7.js");
-    expect(dePages.find((d) => d.js.includes("calystene"))!.pages).toEqual(["/ressources.php"]);
     expect(script).not.toMatch(/@require\s+\S*highcharts/);
     expect(script).toMatch(
       /@resource\s+fzzzJs0 \S*@abc123\/public\/js\/lib\/highcharts_6\.0\.7\.js/,
     );
     expect(script).toContain('["/alliance.php","/construction.php","/messagerie.php"].some(');
     expect(script).toContain(
-      'if (typeof fzzzLancerCHS2 != \\"undefined\\") window.fzzzLancerCHS2 = fzzzLancerCHS2;',
+      'eval(fzzzScript("fzzzJs0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@abc123/public/js/lib/highcharts_6.0.7.js") + "\\n;"); // js/lib/highcharts_6.0.7.js',
     );
   });
 

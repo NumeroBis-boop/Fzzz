@@ -273,7 +273,6 @@ class Armee {
   /**
    * calcul le nombre d'unité de l'armee.
    *
-   * @private
    * @method getSommeUnite
    * @return {Integer} la somme des unités
    */
@@ -506,23 +505,23 @@ class Armee {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Lance le simulateur de chasse sur cette armée et garde la répartition pour
-   * envoyerChasse. Cf. class/SimulationChasse.js.
+   * Salve d'après ce que le joueur fixe (SimulationChasse.resoudre), avec
+   * l'armée et les niveaux du joueur ; mémorise la répartition pour l'envoi.
    *
-   * @private
-   * @method simulerChasse
-   * @param {Object} p tout ce que SimulationChasse.simuler attend, sauf l'armée et les niveaux
-   * @return {Object} le résultat de la simulation
+   * @method resoudreChasse
+   * @param {Object} p tout ce que SimulationChasse.resoudre attend ; sans
+   *   unites, armes ou bouclier, ceux du joueur
+   * @return {Object|null} le plan, { erreur } ou null
    */
-  simulerChasse(p) {
-    let resultat = SimulationChasse.simuler({
-      ...p,
+  resoudreChasse(p) {
+    let plan = SimulationChasse.resoudre({
       unites: this._unite,
       armes: monProfil.niveauRecherche[2],
       bouclier: monProfil.niveauRecherche[1],
+      ...p,
     });
-    this._repartition = resultat.chasses.map((c) => c.unites);
-    return resultat;
+    this._repartition = plan && plan.chasses ? plan.chasses.map((c) => c.unites) : [];
+    return plan;
   }
   /**
    * Champs du formulaire d'AcquerirTerrain.php pour une chasse. Le jeu numérote
@@ -577,7 +576,6 @@ class Armee {
   /**
    * Envoie une chasse.
    *
-   * @private
    * @method envoyerChasse
    * @param {Integer} indice
    */

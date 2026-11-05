@@ -525,6 +525,25 @@ class Armee {
     return resultat;
   }
   /**
+   * Salve d'après ce que le joueur fixe (SimulationChasse.resoudre), avec
+   * l'armée et les niveaux du joueur ; mémorise la répartition pour l'envoi.
+   *
+   * @method resoudreChasse
+   * @param {Object} p tout ce que SimulationChasse.resoudre attend ; sans
+   *   unites, armes ou bouclier, ceux du joueur
+   * @return {Object|null} le plan, { erreur } ou null
+   */
+  resoudreChasse(p) {
+    let plan = SimulationChasse.resoudre({
+      unites: this._unite,
+      armes: monProfil.niveauRecherche[2],
+      bouclier: monProfil.niveauRecherche[1],
+      ...p,
+    });
+    this._repartition = plan && plan.chasses ? plan.chasses.map((c) => c.unites) : [];
+    return plan;
+  }
+  /**
    * Champs du formulaire d'AcquerirTerrain.php pour une chasse. Le jeu numérote
    * ses unités dans son propre ordre, pas celui de NOM_UNITE utilisé par Armee.unite.
    *

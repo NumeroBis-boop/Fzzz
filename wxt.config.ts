@@ -117,11 +117,6 @@ export default defineConfig({
           "js/lib/moment-duration-format.js",
         ],
       },
-      // simulateur de Calystène (lanceur « Budget de pertes ») : page Ressources seulement
-      {
-        matches: ["*://s5.fourmizzz.fr/Ressources.php*", "*://s5.fourmizzz.fr/ressources.php*"],
-        js: ["js/lib/calystene-chs2_2.00.35.03.js"],
-      },
       {
         matches: ["*://s5.fourmizzz.fr/*"],
         js: [

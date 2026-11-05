@@ -420,8 +420,10 @@ const DATEPICKER_OPTION = {
     monProfil = new Joueur({ pseudo: $("#pseudo").text() });
     // chargement des parametre
     monProfil.getParametre();
-    // heure du serveur, puis horloge à la seconde au-dessus de l'encart « S5 Pseudo »
-    Horloge.initialiser();
+    // heure du serveur, puis horloge à la seconde au-dessus de l'encart « S5 Pseudo ».
+    // Les pages l'attendent : sinon, sur un PC à l'heure fausse, leurs heures
+    // (attaques, chasses partagées) seraient calculées avec l'horloge du PC.
+    const horlogePrete = Horloge.initialiser().catch(() => {});
     // « Rétablir l'affichage d'origine » (onglet Général, voir bootstrap.js) : ni
     // thème, ni horloge, ni alerte de ponte, ni encadré Compte+ refait ou radar,
     // ni onglets ajoutés aux menus, ni infobulles des entrepôts
@@ -439,6 +441,7 @@ const DATEPICKER_OPTION = {
         console.error("Fzzz : lecture du profil impossible", e);
         return [null, null, null];
       })
+      .then((values) => horlogePrete.then(() => values))
       .then((values) => {
         // Highcharts n'est chargé que sur les pages à graphiques (wxt.config.ts) ;
         // le script utilisateur ne l'exécute qu'après ce fichier

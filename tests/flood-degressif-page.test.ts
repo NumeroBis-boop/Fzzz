@@ -43,8 +43,13 @@ const saisir = (ligne: number, valeur: number) =>
   page.lire(`$("#o_attaque${ligne}").spinner("value", ${valeur}).trigger("input")`);
 // bloc « Unités gardées pour cette attaque » du lanceur
 const gardees = () => page.lire<string>(`$("#o_floodGardees .o_gardeesTexte").text()`);
+// 1re ligne d'autres unités gardées, ajoutée si besoin : n unités
 const garderEnPlus = (n: number) =>
-  page.lire(`$("#o_floodGardees .o_gardeesPlus").spinner("value", ${n})`);
+  page.lire(`(() => {
+    let $b = $("#o_floodGardees");
+    if (!$b.find(".o_gardeesLigne").length) $b.find(".o_gardeesAjouter").trigger("click");
+    $b.find(".o_gardeesNombre:first").spinner("value", ${n});
+  })()`);
 const nombre = (n: number) => page.lire<string>(`numeral(${n}).format()`);
 
 describe("page d'attaque : flood dégressif réglable", () => {
@@ -134,7 +139,9 @@ describe("page d'attaque : flood dégressif réglable", () => {
 
   test("valeurs de départ : celles des préférences, qui ne changent plus l'attaque en cours", () => {
     ouvrir({ methodeFlood: 0, reserveFlood: 1000, reserveFloodType: 1 });
-    expect(page.lire<number>(`$("#o_floodGardees .o_gardeesPlus").spinner("value")`)).toBe(1000);
+    expect(page.lire<number>(`$("#o_floodGardees .o_gardeesNombre:first").spinner("value")`)).toBe(
+      1000,
+    );
     expect(gardees()).toBe(nombre(1000) + " Jeunes Soldates Naines");
     page.lire(`monProfil.parametre.reserveFlood.valeur = 5000;
       monProfil.parametre.reserveFlood.sauvegarde()`);
@@ -165,15 +172,39 @@ describe("page d'attaque : flood dégressif réglable", () => {
     expect(attaques()).toEqual([20000, 16000, 12800]);
   });
 
+  test("plusieurs lignes : toutes retirées des unités comptées et envoyées", () => {
+    ouvrir({ methodeFlood: 0 });
+    saisir(1, 900000);
+    page.lire(`$("#o_floodGardees .o_gardeesAjouter").trigger("click")`);
+    page.lire(`$("#o_floodGardees .o_gardeesNombre:eq(0)").spinner("value", 100000)`);
+    // le bouton reste sous la dernière ligne : une 2e unité
+    page.lire(`$("#o_floodGardees .o_gardeesAjouter").trigger("click")`);
+    page.lire(`$("#o_floodGardees .o_gardeesNombre:eq(1)").spinner("value", 200000)`);
+    expect(gardees()).toBe(nombre(300000) + " Jeunes Soldates Naines");
+    expect(attaques()).toEqual([700000, 0, 0]);
+    expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(700000);
+    // 1re ligne retirée : ses 100 000 unités sont de nouveau disponibles
+    page.lire(`$("#o_floodGardees .o_gardeesRetirer:first").trigger("click")`);
+    expect(gardees()).toBe(nombre(200000) + " Jeunes Soldates Naines");
+    saisir(1, 900000);
+    expect(attaques()).toEqual([800000, 0, 0]);
+  });
+
   test("flood en cours d'envoi : les unités gardées ne bougent plus", () => {
     ouvrir({ methodeFlood: 0 });
     saisir(1, 700000);
+    garderEnPlus(0);
     page.lire(`p._armee.envoyerFlood = () => {}; $("#o_lanceFlood").trigger("click")`);
     expect(
-      page.lire<boolean>(`$("#o_floodGardees .o_gardeesPlus").spinner("option", "disabled")`),
+      page.lire<boolean>(
+        `$("#o_floodGardees .o_gardeesNombre:first").spinner("option", "disabled")`,
+      ),
     ).toBe(true);
     expect(page.lire<boolean>(`$("#o_floodGardees .o_gardeesAntisondes").prop("disabled")`)).toBe(
       true,
+    );
+    expect(page.lire<string>(`$("#o_floodGardees .o_gardeesAjouter")[0].style.display`)).toBe(
+      "none",
     );
     // même modifiées par programme, les attaques prévues ne changent pas
     garderEnPlus(400000);

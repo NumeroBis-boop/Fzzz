@@ -90,9 +90,6 @@ class BoiteParametre extends Boite {
       "sondeUnite",
       "sondeQuantite",
       "sondeLieu",
-      "reserveFlood",
-      "reserveFloodAuto",
-      "reserveFloodType",
       "uniteAntisondeTerrainType",
       "uniteAntisondeDomeType",
       "vueMembres",
@@ -176,17 +173,12 @@ class BoiteParametre extends Boite {
         $("#ratioRecolteGroupe").toggle(e.currentTarget.value == "3");
       })
       .trigger("change");
-    // antisondes gardées au flood : leur nombre, réglé dans l'onglet Armée
-    let afficherAntisondes = () => {
-      let p = monProfil.parametre;
-      $("#o_reserveAntisondes").text(
-        `${numeral(p["uniteAntisondeTerrain"].valeur).format()} en terrain + ${numeral(p["uniteAntisondeDome"].valeur).format()} en dôme (onglet Armée)`,
-      );
-    };
-    afficherAntisondes();
-    $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", afficherAntisondes);
-    // réglages du flood utiles à la méthode par défaut ; unité des autres
-    // unités gardées seulement s'il y en a
+    // unités gardées au flood par défaut ; le nombre d'antisondes suit l'onglet Armée
+    this._gardees.brancher().afficher();
+    $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", () =>
+      this._gardees.afficher(),
+    );
+    // réglages du flood utiles à la méthode par défaut
     let afficherFlood = () => {
       let methode = $("#methodeFlood").val();
       $("#floodAttaques")
@@ -195,15 +187,10 @@ class BoiteParametre extends Boite {
       $("#degressifBase, #degressifRegle")
         .closest(".o_ligneParam")
         .toggle(methode == "3");
-      $("#reserveFloodType")
-        .closest(".o_ligneParam")
-        .toggle($("#reserveFlood").spinner("value") > 0);
-      $("#o_reserveComplement").toggle($("#reserveFloodType").val() != "0");
       this.ajusterTaille();
     };
     afficherFlood();
-    $("#methodeFlood, #reserveFloodType").on("change", afficherFlood);
-    $("#reserveFlood").on("spinchange spinstop", afficherFlood);
+    $("#methodeFlood").on("change", afficherFlood);
     // un affichage présent dans deux onglets : les deux cases suivent
     $("#o_tabsParametre input[data-affichage]").on("change", (e) => {
       let cle = e.currentTarget.dataset.affichage,
@@ -335,7 +322,15 @@ class BoiteParametre extends Boite {
   ongletAttaque() {
     let p = monProfil.parametre;
     p["sondeUnite"].valeurPossible = NOM_UNITE.slice(1);
-    p["reserveFloodType"].valeurPossible = ["Dernières unités de l'armée", ...NOM_UNITE.slice(1)];
+    this._gardees = new UnitesGardees(
+      "o_gardeesDefaut",
+      () => {
+        Armee.enregistrerGardees(this._gardees.reglage);
+        this._gardees.afficher();
+        this.ajusterTaille();
+      },
+      { titre: null, preferences: true },
+    );
     $("#o_tabsParametreAttaque").append(`<form>
         ${this.cases("Attaque")}
         <p class='o_titreParam'>Flood</p>
@@ -344,9 +339,7 @@ class BoiteParametre extends Boite {
         ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
         ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
         <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(par défaut ; modifiables pour chaque attaque dans le Lanceur de Flood et le multi-flood)</span></p>
-        ${p["reserveFloodAuto"].getForm("Les antisondes", "<span id='o_reserveAntisondes' class='o_aideParam'></span>")}
-        ${p["reserveFlood"].getForm("Autres unités, en plus")}
-        ${p["reserveFloodType"].getForm("Lesquelles", "<span id='o_reserveComplement' class='o_aideParam'>si l'armée n'en a pas assez : complétée par les dernières unités</span>")}
+        ${this._gardees.html()}
         <p class='o_titreParam'>Sonder</p>
         ${p["sondeUnite"].getForm("Unité envoyée en sonde")}
         ${p["sondeQuantite"].getForm("Nombre d'unités (au plus)")}

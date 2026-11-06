@@ -100,27 +100,53 @@ class Armee {
     return this._repartition;
   }
   /**
-   * @param {{antisondes: Boolean, plus: Number, plusType: Number}} reglage voir gardeesParDefaut
+   * @param {{antisondes: Boolean, autres: Array<{nombre: Number, unite: Number}>}} reglage voir gardeesParDefaut
    */
   set gardees(reglage) {
     this._gardees = reglage;
   }
   /**
    * Unités gardées au flood par défaut, réglées dans les préférences (onglet
-   * Attaque) : les antisondes ou non, et `plus` autres unités, de l'unité
-   * NOM_UNITE[plusType] (0 : les dernières unités de l'armée).
+   * Attaque) : les antisondes ou non, et d'autres unités, une ligne par unité :
+   * `nombre` de NOM_UNITE[unite] (unite 0 : les dernières unités de l'armée).
+   * Un nouvel objet à chaque appel : le modifier ne change pas les préférences.
    *
    * @static
    * @method gardeesParDefaut
-   * @return {{antisondes: Boolean, plus: Number, plusType: Number}}
+   * @return {{antisondes: Boolean, autres: Array<{nombre: Number, unite: Number}>}}
    */
   static gardeesParDefaut() {
-    let p = monProfil.parametre;
+    let p = monProfil.parametre,
+      suivantes = Array.isArray(p["reserveFloodAutres"].valeur)
+        ? p["reserveFloodAutres"].valeur
+        : [];
     return {
       antisondes: !!p["reserveFloodAuto"].valeur,
-      plus: Math.max(0, parseInt(p["reserveFlood"].valeur) || 0),
-      plusType: parseInt(p["reserveFloodType"].valeur) || 0,
+      autres: [[p["reserveFlood"].valeur, p["reserveFloodType"].valeur], ...suivantes]
+        .map(([nombre, unite]) => ({
+          nombre: Math.max(0, parseInt(nombre) || 0),
+          unite: parseInt(unite) || 0,
+        }))
+        .filter((ligne) => ligne.nombre > 0),
     };
+  }
+  /**
+   * Enregistre `reglage` comme unités gardées par défaut (préférences) : la
+   * première ligne dans reserveFlood / reserveFloodType, les suivantes dans
+   * reserveFloodAutres.
+   *
+   * @static
+   * @method enregistrerGardees
+   * @param {{antisondes: Boolean, autres: Array<{nombre: Number, unite: Number}>}} reglage
+   */
+  static enregistrerGardees(reglage) {
+    let p = monProfil.parametre,
+      [premiere, ...suivantes] = reglage.autres;
+    p["reserveFloodAuto"].valeur = !!reglage.antisondes;
+    p["reserveFlood"].valeur = premiere ? premiere.nombre : 0;
+    p["reserveFloodType"].valeur = premiere ? premiere.unite : 0;
+    p["reserveFloodAutres"].valeur = suivantes.map((ligne) => [ligne.nombre, ligne.unite]);
+    p["reserveFloodAutres"].sauvegarde();
   }
   /**
    * Récupére l'armée du joueur via un appel ajax.
@@ -783,8 +809,8 @@ class Armee {
   /**
    * Unités que le flood peut envoyer, par type. Les unités gardées restent à
    * la maison : les antisondes si elles sont gardées (unités de l'onglet
-   * Armée), plus les autres unités gardées, de l'unité choisie ; à défaut, ou
-   * si l'armée n'en a pas assez, les dernières unités de l'armée.
+   * Armée), plus chaque ligne d'autres unités, de l'unité choisie ; à défaut,
+   * ou si l'armée n'en a pas assez, les dernières unités de l'armée.
    *
    * @method disponibleFlood
    * @return {Array<Number>} nombre par type, dans l'ordre de Armee.unite
@@ -806,7 +832,7 @@ class Armee {
               [uniteAntisonde("uniteAntisondeDomeType"), p["uniteAntisondeDome"].valeur],
             ]
           : []),
-        [g.plusType - 1, g.plus],
+        ...g.autres.map((ligne) => [ligne.unite - 1, ligne.nombre]),
       ],
       reste = gardes.reduce((somme, [, nombre]) => somme + Math.max(0, nombre || 0), 0);
     gardes.forEach(([i, nombre]) => {
@@ -930,10 +956,13 @@ class Armee {
    * @param {String} securite
    */
   envoyerFlood(idCible, indice, securite) {
+    // unités de chaque attaque refaites au départ, avec les unités gardées
+    // actuelles : même une simulation ancienne n'enverrait pas d'unité gardée
+    if (indice == 0) this.repartirUniteFlood(this.disponibleFlood());
     // si on a encore des attaques à lancer
     if (indice < this._floods.length) {
-      // si l'attaque est différente de 0
-      if (this._floods[indice]) {
+      // une attaque sans unité n'est pas envoyée (plus d'unité disponible)
+      if (this._floods[indice] && this._repartition[indice].some((n) => n > 0)) {
         let donnees = {};
         donnees["" + securite.split("=")[0]] = securite.split("=")[1];
         donnees["ChoixArmee"] = "1";

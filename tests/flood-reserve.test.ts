@@ -44,8 +44,9 @@ const NOM_UNITES = [
 ];
 const page = creerPage(
   ["js/class/Utils.js", "js/class/Parametre.js", "js/class/Joueur.js", "js/class/Armee.js"],
-  `var METHODE_FLOOD = [], AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {};
-   var NOM_UNITE = ${JSON.stringify(NOM_UNITE)}, NOM_UNITES = ${JSON.stringify(NOM_UNITES)};`,
+  `var METHODE_FLOOD = [], AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {}, TOAST_ERROR = {};
+   var NOM_UNITE = ${JSON.stringify(NOM_UNITE)}, NOM_UNITES = ${JSON.stringify(NOM_UNITES)};
+   var AttaqueLancee = { contexteFlood: null };`,
 );
 
 function regler(reglages: object) {
@@ -164,9 +165,185 @@ describe("flood : unités gardées (réserve)", () => {
       reserveFlood: 1000,
     });
     const r = flood({ [JSN]: 3000, [JS]: 1000 }, "0", [0, 100000], 3, {
-      armee: `Object.assign(new Armee(), { gardees: { antisondes: false, plus: 300, plusType: ${choix(JSN)} } })`,
+      armee: `Object.assign(new Armee(), { gardees: { antisondes: false, autres: [{ nombre: 300, unite: ${choix(JSN)} }] } })`,
     });
     expect(r.gardees).toEqual(parType({ [JSN]: 300 }));
+  });
+
+  test("plusieurs autres unités gardées (préférences) : chacune reste", () => {
+    regler({
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeTerrainType: choix(JSN),
+      uniteAntisondeDome: 0,
+      reserveFlood: 100,
+      reserveFloodType: choix(JS),
+      reserveFloodAutres: [
+        [200, choix(TANK)],
+        [50, 0],
+      ],
+    });
+    // 50 « dernières unités » : prises sous les Tanks gardés, dans ce qui reste en bas
+    const r = flood({ [JSN]: 3000, [JS]: 1000, [TANK]: 300 }, "0", [0, 100000], 3);
+    expect(r.gardees).toEqual(parType({ [JSN]: 1, [JS]: 100, [TANK]: 250 }));
+    expect(r.floods).toEqual([0, 4300 - 351]);
+  });
+
+  test("100 JS gardées : l'attaque 2 ne les compte ni ne les envoie", () => {
+    regler({ reserveFlood: 100, reserveFloodType: choix(JS) });
+    const r = page.lire<{ floods: number[]; rep: number[][] }>(`(() => {
+      let a = new Armee({ unite: { "Jeune Soldate Naine": 1000, "Jeune Soldate": 300 } });
+      let floods = a.simulerFlood(100000, 100000, "0", [0, 1000, 300], 0, 3, -1);
+      return { floods: floods.slice(), rep: a.repartition.map((r) => [r[${JSN}], r[${JS}]]) };
+    })()`);
+    // 1 300 unités, 100 gardées : l'attaque 2 n'a que 200 JS, et c'est sur 200 que sa prise est calculée
+    expect(r.floods).toEqual([0, 1000, 200]);
+    expect(r.rep).toEqual([
+      [0, 0],
+      [1000, 0],
+      [0, 200],
+    ]);
+  });
+
+  test("unités gardées changées après la simulation : au clic, aucune ne part", () => {
+    regler({});
+    const envois = page.lire<number[][]>(`(() => {
+      let a = new Armee({ unite: { "Jeune Soldate Naine": 900, "Jeune Soldate": 300 } }), envois = [];
+      a.simulerFlood(100000, 100000, "0", [0, 1000, 200], 0, 3, -1);
+      // 100 JS gardées sans nouvelle simulation (cible hors de portée, par exemple)
+      a.gardees = { antisondes: false, autres: [{ nombre: 100, unite: ${choix(JS)} }] };
+      let attente = setTimeout;
+      window.setTimeout = (f) => (f(), 0);
+      // jeu simulé : la 2e attaque postée n'a pas de réponse (fin du test, pas de rechargement)
+      $.post = (url, donnees, retour) => {
+        envois.push([donnees.unite1, donnees.unite4]);
+        if (envois.length < 2) retour("<center>Vos troupes sont en marche</center>");
+        return { fail() {} };
+      };
+      a.envoyerFlood(1, 0, "t=1");
+      window.setTimeout = attente;
+      return envois;
+    })()`);
+    expect(envois).toEqual([
+      [900, 100],
+      [0, 100],
+    ]);
+  });
+
+  test("au clic, une attaque qui n'a plus d'unité n'est pas envoyée", () => {
+    regler({});
+    const envois = page.lire<number[][]>(`(() => {
+      let a = new Armee({ unite: { "Jeune Soldate Naine": 900, "Jeune Soldate": 300 } }), envois = [];
+      a.simulerFlood(100000, 100000, "0", [0, 1000, 200], 0, 3, -1);
+      // 200 JS gardées : la 2e attaque n'a plus rien
+      a.gardees = { antisondes: false, autres: [{ nombre: 200, unite: ${choix(JS)} }] };
+      let attente = setTimeout;
+      window.setTimeout = (f) => (f(), 0);
+      $.post = (url, donnees, retour) => {
+        envois.push([donnees.unite1, donnees.unite4]);
+        retour("<center>Vos troupes sont en marche</center>");
+        return { fail() {} };
+      };
+      // toutes les attaques passées en revue, sans le rechargement de fin de flood
+      a.envoyerFlood = ((envoyer) => function (id, i, s) {
+        if (i < this.floods.length) envoyer.call(this, id, i, s);
+      })(a.envoyerFlood);
+      a.envoyerFlood(1, 0, "t=1");
+      window.setTimeout = attente;
+      return envois;
+    })()`);
+    expect(envois).toEqual([[900, 100]]);
+  });
+
+  test("calculs justes pour tout réglage : unités gardées jamais envoyées ni comptées", () => {
+    // tirages reproductibles (mulberry32)
+    let graine = 20261106;
+    const alea = () => {
+      graine = (graine + 0x6d2b79f5) | 0;
+      let t = Math.imul(graine ^ (graine >>> 15), 1 | graine);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const entier = (min: number, max: number) => min + Math.floor(alea() * (max - min + 1));
+    const cas = Array.from({ length: 400 }, () => {
+      const tdcAtt = entier(10000, 200000),
+        methode = String(entier(0, 3)),
+        creneaux = entier(2, 8);
+      return {
+        armee: Array.from({ length: 14 }, () => (alea() < 0.5 ? entier(0, 5000) : 0)),
+        antisondes: alea() < 0.6,
+        terrain: entier(0, 300),
+        terrainType: entier(0, 14),
+        dome: entier(0, 3000),
+        domeType: entier(0, 14),
+        autres: Array.from({ length: entier(0, 3) }, () => ({
+          nombre: entier(0, 4000),
+          unite: entier(0, 14),
+        })),
+        tdcAtt,
+        tdcCible: entier(Math.ceil(tdcAtt * 0.5), tdcAtt * 3),
+        methode,
+        attaques: [entier(0, 500), ...Array.from({ length: entier(1, 6) }, () => entier(0, 20000))],
+        uniforme: entier(0, 20000),
+        creneaux,
+        reste: alea() < 0.5 ? -1 : entier(1, creneaux),
+        degressif: { base: entier(1, 40), regle: alea() < 0.5 ? "ecart" : "restant" },
+      };
+    });
+    const echecs = page.lire<string[]>(`(() => {
+      let echecs = [], p = monProfil.parametre;
+      ${JSON.stringify(cas)}.forEach((c, n) => {
+        p.uniteAntisondeTerrain.valeur = c.terrain;
+        p.uniteAntisondeTerrainType.valeur = c.terrainType;
+        p.uniteAntisondeDome.valeur = c.dome;
+        p.uniteAntisondeDomeType.valeur = c.domeType;
+        let a = new Armee();
+        a.unite = c.armee.slice();
+        a.gardees = { antisondes: c.antisondes, autres: c.autres };
+        let floods = a.simulerFlood(c.tdcAtt, c.tdcCible, c.methode, c.attaques, c.uniforme, c.creneaux, c.reste, c.degressif),
+          dispo = a.disponibleFlood(),
+          gardees = a.gardeesFlood(),
+          rep = a.repartition,
+          total = c.armee.reduce((s, x) => s + x, 0),
+          demandees = (c.antisondes ? c.terrain + c.dome : 0) + c.autres.reduce((s, l) => s + l.nombre, 0),
+          envoyees = new Array(14).fill(0),
+          faux = (msg) => echecs.push("cas " + n + " : " + msg);
+        // gardées + disponibles = armée, jamais négatif
+        c.armee.forEach((x, j) => {
+          if (dispo[j] < 0 || gardees[j] < 0 || dispo[j] + gardees[j] != x) faux("type " + j);
+        });
+        // autant d'unités gardées que demandé, dans la limite de l'armée
+        if (gardees.reduce((s, x) => s + x, 0) != Math.min(demandees, total)) faux("total gardé");
+        // unités choisies (et antisondes) : gardées en priorité sur les dernières unités
+        let voulues = new Array(14).fill(0),
+          premiere = c.armee.findIndex((x) => x > 0),
+          type = (choisi) => (choisi > 0 && c.armee[choisi - 1] > 0 ? choisi - 1 : premiere);
+        if (c.antisondes) {
+          if (type(c.terrainType) >= 0) voulues[type(c.terrainType)] += c.terrain;
+          if (type(c.domeType) >= 0) voulues[type(c.domeType)] += c.dome;
+        }
+        c.autres.forEach((l) => { if (l.unite > 0) voulues[l.unite - 1] += l.nombre; });
+        voulues.forEach((v, j) => { if (gardees[j] < Math.min(v, c.armee[j])) faux("priorité type " + j); });
+        // chaque attaque reçoit exactement ses unités, prises sur les disponibles
+        floods.forEach((f, k) => {
+          let somme = rep[k] ? rep[k].reduce((s, x) => s + x, 0) : 0;
+          if (f > 0 && somme != f) faux("attaque " + k + " : " + somme + " pour " + f);
+          if (f > 0) rep[k].forEach((x, j) => (envoyees[j] += x));
+        });
+        envoyees.forEach((x, j) => { if (x > dispo[j]) faux("envoi type " + j); });
+        // prises : celles des unités réellement envoyées, attaque par attaque
+        let cible = c.tdcCible, cible2 = c.tdcCible;
+        floods.forEach((f, k) => {
+          if (!f) return;
+          let u = rep[k].reduce((s, x) => s + x, 0);
+          cible -= Math.min(f, Math.floor(cible * 0.2));
+          cible2 -= Math.min(u, Math.floor(cible2 * 0.2));
+        });
+        if (cible != cible2) faux("prises");
+      });
+      return echecs;
+    })()`);
+    expect(echecs).toEqual([]);
   });
 
   test("anciens réglages : le nombre recopié des antisondes n'est pas gardé en plus", () => {

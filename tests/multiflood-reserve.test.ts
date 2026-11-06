@@ -65,8 +65,13 @@ function ouvrir(reglages: object, prises: number[]) {
 }
 const recap = () => page.lire<string>(`$("#o_mfRecap").text()`);
 const bloque = () => page.lire<boolean>(`$("#o_mfLancer").prop("disabled")`);
+// 1re ligne d'autres unités gardées, ajoutée si besoin : n unités
 const garderEnPlus = (n: number) =>
-  page.lire(`$("#o_mfGardees .o_gardeesPlus").spinner("value", ${n})`);
+  page.lire(`(() => {
+    let $b = $("#o_mfGardees");
+    if (!$b.find(".o_gardeesLigne").length) $b.find(".o_gardeesAjouter").trigger("click");
+    $b.find(".o_gardeesNombre:first").spinner("value", ${n});
+  })()`);
 async function lancer() {
   page.lire(`boite._mfLancer(false)`);
   await new Promise((r) => setTimeout(r, 20));
@@ -77,7 +82,9 @@ describe("multi-flood : unités gardées", () => {
   test("unités gardées affichées, récapitulatif sur les unités disponibles", () => {
     // préférences : les 500 dernières unités (les JS) restent ; 1 000 disponibles
     ouvrir({ reserveFlood: 500 }, [600, 300]);
-    expect(page.lire<number>(`$("#o_mfGardees .o_gardeesPlus").spinner("value")`)).toBe(500);
+    expect(page.lire<number>(`$("#o_mfGardees .o_gardeesNombre:first").spinner("value")`)).toBe(
+      500,
+    );
     expect(page.lire<string>(`$("#o_mfGardees .o_gardeesTexte").text()`)).toBe(
       "500 Jeunes Soldates",
     );
@@ -114,7 +121,7 @@ describe("multi-flood : unités gardées", () => {
   test("unités gardées agrandies sans nouveau récapitulatif : rien ne part", async () => {
     ouvrir({ reserveFlood: 0 }, [600, 300]);
     expect(bloque()).toBe(false);
-    page.lire(`boite._mfUnitesGardees.reglage.plus = 1000`);
+    page.lire(`boite._mfUnitesGardees.reglage.autres.push({ nombre: 1000, unite: 0 })`);
     expect(await lancer()).toEqual([]);
     expect(page.lire<string[]>(`toasts`)[0]).toContain("Rien n'est parti");
     expect(bloque()).toBe(true);
@@ -133,16 +140,37 @@ describe("multi-flood : unités gardées", () => {
     await lancer();
     // après le lancement : champs bloqués, boutons aussi (pas de second envoi)
     expect(
-      page.lire<boolean>(`$("#o_mfGardees .o_gardeesPlus").spinner("option", "disabled")`),
+      page.lire<boolean>(`$("#o_mfGardees .o_gardeesNombre:first").spinner("option", "disabled")`),
     ).toBe(true);
     page.lire(`monProfil.parametre.reserveFlood.sauvegarde()`);
     expect(bloque()).toBe(true);
   });
 
+  test("deux lignes : 300 JSN et 200 JS restent, le reste part", async () => {
+    ouvrir({}, [600, 300]);
+    page.lire(`(() => {
+      let $b = $("#o_mfGardees");
+      $b.find(".o_gardeesAjouter").trigger("click");
+      $b.find(".o_gardeesUnite:eq(0)").val("1").trigger("change");
+      $b.find(".o_gardeesNombre:eq(0)").spinner("value", 300);
+      $b.find(".o_gardeesAjouter").trigger("click");
+      $b.find(".o_gardeesUnite:eq(1)").val("4").trigger("change");
+      $b.find(".o_gardeesNombre:eq(1)").spinner("value", 200);
+    })()`);
+    expect(page.lire<string>(`$("#o_mfGardees .o_gardeesTexte").text()`)).toBe(
+      "300 Jeunes Soldates Naines, 200 Jeunes Soldates",
+    );
+    // 700 JSN et 300 JS disponibles : 600 JSN, puis 100 JSN + 200 JS
+    expect(await lancer()).toEqual([
+      [600, 0],
+      [100, 200],
+    ]);
+  });
+
   test("unités gardées pour ce multi-flood seulement : les JSN restent", async () => {
     ouvrir({}, [500, 200]);
     garderEnPlus(800);
-    page.lire(`$("#o_mfGardees .o_gardeesUnite").val("1").trigger("change")`);
+    page.lire(`$("#o_mfGardees .o_gardeesUnite:first").val("1").trigger("change")`);
     expect(await lancer()).toEqual([
       [200, 300],
       [0, 200],

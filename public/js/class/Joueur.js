@@ -151,7 +151,9 @@ class Joueur {
       "Fourmilière (dôme)",
       "Loge impériale",
     ]);
-    // unités gardées au flood en plus des antisondes (case reserveFloodAuto)
+    // unités gardées au flood en plus des antisondes (case reserveFloodAuto) :
+    // première ligne, son unité dans reserveFloodType, les suivantes dans
+    // reserveFloodAutres (voir Armee.gardeesParDefaut)
     this._parametre["reserveFlood"] = new Parametre(
       "reserveFlood",
       "Autres unités gardées au flood",
@@ -164,12 +166,19 @@ class Joueur {
       "checkbox",
       true,
     );
-    // 0 : dernières unités de l'armée ; liste posée à l'affichage des préférences (NOM_UNITE, content.js)
+    // unité de la première ligne : 0 = dernières unités de l'armée, sinon indice de NOM_UNITE
     this._parametre["reserveFloodType"] = new Parametre(
       "reserveFloodType",
       "Unité des autres unités gardées au flood",
       "select",
       0,
+      [],
+    );
+    // [[nombre, unité], …] : lignes suivantes des autres unités gardées au flood
+    this._parametre["reserveFloodAutres"] = new Parametre(
+      "reserveFloodAutres",
+      "Autres unités gardées au flood, lignes suivantes",
+      "",
       [],
     );
     // listes des unités posées à l'affichage des préférences (NOM_UNITE, content.js)

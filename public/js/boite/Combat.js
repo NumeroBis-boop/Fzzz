@@ -767,11 +767,9 @@ class BoiteCombat extends Boite {
    * @method multiFlood
    */
   multiFlood() {
-    this._mfUnitesGardees = new UnitesGardees(
-      "o_mfGardees",
-      () => this._mfGardeesChangees(),
-      "Unités gardées pour ce multi-flood",
-    );
+    this._mfUnitesGardees = new UnitesGardees("o_mfGardees", () => this._mfGardeesChangees(), {
+      titre: "Unités gardées pour ce multi-flood",
+    });
     $("#o_tabsCombat3").append(`<div id="o_multiFlood" class="centre">
             <div id="o_mfFormWrap"></div>
             <div id="o_mfResultats" class="o_marginT15"></div>

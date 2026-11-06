@@ -71,6 +71,7 @@ class Dock {
       location.reload();
     });
     Dock.signalerAutreExtension($boite);
+    if (!this._desactivee) Dock.signalerMiseAJour($boite);
     // evenement sur le clic d'un item de la boite d'outil
     $(".o_toolbarOutil").click((e) => {
       switch ($(e.currentTarget).find(".o_toolbarItem span").attr("id")) {
@@ -131,6 +132,38 @@ class Dock {
     verifier();
     $(window).on("load", verifier);
     [1000, 3000].forEach((ms) => setTimeout(verifier, ms));
+  }
+  /**
+   * Script utilisateur : version plus récente publiée, avec le lien qui
+   * l'ouvre dans le gestionnaire de scripts (« Mettre à jour »).
+   *
+   * @static
+   * @method signalerMiseAJour
+   * @param {jQuery} $boite encadré « Extension OUAF »
+   */
+  static signalerMiseAJour($boite) {
+    if (typeof FZZZ_USERSCRIPT == "undefined") return;
+    Promise.resolve(chrome.runtime.sendMessage({ type: "fzzz_majVerifier" }))
+      .then((r) =>
+        r && r.url
+          ? MiseAJour.verifier(r.url, VERSION).then((version) => version && { version, url: r.url })
+          : null,
+      )
+      .then((maj) => {
+        if (!maj || $boite.find(".o_majDisponible").length) return;
+        $("<div class='o_majDisponible'></div>")
+          .text(`Nouvelle version v${maj.version} : `)
+          .append(
+            $("<a target='_blank' rel='noopener'>mettre à jour</a>")
+              .attr("href", maj.url)
+              .attr(
+                "title",
+                "Ouvre la nouvelle version : « Mettre à jour » dans Violentmonkey ou Tampermonkey, puis recharge la page.",
+              ),
+          )
+          .appendTo($boite.find(".contenu_boite_compte_plus"));
+      })
+      .catch(() => {});
   }
   /**
    * Remonte visuellement l'encadré Compte+ (translation, sans toucher à la

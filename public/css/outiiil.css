@@ -670,6 +670,12 @@ html:not(.o_origineGenerale) #recherche {
   text-align: center;
   padding: 2px 0;
 }
+.o_majDisponible {
+  font-weight: bold;
+  font-size: 11px;
+  text-align: center;
+  padding: 2px 0;
+}
 .o_versionExtension {
   font-size: 0.7em;
   opacity: 0.75;

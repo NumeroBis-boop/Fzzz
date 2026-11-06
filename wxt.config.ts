@@ -135,6 +135,7 @@ export default defineConfig({
           "js/class/Horloge.js",
           "js/class/Joueur.js",
           "js/class/Nouveautes.js",
+          "js/class/MiseAJour.js",
           "js/class/OuafSuivi.js",
           "js/class/Parametre.js",
           "js/class/SimulationChasse.js",

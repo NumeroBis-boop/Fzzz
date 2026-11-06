@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.3",
+    notes: [
+      "Page d'attaque sur téléphone en mode « site pour ordinateur » : « Lancer + partager » et « Synchroniser » sont de nouveau juste sous le bouton « Attaquer … ! », qui ne bouge pas.",
+    ],
+  },
+  {
     version: "1.85.2",
     notes: [
       "Boîte « Extension OUAF » : « Nouvelle version v… : mettre à jour » s'affiche dès qu'une mise à jour est publiée (vérifié au plus une fois par heure, sur GitHub). Le lien l'ouvre dans Violentmonkey ou Tampermonkey : clique « Mettre à jour », puis recharge la page.",

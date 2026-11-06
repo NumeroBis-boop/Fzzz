@@ -1206,16 +1206,19 @@ h2:has(+ .o_nbUnite) {
   height: 22px;
 }
 /* sous le bouton du jeu, même largeur que lui (200 px en ligne dans le jeu) :
-   colonne du milieu sous lui, boutons de sonde à droite */
+   colonne du milieu sous lui, boutons de sonde à droite. Colonnes de côté
+   toujours égales, écart réduit si le cadre a moins de 680 px (page de 980 px,
+   mode « site pour ordinateur » des téléphones) : le milieu reste sous lui */
 #o_btnLancer {
   display: grid;
-  grid-template-columns: 1fr 200px 1fr;
-  column-gap: 40px;
+  grid-template-columns: minmax(0, 1fr) 200px minmax(0, 1fr);
+  column-gap: clamp(8px, calc((100% - 600px) / 2), 40px);
   row-gap: 4px;
   margin-top: 6px;
 }
 #o_btnLancer .o_button {
   width: 200px;
+  max-width: 100%;
   box-sizing: border-box;
   margin: 0;
 }

@@ -243,6 +243,15 @@ describe("SimulationChasse.reequilibrer", () => {
   });
 });
 
+describe("SimulationChasse.duree", () => {
+  test("(TdC + terrain) × 0,9^VC, arrondie au supérieur comme le jeu", () => {
+    expect(appel("duree", 1000, 1, 1)).toBe(901); // 900,9
+    expect(appel("duree", 1000, 0, 2)).toBe(810); // exact
+    // 812,43 : 813 au supérieur, 812 au plus proche (l'arrondi de Calystène)
+    expect(appel("duree", 1000, 3, 2)).toBe(813);
+  });
+});
+
 describe("SimulationChasse.tempsPonte", () => {
   test("300 s × 0,9 par niveau de ponte", () => {
     expect(appel("tempsPonte", 0)).toBe(300);

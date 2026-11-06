@@ -108,10 +108,12 @@ class SimulationChasse {
     };
   }
   /**
-   * Durée d'une chasse en secondes.
+   * Durée d'une chasse en secondes : (TdC au lancement + terrain) × 0,9^VC,
+   * arrondie au supérieur comme le jeu (fonction `calculTempsChasse` de
+   * Ressources.php ; Calystène arrondissait au plus proche).
    */
   static duree(tdcLancement, terrain, vitesseChasse) {
-    return Math.round((terrain + tdcLancement) * Math.pow(0.9, vitesseChasse));
+    return Math.ceil((terrain + tdcLancement) * Math.pow(0.9, vitesseChasse));
   }
   /**
    * Nombre de chasses et terrain par chasse qui gardent le ratio au moins au

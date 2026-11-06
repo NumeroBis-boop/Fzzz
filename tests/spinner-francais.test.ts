@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { creerPage } from "./harnais";
 
 /**
@@ -53,5 +55,23 @@ describe("spinner à la française", () => {
     champ('{ min: 0, max: 50, numberFormat: "d2" }');
     expect(affiche(7)).toBe("07");
     expect(relit("07")).toBe(7);
+  });
+});
+
+// le format « i » (langue du navigateur) revient avec du code repris de Toolzzz
+describe("aucun champ au format de la langue du navigateur", () => {
+  const JS = join(import.meta.dir, "..", "public", "js"),
+    fichiers = (dossier: string): string[] =>
+      readdirSync(dossier).flatMap((nom) => {
+        const chemin = join(dossier, nom);
+        if (statSync(chemin).isDirectory()) return nom == "lib" ? [] : fichiers(chemin);
+        return nom.endsWith(".js") ? [chemin] : [];
+      });
+  test("pas de numberFormat « i »", () => {
+    expect(
+      fichiers(JS)
+        .filter((f) => /numberFormat:\s*["']i["']/.test(readFileSync(f, "utf8")))
+        .map((f) => relative(JS, f)),
+    ).toEqual([]);
   });
 });

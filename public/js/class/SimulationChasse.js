@@ -321,7 +321,8 @@ class SimulationChasse {
    *   borne le coût ou si même 1 cm² (ou une chasse du terrain fixé) dépasse
    *   une borne ; sinon le plan avec en plus `limite` (ce qui a fixé le
    *   terrain : "fixe", "terrain", "ratio", "budget", "plancher" ou "rendement"),
-   *   `plafonne` (budget inatteignable au-dessus du plancher) et
+   *   `ratioMin` (le plancher appliqué), `plafonne` (budget inatteignable
+   *   au-dessus du plancher) et
    *   `infaisable` (rendement demandé hors d'atteinte dans les bornes)
    */
   static resoudre(p) {
@@ -413,6 +414,7 @@ class SimulationChasse {
         : meilleur(candidats, (c, m) => c.rendement > m.rendement);
     return {
       ...SimulationChasse.plan(p, choix.nombre, choix.terrain),
+      ratioMin,
       limite: choix.limite,
       plafonne: choix.plafonne,
       infaisable: choix.infaisable,

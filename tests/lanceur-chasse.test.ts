@@ -338,3 +338,22 @@ describe("lanceur : liste des ratios de référence", () => {
     expect(valeur("o_chasseDiff")).toBe(8.3);
   });
 });
+
+describe("lanceur : difficulté plancher (Paramètres)", () => {
+  test("7,2 par défaut ; à 6, le mode budget descend jusqu'à 6", () => {
+    cocher("o_chasseDiffAuto", true);
+    saisir("o_chasseBudget", 500);
+    expect(plan().plafonne).toBe(true);
+    expect(plan().ratioMin).toBe(7.2);
+    expect(lire(`SimulationChasse.RATIO_PLANCHER`)).toBe(7.2);
+    expect(plan().ratio).toBeGreaterThanOrEqual(7.2);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonnée à 7.2");
+    creerLanceur(`monProfil.parametre["ratioPlancher"].valeur = 6;`);
+    cocher("o_chasseDiffAuto", true);
+    saisir("o_chasseBudget", 500);
+    expect(plan().ratioMin).toBe(6);
+    expect(plan().ratio).toBeGreaterThanOrEqual(6);
+    expect(plan().ratio).toBeLessThan(7.2);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonnée à 6");
+  });
+});

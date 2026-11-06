@@ -58,3 +58,20 @@ describe("Combat.simuler", () => {
     expect(tours).toBeLessThanOrEqual(1000);
   });
 });
+
+describe("Armee.envoyerChasse", () => {
+  test("s'arrête au premier refus et appelle `fin` avec le compte", async () => {
+    page.lire(`
+      var monProfil = { niveauRecherche: [0, 0, 0, 0, 0, 0] };
+      var TroupesDehors = { enregistrerChasse() {} };
+      window.reponses = ["La chasse est lancée.", "Erreur", "La chasse est lancée."]; window.postes = 0;
+      Armee.posterChasse = () => Promise.resolve(window.reponses[window.postes++]);
+      window.bilan = null;
+      var a = new Armee(); a._repartition = [[1], [1], [1]];
+      a.envoyerChasse(10, 3, 0, 0, (lancees, total) => { window.bilan = [lancees, total]; });
+    `);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(page.lire(`JSON.stringify(window.bilan)`)).toBe("[1,3]");
+    expect(page.lire(`window.postes`)).toBe(2);
+  });
+});

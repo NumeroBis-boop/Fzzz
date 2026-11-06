@@ -235,6 +235,15 @@ describe("SimulationChasse.reequilibrer", () => {
     expect(apres.r).toEqual([0, 0]);
   });
 
+  test("arrondis : jamais de négatif, totaux conservés (4 chasses, 2 SN)", () => {
+    const c = chasses([0, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 1]);
+    const apres = page.lire(
+      `(() => { let c = ${JSON.stringify(c)}; SimulationChasse.reequilibrer(c, 0.7); return c.map((x) => x.unites[1]); })()`,
+    );
+    expect(apres.every((n: number) => n >= 0)).toBe(true);
+    expect(apres.reduce((s: number, n: number) => s + n, 0)).toBe(2);
+  });
+
   test("tampon impossible même avec SN et NE : déficit renvoyé", () => {
     const c = chasses([8, 8], [0, 0], [40, 10]);
     const r = appel("reequilibrer", c, 2);

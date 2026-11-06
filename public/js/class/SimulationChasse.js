@@ -73,15 +73,6 @@ class SimulationChasse {
     return difficulte;
   }
   /**
-   * Indice du ratio de référence (RATIO_CHASSE) le plus proche en dessous du
-   * ratio réel : la liste déroulante du lanceur.
-   */
-  static indexRatioRef(ratio) {
-    let index = 0;
-    for (let i = 0; i < RATIO_CHASSE.length; i++) if (RATIO_CHASSE[i] <= ratio + 0.0001) index = i;
-    return index;
-  }
-  /**
    * Valeur d'une table de PERTES_CHASSE ("min", "moy", "max", "rep10") au
    * ratio donné : interpolation linéaire entre deux pas, constante au-delà
    * des bornes (au-dessus de 10,8 tous les tirages sont à 10 % de réplique).
@@ -442,16 +433,23 @@ class SimulationChasse {
       if (somme <= 0) continue;
       // de quoi couvrir tout le monde : le surplus est rendu au prorata de la
       // répartition d'origine ; sinon chacun reçoit sa part du stock
-      let alloc =
+      let parts =
           somme <= stock
             ? voulu.map((v, i) => v + ((stock - somme) * chasses[i].unites[k]) / stock)
             : voulu.map((v) => (stock * v) / somme),
-        donne = 0;
-      for (let i = 0; i < n - 1; i++) {
-        alloc[i] = Math.round(alloc[i]);
-        donne += alloc[i];
-      }
-      alloc[n - 1] = stock - donne;
+        // entiers par arrondi des cumuls : la somme vaut le stock, aucun
+        // négatif (arrondir chaque part et donner le reste au dernier pouvait
+        // lui laisser un nombre négatif)
+        cumul = 0,
+        precedent = 0,
+        alloc = parts.map((v) => {
+          cumul += v;
+          let arrondi = Math.round(cumul),
+            nb = arrondi - precedent;
+          precedent = arrondi;
+          return nb;
+        });
+      alloc[n - 1] += stock - alloc.reduce((s, x) => s + x, 0);
       chasses.forEach((c, i) => {
         c.unites[k] = alloc[i];
         besoin[i] -= alloc[i] * pv;

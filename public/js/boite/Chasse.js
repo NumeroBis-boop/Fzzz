@@ -193,7 +193,7 @@ class BoiteChasse extends Boite {
   ouvrirLanceur() {
     if (this._lanceur) return this;
     let $panneau = $("#o_tabsChasse4");
-    if ($("#o_prepaChasse").length) {
+    if (/^\/ressources\.php$/i.test(location.pathname)) {
       $panneau.html(
         "<p class='o_marginT15'><em>Le lanceur de chasses est sur cette page, sous le terrain de chasse.</em></p>",
       );
@@ -204,10 +204,10 @@ class BoiteChasse extends Boite {
     this._lireReel().then(
       (r) => {
         $panneau.empty().css({ "max-height": "70vh", "overflow-y": "auto" });
-        this._lanceur = new LanceurChasse(r.armee, r.places, { cadre: false }).afficher(
-          $panneau,
-          "append",
-        );
+        this._lanceur = new LanceurChasse(r.armee, r.places, {
+          cadre: false,
+          page: false,
+        }).afficher($panneau, "append");
       },
       () => {
         this._lanceur = null;

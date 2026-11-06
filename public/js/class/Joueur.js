@@ -218,13 +218,13 @@ class Joueur {
       "number",
       2000000,
     );
-    // Fzzz : difficulté en dessous de laquelle le lanceur ne descend pas de
-    // lui-même quand la difficulté est libre (pertes acceptées fixées). 7,2 :
+    // Fzzz : ratio en dessous duquel le lanceur ne descend pas de lui-même
+    // quand le ratio est libre (pertes acceptées fixées). 7,2 :
     // plus aucune chance de réplique à 50 % ; 6 : l'ancien plancher du lanceur
     // par budget, où 65 % des chasses subissent 30 % de réplique
     this._parametre["ratioPlancher"] = new Parametre(
       "ratioPlancher",
-      "Difficulté plancher",
+      "Ratio plancher",
       "slider",
       7.2, // SimulationChasse.RATIO_PLANCHER (classe chargée après celle-ci)
       { min: 3, max: 10, step: 0.1 },

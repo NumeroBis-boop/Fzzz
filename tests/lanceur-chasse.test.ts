@@ -356,14 +356,14 @@ describe("lanceur : difficulté plancher (Paramètres)", () => {
     expect(plan().ratioMin).toBe(7.2);
     expect(lire(`SimulationChasse.RATIO_PLANCHER`)).toBe(7.2);
     expect(plan().ratio).toBeGreaterThanOrEqual(7.2);
-    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonnée à 7.2");
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 7.2");
     creerLanceur(`monProfil.parametre["ratioPlancher"].valeur = 6;`);
     cocher("o_chasseDiffAuto", true);
     saisir("o_chasseBudget", 500);
     expect(plan().ratioMin).toBe(6);
     expect(plan().ratio).toBeGreaterThanOrEqual(6);
     expect(plan().ratio).toBeLessThan(7.2);
-    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonnée à 6");
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 6");
   });
 });
 
@@ -387,5 +387,44 @@ describe("lanceur : difficulté et pertes fixées ensemble", () => {
     expect(plan().limite).toBe("ratio");
     expect(valeur("o_chasseBudget")).toBe(500);
     expect(lire(`$("#o_chasseBudgetInfo").text()`)).toContain("réel");
+  });
+});
+
+describe("lanceur : terrain à l'arrivée vide", () => {
+  test("rien à lancer : boutons désactivés, plan oublié", () => {
+    saisir("o_chasseTDCDep", 0);
+    expect(lire(`lanceur._simu`)).toBeNull();
+    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("terrain à l'arrivée");
+  });
+});
+
+describe("lanceur : rendement affiché puis fixé", () => {
+  test("la valeur affichée reste atteignable une fois fixée", () => {
+    for (const tdc of [1500000, 1234567, 999999]) {
+      saisir("o_chasseTDCDep", tdc);
+      lire(`$("#o_chasseRendement").trigger("focus")`);
+      expect(plan().infaisable).toBe(false);
+      cocher("o_chasseRendementAuto", true);
+    }
+  });
+});
+
+describe("lanceur : dans la boîte (page: false)", () => {
+  test("pas de bouton « Envoyer + partager », bilan sans rechargement", () => {
+    lire(`
+      $("#o_tabsChasse4").remove();
+      $("body").append("<div id='o_tabsChasse4'></div>");
+      var armee3 = new Armee().parseArmee("3000000 jsn, 100000 sn");
+      armee3._nbrJSN = armee3.unite[0];
+      var boite = new LanceurChasse(armee3, 4, { prefixe: "b_", cadre: false, page: false }).afficher($("#o_tabsChasse4"), "append");
+      window.toasts = []; $.toast = (t) => window.toasts.push(t.text);
+    `);
+    expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(0);
+    expect(lire(`$("#b_o_chasseEnvoyer").length`)).toBe(1);
+    lire(`boite._finLancement(2, 3)`);
+    expect(lire(`window.toasts[0]`)).toContain("2 chasses lancées sur 3");
+    expect(lire(`$("#b_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    lire(`$("#o_tabsChasse4").remove()`);
   });
 });

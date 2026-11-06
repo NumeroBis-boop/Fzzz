@@ -577,9 +577,11 @@ class Armee {
    * Envoie une chasse.
    *
    * @method envoyerChasse
+   * @param {Function} fin appelée à la fin (chasses lancées, demandées) ;
+   *   par défaut, rechargement de la page
    * @param {Integer} indice
    */
-  envoyerChasse(terrainChasse, nbChasse, indice, intervalle) {
+  envoyerChasse(terrainChasse, nbChasse, indice, intervalle, fin = () => location.reload()) {
     if (indice < nbChasse) {
       Armee.posterChasse(terrainChasse, this._repartition[indice]).then((data) => {
         if (data.indexOf("La chasse est lancée.") > -1) {
@@ -587,16 +589,18 @@ class Armee {
           $("#o_simulationChasse tr:eq(" + (indice + 1) + ")").html(
             `<td class='green'>${indice + 1}</td><td colspan='14' class='green'>La chasse est lancée.</td>`,
           );
-        } else
+          setTimeout(() => {
+            this.envoyerChasse(terrainChasse, nbChasse, ++indice, intervalle, fin);
+          }, intervalle);
+        } else {
+          // refusée (plus de place, d'unités…) : les suivantes le seraient aussi
           $("#o_simulationChasse tr:eq(" + (indice + 1) + ")").html(
             `<td class='red'>${indice + 1}</td><td colspan='14' class='red'>La chasse n'a pas pu être lancée.</td>`,
           );
-        setTimeout(() => {
-          this.envoyerChasse(terrainChasse, nbChasse, ++indice, intervalle);
-        }, intervalle);
+          fin(indice, nbChasse);
+        }
       });
-    } else // on a fini, on recharge la page
-    location.reload();
+    } else fin(nbChasse, nbChasse);
   }
 
   /* ------------------------------------------------------------------ */

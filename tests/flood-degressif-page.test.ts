@@ -148,6 +148,15 @@ describe("page d'attaque : flood dégressif réglable", () => {
     expect(gardees()).toBe(nombre(1000) + " Jeunes Soldates Naines");
   });
 
+  test("bloc : le titre seul sur sa ligne, les antisondes sur la ligne juste dessous", () => {
+    ouvrir({ methodeFlood: 0 });
+    expect(
+      page.lire<string[]>(
+        `$("#o_floodGardees").children().slice(0, 2).map((i, l) => l.textContent.trim().replace(/\\s+/g, " ")).get()`,
+      ),
+    ).toEqual(["Unités gardées pour cette attaque :", "les antisondes (1 en terrain + 0 en dôme)"]);
+  });
+
   test("antisondes gardées ou non pour cette attaque", () => {
     ouvrir({
       methodeFlood: 0,

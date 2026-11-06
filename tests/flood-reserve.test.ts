@@ -103,17 +103,30 @@ describe("flood : unités gardées (réserve)", () => {
     expect(r.gardees).toEqual(parType({ [JSN]: 1000 }));
   });
 
-  test("pas assez de l'unité choisie : complétée par les dernières unités", () => {
+  test("pas assez de l'unité choisie : on garde ce que l'armée en a, sans compléter", () => {
     regler({ reserveFlood: 1000, reserveFloodType: choix(JSN) });
     const r = flood({ [JSN]: 300, [JS]: 1000, [TANK]: 2000 }, "0", [0, 100000], 3);
-    expect(r.gardees).toEqual(parType({ [JSN]: 300, [TANK]: 700 }));
-    expect(r.floods).toEqual([0, 2300]);
+    expect(r.gardees).toEqual(parType({ [JSN]: 300 }));
+    expect(r.floods).toEqual([0, 3000]);
   });
 
-  test("unité choisie absente de l'armée : les dernières unités, comme par défaut", () => {
+  test("unité choisie absente de l'armée : rien n'est gardé pour elle", () => {
     regler({ reserveFlood: 1000, reserveFloodType: choix(TANK) });
     const r = flood({ [JSN]: 3000, [JS]: 1000 }, "0", [0, 100000], 3);
-    expect(r.gardees).toEqual(parType({ [JS]: 1000 }));
+    expect(r.gardees).toEqual(parType({}));
+    expect(r.floods).toEqual([0, 4000]);
+  });
+
+  test("antisonde dont l'armée a moins : celles qu'elle a, sans compléter", () => {
+    regler({
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeTerrainType: choix(JSN),
+      uniteAntisondeDome: 500,
+      uniteAntisondeDomeType: choix(JS),
+    });
+    const r = flood({ [JSN]: 3000, [JS]: 200, [TANK]: 400 }, "0", [0, 100000], 3);
+    expect(r.gardees).toEqual(parType({ [JSN]: 1, [JS]: 200 }));
   });
 
   test("« = antisondes terrain + dôme » : les unités des antisondes restent, pas les dernières", () => {
@@ -312,18 +325,24 @@ describe("flood : unités gardées (réserve)", () => {
         c.armee.forEach((x, j) => {
           if (dispo[j] < 0 || gardees[j] < 0 || dispo[j] + gardees[j] != x) faux("type " + j);
         });
-        // autant d'unités gardées que demandé, dans la limite de l'armée
-        if (gardees.reduce((s, x) => s + x, 0) != Math.min(demandees, total)) faux("total gardé");
-        // unités choisies (et antisondes) : gardées en priorité sur les dernières unités
-        let voulues = new Array(14).fill(0),
+        // référence : chaque unité choisie (antisondes comprises), au plus ce que
+        // l'armée en a ; puis les lignes « dernières unités », en bas de l'armée
+        let attendu = c.armee.slice(),
           premiere = c.armee.findIndex((x) => x > 0),
-          type = (choisi) => (choisi > 0 && c.armee[choisi - 1] > 0 ? choisi - 1 : premiere);
-        if (c.antisondes) {
-          if (type(c.terrainType) >= 0) voulues[type(c.terrainType)] += c.terrain;
-          if (type(c.domeType) >= 0) voulues[type(c.domeType)] += c.dome;
+          type = (choisi) => (choisi > 0 && c.armee[choisi - 1] > 0 ? choisi - 1 : premiere),
+          choisies = [],
+          enBas = 0;
+        if (c.antisondes) choisies.push([type(c.terrainType), c.terrain], [type(c.domeType), c.dome]);
+        c.autres.forEach((l) => (l.unite > 0 ? choisies.push([l.unite - 1, l.nombre]) : (enBas += l.nombre)));
+        choisies.forEach(([t, nb]) => { if (t >= 0) attendu[t] -= Math.min(attendu[t], nb); });
+        for (let j = 13; j >= 0 && enBas > 0; j--) {
+          let k = Math.min(attendu[j], enBas);
+          attendu[j] -= k;
+          enBas -= k;
         }
-        c.autres.forEach((l) => { if (l.unite > 0) voulues[l.unite - 1] += l.nombre; });
-        voulues.forEach((v, j) => { if (gardees[j] < Math.min(v, c.armee[j])) faux("priorité type " + j); });
+        attendu.forEach((x, j) => { if (dispo[j] != x) faux("disponibles type " + j + " : " + dispo[j] + " pour " + x); });
+        // jamais plus d'unités gardées que demandé
+        if (gardees.reduce((s, x) => s + x, 0) > Math.min(demandees, total)) faux("total gardé");
         // chaque attaque reçoit exactement ses unités, prises sur les disponibles
         floods.forEach((f, k) => {
           let somme = rep[k] ? rep[k].reduce((s, x) => s + x, 0) : 0;

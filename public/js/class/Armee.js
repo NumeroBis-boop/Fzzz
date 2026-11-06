@@ -809,8 +809,9 @@ class Armee {
   /**
    * Unités que le flood peut envoyer, par type. Les unités gardées restent à
    * la maison : les antisondes si elles sont gardées (unités de l'onglet
-   * Armée), plus chaque ligne d'autres unités, de l'unité choisie ; à défaut,
-   * ou si l'armée n'en a pas assez, les dernières unités de l'armée.
+   * Armée), plus chaque ligne d'autres unités. Une unité choisie : au plus ce
+   * que l'armée en a, sans compléter avec d'autres ; une ligne « dernières
+   * unités de l'armée » : prises en bas de l'armée, après les unités choisies.
    *
    * @method disponibleFlood
    * @return {Array<Number>} nombre par type, dans l'ordre de Armee.unite
@@ -834,12 +835,12 @@ class Armee {
           : []),
         ...g.autres.map((ligne) => [ligne.unite - 1, ligne.nombre]),
       ],
-      reste = gardes.reduce((somme, [, nombre]) => somme + Math.max(0, nombre || 0), 0);
+      reste = gardes.reduce(
+        (somme, [i, nombre]) => somme + (i < 0 ? Math.max(0, nombre || 0) : 0),
+        0,
+      );
     gardes.forEach(([i, nombre]) => {
-      if (i < 0 || !dispo[i]) return;
-      let garde = Math.min(dispo[i], Math.max(0, nombre || 0));
-      dispo[i] -= garde;
-      reste -= garde;
+      if (i >= 0) dispo[i] -= Math.min(dispo[i], Math.max(0, nombre || 0));
     });
     for (let i = dispo.length - 1; i >= 0 && reste > 0; i--) {
       let garde = Math.min(dispo[i], reste);

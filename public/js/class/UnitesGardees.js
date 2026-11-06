@@ -58,12 +58,13 @@ class UnitesGardees {
    */
   html() {
     let r = this._reglage,
-      titre = this._titre ? `<span class="gras">${this._titre} :</span> ` : "",
+      titre = this._titre ? `<div class="o_gardeesTete gras">${this._titre} :</div>` : "",
       fin = this._preferences
-        ? `<div class="o_gardeesAide o_aideParam">si l'armée n'a pas assez d'une unité choisie : complétée par les dernières unités</div>`
+        ? `<div class="o_gardeesAide o_aideParam">si l'armée en a moins qu'indiqué : toutes celles qu'elle a sont gardées, sans les compléter par d'autres unités</div>`
         : `<div class="o_gardeesResultat">= <span class="o_gardeesTexte"></span> · <a href="#" class="o_gardeesDefaut">par défaut : Préférences</a></div>`;
     return `<div id="${this._id}" class="o_gardees${this._preferences ? "" : " reduce"}">
-        <div class="o_gardeesTete">${titre}<label><input type="checkbox" class="o_gardeesAntisondes" ${r.antisondes ? "checked" : ""}/> les antisondes <span class="o_gardeesNbAntisondes"></span></label></div>
+        ${titre}
+        <div class="o_gardeesTete"><label><input type="checkbox" class="o_gardeesAntisondes" ${r.antisondes ? "checked" : ""}/> les antisondes <span class="o_gardeesNbAntisondes"></span></label></div>
         <div class="o_gardeesLignes">${r.autres.map((ligne) => this.ligne(ligne)).join("")}</div>
         <div class="o_gardeesTete"><a href="#" class="o_gardeesAjouter">+ ajouter une unité</a></div>
         ${fin}

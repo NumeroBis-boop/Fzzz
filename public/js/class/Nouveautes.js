@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.4",
+    notes: [
+      "Chasses et Préférences (correction de Grim) : dans un navigateur en français, les flèches ne multiplient plus le ratio par dix, et une virgule tapée n'est plus effacée. Les champs de nombres s'affichent à la française (« 1 804 000 », « 9,1 ») quelle que soit la langue du navigateur ; virgule ou point acceptés.",
+      "Multi-flood : un « Terrain Final » ou une « Prise Max » modifié est relu en entier (« 1 900 000 » était lu 1).",
+    ],
+  },
+  {
     version: "1.85.3",
     notes: [
       "Page d'attaque sur téléphone en mode « site pour ordinateur » : « Lancer + partager » et « Synchroniser » sont de nouveau juste sous le bouton « Attaquer … ! », qui ne bouge pas.",

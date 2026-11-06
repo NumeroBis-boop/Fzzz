@@ -338,7 +338,7 @@ class BoiteParametre extends Boite {
         ${p["floodAttaques"].getForm("Nombre d'attaques proposées")}
         ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
         ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
-        <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(par défaut ; modifiables pour chaque attaque dans le Lanceur de Flood et le multi-flood)</span></p>
+        <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(par défaut, modifiables à chaque attaque)</span></p>
         ${this._gardees.html()}
         <p class='o_titreParam'>Sonder</p>
         ${p["sondeUnite"].getForm("Unité envoyée en sonde")}

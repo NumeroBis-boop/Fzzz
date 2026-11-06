@@ -25,10 +25,27 @@ const JSN = 0,
 // valeur d'une liste d'unités des préférences : 0 = « Dernières unités » ou « Première disponible »
 const choix = (i: number) => i + 1;
 
+const NOM_UNITES = [
+  "Ouvrières",
+  "Jeunes Soldates Naines",
+  "Soldates Naines",
+  "Naines d’Elite",
+  "Jeunes Soldates",
+  "Soldates",
+  "Concierges",
+  "Concierges d’élite",
+  "Artilleuses",
+  "Artilleuses d’élite",
+  "Soldates d’élite",
+  "Tanks",
+  "Tanks d’élite",
+  "Tueuses",
+  "Tueuses d’élite",
+];
 const page = creerPage(
   ["js/class/Utils.js", "js/class/Parametre.js", "js/class/Joueur.js", "js/class/Armee.js"],
   `var METHODE_FLOOD = [], AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {};
-   var NOM_UNITE = ${JSON.stringify(NOM_UNITE)};`,
+   var NOM_UNITE = ${JSON.stringify(NOM_UNITE)}, NOM_UNITES = ${JSON.stringify(NOM_UNITES)};`,
 );
 
 function regler(reglages: object) {
@@ -177,6 +194,26 @@ describe("flood : unités gardées (réserve)", () => {
     const r = flood({ [JSN]: 500 }, "0", [1000, 200], 3);
     expect(r.floods).toEqual([400]);
     expect(r.gardees).toEqual(parType({ [JSN]: 100 }));
+  });
+
+  test("texte des unités gardées, affiché sous le lanceur et le multi-flood", () => {
+    regler({
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeTerrainType: choix(JSN),
+      uniteAntisondeDome: 1500,
+      uniteAntisondeDomeType: choix(TANK),
+    });
+    const texte = (unites: Record<number, number>) =>
+      page.lire<string>(`(() => {
+        let a = new Armee();
+        a.unite = ${JSON.stringify(parType(unites))};
+        return Armee.texteGardees(a.gardeesFlood());
+      })()`);
+    const dome = page.lire<string>(`numeral(1500).format()`);
+    expect(texte({ [JSN]: 3000, [TANK]: 2000 })).toBe(`1 Jeune Soldate Naine, ${dome} Tanks`);
+    regler({});
+    expect(texte({ [JSN]: 3000 })).toBe("aucune");
   });
 
   test("dernières unités : même répartition que l'ancien calcul (réserve ôtée du total)", () => {

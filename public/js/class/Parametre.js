@@ -96,6 +96,8 @@ class Parametre {
    */
   sauvegarde() {
     localStorage.setItem("outiiil_parametre", JSON.stringify(monProfil.parametre));
+    // lanceur de flood et multi-flood ouverts : refaits avec le nouveau réglage
+    $(document).trigger("o_parametre", [this._id]);
     return this;
   }
   /**

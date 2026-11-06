@@ -236,6 +236,24 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
+   * Ouvre les préférences sur un onglet.
+   *
+   * @static
+   * @method ouvrirOnglet
+   * @param {String} id identifiant de l'onglet (ONGLETS_PARAMETRE)
+   */
+  static ouvrirOnglet(id) {
+    if (!$("#o_tabsParametre" + id).is(":visible"))
+      $("#o_itemParametre").closest(".o_toolbarItem").trigger("click");
+    let $onglets = $("#o_tabsParametre");
+    if ($onglets.hasClass("ui-tabs"))
+      $onglets.tabs(
+        "option",
+        "active",
+        $onglets.find(`a[href='#o_tabsParametre${id}']`).parent().index(),
+      );
+  }
+  /**
    * Cases des affichages d'un onglet, cochées par défaut.
    *
    * @method cases

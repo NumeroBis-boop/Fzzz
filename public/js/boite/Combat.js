@@ -771,6 +771,7 @@ class BoiteCombat extends Boite {
             <div id="o_mfFormWrap"></div>
             <div id="o_mfResultats" class="o_marginT15"></div>
             <p id="o_mfRecap" class="o_marginT15"></p>
+            <p id="o_mfGardees" class="reduce"></p>
             <div class='o_pile o_marginT15'><button id="o_mfLancer" class="o_button f_success" type="button" disabled>Lancer ces attaques</button>
             <button id="o_mfLancerPartager" class="o_button f_info" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button></div>
         </div>`);
@@ -782,6 +783,7 @@ class BoiteCombat extends Boite {
     this._mfAttaquantOpts = { terrainFinal: null, priseMax: null };
     this._mfTotalUnites = null; // chargé lazy via Armee.getArmee()
     this._mfRenderForm();
+    this._mfEcouterReserve();
     // Pré-charge l'armée pour le check garnison ; ne bloque pas l'UI
     if (!this._mfArmee) this._mfArmee = new Armee();
     this._mfArmee.getArmee().then((data) => {
@@ -1060,6 +1062,7 @@ class BoiteCombat extends Boite {
    */
   simulerMultiFlood() {
     if (!this._mfArmee) this._mfArmee = new Armee();
+    this._mfLance = false;
     // Seuils alignés sur le natif (Attaquer.js:231 → tdcCible ∈ [tdcAtt × 0.5, tdcAtt × 3])
     const SEUIL_TROP_HAUT = 3;
     const SEUIL_TROP_BAS = 2;
@@ -1229,6 +1232,7 @@ class BoiteCombat extends Boite {
    * @param {Array} resultats
    */
   afficherRecapMultiFlood(resultats) {
+    this._mfAfficherGardees();
     let totalAttaques = 0,
       totalFourmis = 0,
       totalPrise = 0,
@@ -1271,9 +1275,10 @@ class BoiteCombat extends Boite {
       pctGarnisonHtml = `, soit <span class="gras red">∞%</span> de votre armée (garnison vide)`;
       armeeOk = false;
     } else if (this._mfTotalUnites > 0) {
-      let pct = Math.round((totalFourmis / this._mfTotalUnites) * 100);
-      armeeOk = totalFourmis <= this._mfTotalUnites;
-      pctGarnisonHtml = `, soit <span class="gras${armeeOk ? "" : " red"}">${pct}%</span> de votre armée en garnison`;
+      let disponibles = this._mfDisponibles(),
+        pct = disponibles ? Math.round((totalFourmis / disponibles) * 100) + "%" : "∞%";
+      armeeOk = totalFourmis <= disponibles;
+      pctGarnisonHtml = `, soit <span class="gras${armeeOk ? "" : " red"}">${pct}</span> de votre armée en garnison hors unités gardées`;
     }
     let fourmisCls = armeeOk ? "" : " red",
       recap = `Ce flood demande <span class="gras">${totalAttaques} attaque${totalAttaques > 1 ? "s" : ""}</span> sur ${cibles} cible${cibles > 1 ? "s" : ""} et <span class="gras${fourmisCls}">${numeral(totalFourmis).format()} fourmis</span>${pctGarnisonHtml} pour <span class="gras green">+${numeral(totalPrise).format()} cm²</span>.`;
@@ -1311,12 +1316,17 @@ class BoiteCombat extends Boite {
       if (prises.length) aLancer.push({ cible: r.cible, prises, indices });
     });
     if (!totalAttaques) return;
+    let gardees =
+      this._mfTotalUnites > 0
+        ? ` Unités gardées : ${Armee.texteGardees(this._mfArmee.gardeesFlood())}.`
+        : "";
     if (
       !confirm(
-        `Lancer ${totalAttaques} attaque(s) sur ${aLancer.length} cible(s) ? Cette action est irréversible.`,
+        `Lancer ${totalAttaques} attaque(s) sur ${aLancer.length} cible(s) ?${gardees} Cette action est irréversible.`,
       )
     )
       return;
+    this._mfLance = true;
     $("#o_mfLancer, #o_mfLancerPartager").prop("disabled", true);
     $("#o_mfLancer").text("Lancement…");
     this._mfPartager = partager;
@@ -1325,7 +1335,62 @@ class BoiteCombat extends Boite {
       this._mfArmee && this._mfArmee.unite.some((u) => u > 0)
         ? Promise.resolve()
         : this._mfArmee.getArmee().then((d) => this._mfArmee.chargeData(d));
-    prep.then(() => this._mfLancerCibleSuivante(aLancer, 0));
+    prep.then(() => {
+      // armée lue au lancement, ou réserve changée depuis le récapitulatif :
+      // rien ne part si les attaques entameraient les unités gardées
+      let demandees = aLancer.reduce((s, c) => s + c.prises.reduce((a, p) => a + p, 0), 0),
+        disponibles = this._mfDisponibles();
+      if (demandees > disponibles) {
+        $.toast({
+          ...TOAST_ERROR,
+          hideAfter: false,
+          text: `Rien n'est parti : ces attaques demandent ${numeral(demandees).format()} unités, ${numeral(disponibles).format()} disponibles sans les unités gardées (Préférences → Attaque).`,
+        });
+        this._mfLance = false;
+        $("#o_mfLancer").text("Lancer ces attaques");
+        this.afficherRecapMultiFlood(this._mfResultats);
+        return;
+      }
+      this._mfLancerCibleSuivante(aLancer, 0);
+    });
+  }
+  /**
+   * « Régler » ouvre les préférences ; une réserve changée refait le
+   * récapitulatif, sauf après un lancement (les boutons restent bloqués).
+   *
+   * @private
+   * @method _mfEcouterReserve
+   */
+  _mfEcouterReserve() {
+    $("#o_multiFlood").on("click", ".o_reglerReserve", (e) => {
+      e.preventDefault();
+      BoiteParametre.ouvrirOnglet("Attaque");
+    });
+    $(document)
+      .off("o_parametre.o_mf")
+      .on("o_parametre.o_mf", () => {
+        if (this._mfResultats && !this._mfLance) this.afficherRecapMultiFlood(this._mfResultats);
+      });
+  }
+  /**
+   * @private
+   * @method _mfDisponibles
+   * @return {Number} unités de l'armée lue, sans celles gardées au flood
+   */
+  _mfDisponibles() {
+    return this._mfArmee.disponibleFlood().reduce((s, n) => s + n, 0);
+  }
+  /**
+   * Unités gardées au flood (réserve des préférences), sous le récapitulatif.
+   *
+   * @private
+   * @method _mfAfficherGardees
+   */
+  _mfAfficherGardees() {
+    if (!(this._mfTotalUnites > 0)) return;
+    $("#o_mfGardees").html(
+      `Unités gardées (réserve) : ${Armee.texteGardees(this._mfArmee.gardeesFlood())} · <a href="#" class="o_reglerReserve">Régler</a>`,
+    );
   }
   /**
    *
@@ -1354,7 +1419,7 @@ class BoiteCombat extends Boite {
         let securite = tInput.attr("name") + "=" + tInput.attr("value");
         // Construit la répartition pour les SEULES attaques cochées de cette cible
         this._mfArmee.floods = prises.slice();
-        this._mfArmee.repartirUniteFlood();
+        this._mfArmee.repartirUniteFlood(this._mfArmee.disponibleFlood());
         this._mfEnvoyerAttaqueSuivante(cible, securite, indices, 0, () => {
           // Décompte local des unités envoyées (pour les cibles suivantes)
           this._mfArmee.repartition.forEach((rep) => {

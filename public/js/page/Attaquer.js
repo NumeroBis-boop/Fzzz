@@ -585,12 +585,14 @@ class PageAttaquer {
             <div class='o_pile'><button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
             <button type='button' id='o_lanceFloodPartager' class='o_button f_info' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div>
             <p class="reduce left">Reste : place les unités restantes sur l'attaque sélectionnée.</p>
+            <p class="reduce left">Unités gardées (réserve) : <span id="o_floodGardees"></span> · <a href="#" class="o_reglerReserve">Régler</a></p>
             </fieldset>`);
     $("#o_floodTDCA, #o_floodTDCB, #o_floodAntiSonde, input[id^='o_attaque']").spinner({
       min: 0,
       numberFormat: "i",
     });
     $("#o_simulationFlood tr:even").addClass("ligne_paire");
+    this.afficherGardees();
     let proposees = Math.max(1, parseInt(monProfil.parametre["floodAttaques"].valeur) || 3);
     for (let i = 1; i < Math.min(proposees + 1, this._nbAttaque); i++) this.ajouterAttaque();
     // Si la methode par defaut est par standard on prepare
@@ -647,12 +649,34 @@ class PageAttaquer {
         $("#t:last").attr("name") + "=" + $("#t:last").attr("value"),
       );
     });
+    $("#o_prepaFlood .o_reglerReserve").click((e) => {
+      e.preventDefault();
+      BoiteParametre.ouvrirOnglet("Attaque");
+    });
+    // réglage changé dans les préférences : les attaques affichées sont celles
+    // qui partiront ; rien ne change pendant l'envoi
+    $(document)
+      .off("o_parametre.o_flood")
+      .on("o_parametre.o_flood", () => {
+        if ($("#o_lanceFlood").prop("disabled")) return;
+        this.afficherGardees();
+        this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
+      });
     $("#o_ajouteAttaque").click((e) => {
       this.ajouterAttaque();
     });
     $("#o_supprimeAttaque").click((e) => {
       this.supprimerAttaque();
     });
+  }
+  /**
+   * Unités gardées au flood (réserve des préférences), sous le lanceur.
+   *
+   * @private
+   * @method afficherGardees
+   */
+  afficherGardees() {
+    $("#o_floodGardees").text(Armee.texteGardees(this._armee.gardeesFlood()));
   }
   /**
    * Lance une simulation si les données saisies sont correctes.
@@ -726,9 +750,18 @@ class PageAttaquer {
         $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(3)").text(numeral(tdcAtt).format());
         $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(4)").text(numeral(tdcCible).format());
       }
-      // supprime les attaques en trop si besoin
-      for (let n = $("input[id^='o_attaque']").length - (simulation.length - 1); n > 0; n--)
-        this.supprimerAttaque();
+      // attaques en trop : retirées en Optimisée, qui en fixe le nombre ; à 0
+      // sinon, pour garder le nombre choisi (unités épuisées, réserve agrandie)
+      let lignes = $("input[id^='o_attaque']").length;
+      if (methode == "1")
+        for (let n = lignes - (simulation.length - 1); n > 0; n--) this.supprimerAttaque();
+      else
+        for (let i = simulation.length; i <= lignes; i++) {
+          $("#o_attaque" + i).spinner("value", 0);
+          $("#o_pourcentAttaque" + i).text(0);
+          $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(3)").text(numeral(tdcAtt).format());
+          $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(4)").text(numeral(tdcCible).format());
+        }
     }
   }
   /**

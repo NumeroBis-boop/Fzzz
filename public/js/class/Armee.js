@@ -787,6 +787,28 @@ class Armee {
     return dispo;
   }
   /**
+   * @method gardeesFlood
+   * @return {Array<Number>} unités gardées au flood par type (voir disponibleFlood)
+   */
+  gardeesFlood() {
+    let dispo = this.disponibleFlood();
+    return this._unite.map((n, i) => (Math.ceil(n) || 0) - dispo[i]);
+  }
+  /**
+   * @static
+   * @method texteGardees
+   * @param {Array<Number>} gardees nombre par type, dans l'ordre de Armee.unite
+   * @return {String} « 1 Jeune Soldate Naine, 1 000 Tanks », ou « aucune »
+   */
+  static texteGardees(gardees) {
+    let liste = gardees
+      .map((n, i) =>
+        n > 0 ? `${numeral(n).format()} ${n > 1 ? NOM_UNITES[i + 1] : NOM_UNITE[i + 1]}` : "",
+      )
+      .filter(Boolean);
+    return liste.length ? liste.join(", ") : "aucune";
+  }
+  /**
    * Répartit les unités sur les floods prévus, en prenant les premières unités
    * de l'armée d'abord.
    *

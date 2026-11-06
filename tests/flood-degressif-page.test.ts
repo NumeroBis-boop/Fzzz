@@ -15,7 +15,8 @@ const page = creerPage(
   ],
   `var METHODE_FLOOD = ["Standard", "Optimisée", "Uniforme", "Dégressive"],
      AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {}, TOAST_WARNING = {};
-   var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"];`,
+   var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"],
+     NOM_UNITES = ["Ouvrières", "Jeunes Soldates Naines"];`,
 );
 
 // lanceur de flood ouvert sur une cible à 100 000 cm², armée largement suffisante
@@ -73,11 +74,19 @@ describe("page d'attaque : flood dégressif réglable", () => {
     expect(attaques()).toEqual([25000, 20000, 15000]);
   });
 
-  test("écart fixe arrivé à 0 % : les lignes en trop disparaissent toutes", () => {
-    // 5 % puis 0 % : une seule attaque, les deux autres lignes proposées partent
+  test("écart fixe arrivé à 0 % : les attaques en trop restent, à 0", () => {
+    // 5 % puis 0 % : une seule attaque ; les autres lignes proposées n'envoient rien
     ouvrir({ methodeFlood: 3, degressifBase: 5, degressifRegle: 1 });
+    expect(attaques()).toEqual([5000, 0, 0]);
+    expect(page.lire<number[]>(`p._armee.floods`)).toEqual([0, 5000]);
+  });
+
+  test("Optimisée : les lignes en trop disparaissent toutes", () => {
+    ouvrir({ methodeFlood: 1 });
+    expect(attaques()).toEqual([20000, 13333, 13333]);
+    // cible à la moitié de mon terrain : une seule attaque prévue
+    page.lire(`$("#o_floodTDCB").spinner("value", 50000).trigger("input")`);
     expect(page.lire<number>(`$("input[id^='o_attaque']").length`)).toBe(1);
-    expect(page.lire<number>(`$("#o_attaque1").spinner("value")`)).toBe(5000);
   });
 
   test("« Reste » coché puis moins d'attaques calculées : le reste part sur la ligne cochée", () => {
@@ -91,12 +100,49 @@ describe("page d'attaque : flood dégressif réglable", () => {
 
   test("réserve : une attaque saisie ne prend pas les unités gardées", () => {
     ouvrir({ methodeFlood: 0, reserveFlood: 400000 });
+    saisir(2, 100000);
     saisir(1, 700000);
-    // plus d'unités pour les attaques 2 et 3 : leurs lignes disparaissent
-    expect(
-      page.lire<number[]>(`$("input[id^='o_attaque']").map((i, e) => $(e).spinner("value")).get()`),
-    ).toEqual([600000]);
+    // plus d'unités pour l'attaque 2 : elle reste, à 0
+    expect(attaques()).toEqual([600000, 0, 0]);
     expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(600000);
+  });
+
+  test("unités gardées sous le lanceur ; réserve changée dans les préférences : attaques refaites", () => {
+    ouvrir({ methodeFlood: 0 });
+    expect(page.lire<string>(`$("#o_floodGardees").text()`)).toBe("aucune");
+    saisir(1, 700000);
+    // réglée depuis les préférences (lien « Régler »), lanceur toujours ouvert
+    page.lire(`monProfil.parametre.reserveFlood.valeur = 400000;
+      monProfil.parametre.reserveFlood.sauvegarde()`);
+    expect(page.lire<string>(`$("#o_floodGardees").text()`)).toBe(
+      page.lire<string>(`numeral(400000).format()`) + " Jeunes Soldates Naines",
+    );
+    expect(attaques()).toEqual([600000, 0, 0]);
+    expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(600000);
+    // réserve rendue : le nombre d'attaques choisi est toujours là
+    page.lire(`monProfil.parametre.reserveFlood.valeur = 0;
+      monProfil.parametre.reserveFlood.sauvegarde()`);
+    expect(page.lire<number>(`$("input[id^='o_attaque']").length`)).toBe(3);
+  });
+
+  test("dégressive : réserve agrandie puis rendue, les attaques reviennent", () => {
+    ouvrir({ methodeFlood: 3 });
+    const regler = (n: number) =>
+      page.lire(`monProfil.parametre.reserveFlood.valeur = ${n};
+        monProfil.parametre.reserveFlood.sauvegarde()`);
+    regler(2000000);
+    expect(attaques()).toEqual([0, 0, 0]);
+    regler(0);
+    expect(attaques()).toEqual([20000, 16000, 12800]);
+  });
+
+  test("flood en cours d'envoi : un réglage changé ne touche pas aux attaques", () => {
+    ouvrir({ methodeFlood: 0 });
+    saisir(1, 700000);
+    page.lire(`$("#o_lanceFlood").prop("disabled", true)`);
+    page.lire(`monProfil.parametre.reserveFlood.valeur = 400000;
+      monProfil.parametre.reserveFlood.sauvegarde()`);
+    expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(700000);
   });
 
   test("nombre d'attaques proposées réglable, dans la limite des créneaux", () => {

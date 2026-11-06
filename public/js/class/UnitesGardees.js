@@ -110,14 +110,14 @@ class UnitesGardees {
       let ligne = { nombre: 0, unite: 0 };
       this._reglage.autres.push(ligne);
       let $ligne = $(this.ligne(ligne)).appendTo($bloc.find(".o_gardeesLignes"));
-      $ligne.find(".o_gardeesNombre").spinner({ min: 0, numberFormat: "i" }).trigger("focus");
+      $ligne.find(".o_gardeesNombre").spinner({ min: 0 }).trigger("focus");
       this._auChangement();
     });
     $bloc.on("click", ".o_gardeesDefaut", (e) => {
       e.preventDefault();
       BoiteParametre.ouvrirOnglet("Attaque");
     });
-    $bloc.find(".o_gardeesNombre").spinner({ min: 0, numberFormat: "i" });
+    $bloc.find(".o_gardeesNombre").spinner({ min: 0 });
     return this;
   }
   /**

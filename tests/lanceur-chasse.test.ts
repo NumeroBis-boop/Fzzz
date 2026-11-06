@@ -273,12 +273,116 @@ describe("lanceur : saisie décimale à la française", () => {
     expect(plan().ratio).toBeGreaterThanOrEqual(7.2);
     expect(plan().ratio).toBeLessThan(7.5);
   });
+
+  test("« 7, » en cours de saisie vaut 7, le champ n'est pas vidé", () => {
+    lire(`$("#o_chasseDiff").val("7,").trigger("input")`);
+    expect(valeur("o_chasseDiff")).toBe(7);
+    expect(lire(`$("#o_chasseDiff").val()`)).toBe("7,");
+  });
+});
+
+describe("lanceur : saisie décimale caractère par caractère", () => {
+  const champ = (id: string) => lire<string>(`$("#${id}").val()`);
+  const frappe = (id: string, texte: string) =>
+    lire(`$("#${id}").val(${JSON.stringify(texte)}).trigger("input")`);
+
+  test("« 7.5 » : le point n'est pas effacé en cours de frappe", () => {
+    for (const t of ["7", "7.", "7.5"]) frappe("o_chasseDiff", t);
+    expect(champ("o_chasseDiff")).toBe("7.5");
+    expect(valeur("o_chasseDiff")).toBe(7.5);
+    expect(plan().ratio).toBeGreaterThanOrEqual(7.5);
+  });
+
+  test("« 7,5 » : la virgule reste, la frappe continue", () => {
+    for (const t of ["7", "7,", "7,5"]) frappe("o_chasseDiff", t);
+    expect(champ("o_chasseDiff")).toBe("7,5");
+    expect(valeur("o_chasseDiff")).toBe(7.5);
+  });
+
+  test("« 7.05 » : le zéro intermédiaire tient", () => {
+    for (const t of ["7", "7.", "7.0", "7.05"]) frappe("o_chasseDiff", t);
+    expect(valeur("o_chasseDiff")).toBe(7.05);
+  });
+
+  test("hors bornes : ramené au minimum ; budget et marge pareil", () => {
+    frappe("o_chasseDiff", "0");
+    expect(champ("o_chasseDiff")).toBe("1");
+    cocher("o_chasseBudgetAuto", false);
+    for (const t of ["2", "2.", "2.5"]) frappe("o_chasseBudget", t);
+    expect(valeur("o_chasseBudget")).toBe(2.5);
+    for (const t of ["1", "1.", "1.5"]) frappe("o_chasseMarge", t);
+    expect(valeur("o_chasseMarge")).toBe(1.5);
+    expect(reglages().marge).toBe(1.5);
+  });
+
+  test("champ vidé : rien n'explose, la valeur vaut 0 en attendant", () => {
+    frappe("o_chasseDiff", "");
+    expect(champ("o_chasseDiff")).toBe("");
+    expect(valeur("o_chasseDiff")).toBeNull();
+  });
+});
+
+describe("lanceur : navigateur en français (toLocaleString donne « 9,1 »)", () => {
+  // le navigateur formate 9.1 en « 9,1 » ; les champs décimaux ne doivent
+  // pas passer par là (Globalize relit « 9,1 » comme 91 en culture « en »)
+  const enFrancais = (code: string) =>
+    lire(`(() => {
+      const natif = Number.prototype.toLocaleString;
+      Number.prototype.toLocaleString = function () { return new Intl.NumberFormat("fr-FR").format(this); };
+      try { ${code} } finally { Number.prototype.toLocaleString = natif; }
+    })()`);
+
+  test("les flèches du ratio avancent d'un dixième, pas d'un facteur dix", () => {
+    enFrancais(`$("#o_chasseDiff").spinner("stepUp"); $("#o_chasseDiff").spinner("stepUp");`);
+    expect(valeur("o_chasseDiff")).toBeCloseTo(9.2, 5);
+    expect(lire(`$("#o_chasseDiff").val()`)).toBe("9,2");
+  });
+
+  test("budget et marge : même chose", () => {
+    cocher("o_chasseBudgetAuto", false);
+    enFrancais(`for (const id of ["#o_chasseBudget", "#o_chasseMarge"]) {
+      $(id).spinner("value", 2); $(id).spinner("stepUp");
+    }`);
+    expect(valeur("o_chasseBudget")).toBeCloseTo(2.1, 5);
+    expect(valeur("o_chasseMarge")).toBeCloseTo(2.1, 5);
+  });
+
+  test("ratio de référence choisi dans la liste et ratio Auto : relus tels quels", () => {
+    enFrancais(`$("#o_chasseDiffMenu .o_chasseDiffItem").eq(1).trigger("click")`);
+    expect(valeur("o_chasseDiff")).toBe(
+      lire(`parseFloat($("#o_chasseDiffMenu .o_chasseDiffItem").eq(1).data("ratio"))`),
+    );
+    enFrancais(`$("#o_chasseDiffAuto").prop("checked", true).trigger("change")`);
+    expect(valeur("o_chasseDiff")).toBeCloseTo(Math.round(plan().ratio * 100) / 100, 5);
+  });
+
+  test("les entiers gardent leur séparateur de milliers et se relisent", () => {
+    cocher("o_chasseRendementAuto", false);
+    enFrancais(
+      `$("#o_chasseRendement").spinner("value", 1443); $("#o_chasseRendement").trigger("input")`,
+    );
+    expect(valeur("o_chasseRendement")).toBe(1443);
+  });
+
+  test("navigateur allemand (« 1.804 ») : les entiers se relisent aussi", () => {
+    lire(`(() => {
+      const natif = Number.prototype.toLocaleString;
+      Number.prototype.toLocaleString = function () { return new Intl.NumberFormat("de-DE").format(this); };
+      try {
+        $("#o_chasseTDCDep").spinner("value", 1804000); $("#o_chasseTDCDep").trigger("input");
+        $("#o_chasseTDCDep").spinner("stepUp");
+      } finally { Number.prototype.toLocaleString = natif; }
+    })()`);
+    expect(valeur("o_chasseTDCDep")).toBe(1804001);
+    expect(lire(`$("#o_chasseTDCDep").val()`)).toBe("1 804 001");
+  });
 });
 
 describe("lanceur : nombres entiers affichés avec séparateur de milliers", () => {
-  test("« 1,443 » dans Rendement vaut 1443", () => {
+  test("« 1 443 » dans Rendement vaut 1443, quelle que soit la langue du navigateur", () => {
     cocher("o_chasseRendementAuto", false);
     saisir("o_chasseRendement", 1443);
+    expect(lire(`$("#o_chasseRendement").val()`)).toBe("1 443");
     expect(valeur("o_chasseRendement")).toBe(1443);
     expect(plan().rendement * 3600).toBeGreaterThanOrEqual(1443);
   });

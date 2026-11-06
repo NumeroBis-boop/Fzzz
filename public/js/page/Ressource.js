@@ -506,7 +506,7 @@ class PageRessource {
             <label><input type="radio" name="o_choixOuvriere" value="rien" ${affection == 0 ? 'checked="checked"' : ""}> <img alt="rien" src="images/croix.gif" height="23" title="Pas d'affectation automatique"></label>
         </td></tr>${ligneRatio}`);
     $("#o_ratioRecolte").toggle(affection == 3);
-    $("#o_ratioRecoltePart").spinner({ min: 0, max: 100, numberFormat: "i" });
+    $("#o_ratioRecoltePart").spinner({ min: 0, max: 100 });
     // Un réglage du ratio n'est qu'un aperçu dans les champs du jeu : il est
     // enregistré avec eux par le bouton du jeu, qui recharge la page. Appliqué
     // à chaque changement, il rechargeait la page à chaque clic sur une flèche.

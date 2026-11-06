@@ -206,7 +206,7 @@ class BoiteCombat extends Boite {
       max: 50,
       numberFormat: "d",
     });
-    $(".o_calcUnite").spinner({ min: 0, numberFormat: "i" });
+    $(".o_calcUnite").spinner({ min: 0 });
     $("#o_calcSonde input").on("input spin", () => this.actualiserCalcAttaque());
     $("#o_calcPlacementArmee").click((e) => {
       if (this._armee) this.placerArmeeCalc();
@@ -329,7 +329,7 @@ class BoiteCombat extends Boite {
             </table>`;
     $("#o_tabsCombat2").append(html);
     // spinner
-    $("#o_simulateurArmee input").spinner({ min: 0, numberFormat: "i" });
+    $("#o_simulateurArmee input").spinner({ min: 0 });
     $("#o_bouclier1, #o_armes1, #o_bouclier2, #o_armes2, #o_etable1, #o_etable2").spinner({
       min: 0,
       max: 50,
@@ -943,8 +943,11 @@ class BoiteCombat extends Boite {
     // Spinner sur tous les inputs numériques (Terrain Final / Prise Max par cible et attaquant) — convention Toolzzz
     $("#o_mfForm input.o_mfOpt, #o_mfForm input.o_mfAttOpt").spinner({
       min: 0,
-      numberFormat: "i",
     });
+    // vide ou 0 : pas d'option. Un champ est relu par son spinner : il affiche
+    // « 1 804 000 », que parseInt lirait 1
+    let lireOption = ($el) =>
+      ($el.is("select") ? parseInt($el.val()) : $el.spinner("value")) || null;
     // Options par cible (Terrain Final / Prise Max / Arrondir) — re-simu sur change
     $("#o_mfForm .o_mfOpt").on("change", (e) => {
       let $el = $(e.currentTarget),
@@ -952,16 +955,13 @@ class BoiteCombat extends Boite {
         opt = $el.data("opt"),
         cible = this._mfCibles.find((c) => c.pseudo === pseudo);
       if (!cible) return;
-      let raw = $el.val();
-      cible[opt] = raw === "" || raw === "0" ? null : parseInt(raw);
+      cible[opt] = lireOption($el);
       this.simulerMultiFlood();
     });
     // Options globales attaquant (Terrain Final / Prise Max) — re-simu sur change
     $("#o_mfForm .o_mfAttOpt").on("change", (e) => {
-      let $el = $(e.currentTarget),
-        opt = $el.data("opt"),
-        raw = $el.val();
-      this._mfAttaquantOpts[opt] = raw === "" || raw === "0" ? null : parseInt(raw);
+      let $el = $(e.currentTarget);
+      this._mfAttaquantOpts[$el.data("opt")] = lireOption($el);
       this.simulerMultiFlood();
     });
   }
@@ -1614,12 +1614,12 @@ class BoiteCombat extends Boite {
       hourText: "Heure",
       minuteText: "Minute",
     });
-    $("#o_vaTemps").spinner({ min: 0, max: 50, numberFormat: "i" });
+    $("#o_vaTemps").spinner({ min: 0, max: 50 });
     $("#o_vaTemps").on("input spin", (e, ui) => {
       let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
       $("#o_indicationTemps").text(this.calculerLimiteTemps(nombre));
     });
-    $("#o_delaiCapture").spinner({ min: 0, max: 60, numberFormat: "i" });
+    $("#o_delaiCapture").spinner({ min: 0, max: 60 });
     $("#o_calculerTemps").click(() => {
       let ref = new Joueur({ pseudo: $("#o_pseudoTemps").val() });
       ref.niveauRecherche[6] = $("#o_vaTemps").val();
@@ -1671,7 +1671,7 @@ class BoiteCombat extends Boite {
         minuteText: "Minute",
       });
     }
-    $("#o_estVaLoge").spinner({ min: 0, max: 600, numberFormat: "i" });
+    $("#o_estVaLoge").spinner({ min: 0, max: 600 });
     $("#o_estVaEstimer").click(() => {
       let pseudoEnn = $("#o_estVaEnnemi").val();
       let pseudoC1 = $("#o_estVaCible1").val();

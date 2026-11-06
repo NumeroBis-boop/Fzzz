@@ -84,6 +84,31 @@ class LanceurChasse {
     return this._p && id.startsWith(this._p) ? id.slice(this._p.length) : id;
   }
   /**
+   * Met un champ au propre après un pas des flèches (spin : la valeur est dans
+   * ui, écrite tout de suite car la simulation relit le champ) ou une saisie
+   * (input). Champ entier : réécrit, l'espace des milliers apparaît (« 1 804 »).
+   * Champ décimal : la saisie reste telle quelle sauf hors bornes (réécrire
+   * « 7, » en cours de frappe effacerait la virgule).
+   *
+   * @private
+   * @method _majChamp
+   * @param {{ currentTarget: HTMLInputElement }} e événement input ou spin
+   * @param {Object} [ui] donnée du spin (ui.value)
+   * @param {Boolean} [decimal] champ décimal (ratio, pertes acceptées, marge)
+   */
+  _majChamp(e, ui, decimal = false) {
+    let champ = $(e.currentTarget);
+    if (ui || !decimal) {
+      champ.spinner("value", ui ? ui.value : champ.spinner("value"));
+      return;
+    }
+    let nombre = champ.spinner("value"),
+      min = champ.spinner("option", "min"),
+      max = champ.spinner("option", "max");
+    if (nombre !== null && ((min !== null && nombre < min) || (max !== null && nombre > max)))
+      champ.spinner("value", nombre);
+  }
+  /**
    * Réglages mémorisés du lanceur : ce qui ne dépend pas de la salve du moment,
    * pour n'avoir rien à retoucher d'une fois sur l'autre : difficulté et pertes
    * acceptées (fixées ou Auto, et leur valeur), intervalle, marge de JSN max,
@@ -254,27 +279,25 @@ class LanceurChasse {
               </div>
             </div></div>`);
     this._$racine = this.$("#o_prepaChasse");
-    this.$("#o_chasseTDCDep").spinner({ min: 0, numberFormat: "i" });
+    this.$("#o_chasseTDCDep").spinner({ min: 0 });
     this.$("#o_chasseJSN").spinner({
       min: 0,
       max: this._armee.nbrJSN,
-      numberFormat: "i",
     });
-    this.$("#o_chasseTDCRep").spinner({ min: 1, numberFormat: "i" });
-    this.$("#o_chasseNbr").spinner({ min: 1, max: this._nbChasse, numberFormat: "i" });
-    this.$("#o_chasseBudget").spinner({ min: 0.1, step: 0.1, numberFormat: "i" });
-    this.$("#o_chasseRendement").spinner({ min: 1, numberFormat: "i" });
-    this.$("#o_chasseDiff").spinner({ min: 1, step: 0.1, numberFormat: "i" });
-    this.$("#o_chasseMarge").spinner({ min: 0, step: 0.1, numberFormat: "i" });
-    this.$("input[name='o_cpUnite'], #o_cpTdcLancement").spinner({ min: 0, numberFormat: "i" });
+    this.$("#o_chasseTDCRep").spinner({ min: 1 });
+    this.$("#o_chasseNbr").spinner({ min: 1, max: this._nbChasse });
+    this.$("#o_chasseBudget").spinner({ min: 0.1, step: 0.1 });
+    this.$("#o_chasseRendement").spinner({ min: 1 });
+    this.$("#o_chasseDiff").spinner({ min: 1, step: 0.1 });
+    this.$("#o_chasseMarge").spinner({ min: 0, step: 0.1 });
+    this.$("input[name='o_cpUnite'], #o_cpTdcLancement").spinner({ min: 0 });
     this.$(
       "#o_cpArmes, #o_cpBouclier, #o_cpVitesse, #o_cpCouveuse, #o_cpSolarium, #o_cpPonte",
     ).spinner({
       min: 0,
       max: 50,
-      numberFormat: "i",
     });
-    this.$("#o_cpPlaces").spinner({ min: 0, max: 99, numberFormat: "i" });
+    this.$("#o_cpPlaces").spinner({ min: 0, max: 99 });
     this._remplirParametres();
     this.$("#o_chasseDateArrivee").datetimepicker({
       ...DATEPICKER_OPTION,
@@ -285,7 +308,7 @@ class LanceurChasse {
       minuteText: "Minute",
       minDate: 0,
     });
-    this.$(".o_otherHfInputAlt").spinner({ min: 0, numberFormat: "i" });
+    this.$(".o_otherHfInputAlt").spinner({ min: 0 });
     // Completion des valeurs
     this._restaurerReglages();
     this._majVerrous();
@@ -294,18 +317,9 @@ class LanceurChasse {
     $(
       "#o_chasseTDCDep, #o_chasseNbr, #o_chasseTDCRep, #o_chasseBudget, #o_chasseRendement, #o_chasseDiff",
     ).on("input spin", (e, ui) => {
-      // champs décimaux : la virgule française vaut le point (Globalize est en
-      // culture par défaut, où « 7,2 » se lirait 72) ; pas les entiers, que
-      // Globalize affiche avec une virgule de milliers (« 1,804 »)
-      if (
-        !ui &&
-        ["o_chasseDiff", "o_chasseBudget"].includes(this._sansPrefixe(e.currentTarget.id)) &&
-        /^\d+,\d{1,2}$/.test(e.currentTarget.value)
-      )
-        e.currentTarget.value = e.currentTarget.value.replace(",", ".");
-      let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
-      $(e.currentTarget).spinner("value", nombre);
-      if (this._sansPrefixe(e.currentTarget.id) == "o_chasseDiff") this._majCouleurDiff();
+      let id = this._sansPrefixe(e.currentTarget.id);
+      this._majChamp(e, ui, ["o_chasseDiff", "o_chasseBudget"].includes(id));
+      if (id == "o_chasseDiff") this._majCouleurDiff();
       this._sauverReglages();
       this.preparerChasse();
     });
@@ -365,23 +379,18 @@ class LanceurChasse {
       this.preparerChasse();
     });
     this.$("#o_chasseJSN").on("input spin", (e, ui) => {
-      let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
-      $(e.currentTarget).spinner("value", nombre);
+      this._majChamp(e, ui);
       this._sauverReglages();
       this.preparerChasse();
     });
     this.$("#o_chasseDateArrivee").on("change", () => this.terrainDepuisDate());
     this.$("#o_chasseMarge").on("input spin", (e, ui) => {
-      if (!ui && /^\d+,\d{1,2}$/.test(e.currentTarget.value))
-        e.currentTarget.value = e.currentTarget.value.replace(",", ".");
-      let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
-      $(e.currentTarget).spinner("value", nombre);
+      this._majChamp(e, ui, true);
       this._sauverReglages();
       this.preparerChasse();
     });
     this.$("#o_chasseParam input").on("input spin", (e, ui) => {
-      let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
-      $(e.currentTarget).spinner("value", nombre);
+      this._majChamp(e, ui);
       this._majParametres();
       this.preparerChasse();
     });

@@ -590,7 +590,6 @@ class PageAttaquer {
             </fieldset>`);
     $("#o_floodTDCA, #o_floodTDCB, #o_floodAntiSonde, input[id^='o_attaque']").spinner({
       min: 0,
-      numberFormat: "i",
     });
     $("#o_simulationFlood tr:even").addClass("ligne_paire");
     this._unitesGardees.brancher();
@@ -793,7 +792,7 @@ class PageAttaquer {
       $("#o_simulationFlood tr:last").before(
         `<tr class='ligne_paire'><td>Attaque ${nbAttaque} (<span id="o_pourcentAttaque${nbAttaque}">0</span>%)</td><td><input value='0' size='12' id='o_attaque${nbAttaque}'/></td><td><input type="checkbox" id="o_suppAttaque${nbAttaque}" name="o_suppAttaque"/></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>`,
       );
-      $("#o_attaque" + nbAttaque).spinner({ min: 0, numberFormat: "i" });
+      $("#o_attaque" + nbAttaque).spinner({ min: 0 });
       $("#o_simulationFlood tr").removeClass("ligne_paire");
       $("#o_simulationFlood tr:even").addClass("ligne_paire");
       // Event

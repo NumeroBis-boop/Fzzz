@@ -227,7 +227,7 @@ class Joueur {
       "Difficulté plancher",
       "slider",
       7.2, // SimulationChasse.RATIO_PLANCHER (classe chargée après celle-ci)
-      { min: 6, max: 10, step: 0.1 },
+      { min: 3, max: 10, step: 0.1 },
     );
     return this;
   }

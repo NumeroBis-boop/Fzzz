@@ -39,13 +39,24 @@ class PageRessource {
    */
   executer() {
     if (Utils.affichage("lanceurChasse"))
-      this._armee.getArmee().then((data) => {
-        // la page va se recharger (affectation des ouvrières) : un lancement de
-        // chasses commencé maintenant serait coupé en route
-        if (this._rechargement) return;
-        this._armee.chargeData(data);
-        new LanceurChasse(this._armee, this._nbChasse).afficher($("#boite_tdc"));
-      });
+      this._armee.getArmee().then(
+        (data) => {
+          // la page va se recharger (affectation des ouvrières) : un lancement de
+          // chasses commencé maintenant serait coupé en route
+          if (this._rechargement) return;
+          this._armee.chargeData(data);
+          new LanceurChasse(this._armee, this._nbChasse).afficher($("#boite_tdc"));
+        },
+        () => {
+          // armée illisible : le lanceur quand même, l'armée à saisir dans son encart
+          if (this._rechargement) return;
+          new LanceurChasse(this._armee, this._nbChasse).afficher($("#boite_tdc"));
+          $.toast({
+            ...TOAST_ERROR,
+            text: "Armée illisible : à saisir dans « Armée et niveaux utilisés ».",
+          });
+        },
+      );
     // Lie les chasses lancées aux lignes du jeu (compte des troupes dehors)
     TroupesDehors.synchroniserChasses();
     // Sauvegarde les chasses en cours et ajoute les boutons max recolte
@@ -281,19 +292,25 @@ class PageRessource {
    * @method boutonAnnulerChasses
    */
   boutonAnnulerChasses() {
-    let chasses = $("#boite_tdc span[id^='chasse_']");
-    if (!chasses.length) return;
+    // le jeu n'affiche son lien « Annuler » que sur les chasses encore
+    // annulables : ce sont elles qui comptent ; sans aucun lien (balisage
+    // inconnu), toutes les chasses listées
+    let ids = $("#boite_tdc a[href*='annuler=']")
+      .map((_, a) => ($(a).attr("href") || "").split("annuler=")[1].replace(/\D.*$/, ""))
+      .get()
+      .filter((id, i, liste) => id && liste.indexOf(id) == i);
+    if (!$("#boite_tdc a[href*='annuler=']").length)
+      ids = $("#boite_tdc span[id^='chasse_']")
+        .map((_, span) => $(span).attr("id").replace("chasse_", ""))
+        .get();
+    if (!ids.length) return;
     $("#boite_tdc").append(
-      `<div class="o_marginT15 centre"><button id="o_annulerChasses" class="o_button f_error" type="button">Annuler toutes les chasses (${chasses.length})</button></div>`,
+      `<div class="o_marginT15 centre"><button id="o_annulerChasses" class="o_button f_error" type="button">Annuler toutes les chasses (${ids.length})</button></div>`,
     );
     $("#o_annulerChasses").click(() => {
-      if (!confirm(`Annuler les ${chasses.length} chasse(s) en cours ? Action irréversible.`))
-        return;
+      if (!confirm(`Annuler les ${ids.length} chasse(s) en cours ? Action irréversible.`)) return;
       $("#o_annulerChasses").prop("disabled", true).text("Annulation…");
-      let promesses = chasses
-        .map((_, span) => $(span).attr("id").replace("chasse_", ""))
-        .get()
-        .map((id) => $.get(`${location.origin}/Ressources.php?annuler=${id}`));
+      let promesses = ids.map((id) => $.get(`${location.origin}/Ressources.php?annuler=${id}`));
       Promise.all(promesses).then(
         () => {
           location.reload();

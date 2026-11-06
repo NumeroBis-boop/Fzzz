@@ -200,10 +200,10 @@ class LanceurChasse {
 			<tr><td>Nombre de chasse</td><td><input value='0' size='21' id='${this._p}o_chasseNbr'/></td><td>${auto("o_chasseNbrAuto", true)}</td></tr>
 			<tr class='ligne_paire'><td>Terrain par chasse</td><td><input value='0' size='21' id='${this._p}o_chasseTDCRep'/></td><td>${auto("o_chasseTDCRepAuto", true, "Calculé, ou fixé ici ou par l&#39;heure de retour")}</td></tr>
 			<tr><td>Retour le</td><td><input value='' size='21' id='${this._p}o_chasseDateArrivee' placeholder='JJ-MM-AAAA HH:mm'/></td><td class='small'>= terrain par chasse</td></tr>
-			<tr class='ligne_paire'><td>Difficulté</td><td class='o_chasseDiffCellule'><input value='9' size='17' id='${this._p}o_chasseDiff' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse. Valeur libre ; la liste ▾ donne les ratios de référence des tables de pertes.'/><a id='${this._p}o_chasseDiffBouton' class='o_chasseDiffBouton' title='Ratios de référence'>▾</a><div id='${this._p}o_chasseDiffMenu' class='o_chasseDiffMenu' style='display:none'>${ratios}</div></td><td>${auto("o_chasseDiffAuto", false, `Difficulté la plus basse que les pertes acceptées permettent, jamais sous ${LanceurChasse.ratioPlancher()} (Paramètres → Ressources)`)} <span id='${this._p}o_chasseDiffInfo' class='small'></span></td></tr>
+			<tr class='ligne_paire'><td>Difficulté</td><td class='o_chasseDiffCellule'><input value='9' size='17' id='${this._p}o_chasseDiff' title='Ratio (Attaque de votre Armée) / (Difficulté de chasse) : détermine les pertes et taux de réplique de votre chasse. Valeur libre ; la liste ▾ donne les ratios de référence des tables de pertes.'/><a id='${this._p}o_chasseDiffBouton' class='o_chasseDiffBouton' title='Ratios de référence'>▾</a><div id='${this._p}o_chasseDiffMenu' class='o_chasseDiffMenu' style='display:none'>${ratios}</div><div id='${this._p}o_chasseDiffRep' class='small'></div></td><td>${auto("o_chasseDiffAuto", false, `Difficulté la plus basse que les pertes acceptées permettent, jamais sous ${LanceurChasse.ratioPlancher()} (Paramètres → Ressources)`)} <span id='${this._p}o_chasseDiffInfo' class='small'></span></td></tr>
 			<tr><td title='Part du temps de ponte de JSN consacrée à remplacer les pertes moyennes'>Pertes acceptées (% de la ponte) <span class='o_chasseCible' id='${this._p}o_chasseCiblePertes' title='Ce que le lanceur minimise : la salve la moins coûteuse qui atteint le rendement fixé'>🎯</span></td><td><input value='${R.budget}' size='21' id='${this._p}o_chasseBudget'/></td><td>${auto("o_chasseBudgetAuto", true)} <span id='${this._p}o_chasseBudgetInfo' class='small'></span></td></tr>
 			<tr class='ligne_paire'><td title='TdC chassé par heure de chasse'>Rendement (cm² / h) <span class='o_chasseCible' id='${this._p}o_chasseCibleRendement' title='Ce que le lanceur maximise, dans les limites fixées'>🎯</span></td><td><input value='0' size='21' id='${this._p}o_chasseRendement'/></td><td>${auto("o_chasseRendementAuto", true, "Fixé : la salve la moins coûteuse qui l&#39;atteint")} <span id='${this._p}o_chasseRendementInfo' class='small'></span></td></tr>
-			<tr><td colspan='3'><em>Basé sur le lanceur de <a href='http://alliancead2.free.fr/Outils/Repository/HuntSimv2.00/Simulator_2.00.00.html' class='violet' target='_blank' rel='noopener'>Calystene</a></em> · <a id='${this._p}o_chasseReglagesDefaut' class='cursor souligne small' title='Oublie les réglages mémorisés (difficulté, pertes acceptées, intervalle, marge, rééquilibrage, JSN gardées)'>réglages par défaut</a></td></tr>
+			<tr><td colspan='3'><em>Basé sur le lanceur de <a href='http://alliancead2.free.fr/Outils/Repository/HuntSimv2.00/Simulator_2.00.00.html' class='violet' target='_blank' rel='noopener'>Calystene</a></em> · <a id='${this._p}o_chasseReglagesDefaut' class='cursor souligne small' title='Oublie les réglages mémorisés (difficulté, pertes acceptées, intervalle, marge, rééquilibrage, JSN gardées)'>Réinitialiser les réglages</a></td></tr>
 			</table>
             <p id='${this._p}o_chasseAlerte' class='o_marginT15'></p>
             <div class='o_marginT15'><span title='Au plus marge × pertes max de JSN partent en tampon avec chaque chasse ; au-delà, les JSN sont des attaquantes. Si le stock ne permet pas ce tampon à toutes les chasses, il est réduit pour toutes. Dès × 1, les pertes max sont couvertes.'>Marge JSN max <input value='${R.marge}' size='12' id='${this._p}o_chasseMarge'/> × pertes max</span> &nbsp; <input id='${this._p}o_chasseReequilibrer' type='checkbox'${R.reequilibrer ? " checked='checked'" : ""}/><label for='${this._p}o_chasseReequilibrer' title='Redistribue les JSN au prorata des pertes max de chaque chasse, puis complète avec les SN et les NE (totaux inchangés).'>Rééquilibrer JSN → SN → NE</label></div>
@@ -418,7 +418,8 @@ class LanceurChasse {
     this.$(".o_otherHfInputAlt").on("input spin", () => this.mettreAjourPertesTdc());
     // Lancement des chasses
     this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").click((e) => {
-      if (this._armee.getSommeUnite() && this._simu && !this._parametresModifies()) {
+      if (this._simu && (this._armee.getSommeUnite() || this._parametresModifies())) {
+        if (this._parametresModifies() && !confirm(this._confirmationModifies())) return false;
         // désactivés dès le premier clic : un double clic enverrait chaque chasse deux fois
         this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop("disabled", true);
         $(e.currentTarget).text("Envoi en cours…");
@@ -565,6 +566,45 @@ class LanceurChasse {
     return JSON.stringify(this._parametres()) != JSON.stringify(this._parametresReels());
   }
   /**
+   * Ce qui diffère entre la section « Armée et niveaux » et le compte, pour
+   * la confirmation avant un lancement : les unités saisies au-delà du stock
+   * seront refusées par le jeu, le reste ne change que les estimations.
+   *
+   * @private
+   * @method _confirmationModifies
+   * @return {String}
+   */
+  _confirmationModifies() {
+    let P = this._parametres(),
+      R = this._parametresReels(),
+      fmt = (n) => numeral(n).format(),
+      lignes = [];
+    P.unites.forEach((n, u) => {
+      if (n > R.unites[u])
+        lignes.push(
+          `${NOM_UNITES[u + 1]} : ${fmt(n)} saisies, vous en avez ${fmt(R.unites[u])} (le jeu refusera)`,
+        );
+      else if (n < R.unites[u])
+        lignes.push(`${NOM_UNITES[u + 1]} : ${fmt(n)} sur ${fmt(R.unites[u])}`);
+    });
+    for (let [cle, nom] of [
+      ["armes", "Armes"],
+      ["bouclier", "Bouclier"],
+      ["vitesse", "Vitesse de chasse"],
+      ["couveuse", "Couveuse"],
+      ["solarium", "Solarium"],
+      ["ponte", "Technique de ponte"],
+      ["tdcLancement", "TdC au lancement"],
+      ["nombreMax", "Places de chasse"],
+    ])
+      if (P[cle] != R[cle]) lignes.push(`${nom} : ${fmt(P[cle])} au lieu de ${fmt(R[cle])}`);
+    return (
+      "L'armée ou les niveaux saisis diffèrent de votre compte :\n- " +
+      lignes.join("\n- ") +
+      "\n\nLancer quand même ?"
+    );
+  }
+  /**
    * Après un changement de paramètres : JSN à garder bornées par l'armée saisie.
    *
    * @private
@@ -696,10 +736,7 @@ class LanceurChasse {
         terrain: p.terrain || 1,
       });
     this._simu = plan && !plan.erreur ? plan : null;
-    this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop(
-      "disabled",
-      !this._simu || this._parametresModifies(),
-    );
+    this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").prop("disabled", !this._simu);
     if (!this._simu) {
       this._alerter([
         !plan
@@ -724,7 +761,12 @@ class LanceurChasse {
     // l'heure de retour suit le terrain par chasse
     this._dateAffichee = Utils.roundMinute(plan.duree).format("DD-MM-YYYY HH:mm");
     this.$("#o_chasseDateArrivee").val(this._dateAffichee);
-    this.$("#o_chasseBudgetInfo").text(`≈ ${fmt((plan.budget * 86400) / tempsPonte)} JSN / jour`);
+    this.$("#o_chasseBudgetInfo").text(
+      `≈ ${fmt((plan.budget * 86400) / tempsPonte)} JSN / jour` +
+        (!autoBudget && Math.abs(100 * plan.budget - valeur("#o_chasseBudget")) >= 0.1
+          ? ` · réel ${fmt(100 * plan.budget, 1)} %`
+          : ""),
+    );
     this.$("#o_chasseRendementInfo").text(`≈ ${fmt(plan.rendement * 86400)} cm² / jour`);
     this.majSimulation(this._armee.repartition, unites);
     this.majRecapitulatif(plan);
@@ -774,7 +816,7 @@ class LanceurChasse {
       );
     if (this._parametresModifies())
       alertes.push(
-        "Simulation seulement : armée ou niveaux modifiés (« Rétablir mes valeurs » pour lancer).",
+        "Armée ou niveaux modifiés : le lancement demandera confirmation (« Rétablir mes valeurs » pour revenir au compte).",
       );
     this._alerter(alertes, infos);
   }
@@ -802,8 +844,9 @@ class LanceurChasse {
     return REPLIQUE_CHASSE[i] >= 0.2 ? (100 * REPLIQUE_CHASSE[i]).toFixed(2) + "%" : "< 20%";
   }
   /**
-   * À côté de la difficulté : la part des chasses à 10 % de réplique à ce
-   * ratio, et pourquoi la valeur a changé.
+   * Sous la difficulté : la part des chasses à 10 % de réplique à ce ratio
+   * (et le ratio réel si une autre limite a tenu avant) ; à côté, pourquoi la
+   * valeur a changé.
    * Même une chasse de 1 cm² a une difficulté minimale, qui croît avec le TdC
    * (formule de Calystene) : au-delà de attaque / difficulté minimale, aucun
    * nombre ni aucun terrain ne tient le ratio.
@@ -819,11 +862,16 @@ class LanceurChasse {
   _majInfoDiff(plan, tdcArrivee, choisi, auto, libre = false) {
     let max = plan.attArmee / SimulationChasse.difficulte(Math.max(1, tdcArrivee), 1),
       rep10 = SimulationChasse.table("rep10", plan.ratio),
-      info = `Rep10% : ${rep10 >= 0.2 ? (100 * rep10).toFixed(0) + " %" : "< 20 %"}`;
-    if (libre) info += " — au plus bas que les pertes acceptées ou le rendement permettent.";
-    else if (!auto) info += " — nombre ou terrain fixé : la difficulté en découle.";
+      sousChamp = `Rep10% : ${rep10 >= 0.2 ? (100 * rep10).toFixed(0) + " %" : "< 20 %"}`,
+      info = "";
+    // difficulté fixée mais dépassée (une autre limite a tenu avant) : le réel
+    if (!libre && plan.ratio > choisi + 0.05)
+      sousChamp += ` · réel ${numeral(plan.ratio).format("0.00")}`;
+    if (libre) info = "Au plus bas que les pertes acceptées ou le rendement permettent.";
+    else if (!auto) info = "Nombre ou terrain fixé : la difficulté en découle.";
     else if (choisi > max + 0.0001)
-      info += ` — ${numeral(choisi).format("0.0")} impossible, max ${numeral(max).format("0.00")} avec cette armée (une chasse de 1 cm²).`;
+      info = `${numeral(choisi).format("0.0")} impossible, max ${numeral(max).format("0.00")} avec cette armée (une chasse de 1 cm²).`;
+    this.$("#o_chasseDiffRep").text(sousChamp);
     this.$("#o_chasseDiffInfo").text(info);
   }
   /**

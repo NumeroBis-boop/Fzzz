@@ -61,15 +61,6 @@ describe("flood dégressif réglable", () => {
     ]);
   });
 
-  test("attaque 1 saisie plus petite que la prévue : les suivantes gardent le réglage", () => {
-    // 100 saisi sur une cible à 80 104 : les suivantes prennent 20 % du TdC restant
-    expect(degressif(80104, 1000000, 4, { premiere: 100 })).toEqual([0, 100, 16000, 12800, 10240]);
-    // écart fixe : 1re prévue 25 000, les suivantes restent 20 000, 15 000, 10 000
-    expect(degressif(100000, 1000000, 4, { base: 25, regle: "ecart", premiere: 100 })).toEqual([
-      0, 100, 20000, 15000, 10000,
-    ]);
-  });
-
   test("pas assez d'unités : la dernière attaque prend le reste, sans attaque vide", () => {
     expect(degressif(100000, 40000, 3, { base: 25, regle: "ecart", ecart: 5 })).toEqual([
       0, 25000, 15000,

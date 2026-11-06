@@ -480,6 +480,7 @@ class BoiteParametre extends Boite {
         <li><a href='${repo}/issues/new?template=bug_report.yml' target='_blank' rel='noopener'>Signaler un bug</a></li>
         <li><a href='${repo}/issues/new?template=feature_request.yml' target='_blank' rel='noopener'>Proposer une fonctionnalité</a></li>
       </ul>
+      <p class='left reduce'>Développement : DoggyBag ; chasses : Grim.</p>
       <p class='left reduce'>Fork de <a href='https://github.com/GuiEpi/toolzzz' target='_blank' rel='noopener'>Toolzzz</a> (GuiEpi), lui-même fork d'<a href='https://github.com/Hraesvelg/Outiiil' target='_blank' rel='noopener'>Outiiil</a> (Hraesvelg), sous licence <a href='${repo}/blob/main/LICENSE' target='_blank' rel='noopener'>GPL-3.0</a>.</p>
       <hr class='o_marginT15' style='border:0; border-top:1px dashed currentColor; opacity:0.35;'/>
       <p class='o_titreParam'>Réinitialiser les paramètres</p>

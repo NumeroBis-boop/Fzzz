@@ -695,17 +695,30 @@ class Armee {
     }
   }
   /**
-   *
+   * 1re attaque : valeur saisie, sinon `base` % du TdC de la cible ; suivantes :
+   * même part du TdC restant, ou `ecart` points de % du TdC de départ en moins.
    */
   degressifFlood(donneesFlood) {
-    let prise = 0,
+    let d = { base: 20, regle: "restant", ecart: 5, premiere: null, ...donneesFlood.degressif },
+      depart = donneesFlood.tdcCible,
+      premiere = d.premiere > 0 ? d.premiere : Math.floor((depart * d.base) / 100),
+      part = d.premiere > 0 ? d.premiere / depart : d.base / 100,
+      pas = (depart * d.ecart) / 100,
       nbFlood = donneesFlood.reste;
     for (let i = 0; i < nbFlood; i++) {
-      prise = Math.floor(donneesFlood.tdcCible * 0.2);
-      prise = donneesFlood.unite >= prise ? prise : donneesFlood.unite;
+      let voulu =
+        d.regle == "ecart"
+          ? Math.floor(premiere - i * pas)
+          : i == 0 && d.premiere > 0
+            ? premiere
+            : Math.floor(donneesFlood.tdcCible * part);
+      if (d.regle == "ecart" && voulu <= 0) break;
+      let prise = Math.min(voulu, donneesFlood.unite),
+        // le jeu ne prend jamais plus de 20 % du TdC de la cible
+        gain = Math.min(prise, Math.floor(donneesFlood.tdcCible * 0.2));
       this._floods.push(prise);
-      donneesFlood.tdcAtt += prise;
-      donneesFlood.tdcCible -= prise;
+      donneesFlood.tdcAtt += gain;
+      donneesFlood.tdcCible -= gain;
       donneesFlood.unite -= prise;
       donneesFlood.reste--;
       if (donneesFlood.unite <= 0) break;
@@ -762,7 +775,7 @@ class Armee {
    * @private
    * @method calculeFlood
    */
-  simulerFlood(tdcAtt, tdcCible, methode, attaques, tdcUniforme, reste, indSupp) {
+  simulerFlood(tdcAtt, tdcCible, methode, attaques, tdcUniforme, reste, indSupp, degressif = null) {
     this._floods = new Array();
     // Réserve : on retire ces unités du pool dispo avant simulation.
     // repartirUniteFlood() les laissera intactes dans this._unite.
@@ -780,6 +793,7 @@ class Armee {
       tdcCible: tdcCible,
       unite: Math.max(0, this.getSommeUnite() - reserve),
       reste: reste,
+      degressif: degressif,
     };
     // Placement de l'antisonde
     this.placeAntisonde(data);

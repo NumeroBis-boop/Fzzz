@@ -82,6 +82,10 @@ class BoiteParametre extends Boite {
     this._paramGeneral = [
       "affectationRessource",
       "methodeFlood",
+      "floodAttaques",
+      "degressifBase",
+      "degressifRegle",
+      "degressifEcart",
       "uniteAntisondeTerrain",
       "uniteAntisondeDome",
       "sondeUnite",
@@ -301,6 +305,10 @@ class BoiteParametre extends Boite {
         ${this.cases("Attaque")}
         <p class='o_titreParam'>Flood</p>
         ${p["methodeFlood"].getForm("Méthode de flood par défaut")}
+        ${p["floodAttaques"].getForm("Nombre d'attaques proposées")}
+        ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
+        ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
+        ${p["degressifEcart"].getForm("Dégressive : écart fixe", "<span class='o_aideParam'>points de % entre deux attaques</span>")}
         ${p["reserveFlood"].getForm(
           "Unités gardées au flood (réserve)",
           `<label class='o_aideParam'><input id='reserveFloodAuto' type='checkbox' ${p["reserveFloodAuto"].valeur ? "checked" : ""}/> = antisondes terrain + dôme</label>`,

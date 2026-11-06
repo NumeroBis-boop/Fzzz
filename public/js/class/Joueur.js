@@ -106,6 +106,34 @@ class Joueur {
       1,
       METHODE_FLOOD,
     );
+    this._parametre["floodAttaques"] = new Parametre(
+      "floodAttaques",
+      "Nombre d'attaques proposées au flood",
+      "number",
+      3,
+    );
+    this._parametre["degressifBase"] = new Parametre(
+      "degressifBase",
+      "Flood dégressif : 1re attaque (% du TdC de la cible)",
+      "number",
+      20,
+    );
+    this._parametre["degressifRegle"] = new Parametre(
+      "degressifRegle",
+      "Flood dégressif : attaques suivantes",
+      "select",
+      0,
+      [
+        "Même part du TdC restant (× 0,8 par attaque dès 20 %)",
+        "Écart fixe (ex. 25 %, 20 %, 15 % du TdC de départ)",
+      ],
+    );
+    this._parametre["degressifEcart"] = new Parametre(
+      "degressifEcart",
+      "Flood dégressif : écart entre deux attaques (points de %)",
+      "number",
+      5,
+    );
     this._parametre["uniteAntisondeTerrain"] = new Parametre(
       "uniteAntisondeTerrain",
       "Antisonde max en terrain",

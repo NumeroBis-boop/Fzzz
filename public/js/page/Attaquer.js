@@ -591,12 +591,14 @@ class PageAttaquer {
       numberFormat: "i",
     });
     $("#o_simulationFlood tr:even").addClass("ligne_paire");
-    for (let i = 1; i < Math.min(4, this._nbAttaque); i++) this.ajouterAttaque();
+    let proposees = Math.max(1, parseInt(monProfil.parametre["floodAttaques"].valeur) || 3);
+    for (let i = 1; i < Math.min(proposees + 1, this._nbAttaque); i++) this.ajouterAttaque();
     // Si la methode par defaut est par standard on prepare
     if (methode)
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     // event
     $("#o_methodeFlood").change((e) => {
+      this._saisieDegressive = null;
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
       if (e.currentTarget.value == "1")
         // en optimisee on peut ni ajouter ni supprimer d'attaques
@@ -658,10 +660,15 @@ class PageAttaquer {
    * @private
    * @method compileDataFlood
    */
-  preparerFlood(tdcAtt, tdcCible, bRecup = false) {
+  preparerFlood(tdcAtt, tdcCible, bRecup = false, ligne = 0) {
     // Si la cible est à porter
     if (tdcCible >= tdcAtt * 0.5 && tdcCible <= tdcAtt * 3) {
-      let methode = $("#o_methodeFlood").val();
+      let methode = $("#o_methodeFlood").val(),
+        p = monProfil.parametre;
+      // Dégressive : l'attaque 1 saisie relance le calcul des suivantes ; une
+      // attaque suivante saisie fige toutes les valeurs, jusqu'au changement de méthode
+      if (methode == "3" && bRecup && ligne) this._saisieDegressive = ligne == 1 ? 1 : 2;
+      if (methode == "3" && this._saisieDegressive == 2) methode = "0";
       // on recup les attaques manuellement
       let attaques = new Array();
       // on push au moins l'antisonde quelque soit le cas !
@@ -685,6 +692,12 @@ class PageAttaquer {
           ? Math.min($("input[id^='o_attaque']").length, this._nbAttaque)
           : this._nbAttaque,
         indSupp,
+        {
+          base: p["degressifBase"].valeur > 0 ? p["degressifBase"].valeur : 20,
+          regle: p["degressifRegle"].valeur == 1 ? "ecart" : "restant",
+          ecart: p["degressifEcart"].valeur > 0 ? p["degressifEcart"].valeur : 5,
+          premiere: this._saisieDegressive == 1 ? $("#o_attaque1").spinner("value") : null,
+        },
       );
       // mise a jour de l'antisonde
       let priseMax = Math.floor(tdcCible * 0.2),
@@ -750,6 +763,7 @@ class PageAttaquer {
           $("#o_floodTDCA").spinner("value"),
           $("#o_floodTDCB").spinner("value"),
           true,
+          nbAttaque,
         );
       });
       $("input[name='o_suppAttaque']").on("change", (e) => {

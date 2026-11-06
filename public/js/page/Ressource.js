@@ -293,16 +293,11 @@ class PageRessource {
    */
   boutonAnnulerChasses() {
     // le jeu n'affiche son lien « Annuler » que sur les chasses encore
-    // annulables : ce sont elles qui comptent ; sans aucun lien (balisage
-    // inconnu), toutes les chasses listées
+    // annulables : ce sont elles qui comptent ; aucun lien, pas de bouton
     let ids = $("#boite_tdc a[href*='annuler=']")
       .map((_, a) => ($(a).attr("href") || "").split("annuler=")[1].replace(/\D.*$/, ""))
       .get()
       .filter((id, i, liste) => id && liste.indexOf(id) == i);
-    if (!$("#boite_tdc a[href*='annuler=']").length)
-      ids = $("#boite_tdc span[id^='chasse_']")
-        .map((_, span) => $(span).attr("id").replace("chasse_", ""))
-        .get();
     if (!ids.length) return;
     $("#boite_tdc").append(
       `<div class="o_marginT15 centre"><button id="o_annulerChasses" class="o_button f_error" type="button">Annuler toutes les chasses (${ids.length})</button></div>`,

@@ -93,3 +93,20 @@ describe("synthèse des chasses : TdC et JSN perdues par heure", () => {
     expect(armee.reduce((s, n) => s + n, 0)).toBe(13);
   });
 });
+
+describe("bouton « Annuler toutes les chasses »", () => {
+  test("compte les chasses que le jeu propose encore d'annuler (ses liens), rien sans lien", () => {
+    lire(`
+      $("#o_annulerChasses").parent().remove();
+      $("#boite_tdc").append("<div><span id='chasse_14'></span>- Vos chasseuses vont conquérir 10 cm² <a href='Ressources.php?annuler=14'>Annuler</a></div>");
+      new PageRessource(null).boutonAnnulerChasses();
+    `);
+    expect(lire(`$("#o_annulerChasses").text()`)).toBe("Annuler toutes les chasses (1)");
+    lire(`
+      $("#o_annulerChasses").parent().remove();
+      $("#boite_tdc a[href*='annuler=']").remove();
+      new PageRessource(null).boutonAnnulerChasses();
+    `);
+    expect(lire(`$("#o_annulerChasses").length`)).toBe(0);
+  });
+});

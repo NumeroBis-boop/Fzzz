@@ -607,16 +607,18 @@ class Armee {
    *
    */
   placeAntisonde(donneesFlood) {
-    if (donneesFlood.attaques[0]) {
+    // au plus les unités disponibles : la réserve ne part pas
+    let envoi = Math.min(donneesFlood.attaques[0] || 0, Math.max(0, donneesFlood.unite));
+    if (envoi) {
       let priseMax = Math.floor(donneesFlood.tdcCible * 0.2);
-      priseMax = donneesFlood.attaques[0] > priseMax ? priseMax : donneesFlood.attaques[0];
+      priseMax = envoi > priseMax ? priseMax : envoi;
       donneesFlood.tdcAtt += priseMax;
       donneesFlood.tdcCible -= priseMax;
-      donneesFlood.unite -= donneesFlood.attaques[0];
+      donneesFlood.unite -= envoi;
       donneesFlood.reste--;
     }
     // on place l'antisonde quand même pour garder l'ordre
-    this._floods.push(donneesFlood.attaques[0]);
+    this._floods.push(envoi);
   }
   /**
    *
@@ -696,7 +698,7 @@ class Armee {
   }
   /**
    * 1re attaque : valeur saisie, sinon `base` % du TdC de la cible ; suivantes :
-   * même part du TdC restant, ou `ecart` points de % du TdC de départ en moins.
+   * même part du TdC restant, ou `ecart` (5) points de % du TdC de départ en moins.
    */
   degressifFlood(donneesFlood) {
     let d = { base: 20, regle: "restant", ecart: 5, premiere: null, ...donneesFlood.degressif },
@@ -747,15 +749,53 @@ class Armee {
     }
   }
   /**
-   * Répartie l'armée sur les floods souhaitées.
+   * Unités que le flood peut envoyer, par type. La réserve (onglet Attaque des
+   * préférences) reste à la maison : l'unité choisie, ou celles des antisondes
+   * (onglet Armée) ; sinon, ou si l'armée n'en a pas assez, les dernières unités
+   * de l'armée.
    *
-   * @private
-   * @method repartirUniteFlood
+   * @method disponibleFlood
+   * @return {Array<Number>} nombre par type, dans l'ordre de Armee.unite
    */
-  repartirUniteFlood() {
+  disponibleFlood() {
+    let p = monProfil.parametre,
+      dispo = this._unite.map((n) => Math.ceil(n) || 0),
+      // comme le replacement de la page Armée : l'unité choisie si l'armée en a,
+      // sinon la première disponible
+      uniteAntisonde = (cle) => {
+        let i = (parseInt(p[cle].valeur) || 0) - 1;
+        return i >= 0 && dispo[i] ? i : dispo.findIndex((n) => n > 0);
+      },
+      gardes = p["reserveFloodAuto"].valeur
+        ? [
+            [uniteAntisonde("uniteAntisondeTerrainType"), p["uniteAntisondeTerrain"].valeur],
+            [uniteAntisonde("uniteAntisondeDomeType"), p["uniteAntisondeDome"].valeur],
+          ]
+        : [[(parseInt(p["reserveFloodType"].valeur) || 0) - 1, p["reserveFlood"].valeur]],
+      reste = gardes.reduce((somme, [, nombre]) => somme + Math.max(0, nombre || 0), 0);
+    gardes.forEach(([i, nombre]) => {
+      if (i < 0 || !dispo[i]) return;
+      let garde = Math.min(dispo[i], Math.max(0, nombre || 0));
+      dispo[i] -= garde;
+      reste -= garde;
+    });
+    for (let i = dispo.length - 1; i >= 0 && reste > 0; i--) {
+      let garde = Math.min(dispo[i], reste);
+      dispo[i] -= garde;
+      reste -= garde;
+    }
+    return dispo;
+  }
+  /**
+   * Répartit les unités sur les floods prévus, en prenant les premières unités
+   * de l'armée d'abord.
+   *
+   * @method repartirUniteFlood
+   * @param {Array<Number>} [disponibles] unités utilisables par type, toute l'armée par défaut
+   */
+  repartirUniteFlood(disponibles = this._unite) {
     this._repartition = new Array();
-    // Available units.
-    let iTabAvailableUnits = this._unite.slice(),
+    let iTabAvailableUnits = disponibles.slice(),
       floods = this._floods.slice();
     floods.forEach((f, i, tabFloods) => {
       this._repartition[i] = new Array(14).fill(0);
@@ -777,27 +817,25 @@ class Armee {
    */
   simulerFlood(tdcAtt, tdcCible, methode, attaques, tdcUniforme, reste, indSupp, degressif = null) {
     this._floods = new Array();
-    // Réserve : on retire ces unités du pool dispo avant simulation.
-    // repartirUniteFlood() les laissera intactes dans this._unite.
-    // Si « Suivre antisondes » est coché, la réserve s'aligne dynamiquement sur les antisondes
-    // (terrain + dôme) — sinon on prend la valeur saisie par l'utilisateur.
-    let reserve = monProfil.parametre["reserveFloodAuto"].valeur
-      ? monProfil.parametre["uniteAntisondeTerrain"].valeur +
-        monProfil.parametre["uniteAntisondeDome"].valeur
-      : monProfil.parametre["reserveFlood"].valeur;
+    let dispo = this.disponibleFlood(),
+      ligneReste = parseInt(indSupp);
     // on a besoin d'un objet pour le passer au différentes fonctions
     let data = {
       attaques: attaques,
       tdcUniforme: tdcUniforme,
       tdcAtt: tdcAtt,
       tdcCible: tdcCible,
-      unite: Math.max(0, this.getSommeUnite() - reserve),
+      unite: dispo.reduce((somme, n) => somme + n, 0),
       reste: reste,
       degressif: degressif,
     };
     // Placement de l'antisonde
     this.placeAntisonde(data);
-    if (data.unite <= 0) return this._floods;
+    if (data.unite <= 0) {
+      // refaite quand même : sinon le clic enverrait celle d'une simulation précédente
+      this.repartirUniteFlood(dispo);
+      return this._floods;
+    }
     // Placement selon la méthode
     switch (methode) {
       case "0": // defini manuellement
@@ -815,10 +853,14 @@ class Armee {
       default:
         break;
     }
-    // Placement de toute les unités si il en reste
-    if (indSupp != -1 && data.unite > 0) this._floods[indSupp] += data.unite;
+    // « Reste » : sur la ligne cochée, même au-delà des attaques calculées
+    // (écart fixe arrivé à 0 %, méthode Optimisée)
+    if (ligneReste >= 0 && data.unite > 0) {
+      while (this._floods.length <= ligneReste) this._floods.push(0);
+      this._floods[ligneReste] += data.unite;
+    }
     // des qu'on simule on prepare la repartition des unités pour le lancement
-    this.repartirUniteFlood();
+    this.repartirUniteFlood(dispo);
     return this._floods;
   }
   /**

@@ -125,14 +125,8 @@ class Joueur {
       0,
       [
         "Même part du TdC restant (× 0,8 par attaque dès 20 %)",
-        "Écart fixe (ex. 25 %, 20 %, 15 % du TdC de départ)",
+        "Écart fixe de 5 points (ex. 25 %, 20 %, 15 % du TdC de départ)",
       ],
-    );
-    this._parametre["degressifEcart"] = new Parametre(
-      "degressifEcart",
-      "Flood dégressif : écart entre deux attaques (points de %)",
-      "number",
-      5,
     );
     this._parametre["uniteAntisondeTerrain"] = new Parametre(
       "uniteAntisondeTerrain",
@@ -166,6 +160,14 @@ class Joueur {
       "Suivre antisondes",
       "checkbox",
       true,
+    );
+    // 0 : dernières unités de l'armée ; liste posée à l'affichage des préférences (NOM_UNITE, content.js)
+    this._parametre["reserveFloodType"] = new Parametre(
+      "reserveFloodType",
+      "Unité gardée au flood",
+      "select",
+      0,
+      [],
     );
     // listes des unités posées à l'affichage des préférences (NOM_UNITE, content.js)
     this._parametre["uniteAntisondeTerrainType"] = new Parametre(

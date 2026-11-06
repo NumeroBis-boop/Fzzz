@@ -695,7 +695,6 @@ class PageAttaquer {
         {
           base: p["degressifBase"].valeur > 0 ? p["degressifBase"].valeur : 20,
           regle: p["degressifRegle"].valeur == 1 ? "ecart" : "restant",
-          ecart: p["degressifEcart"].valeur > 0 ? p["degressifEcart"].valeur : 5,
           premiere: this._saisieDegressive == 1 ? $("#o_attaque1").spinner("value") : null,
         },
       );
@@ -728,7 +727,7 @@ class PageAttaquer {
         $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(4)").text(numeral(tdcCible).format());
       }
       // supprime les attaques en trop si besoin
-      for (let i = simulation.length; i < $("#o_simulationFlood tr").length - 3; i++)
+      for (let n = $("input[id^='o_attaque']").length - (simulation.length - 1); n > 0; n--)
         this.supprimerAttaque();
     }
   }

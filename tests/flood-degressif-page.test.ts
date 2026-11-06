@@ -46,18 +46,18 @@ describe("page d'attaque : flood dégressif réglable", () => {
   });
 
   test("écart fixe réglé à 25 % et 5 points : 25 000, 20 000, 15 000 en un clic", () => {
-    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1, degressifEcart: 5 });
+    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1 });
     expect(attaques()).toEqual([25000, 20000, 15000]);
   });
 
   test("attaque 1 saisie au-dessus de la base : les suivantes en repartent", () => {
-    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1, degressifEcart: 5 });
+    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1 });
     saisir(1, 30000);
     expect(attaques()).toEqual([30000, 25000, 20000]);
   });
 
   test("attaque suivante saisie : toutes les valeurs restent telles quelles", () => {
-    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1, degressifEcart: 5 });
+    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1 });
     saisir(2, 22222);
     expect(attaques()).toEqual([25000, 22222, 15000]);
     // un autre changement (TdC de la cible) ne les écrase pas
@@ -66,11 +66,37 @@ describe("page d'attaque : flood dégressif réglable", () => {
   });
 
   test("changer de méthode puis revenir en dégressive : valeurs recalculées", () => {
-    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1, degressifEcart: 5 });
+    ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1 });
     saisir(2, 22222);
     page.lire(`$("#o_methodeFlood").val("0").trigger("change")`);
     page.lire(`$("#o_methodeFlood").val("3").trigger("change")`);
     expect(attaques()).toEqual([25000, 20000, 15000]);
+  });
+
+  test("écart fixe arrivé à 0 % : les lignes en trop disparaissent toutes", () => {
+    // 5 % puis 0 % : une seule attaque, les deux autres lignes proposées partent
+    ouvrir({ methodeFlood: 3, degressifBase: 5, degressifRegle: 1 });
+    expect(page.lire<number>(`$("input[id^='o_attaque']").length`)).toBe(1);
+    expect(page.lire<number>(`$("#o_attaque1").spinner("value")`)).toBe(5000);
+  });
+
+  test("« Reste » coché puis moins d'attaques calculées : le reste part sur la ligne cochée", () => {
+    ouvrir({ methodeFlood: 1 });
+    expect(attaques()).toEqual([20000, 13333, 13333]);
+    page.lire(`$("#o_suppAttaque3").prop("checked", true).trigger("change")`);
+    // cible à la moitié de mon terrain : l'Optimisée ne prévoit qu'une attaque
+    page.lire(`$("#o_floodTDCB").spinner("value", 50000).trigger("input")`);
+    expect(attaques()).toEqual([10000, 0, 990000]);
+  });
+
+  test("réserve : une attaque saisie ne prend pas les unités gardées", () => {
+    ouvrir({ methodeFlood: 0, reserveFlood: 400000 });
+    saisir(1, 700000);
+    // plus d'unités pour les attaques 2 et 3 : leurs lignes disparaissent
+    expect(
+      page.lire<number[]>(`$("input[id^='o_attaque']").map((i, e) => $(e).spinner("value")).get()`),
+    ).toEqual([600000]);
+    expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(600000);
   });
 
   test("nombre d'attaques proposées réglable, dans la limite des créneaux", () => {

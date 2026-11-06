@@ -411,7 +411,7 @@ describe("lanceur : rendement affiché puis fixé", () => {
 });
 
 describe("lanceur : dans la boîte (page: false)", () => {
-  test("pas de bouton « Envoyer + partager », bilan sans rechargement", () => {
+  test("bilan sans rechargement, partage par lecture de la page Ressources", () => {
     lire(`
       $("#o_tabsChasse4").remove();
       $("body").append("<div id='o_tabsChasse4'></div>");
@@ -420,11 +420,19 @@ describe("lanceur : dans la boîte (page: false)", () => {
       var boite = new LanceurChasse(armee3, 4, { prefixe: "b_", cadre: false, page: false }).afficher($("#o_tabsChasse4"), "append");
       window.toasts = []; $.toast = (t) => window.toasts.push(t.text);
     `);
-    expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(0);
-    expect(lire(`$("#b_o_chasseEnvoyer").length`)).toBe(1);
+    expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(1);
     lire(`boite._finLancement(2, 3)`);
     expect(lire(`window.toasts[0]`)).toContain("2 chasses lancées sur 3");
     expect(lire(`$("#b_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    // avec partage : la page Ressources est lue puis publiée
+    lire(`
+      window.lectures = []; window.publie = null;
+      $.ajax = (o) => { window.lectures.push(o.url); return { then: (ok) => ok("<html><body><div id='boite_tdc'></div></body></html>") }; };
+      PageRessource.partagerChassesDe = (html) => { window.publie = html; };
+      boite._finLancement(3, 3, true);
+    `);
+    expect(lire(`window.lectures[0]`)).toContain("/Ressources.php");
+    expect(lire(`window.publie`)).toContain("boite_tdc");
     lire(`$("#o_tabsChasse4").remove()`);
   });
 });

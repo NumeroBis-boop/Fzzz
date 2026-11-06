@@ -25,8 +25,8 @@ class LanceurChasse {
    * @param {Number} nbChasse places de chasse libres
    * @param {Object} options prefixe des ids ("" par défaut), cadre (encadré
    *   et titre, vrai par défaut), page (vrai par défaut : page Ressources,
-   *   rechargée après le lancement, avec le bouton « Envoyer + partager » ;
-   *   faux dans la boîte Chasse : bilan sans rechargement, pas de partage)
+   *   rechargée après le lancement, partage au rechargement ; faux dans la
+   *   boîte Chasse : bilan sans rechargement, partage par lecture de la page)
    */
   constructor(armee, nbChasse, options = {}) {
     this._armee = armee;
@@ -213,7 +213,7 @@ class LanceurChasse {
             <div id='${this._p}o_simuChasse'><table id='${this._p}o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
                         <div class='o_marginT15'>Intervalle entre les chasses <select id='${this._p}o_chasseInt' title='Intervalle entre les chasses'><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></div>
             <div class='o_pile o_marginT15'><button class='o_button f_success' type='button' id='${this._p}o_chasseEnvoyer'>Envoyer</button>
-            ${this._page ? `<button class='o_button f_info' type='button' id='${this._p}o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button>` : ""}</div>
+            <button class='o_button f_info' type='button' id='${this._p}o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button></div>
             <p class='o_marginT0'><em class='small'>Veuillez rester sur cette page le temps du lancement !</em></p>
             <table id='${this._p}o_recapChasse' cellspacing=0>
 			<tr class='ligne_paire'><td colspan='3' class='gras'>Récapitulatif</td></tr>
@@ -429,9 +429,10 @@ class LanceurChasse {
         let terrainChasse = this._simu.terrain,
           nbChasse = this._simu.nombre,
           intervalle = this.$("#o_chasseInt").val() * 1000;
-        // partage au rechargement qui suit la dernière chasse ; sans rechargement
-        // (page quittée en route), l'ordre expire
-        if (this._sansPrefixe(e.currentTarget.id) == "o_chasseEnvoyerPartager")
+        let partager = this._sansPrefixe(e.currentTarget.id) == "o_chasseEnvoyerPartager";
+        // sur la page Ressources : partage au rechargement qui suit la dernière
+        // chasse ; sans rechargement (page quittée en route), l'ordre expire
+        if (partager && this._page)
           try {
             sessionStorage.setItem(
               CLE_PARTAGE_CHASSES_APRES,
@@ -445,7 +446,7 @@ class LanceurChasse {
           nbChasse,
           0,
           intervalle,
-          this._page ? undefined : (lancees, total) => this._finLancement(lancees, total),
+          this._page ? undefined : (lancees, total) => this._finLancement(lancees, total, partager),
         );
       } else
         $.toast({
@@ -457,13 +458,14 @@ class LanceurChasse {
     return this;
   }
   /**
-   * Fin d'un lancement hors de la page Ressources : bilan, et le formulaire
-   * reste figé (l'armée est partie, la salve affichée ne vaut plus).
+   * Fin d'un lancement hors de la page Ressources : bilan, le formulaire reste
+   * figé (l'armée est partie, la salve affichée ne vaut plus) et, si demandé,
+   * partage des chasses en cours lues sur Ressources.php.
    *
    * @private
    * @method _finLancement
    */
-  _finLancement(lancees, total) {
+  _finLancement(lancees, total, partager = false) {
     $.toast(
       lancees == total
         ? { ...TOAST_SUCCESS, text: `${total} chasse${total > 1 ? "s lancées" : " lancée"}.` }
@@ -474,6 +476,15 @@ class LanceurChasse {
     );
     this.$("#o_prepaChasse").find("input, select, button").prop("disabled", true);
     this._alerter([], ["Chasses envoyées : rouvre l'onglet pour un nouveau lancement."]);
+    if (partager && lancees)
+      $.ajax({ url: location.origin + "/Ressources.php" }).then(
+        (html) => PageRessource.partagerChassesDe(String(html)),
+        () =>
+          $.toast({
+            ...TOAST_ERROR,
+            text: "Chasses lancées, mais la page Ressources n'a pas pu être lue : rien partagé.",
+          }),
+      );
   }
   /**
    * Mémorise les pertes acceptées, la marge de JSN et le rééquilibrage.

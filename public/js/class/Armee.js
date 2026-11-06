@@ -759,22 +759,27 @@ class Armee {
     }
   }
   /**
-   * 1re attaque : valeur saisie, sinon `base` % du TdC de la cible ; suivantes :
-   * même part du TdC restant, ou `ecart` (5) points de % du TdC de départ en moins.
+   * 1re attaque : `base` % du TdC de la cible, ou la valeur saisie ; suivantes :
+   * même part du TdC restant, ou `ecart` (5) points de % du TdC de départ en
+   * moins. Une 1re attaque saisie au-dessus de la prévue donne sa part aux
+   * suivantes ; en dessous, elles gardent le réglage : une petite 1re attaque ne
+   * réduit pas tout le flood.
    */
   degressifFlood(donneesFlood) {
     let d = { base: 20, regle: "restant", ecart: 5, premiere: null, ...donneesFlood.degressif },
       depart = donneesFlood.tdcCible,
-      premiere = d.premiere > 0 ? d.premiere : Math.floor((depart * d.base) / 100),
-      part = d.premiere > 0 ? d.premiere / depart : d.base / 100,
+      prevue = Math.floor((depart * d.base) / 100),
+      saisie = d.premiere > 0 ? d.premiere : 0,
+      modele = Math.max(saisie, prevue),
+      part = saisie > prevue ? saisie / depart : d.base / 100,
       pas = (depart * d.ecart) / 100,
       nbFlood = donneesFlood.reste;
     for (let i = 0; i < nbFlood; i++) {
       let voulu =
-        d.regle == "ecart"
-          ? Math.floor(premiere - i * pas)
-          : i == 0 && d.premiere > 0
-            ? premiere
+        i == 0 && saisie
+          ? saisie
+          : d.regle == "ecart"
+            ? Math.floor(modele - i * pas)
             : Math.floor(donneesFlood.tdcCible * part);
       if (d.regle == "ecart" && voulu <= 0) break;
       let prise = Math.min(voulu, donneesFlood.unite),

@@ -69,6 +69,12 @@ describe("page d'attaque : flood dégressif réglable", () => {
     expect(attaques()).toEqual([30000, 25000, 20000]);
   });
 
+  test("attaque 1 saisie touche par touche (1, 10, 100) : les suivantes ne s'effondrent pas", () => {
+    ouvrir({ methodeFlood: 3 });
+    for (const v of [1, 10, 100]) saisir(1, v);
+    expect(attaques()).toEqual([100, 19980, 15984]);
+  });
+
   test("attaque suivante saisie : toutes les valeurs restent telles quelles", () => {
     ouvrir({ methodeFlood: 3, degressifBase: 25, degressifRegle: 1 });
     saisir(2, 22222);

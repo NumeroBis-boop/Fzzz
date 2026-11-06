@@ -74,9 +74,13 @@ describe("synthèse des chasses : TdC et JSN perdues par heure", () => {
     // texte copié
     lire(`$("#o_copierSynthese").trigger("click")`);
     const copie = lire<string>(`window.copie`);
-    expect(copie).toContain("cm²/h");
-    expect(copie).toContain("JSN/h perdues");
-    expect(copie.split("\n").length).toBe(3); // deux groupes + total
+    const lignesCopie = copie.split("\n");
+    expect(lignesCopie.length).toBe(3); // deux groupes + total
+    // débits seulement quand la durée est connue : chasse 12 oui, chasse 13 et le total non
+    expect(lignesCopie[0]).toContain("25 000 cm²/h");
+    expect(lignesCopie[0]).toContain("JSN/h perdues");
+    expect(lignesCopie[1]).not.toContain("cm²/h");
+    expect(lignesCopie[2]).not.toContain("cm²/h");
   });
 
   test("armée d'après les noms du jeu, apostrophes comprises", () => {

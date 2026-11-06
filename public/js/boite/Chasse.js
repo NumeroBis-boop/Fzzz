@@ -4,7 +4,7 @@
  **********************************************************************/
 
 /**
- * Classe permettant d'analyser simuler et lancer des chasses.
+ * Classe permettant d'analyser et lancer des chasses.
  *
  * @class BoiteChasse
  * @constructor
@@ -15,14 +15,17 @@ class BoiteChasse extends Boite {
     super(
       "o_boiteChasse",
       "Outils pour Chasseur",
-      `<div id='o_tabsChasse' class='o_tabs'><ul><li><a href='#o_tabsChasse1'>Analyser</a></li><li><a href='#o_tabsChasse3'>Simuler</a></li><li><a href='#o_tabsChasse2'>Bestiaire</a></li></ul><div id='o_tabsChasse1'/><div id='o_tabsChasse3'/><div id='o_tabsChasse2'/></div>`,
+      `<div id='o_tabsChasse' class='o_tabs'><ul><li><a href='#o_tabsChasse1'>Analyser</a></li><li><a href='#o_tabsChasse4'>Lancer</a></li><li><a href='#o_tabsChasse2'>Bestiaire</a></li></ul><div id='o_tabsChasse1'/><div id='o_tabsChasse4'/><div id='o_tabsChasse2'/></div>`,
     );
     /**
-     * Lanceur de chasses de l'onglet « Simuler », construit à sa première
-     * ouverture (lecture de l'armée et des places libres)
+     * Armée et places de chasse libres du joueur, lues à la première ouverture
+     * de l'onglet « Lancer » (promesse)
+     */
+    this._reel = null;
+    /**
+     * Lanceur de l'onglet « Lancer », construit à sa première ouverture
      */
     this._lanceur = null;
-    this._chargement = false;
   }
   /**
    * Affiche la boite.
@@ -36,7 +39,7 @@ class BoiteChasse extends Boite {
         .tabs({
           activate: (event, ui) => {
             this.css();
-            if (ui.newPanel.attr("id") == "o_tabsChasse3") this.ouvrirLanceur();
+            if (ui.newPanel.attr("id") == "o_tabsChasse4") this.ouvrirLanceur();
           },
         })
         .removeClass("ui-widget");
@@ -151,46 +154,68 @@ class BoiteChasse extends Boite {
     });
   }
   /**
-   * Onglet « Simuler » : le lanceur de chasses de la page Ressources, avec
-   * l'armée et les places de chasse lues au premier affichage de l'onglet
-   * (Armee.php et Ressources.php). Sur Ressources.php, le lanceur est déjà
-   * dans la page. Son encart « Armée et niveaux utilisés » sert à simuler avec
-   * d'autres valeurs ; tel quel, il lance vraiment les chasses.
+   * Armée (Armee.php) et places de chasse libres (Ressources.php) du joueur,
+   * lues une fois pour l'onglet « Lancer ».
    *
    * @private
-   * @method ouvrirLanceur
+   * @method _lireReel
+   * @return {Promise} {armee, places}
    */
-  ouvrirLanceur() {
-    if (this._lanceur || this._chargement) return this;
-    if ($("#o_prepaChasse").length) {
-      $("#o_tabsChasse3").html(
-        "<p class='o_marginT15'><em>Le lanceur de chasses est sur cette page, sous le terrain de chasse.</em></p>",
-      );
-      return this;
-    }
-    this._chargement = true;
-    $("#o_tabsChasse3").html("<p class='o_marginT15'><em>Lecture de votre armée…</em></p>");
-    let armee = new Armee();
-    Promise.all([armee.getArmee(), $.ajax({ url: location.origin + "/Ressources.php" })])
-      .then(([htmlArmee, htmlRessources]) => {
+  _lireReel() {
+    if (!this._reel) {
+      let armee = new Armee();
+      this._reel = Promise.all([
+        armee.getArmee(),
+        $.ajax({ url: location.origin + "/Ressources.php" }),
+      ]).then(([htmlArmee, htmlRessources]) => {
         armee.chargeData(htmlArmee);
         let enCours =
           Utils.parseHtml(htmlRessources)
             .find("#boite_tdc")
             .text()
             .split(/- Vos chasseuses vont conquérir/g).length - 1;
-        $("#o_tabsChasse3").empty().css({ "max-height": "70vh", "overflow-y": "auto" });
-        this._lanceur = new LanceurChasse(
-          armee,
-          monProfil.niveauRecherche[5] + 1 - enCours,
-        ).afficher($("#o_tabsChasse3"), "append");
-      })
-      .catch(() => {
-        $("#o_tabsChasse3").html(
+        return { armee, places: monProfil.niveauRecherche[5] + 1 - enCours };
+      });
+      // lecture ratée : l'ouverture suivante réessaie
+      this._reel.catch(() => (this._reel = null));
+    }
+    return this._reel;
+  }
+  /**
+   * Onglet « Lancer » : le lanceur de chasses de la page Ressources
+   * (class/LanceurChasse.js), sans son encadré, avec l'armée et les places
+   * libres lues à la première ouverture. Sur Ressources.php, le lanceur est
+   * déjà dans la page.
+   *
+   * @private
+   * @method ouvrirLanceur
+   */
+  ouvrirLanceur() {
+    if (this._lanceur) return this;
+    let $panneau = $("#o_tabsChasse4");
+    if ($("#o_prepaChasse").length) {
+      $panneau.html(
+        "<p class='o_marginT15'><em>Le lanceur de chasses est sur cette page, sous le terrain de chasse.</em></p>",
+      );
+      return this;
+    }
+    this._lanceur = true;
+    $panneau.html("<p class='o_marginT15'><em>Lecture de votre armée…</em></p>");
+    this._lireReel().then(
+      (r) => {
+        $panneau.empty().css({ "max-height": "70vh", "overflow-y": "auto" });
+        this._lanceur = new LanceurChasse(r.armee, r.places, { cadre: false }).afficher(
+          $panneau,
+          "append",
+        );
+      },
+      () => {
+        this._lanceur = null;
+        $panneau.html(
           "<p class='o_marginT15 red'>Votre armée n'a pas pu être lue : rouvrez l'onglet pour réessayer.</p>",
         );
-      })
-      .finally(() => (this._chargement = false));
+      },
+    );
     return this;
   }
   /**

@@ -290,3 +290,52 @@ describe("lanceur : réglages par défaut", () => {
     expect(lire(`$("#o_chasseRendementInfo").text()`)).toMatch(/cm² \/ jour$/);
   });
 });
+
+describe("lanceur : plusieurs instances dans la page", () => {
+  test("second lanceur préfixé à côté du premier : ids distincts, calculs indépendants", () => {
+    lire(`
+      $("#o_tabsChasse3").remove();
+      $("body").append("<div id='o_tabsChasse3'></div>");
+      var armee2 = new Armee().parseArmee("300000 jsn, 20000 sn");
+      armee2._nbrJSN = armee2.unite[0];
+      var simu = new LanceurChasse(armee2, 4, { prefixe: "s_", cadre: false }).afficher($("#o_tabsChasse3"), "append");
+    `);
+    expect(lire(`$("#o_chasseNbr").length`)).toBe(1);
+    expect(lire(`$("#s_o_chasseNbr").length`)).toBe(1);
+    expect(lire(`$("#s_o_prepaChasse").hasClass("boite_amelioration")`)).toBe(false);
+    expect(lire(`$("#s_o_prepaChasse h2").length`)).toBe(0);
+    expect(lire(`$("#s_o_chasseEnvoyer").length`)).toBe(1);
+    expect(lire(`$("#o_chasseEnvoyer").length`)).toBe(1);
+    expect(lire(`simu._simu.attArmee`)).not.toBe(lire(`lanceur._simu.attArmee`));
+    // une action dans la simulation ne touche pas le lanceur
+    lire(`$("#s_o_chasseNbr").trigger("focus")`);
+    expect(lire(`$("#s_o_chasseNbrAuto").is(":checked")`)).toBe(false);
+    expect(coche("o_chasseNbrAuto")).toBe(true);
+    lire(`$("#s_o_cpArmes").spinner("value", 12); $("#s_o_cpArmes").trigger("input")`);
+    expect(lire(`$("#s_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
+    // le lanceur, lui, verrouille toujours
+    lire(`$("#o_cpArmes").spinner("value", 12); $("#o_cpArmes").trigger("input")`);
+    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    lire(`$("#o_tabsChasse3").remove()`);
+  });
+});
+
+describe("lanceur : liste des ratios de référence", () => {
+  test("le bouton ▾ ouvre la liste, un choix remplit et fixe la difficulté", () => {
+    cocher("o_chasseDiffAuto", true);
+    expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).toBe("none");
+    lire(`$("#o_chasseDiffBouton").trigger("click")`);
+    expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).not.toBe("none");
+    expect(lire(`$("#o_chasseDiffMenu .o_chasseDiffItem").length`)).toBe(13);
+    lire(`$("#o_chasseDiffMenu .o_chasseDiffItem[data-ratio='7.5']").trigger("click")`);
+    expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).toBe("none");
+    expect(valeur("o_chasseDiff")).toBe(7.5);
+    expect(coche("o_chasseDiffAuto")).toBe(false);
+    expect(plan().limite).toBe("ratio");
+    expect(plan().ratio).toBeGreaterThanOrEqual(7.5);
+    // la valeur libre reste possible
+    saisir("o_chasseDiff", 8.3);
+    expect(valeur("o_chasseDiff")).toBe(8.3);
+  });
+});

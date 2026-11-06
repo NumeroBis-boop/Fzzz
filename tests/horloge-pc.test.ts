@@ -16,6 +16,7 @@ const LECTURES_PC: Record<string, number> = {
   "class/ExportJoueurs.js": 2, // âge de la base des joueurs
   "class/Horloge.js": 1, // heure du serveur = heure du PC + décalage mesuré
   "class/LanceurChasse.js": 1, // délai de partage après l'envoi, relu par Ressource.js
+  "class/ModeleChasse.js": 1, // graine du tirage aléatoire de la simulation, pas une heure
   "class/OuafSuivi.js": 2, // âge des convois transmis
   "class/Requetes.js": 2, // cadence des requêtes
   "class/Utils.js": 12, // identifiant, comptes à rebours, défilement de la page

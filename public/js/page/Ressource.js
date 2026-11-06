@@ -205,8 +205,9 @@ class PageRessource {
           // ~ : durée estimée (chasse lancée ailleurs qu'ici) ; les pertes sont toujours une estimation
           tdcHeure = `${s.estime ? "~" : ""}${numeral(Math.round(s.tdcHeure)).format()}`,
           jsnHeure = `≈ ${numeral(Math.round(s.jsnHeure)).format()}`;
+        // texte copié : sans les débits quand la durée n'est qu'estimée
         textes.push(
-          `${libelle} : ${liste.length} chasse${liste.length > 1 ? "s" : ""}, ${numeral(s.terrain).format()} cm², ${tdcHeure} cm²/h, ${jsnHeure} JSN/h perdues, ${unites}`,
+          `${libelle} : ${liste.length} chasse${liste.length > 1 ? "s" : ""}, ${numeral(s.terrain).format()} cm², ${s.estime ? "" : `${tdcHeure} cm²/h, ${jsnHeure} JSN/h perdues, `}${unites}`,
         );
         return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td title='${s.estime ? "~ : durée estimée comme si la chasse partait maintenant (lancée ailleurs que d&#39;ici)" : "Durée réelle depuis le lancement"}'>${tdcHeure}</td><td title='Pertes moyennes estimées d&#39;après l&#39;armée envoyée et le TdC courant'>${jsnHeure}</td><td class='o_syntheseUnites'>${unites}</td></tr>`;
       },

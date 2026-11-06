@@ -32,6 +32,16 @@ class ModeleChasse {
     return 3.466;
   }
   /**
+   * Marge de sécurité sur la puissance allouée : le modèle tire des chasses
+   * un peu plus dures que mesuré, pour que ses pertes ne passent jamais sous
+   * celles du jeu (rejeu des 5 405 tirages : +0,3 % en zone plate, jusqu'à
+   * +3,3 % au ratio 6,5). Chaque surestimation coûte de l'optimisation : la
+   * marge est la plus petite qui couvre le bruit des mesures.
+   */
+  static get MARGE_BUDGET() {
+    return 1.005;
+  }
+  /**
    * Escorte de petites araignées : part de la puissance d'un lot, et chance
    * d'un lot supplémentaire à chaque fois.
    */
@@ -78,7 +88,7 @@ class ModeleChasse {
    * @param {Number} graine
    * @return {Function} () => nombre dans [0, 1)
    */
-  static alea(graine = Date.now()) {
+  static alea(graine = Math.floor(Math.random() * 4294967296)) {
     let etat = graine >>> 0;
     return () => {
       etat = (etat + 0x6d2b79f5) >>> 0;
@@ -110,7 +120,10 @@ class ModeleChasse {
   static tirer(tdc, terrain, alea) {
     let P = ModeleChasse.PREDATEURS,
       escorte = P[0],
-      budget = ModeleChasse.PUISSANCE_PAR_DIFFICULTE * ModeleChasse.difficulte(tdc, terrain),
+      budget =
+        ModeleChasse.PUISSANCE_PAR_DIFFICULTE *
+        ModeleChasse.MARGE_BUDGET *
+        ModeleChasse.difficulte(tdc, terrain),
       nombres = new Array(P.length).fill(0),
       lot = ModeleChasse.ESCORTE_PART * budget,
       lots = 1;
@@ -222,6 +235,72 @@ class ModeleChasse {
       p95: q(0.95),
       max: n ? v[n - 1] : 0,
     };
+  }
+  /**
+   * Tailles de chasse des tirages qui engendrent les tables : TdC de 20 000 à
+   * 1 000 000 cm², chasses de 5 à 20 % du TdC (difficultés de 5 000 à
+   * 700 000, là où les pertes par point de difficulté ne dépendent plus de la
+   * taille).
+   */
+  static get TAILLES_TABLES() {
+    let tailles = [];
+    for (let tdc of [20000, 50000, 100000, 200000, 500000, 1000000])
+      for (let part of [0.05, 0.1, 0.2]) tailles.push([tdc, Math.round(tdc * part)]);
+    return tailles;
+  }
+  /**
+   * Tables de pertes du lanceur, engendrées par le modèle : pour chaque ratio
+   * de `de` à `a` par pas de `pas`, JSN perdues par point de difficulté de
+   * Calystène (3 × B, bouclier 0) sur `tirages` tirages rejoués contre une
+   * armée de JSN au ratio voulu (la chasse est déterministe une fois les
+   * prédateurs tirés : chaque tirage sert à tous les ratios). min, moy, max
+   * et rep10 (part des tirages à 10 % de réplique). Déterministe à graine
+   * donnée : tests/pertes-chasse.test.ts vérifie que content.js en est
+   * l'exacte copie.
+   *
+   * @param {Object} options de, a, pas (ratios), tirages, graine
+   * @return {Object} {de, pas, min, moy, max, rep10}
+   */
+  static tables(options = {}) {
+    let de = options.de || 1,
+      a = options.a || 11,
+      pas = options.pas || 0.05,
+      tirages = options.tirages || 100000,
+      alea = ModeleChasse.alea(options.graine == null ? 2026 : options.graine),
+      tailles = ModeleChasse.TAILLES_TABLES,
+      T = [];
+    for (let i = 0; i < tirages; i++) {
+      let [tdc, terrain] = tailles[i % tailles.length],
+        B = ModeleChasse.difficulte(tdc, terrain),
+        t = ModeleChasse.tirer(tdc, terrain, alea);
+      T.push([3 * B, t.vie, t.replique]);
+    }
+    let n = Math.round((a - de) / pas) + 1,
+      arrondi = (x) => Number(x.toPrecision(6)),
+      min = [],
+      moy = [],
+      max = [],
+      rep10 = [];
+    for (let k = 0; k < n; k++) {
+      let r = de + k * pas,
+        somme = 0,
+        mini = Infinity,
+        maxi = 0,
+        dix = 0;
+      for (let [D, V, R] of T) {
+        let palier = ModeleChasse.palier(D * r, V),
+          perte = Math.floor((R * palier) / VIE_UNITE[1]) / D;
+        somme += perte;
+        if (perte < mini) mini = perte;
+        if (perte > maxi) maxi = perte;
+        if (palier == 0.1) dix++;
+      }
+      min.push(arrondi(mini));
+      moy.push(arrondi(somme / T.length));
+      max.push(arrondi(maxi));
+      rep10.push(arrondi(dix / T.length));
+    }
+    return { de, pas, min, moy, max, rep10 };
   }
   /**
    * Une salve tirée `tirages` fois : la i-ème chasse arrive sur

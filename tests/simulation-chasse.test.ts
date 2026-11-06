@@ -235,11 +235,29 @@ describe("SimulationChasse.reequilibrer", () => {
     expect(apres.r).toEqual([0, 0]);
   });
 
+  test("arrondis : jamais de négatif, totaux conservés (4 chasses, 2 SN)", () => {
+    const c = chasses([0, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 1]);
+    const apres = page.lire(
+      `(() => { let c = ${JSON.stringify(c)}; SimulationChasse.reequilibrer(c, 0.7); return c.map((x) => x.unites[1]); })()`,
+    );
+    expect(apres.every((n: number) => n >= 0)).toBe(true);
+    expect(apres.reduce((s: number, n: number) => s + n, 0)).toBe(2);
+  });
+
   test("tampon impossible même avec SN et NE : déficit renvoyé", () => {
     const c = chasses([8, 8], [0, 0], [40, 10]);
     const r = appel("reequilibrer", c, 2);
     // besoin 80 et 20, JSN 13 et 3 (16 au prorata, arrondi) : reste 67 et 17
     expect(r).toEqual([67, 17]);
+  });
+});
+
+describe("SimulationChasse.duree", () => {
+  test("(TdC + terrain) × 0,9^VC, arrondie au supérieur comme le jeu", () => {
+    expect(appel("duree", 1000, 1, 1)).toBe(901); // 900,9
+    expect(appel("duree", 1000, 0, 2)).toBe(810); // exact
+    // 812,43 : 813 au supérieur, 812 au plus proche (l'arrondi de Calystène)
+    expect(appel("duree", 1000, 3, 2)).toBe(813);
   });
 });
 

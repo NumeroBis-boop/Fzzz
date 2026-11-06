@@ -15,15 +15,14 @@ const LECTURES_PC: Record<string, number> = {
   "class/AttaqueLancee.js": 5, // réception de la page (convertie par Horloge.serveurA), décompte d'annulation
   "class/ExportJoueurs.js": 2, // âge de la base des joueurs
   "class/Horloge.js": 1, // heure du serveur = heure du PC + décalage mesuré
-  "class/LanceurChasse.js": 1, // délai de partage après l'envoi, relu par Ressource.js
-  "class/ModeleChasse.js": 1, // graine du tirage aléatoire de la simulation, pas une heure
+  "class/LanceurChasse.js": 1, // délai de partage après l'envoi des chasses, posé (relu dans Ressource.js)
   "class/OuafSuivi.js": 2, // âge des convois transmis
   "class/Requetes.js": 2, // cadence des requêtes
   "class/Utils.js": 12, // identifiant, comptes à rebours, défilement de la page
   "page/Alliance.js": 3, // âge de la carte, nom du fichier exporté
   "page/MessagerieFzzz.js": 5, // durée estimée de lecture des rapports
   "page/PartageChasses.js": 6, // anti-cache des requêtes du forum, cache d'une minute, floods partagés
-  "page/Ressource.js": 1, // délai de partage après l'envoi
+  "page/Ressource.js": 1, // délai de partage après l'envoi des chasses, relu (posé dans LanceurChasse.js)
 };
 
 const LECTURE = /\bmoment\(\s*\)|Date\.now\(\)|new Date\(\s*\)|performance\.timeOrigin/g;

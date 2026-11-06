@@ -168,23 +168,35 @@ class Parametre {
         let min = this._valeurPossible.min,
           max = this._valeurPossible.max,
           pas = this._valeurPossible.step || 1,
+          // pas décimal (0,1…) : curseur et champ au pas, valeurs arrondies au pas
+          decimales = pas < 1 ? Math.ceil(-Math.log10(pas)) : 0,
+          lireNombre = (v) => {
+            let n = decimales ? parseFloat(String(v).replace(",", ".")) : parseInt(v);
+            if (isNaN(n)) n = min;
+            n = Math.min(max, Math.max(min, n));
+            return decimales ? Number((Math.round(n / pas) * pas).toFixed(decimales)) : n;
+          },
           champ = $("#" + this._id + "Valeur"),
           enregistrer = (v) => {
             this._valeur = v;
             champ.spinner("value", v);
             this.sauvegarde();
           };
-        // Le pas jQuery UI reste à 1 : avec un pas de `pas`, une valeur fine
-        // posée depuis le champ serait arrondie. Le glissement à la souris
-        // est filtré sur les multiples de `pas` pour garder un curseur rapide ;
-        // le clavier sur la poignée garde la précision.
+        // Pas entier : le pas jQuery UI reste à 1 (avec un pas de `pas`, une
+        // valeur fine posée depuis le champ serait arrondie) ; le glissement à
+        // la souris est filtré sur les multiples de `pas` pour garder un curseur
+        // rapide, le clavier sur la poignée garde la précision.
         $("#" + this._id).slider({
           min: min,
           max: max,
-          step: 1,
-          value: parseInt(this._valeur),
+          step: decimales ? pas : 1,
+          value: lireNombre(this._valeur),
           slide: (e, ui) => {
-            if ((ui.value - min) % pas && !(e.originalEvent && e.originalEvent.type == "keydown"))
+            if (
+              !decimales &&
+              (ui.value - min) % pas &&
+              !(e.originalEvent && e.originalEvent.type == "keydown")
+            )
               return false;
             champ.spinner("value", ui.value);
           },
@@ -194,9 +206,9 @@ class Parametre {
             if (e.originalEvent) enregistrer(ui.value);
           },
         });
-        champ.spinner({ min: min, max: max, numberFormat: "i" });
+        champ.spinner({ min: min, max: max, step: decimales ? pas : 1, numberFormat: "i" });
         champ.on("spinstop change", () => {
-          let v = Math.min(max, Math.max(min, parseInt(champ.val()) || 0));
+          let v = lireNombre(champ.val());
           $("#" + this._id).slider("value", v);
           enregistrer(v);
         });

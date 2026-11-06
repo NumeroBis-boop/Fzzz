@@ -73,30 +73,38 @@ class SimulationChasse {
     return difficulte;
   }
   /**
-   * Indice du ratio de référence des estimations de pertes : le plus proche
-   * en dessous du ratio réel (le pire cas).
+   * Valeur d'une table de PERTES_CHASSE ("min", "moy", "max", "rep10") au
+   * ratio donné : interpolation linéaire entre deux pas, constante au-delà
+   * des bornes (au-dessus de 10,8 tous les tirages sont à 10 % de réplique).
    */
-  static indexRatioRef(ratio) {
-    let index = 0;
-    for (let i = 0; i < RATIO_CHASSE.length; i++) if (RATIO_CHASSE[i] <= ratio + 0.0001) index = i;
-    return index;
+  static table(nom, ratio) {
+    let t = PERTES_CHASSE,
+      v = t[nom],
+      x = (ratio - t.de) / t.pas,
+      i = Math.floor(x);
+    if (!(i >= 0)) return v[0];
+    if (i >= v.length - 1) return v[v.length - 1];
+    let w = x - i;
+    return v[i] * (1 - w) + v[i + 1] * w;
   }
   /**
-   * Pertes estimées, en nombre de JSN tuées.
+   * Pertes estimées au ratio donné, en nombre de JSN tuées (Bouclier compris).
    */
-  static pertes(indexRatio, difficulte, bouclier) {
+  static pertes(ratio, difficulte, bouclier) {
     let facteur = (difficulte / (10 + bouclier)) * 10;
     return {
-      MIN: PERTE_MIN_CHASSE[indexRatio] * facteur,
-      AVG: PERTE_MOY_CHASSE[indexRatio] * facteur,
-      MAX: PERTE_MAX_CHASSE[indexRatio] * facteur,
+      MIN: SimulationChasse.table("min", ratio) * facteur,
+      AVG: SimulationChasse.table("moy", ratio) * facteur,
+      MAX: SimulationChasse.table("max", ratio) * facteur,
     };
   }
   /**
-   * Durée d'une chasse en secondes.
+   * Durée d'une chasse en secondes : (TdC au lancement + terrain) × 0,9^VC,
+   * arrondie au supérieur comme le jeu (fonction `calculTempsChasse` de
+   * Ressources.php ; Calystène arrondissait au plus proche).
    */
   static duree(tdcLancement, terrain, vitesseChasse) {
-    return Math.round((terrain + tdcLancement) * Math.pow(0.9, vitesseChasse));
+    return Math.ceil((terrain + tdcLancement) * Math.pow(0.9, vitesseChasse));
   }
   /**
    * Nombre de chasses et terrain par chasse qui gardent le ratio au moins au
@@ -133,7 +141,7 @@ class SimulationChasse {
   }
   /**
    * Répartit l'armée entre les chasses, de la dernière à la première : les JSN
-   * d'abord (deux fois les pertes max quand des unités XP partent, sinon au
+   * d'abord (marge × pertes max quand des unités XP partent, sinon au
    * prorata de la difficulté), puis les autres unités jusqu'à la part
    * d'attaque de la chasse. La première chasse prend tout ce qui reste.
    * `facteur` remplace la marge de JSN par défaut (lanceur par budget de pertes).
@@ -143,7 +151,7 @@ class SimulationChasse {
     tdcArrivee,
     terrain,
     nombre,
-    indexRef,
+    ratio,
     bouclier,
     facteur = SimulationChasse.FACTEUR_SECURITE,
   ) {
@@ -155,7 +163,7 @@ class SimulationChasse {
     for (let c = nombre - 1; c >= 0; c--) {
       let envoi = new Array(14).fill(0),
         diff = SimulationChasse.difficulte(tdcArrivee + c * terrain, terrain),
-        pertes = SimulationChasse.pertes(indexRef, diff, bouclier),
+        pertes = SimulationChasse.pertes(ratio, diff, bouclier),
         att = difficulte ? (diff * base) / difficulte : 0,
         xp = ORDRE_XP_CHASSE.some((u) => dispo[u] > 0);
       if (xp) envoi[0] = Math.round(pertes.MAX * facteur);
@@ -194,8 +202,7 @@ class SimulationChasse {
       attArmee = SimulationChasse.attaqueArmee(p.unites, p.armes),
       difficulte = SimulationChasse.difficulteTotale(tdcArrivee, terrain, nombre),
       ratio = attArmee / difficulte,
-      indexRef = SimulationChasse.indexRatioRef(ratio),
-      pertes = SimulationChasse.pertes(indexRef, difficulte, p.bouclier),
+      pertes = SimulationChasse.pertes(ratio, difficulte, p.bouclier),
       duree = Math.max(
         1,
         SimulationChasse.duree(Math.max(1, p.tdcLancement), terrain, p.vitesse || 0),
@@ -206,7 +213,6 @@ class SimulationChasse {
       attArmee,
       difficulte,
       ratio,
-      indexRef,
       pertes,
       duree,
       // part du temps de ponte consacrée à remplacer les pertes moyennes
@@ -233,7 +239,7 @@ class SimulationChasse {
         Math.max(1, p.tdcArrivee),
         terrain,
         nombre,
-        salve.indexRef,
+        salve.ratio,
         p.bouclier,
         facteur,
       ),
@@ -308,7 +314,8 @@ class SimulationChasse {
    *   borne le coût ou si même 1 cm² (ou une chasse du terrain fixé) dépasse
    *   une borne ; sinon le plan avec en plus `limite` (ce qui a fixé le
    *   terrain : "fixe", "terrain", "ratio", "budget", "plancher" ou "rendement"),
-   *   `plafonne` (budget inatteignable au-dessus du plancher) et
+   *   `ratioMin` (le plancher appliqué), `plafonne` (budget inatteignable
+   *   au-dessus du plancher) et
    *   `infaisable` (rendement demandé hors d'atteinte dans les bornes)
    */
   static resoudre(p) {
@@ -400,6 +407,7 @@ class SimulationChasse {
         : meilleur(candidats, (c, m) => c.rendement > m.rendement);
     return {
       ...SimulationChasse.plan(p, choix.nombre, choix.terrain),
+      ratioMin,
       limite: choix.limite,
       plafonne: choix.plafonne,
       infaisable: choix.infaisable,
@@ -425,16 +433,23 @@ class SimulationChasse {
       if (somme <= 0) continue;
       // de quoi couvrir tout le monde : le surplus est rendu au prorata de la
       // répartition d'origine ; sinon chacun reçoit sa part du stock
-      let alloc =
+      let parts =
           somme <= stock
             ? voulu.map((v, i) => v + ((stock - somme) * chasses[i].unites[k]) / stock)
             : voulu.map((v) => (stock * v) / somme),
-        donne = 0;
-      for (let i = 0; i < n - 1; i++) {
-        alloc[i] = Math.round(alloc[i]);
-        donne += alloc[i];
-      }
-      alloc[n - 1] = stock - donne;
+        // entiers par arrondi des cumuls : la somme vaut le stock, aucun
+        // négatif (arrondir chaque part et donner le reste au dernier pouvait
+        // lui laisser un nombre négatif)
+        cumul = 0,
+        precedent = 0,
+        alloc = parts.map((v) => {
+          cumul += v;
+          let arrondi = Math.round(cumul),
+            nb = arrondi - precedent;
+          precedent = arrondi;
+          return nb;
+        });
+      alloc[n - 1] += stock - alloc.reduce((s, x) => s + x, 0);
       chasses.forEach((c, i) => {
         c.unites[k] = alloc[i];
         besoin[i] -= alloc[i] * pv;
@@ -446,9 +461,9 @@ class SimulationChasse {
    * Pertes si le TdC vaut `nouveauTdc` au lieu du `tdcArrivee` prévu quand les
    * chasses arrivent. Les armées restent celles de la répartition : chaque
    * chasse a son propre nouveau ratio (son attaque était calibrée sur le ratio
-   * de référence au TdC prévu).
+   * de la salve au TdC prévu).
    */
-  static pertesAutreTdc(attArmee, tdcArrivee, nouveauTdc, terrain, nombre, indexRef, bouclier) {
+  static pertesAutreTdc(attArmee, tdcArrivee, nouveauTdc, terrain, nombre, ratio, bouclier) {
     let somme = { MIN: 0, AVG: 0, MAX: 0 },
       prevu = Math.max(1, tdcArrivee),
       nouveau = Math.max(1, nouveauTdc);
@@ -456,7 +471,7 @@ class SimulationChasse {
       let nouvelleDiff = SimulationChasse.difficulte(nouveau + terrain * c, terrain),
         ancienneDiff = SimulationChasse.difficulte(prevu + terrain * c, terrain),
         pertes = SimulationChasse.pertes(
-          SimulationChasse.indexRatioRef((ancienneDiff * RATIO_CHASSE[indexRef]) / nouvelleDiff),
+          (ratio * ancienneDiff) / nouvelleDiff,
           nouvelleDiff,
           bouclier,
         );
@@ -464,7 +479,9 @@ class SimulationChasse {
       somme.AVG += pertes.AVG;
       somme.MAX += pertes.MAX;
     }
-    let ratio = attArmee / SimulationChasse.difficulteTotale(nouveau, terrain, nombre);
-    return { ...somme, ratio, indexRef: SimulationChasse.indexRatioRef(ratio) };
+    return {
+      ...somme,
+      ratio: attArmee / SimulationChasse.difficulteTotale(nouveau, terrain, nombre),
+    };
   }
 }

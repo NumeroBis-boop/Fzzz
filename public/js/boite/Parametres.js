@@ -97,6 +97,7 @@ class BoiteParametre extends Boite {
       "ratioRecolte",
       "alertePonte",
       "tdcArriveeMax",
+      "ratioPlancher",
     ];
   }
   /**
@@ -297,6 +298,8 @@ class BoiteParametre extends Boite {
         ${p["ratioRecolte"].getForm()}
         <p class='o_titreParam'>Lanceur de chasses <span class='o_aideParam'>(le TdC à l'arrivée proposé est le TdC courant, jusqu'à cette valeur ; au-delà, les chasses durent trop pour que le TdC du moment soit une prévision : à renseigner soi-même)</span></p>
         ${p["tdcArriveeMax"].getForm("TdC à l'arrivée proposé, au plus", " cm²")}
+        <p class='o_aideParam'>Ratio plancher quand le ratio est libre (pertes acceptées fixées) : à 7,2 plus aucune chance de réplique à 50 % ; à 6, l'ancien plancher du lanceur par budget, 65 % des chasses subissent 30 % de réplique mais le budget sert en entier.</p>
+        ${p["ratioPlancher"].getForm("Ratio plancher")}
       </form>`);
     return this;
   }

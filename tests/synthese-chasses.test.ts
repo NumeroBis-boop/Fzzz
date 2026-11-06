@@ -61,7 +61,7 @@ describe("synthèse des chasses : TdC et JSN perdues par heure", () => {
     // pertes estimées avec l'armée enregistrée : même calcul que SimulationChasse
     const attendu = lire<number>(`(() => {
       let d = SimulationChasse.difficulte(1000000, 100000), a = SimulationChasse.attaqueArmee(unite, 10);
-      return Math.round(SimulationChasse.pertes(SimulationChasse.indexRatioRef(a / d), d, 8).AVG / 4);
+      return Math.round(SimulationChasse.pertes(a / d, d, 8).AVG / 4);
     })()`);
     expect(nb(c12[4]!)).toBe(attendu);
     expect(c12[4]!).toContain("≈");
@@ -85,11 +85,45 @@ describe("synthèse des chasses : TdC et JSN perdues par heure", () => {
 
   test("armée d'après les noms du jeu, apostrophes comprises", () => {
     const armee = lire<number[]>(
-      `new PageRessource(null)._armeeDepuisNoms({ "Jeunes Soldates Naines": 10, "Artilleuses d'élites": 2, "Tanks d’élites": 1, "Inconnues": 5 })`,
+      `PageRessource._armeeDepuisNoms({ "Jeunes Soldates Naines": 10, "Artilleuses d'élites": 2, "Tanks d’élites": 1, "Inconnues": 5 })`,
     );
     expect(armee[0]).toBe(10);
     expect(armee[8]).toBe(2);
     expect(armee[11]).toBe(1);
     expect(armee.reduce((s, n) => s + n, 0)).toBe(13);
+  });
+});
+
+describe("bouton « Annuler toutes les chasses »", () => {
+  test("compte les chasses que le jeu propose encore d'annuler (ses liens), rien sans lien", () => {
+    lire(`
+      $("#o_annulerChasses").parent().remove();
+      $("#boite_tdc").append("<div><span id='chasse_14'></span>- Vos chasseuses vont conquérir 10 cm² <a href='Ressources.php?annuler=14'>Annuler</a></div>");
+      new PageRessource(null).boutonAnnulerChasses();
+    `);
+    expect(lire(`$("#o_annulerChasses").text()`)).toBe("Annuler toutes les chasses (1)");
+    lire(`
+      $("#o_annulerChasses").parent().remove();
+      $("#boite_tdc a[href*='annuler=']").remove();
+      new PageRessource(null).boutonAnnulerChasses();
+    `);
+    expect(lire(`$("#o_annulerChasses").length`)).toBe(0);
+  });
+});
+
+describe("partage depuis une autre page (boîte Chasse)", () => {
+  test("partagerChassesDe : lit les chasses d'une page Ressources reçue et publie les groupes", () => {
+    const html = lire<string>(`document.body.innerHTML`);
+    lire(`
+      window.partages = null;
+      PartageChasses.partager = (groupes) => { window.partages = groupes; };
+      PageRessource.partagerChassesDe(${JSON.stringify("<html><body>")} + document.body.innerHTML + "</body></html>");
+    `);
+    const groupes = lire(`window.partages && window.partages.map((g) => [g.terrain, g.unites])`);
+    expect(groupes.length).toBe(2);
+    expect(groupes[0][0]).toBe(100000);
+    expect(groupes[0][1]).toContain("Jeunes Soldates Naines");
+    expect(groupes[1][0]).toBe(50000);
+    expect(html).toContain("chasse_12");
   });
 });

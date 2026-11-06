@@ -81,7 +81,7 @@ Files under `public/js/` are concatenated in the order listed in `wxt.config.ts`
 
 Each tier depends on everything above it being present as globals. Reordering will break runtime references.
 
-**Page-scoped library blocks (Fzzz).** The libs are split across several `content_scripts` entries, injected in manifest order before the last entry (classes → content.js): Highcharts (~2 MB) only on `alliance.php*`, `construction.php*` and `messagerie.php*`; Calystène's simulator only on `Ressources.php*`; everything else on every page. Code that may run on other pages must not assume `Highcharts` exists (`content.js` guards `Highcharts.setOptions`). If you add a chart elsewhere, add its page to the Highcharts block. This cut the JS injected on most pages from 4.9 MB to 2.6 MB.
+**Page-scoped library blocks (Fzzz).** The libs are split across several `content_scripts` entries, injected in manifest order before the last entry (classes → content.js): Highcharts (~2 MB) only on `alliance.php*`, `construction.php*` and `messagerie.php*`; everything else on every page. Code that may run on other pages must not assume `Highcharts` exists (`content.js` guards `Highcharts.setOptions`). If you add a chart elsewhere, add its page to the Highcharts block. This cut the JS injected on most pages from 4.9 MB to 2.6 MB.
 
 ### Single domain
 
@@ -97,7 +97,9 @@ The `data_collection_permissions.required: ["none"]` declaration in the manifest
 
 **Test version « Extension OUAF - TEST »**: a separate userscript (`@name` « Fzzz TEST », own `@namespace`) built from the `test` branch to try changes (Grim's branches included) before release: on `test`, commit and push, then `bun run userscript:test` writes `fzzz-test.user.js` (version = package version + `.AAAAMMJJHHmm`) to commit and push on `test`. The game box shows its name (`FZZZ_NOM_EXTENSION`, read by the shim from `@name:fr`). It shares the game's localStorage and the forum with the released script: players disable « Extension OUAF » while testing. Never merge `fzzz-test.user.js` into `main`.
 
-**Default target = TEST (maintainer rule since 1.82.0).** Unless the maintainer says otherwise (« en version finale », « sur main », « publie »…), every change goes to the `test` branch only: commit there, run the usual checks, `bun run userscript:test`, commit `fzzz-test.user.js`, push `test`, give the link https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/test/fzzz-test.user.js. No version bump and no `NOUVEAUTES` entry on `test` (the timestamp suffix already makes each build an update). Promotion to `main` happens only on request, by cherry-picking those commits — never merge `test` into `main`: it also holds unreleased work (Grim's hunt launcher, reverted on `main` in 1.80.1) — then the usual release steps on `main`.
+**Default target = TEST (maintainer rule since 1.82.0).** Unless the maintainer says otherwise (« en version finale », « sur main », « publie »…), every change goes to the `test` branch only: commit there, run the usual checks, `bun run userscript:test`, commit `fzzz-test.user.js`, push `test`, give the link https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/test/fzzz-test.user.js. No version bump and no `NOUVEAUTES` entry on `test` (the timestamp suffix already makes each build an update). Promotion to `main` happens only on request, by cherry-picking those commits — never merge `test` into `main` (it may hold work not yet released) — then the usual release steps on `main`.
+
+**Test follows main (maintainer rule, 1.85.1).** After every publication on `main`, bring `test` up to date right away: merge `main` into `test`, keeping `main`'s version of every file (`test` only adds `fzzz-test.user.js`; work still being tried on `test` goes back on top), then `bun run userscript:test`, commit and push `test`.
 
 ### Game time — server clock and Paris time (Fzzz 1.83)
 
@@ -247,6 +249,7 @@ Two people now change the code: the maintainer (with Claude) and contributors su
 
 - Start every session with `git pull origin main`; another person may have pushed since.
 - Contributors work on a branch (`feat/…`, `fix/…`) and open a pull request to `main`; CI (`format:check`, `compile`, `check:js`, `test`) must pass. One topic per pull request.
+- Pull requests are merged with « Squash and merge », the title in Conventional Commits form (e.g. `feat(chasse): hunt launcher and page rework (#1)`); the contributor then starts the next branch from the updated `main`.
 - A contributor's pull request does **not** touch the version (`package.json`), `NOUVEAUTES` (`public/js/class/Nouveautes.js`) or `fzzz.user.js`: the maintainer does these after merging, so two branches never conflict on them. It may add a note in the description to reuse in the release notes.
 - Every change still follows the s5 rules and « Rétablir l'affichage d'origine » above, with a test for any calculation it changes.
 - **Cross-cutting change** (clock, time zone, a storage key or format, the forum line format, a helper used in many files): search every use first, change them all in the same change, add a test that catches a missed or new use, and tell the maintainer what was changed and what was deliberately left as is (maintainer rule).

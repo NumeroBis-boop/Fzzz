@@ -99,8 +99,7 @@ describe("lanceur : difficulté choisie (défaut)", () => {
     expect(valeur("o_chasseDiff")).toBe(8.3);
     const p = plan();
     expect(p.ratio).toBeGreaterThanOrEqual(8.3);
-    expect(p.indexRef).toBe(9); // RATIO_CHASSE[9] = 8
-    expect(lire(`$("#o_chasseDiffInfo").text()`)).toContain("réf. 8.0");
+    expect(lire(`$("#o_chasseDiffRep").text()`)).toMatch(/Rep10% : \d+ %/);
   });
 
   test("un clic sur un champ calculé le fixe à la valeur affichée", () => {
@@ -236,12 +235,23 @@ describe("lanceur : armée et niveaux utilisés", () => {
     expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
   });
 
-  test("modifiés : simulation seulement, lancement verrouillé jusqu'à « Rétablir »", () => {
+  test("modifiés : lancement possible, mais sur confirmation qui liste les écarts", () => {
     lire(`$("#o_cpArmes").spinner("value", 12); $("#o_cpArmes").trigger("input")`);
-    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(true);
-    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("Simulation seulement");
+    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("demandera confirmation");
+    // refus : rien ne part ; les unités saisies au-delà du stock sont signalées
+    lire(`$("input[name='o_cpUnite'][data-i='0']").spinner("value", 6000000).trigger("input")`);
+    const message = lire<string>(`lanceur._confirmationModifies()`);
+    expect(message).toContain("Armes : 12 au lieu de 10");
+    expect(message).toContain("le jeu refusera");
+    lire(
+      `window.confirm = () => false; window.envois = 0; Armee.posterChasse = () => { window.envois++; return Promise.resolve(""); };`,
+    );
+    lire(`$("#o_chasseEnvoyer").trigger("click")`);
+    expect(lire(`window.envois`)).toBe(0);
+    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
     expect(plan().attArmee).toBeCloseTo(
-      lire(`SimulationChasse.attaqueArmee(lanceur._armee.unite, 12)`),
+      lire(`SimulationChasse.attaqueArmee(lanceur._parametres().unites, 12)`),
       6,
     );
     lire(`$("#o_chasseParamRetablir").trigger("click")`);
@@ -280,6 +290,7 @@ describe("lanceur : réglages par défaut", () => {
     saisir("o_chasseBudget", 12);
     saisir("o_chasseMarge", 1.5);
     expect(reglages().budget).toBe(12);
+    expect(lire(`$("#o_chasseReglagesDefaut").text()`)).toBe("Réinitialiser les réglages");
     lire(`$("#o_chasseReglagesDefaut").trigger("click")`);
     expect(lire(`localStorage.getItem("fzzz_lanceurChasse")`)).toBeNull();
     expect(coche("o_chasseDiffAuto")).toBe(false);
@@ -312,11 +323,8 @@ describe("lanceur : plusieurs instances dans la page", () => {
     expect(lire(`$("#s_o_chasseNbrAuto").is(":checked")`)).toBe(false);
     expect(coche("o_chasseNbrAuto")).toBe(true);
     lire(`$("#s_o_cpArmes").spinner("value", 12); $("#s_o_cpArmes").trigger("input")`);
-    expect(lire(`$("#s_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
-    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
-    // le lanceur, lui, verrouille toujours
-    lire(`$("#o_cpArmes").spinner("value", 12); $("#o_cpArmes").trigger("input")`);
-    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    expect(lire(`$("#s_o_chasseAlerte").text()`)).toContain("demandera confirmation");
+    expect(lire(`$("#o_chasseAlerte").text()`)).not.toContain("demandera confirmation");
     lire(`$("#o_tabsChasse3").remove()`);
   });
 });
@@ -337,5 +345,94 @@ describe("lanceur : liste des ratios de référence", () => {
     // la valeur libre reste possible
     saisir("o_chasseDiff", 8.3);
     expect(valeur("o_chasseDiff")).toBe(8.3);
+  });
+});
+
+describe("lanceur : difficulté plancher (Paramètres)", () => {
+  test("7,2 par défaut ; à 6, le mode budget descend jusqu'à 6", () => {
+    cocher("o_chasseDiffAuto", true);
+    saisir("o_chasseBudget", 500);
+    expect(plan().plafonne).toBe(true);
+    expect(plan().ratioMin).toBe(7.2);
+    expect(lire(`SimulationChasse.RATIO_PLANCHER`)).toBe(7.2);
+    expect(plan().ratio).toBeGreaterThanOrEqual(7.2);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 7.2");
+    creerLanceur(`monProfil.parametre["ratioPlancher"].valeur = 6;`);
+    cocher("o_chasseDiffAuto", true);
+    saisir("o_chasseBudget", 500);
+    expect(plan().ratioMin).toBe(6);
+    expect(plan().ratio).toBeGreaterThanOrEqual(6);
+    expect(plan().ratio).toBeLessThan(7.2);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 6");
+  });
+});
+
+describe("lanceur : difficulté et pertes fixées ensemble", () => {
+  test("la limite qui tient s'affiche, l'autre champ garde sa valeur et montre le réel", () => {
+    expect(lire(`$("#o_chasseDiffQualif").text()`)).toBe("");
+    cocher("o_chasseBudgetAuto", false);
+    saisir("o_chasseBudget", 5);
+    // les deux fixées : les libellés disent le sens de chaque limite
+    expect(lire(`$("#o_chasseDiffQualif").text()`)).toBe(" (au moins)");
+    expect(lire(`$("#o_chasseBudgetQualif").text()`)).toBe(" (au plus)");
+    // difficulté 9 fixée et pertes 5 % fixées : les pertes tiennent avant, le ratio réel dépasse 9
+    const p = plan();
+    expect(p.limite).toBe("budget");
+    expect(valeur("o_chasseDiff")).toBe(9);
+    expect(p.ratio).toBeGreaterThan(9.05);
+    expect(lire(`$("#o_chasseDiffRep").text()`)).toContain("réel");
+    expect(valeur("o_chasseBudget")).toBe(5);
+    // l'inverse : pertes 500 % et difficulté 9 : la difficulté tient, les pertes réelles sont en dessous
+    saisir("o_chasseBudget", 500);
+    expect(plan().limite).toBe("ratio");
+    expect(valeur("o_chasseBudget")).toBe(500);
+    expect(lire(`$("#o_chasseBudgetInfo").text()`)).toContain("réel");
+  });
+});
+
+describe("lanceur : terrain à l'arrivée vide", () => {
+  test("rien à lancer : boutons désactivés, plan oublié", () => {
+    saisir("o_chasseTDCDep", 0);
+    expect(lire(`lanceur._simu`)).toBeNull();
+    expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("terrain à l'arrivée");
+  });
+});
+
+describe("lanceur : rendement affiché puis fixé", () => {
+  test("la valeur affichée reste atteignable une fois fixée", () => {
+    for (const tdc of [1500000, 1234567, 999999]) {
+      saisir("o_chasseTDCDep", tdc);
+      lire(`$("#o_chasseRendement").trigger("focus")`);
+      expect(plan().infaisable).toBe(false);
+      cocher("o_chasseRendementAuto", true);
+    }
+  });
+});
+
+describe("lanceur : dans la boîte (page: false)", () => {
+  test("bilan sans rechargement, partage par lecture de la page Ressources", () => {
+    lire(`
+      $("#o_tabsChasse4").remove();
+      $("body").append("<div id='o_tabsChasse4'></div>");
+      var armee3 = new Armee().parseArmee("3000000 jsn, 100000 sn");
+      armee3._nbrJSN = armee3.unite[0];
+      var boite = new LanceurChasse(armee3, 4, { prefixe: "b_", cadre: false, page: false }).afficher($("#o_tabsChasse4"), "append");
+      window.toasts = []; $.toast = (t) => window.toasts.push(t.text);
+    `);
+    expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(1);
+    lire(`boite._finLancement(2, 3)`);
+    expect(lire(`window.toasts[0]`)).toContain("2 chasses lancées sur 3");
+    expect(lire(`$("#b_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
+    // avec partage : la page Ressources est lue puis publiée
+    lire(`
+      window.lectures = []; window.publie = null;
+      $.ajax = (o) => { window.lectures.push(o.url); return { then: (ok) => ok("<html><body><div id='boite_tdc'></div></body></html>") }; };
+      PageRessource.partagerChassesDe = (html) => { window.publie = html; };
+      boite._finLancement(3, 3, true);
+    `);
+    expect(lire(`window.lectures[0]`)).toContain("/Ressources.php");
+    expect(lire(`window.publie`)).toContain("boite_tdc");
+    lire(`$("#o_tabsChasse4").remove()`);
   });
 });

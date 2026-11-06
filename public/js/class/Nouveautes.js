@@ -9,6 +9,27 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.1",
+    notes: ["Préférences → À propos : développement DoggyBag, chasses Grim."],
+  },
+  {
+    version: "1.85.0",
+    notes: [
+      "Chasses (travail de Grim) : un seul lanceur, sur la page Ressources et dans l'onglet « Lancer » de la boîte Chasse. Tu fixes ce que tu veux (nombre de chasses, terrain ou heure de retour, ratio, pertes acceptées, rendement) et le lanceur calcule le reste. Il remplace le simulateur de Calystène.",
+      "Pertes des chasses estimées par un modèle du mécanisme du jeu, vérifié sur plus de 5 000 tirages de son simulateur, à la place des anciens paliers. Un encart permet de simuler avec une autre armée ou d'autres niveaux, et « Envoyer + partager » marche aussi depuis la boîte Chasse.",
+      "Synthèse des chasses : TdC gagné et JSN perdues par heure. Préférences → Ressources : TdC à l'arrivée proposé et ratio plancher réglables. « Annuler toutes les chasses » ne compte plus que les chasses encore annulables.",
+    ],
+  },
+  {
+    version: "1.84.0",
+    notes: [
+      "Lanceur de flood : unités gardées affichées sous le lanceur et modifiables pour l'attaque en cours : les antisondes, plus d'autres unités, une ligne par unité (« + ajouter une unité »). Les Préférences (onglet Attaque) en donnent les valeurs par défaut. Une unité choisie garde au plus ce que l'armée en a, et aucune unité gardée ne part.",
+      "Multi-flood : mêmes unités gardées, modifiables pour chaque multi-flood ; rien ne part si les attaques en entameraient.",
+      "Méthode « Dégressive » réglable dans les Préférences : 1re attaque en % du TdC de la cible, puis même part du TdC restant ou écart fixe de 5 points. Le nombre d'attaques proposées est réglable, et les Préférences n'affichent que les réglages de la méthode choisie.",
+      "Corrections du lanceur : « Reste » sur une ligne sans attaque calculée n'est plus perdu, et une attaque sans unité n'est plus envoyée.",
+    ],
+  },
+  {
     version: "1.83.0",
     notes: [
       "Heures : toutes les heures de l'extension (attaques, chasses, convois, pontes, constructions, recherches, partages dans le forum) sont prises sur l'heure du serveur. Un PC ou un téléphone mal réglé ne les décale plus.",

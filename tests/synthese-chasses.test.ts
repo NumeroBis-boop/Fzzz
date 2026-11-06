@@ -61,7 +61,7 @@ describe("synthèse des chasses : TdC et JSN perdues par heure", () => {
     // pertes estimées avec l'armée enregistrée : même calcul que SimulationChasse
     const attendu = lire<number>(`(() => {
       let d = SimulationChasse.difficulte(1000000, 100000), a = SimulationChasse.attaqueArmee(unite, 10);
-      return Math.round(SimulationChasse.pertes(SimulationChasse.indexRatioRef(a / d), d, 8).AVG / 4);
+      return Math.round(SimulationChasse.pertes(a / d, d, 8).AVG / 4);
     })()`);
     expect(nb(c12[4]!)).toBe(attendu);
     expect(c12[4]!).toContain("≈");

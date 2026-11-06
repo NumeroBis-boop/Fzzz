@@ -93,10 +93,12 @@ describe("ModeleChasse : tirages contre les mesures de la note", () => {
     expect(lire(`ModeleChasse.difficulte(${TDC}, ${TERRAIN})`)).toBeCloseTo(6099, 0);
   });
 
-  test("puissance dépensée : 3,45 × B en moyenne, jamais au-delà de l'allouée", () => {
-    expect(moyenne(0)).toBeGreaterThan(3.43);
-    expect(moyenne(0)).toBeLessThan(3.465);
-    expect(Math.max(...tirages.map((t) => t[0]!))).toBeLessThan(3.475);
+  test("puissance dépensée : 3,45 × B × marge en moyenne, jamais au-delà de l'allouée", () => {
+    const marge = lire<number>(`ModeleChasse.MARGE_BUDGET`);
+    expect(marge).toBe(1.005);
+    expect(moyenne(0)).toBeGreaterThan(3.43 * marge);
+    expect(moyenne(0)).toBeLessThan(3.465 * marge);
+    expect(Math.max(...tirages.map((t) => t[0]!))).toBeLessThan(3.475 * marge);
   });
 
   test("réplique 2,01 × B et vie 6,44 × B en moyenne", () => {
@@ -106,7 +108,7 @@ describe("ModeleChasse : tirages contre les mesures de la note", () => {
     expect(moyenne(2)).toBeLessThan(6.65);
   });
 
-  test("JSN perdues par point de difficulté de Calystène, par ratio (±8 %)", () => {
+  test("JSN perdues par point de difficulté de Calystène, par ratio (±8 %, marge comprise)", () => {
     // mesures de la note (JSN pures, bouclier 0, 40 à 240 tirages par point :
     // ±2 % de bruit) ; le modèle est donné à ±3 % dans la zone 6–8
     const mesures: [number, number][] = [

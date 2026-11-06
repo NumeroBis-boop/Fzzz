@@ -789,8 +789,8 @@ class LanceurChasse {
     return REPLIQUE_CHASSE[i] >= 0.2 ? (100 * REPLIQUE_CHASSE[i]).toFixed(2) + "%" : "< 20%";
   }
   /**
-   * À côté de la difficulté : le ratio de référence des tables (celui du
-   * dessous) et son taux de réplique à 10 %, et pourquoi la valeur a changé.
+   * À côté de la difficulté : la part des chasses à 10 % de réplique à ce
+   * ratio, et pourquoi la valeur a changé.
    * Même une chasse de 1 cm² a une difficulté minimale, qui croît avec le TdC
    * (formule de Calystene) : au-delà de attaque / difficulté minimale, aucun
    * nombre ni aucun terrain ne tient le ratio.
@@ -805,7 +805,8 @@ class LanceurChasse {
    */
   _majInfoDiff(plan, tdcArrivee, choisi, auto, libre = false) {
     let max = plan.attArmee / SimulationChasse.difficulte(Math.max(1, tdcArrivee), 1),
-      info = `réf. ${RATIO_CHASSE[plan.indexRef].toFixed(1)}, Rep10% : ${this._replique(plan.indexRef)}`;
+      rep10 = SimulationChasse.table("rep10", plan.ratio),
+      info = `Rep10% : ${rep10 >= 0.2 ? (100 * rep10).toFixed(0) + " %" : "< 20 %"}`;
     if (libre) info += " — au plus bas que les pertes acceptées ou le rendement permettent.";
     else if (!auto) info += " — nombre ou terrain fixé : la difficulté en découle.";
     else if (choisi > max + 0.0001)
@@ -870,7 +871,7 @@ class LanceurChasse {
           tdc,
           simu.terrain,
           simu.nombre,
-          simu.indexRef,
+          simu.ratio,
           (this._parametresSimu || this._parametresReels()).bouclier,
         ),
       curPertes = simu.pertes;
@@ -951,9 +952,7 @@ class LanceurChasse {
         numeral(Math.round(plan.rendement * 86400)).format() +
         " / jour)",
     );
-    this.$("#o_chasseRefDiff").text(
-      numeral(plan.ratio).format("0.00") + " ~ " + RATIO_CHASSE[plan.indexRef].toFixed(1),
-    );
+    this.$("#o_chasseRefDiff").text(numeral(plan.ratio).format("0.00"));
     this.$("#o_chassePerte").text(
       numeral(Math.round(plan.pertes.AVG)).format() +
         " JSN (max : " +

@@ -99,8 +99,7 @@ describe("lanceur : difficulté choisie (défaut)", () => {
     expect(valeur("o_chasseDiff")).toBe(8.3);
     const p = plan();
     expect(p.ratio).toBeGreaterThanOrEqual(8.3);
-    expect(p.indexRef).toBe(9); // RATIO_CHASSE[9] = 8
-    expect(lire(`$("#o_chasseDiffInfo").text()`)).toContain("réf. 8.0");
+    expect(lire(`$("#o_chasseDiffInfo").text()`)).toMatch(/Rep10% : \d+ %/);
   });
 
   test("un clic sur un champ calculé le fixe à la valeur affichée", () => {

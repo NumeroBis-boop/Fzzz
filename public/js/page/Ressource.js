@@ -128,13 +128,7 @@ class PageRessource {
         difficulte = SimulationChasse.difficulte(tdc, terrain || 0),
         attaque = SimulationChasse.attaqueArmee(armee, armes),
         pertes =
-          attaque > 0
-            ? SimulationChasse.pertes(
-                SimulationChasse.indexRatioRef(attaque / difficulte),
-                difficulte,
-                bouclier,
-              ).AVG
-            : 0;
+          attaque > 0 ? SimulationChasse.pertes(attaque / difficulte, difficulte, bouclier).AVG : 0;
       chasses.push({
         impact: impact,
         terrain: terrain || 0,

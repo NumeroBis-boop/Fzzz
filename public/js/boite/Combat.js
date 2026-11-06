@@ -944,6 +944,10 @@ class BoiteCombat extends Boite {
     $("#o_mfForm input.o_mfOpt, #o_mfForm input.o_mfAttOpt").spinner({
       min: 0,
     });
+    // vide ou 0 : pas d'option. Un champ est relu par son spinner : il affiche
+    // « 1 804 000 », que parseInt lirait 1
+    let lireOption = ($el) =>
+      ($el.is("select") ? parseInt($el.val()) : $el.spinner("value")) || null;
     // Options par cible (Terrain Final / Prise Max / Arrondir) — re-simu sur change
     $("#o_mfForm .o_mfOpt").on("change", (e) => {
       let $el = $(e.currentTarget),
@@ -951,16 +955,13 @@ class BoiteCombat extends Boite {
         opt = $el.data("opt"),
         cible = this._mfCibles.find((c) => c.pseudo === pseudo);
       if (!cible) return;
-      let raw = $el.val();
-      cible[opt] = raw === "" || raw === "0" ? null : parseInt(raw);
+      cible[opt] = lireOption($el);
       this.simulerMultiFlood();
     });
     // Options globales attaquant (Terrain Final / Prise Max) — re-simu sur change
     $("#o_mfForm .o_mfAttOpt").on("change", (e) => {
-      let $el = $(e.currentTarget),
-        opt = $el.data("opt"),
-        raw = $el.val();
-      this._mfAttaquantOpts[opt] = raw === "" || raw === "0" ? null : parseInt(raw);
+      let $el = $(e.currentTarget);
+      this._mfAttaquantOpts[$el.data("opt")] = lireOption($el);
       this.simulerMultiFlood();
     });
   }

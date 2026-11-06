@@ -156,6 +156,19 @@ describe("flood : unités gardées (réserve)", () => {
     );
   });
 
+  test("réglage de l'attaque en cours : il remplace celui des préférences", () => {
+    regler({
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeTerrainType: choix(JSN),
+      reserveFlood: 1000,
+    });
+    const r = flood({ [JSN]: 3000, [JS]: 1000 }, "0", [0, 100000], 3, {
+      armee: `Object.assign(new Armee(), { gardees: { antisondes: false, plus: 300, plusType: ${choix(JSN)} } })`,
+    });
+    expect(r.gardees).toEqual(parType({ [JSN]: 300 }));
+  });
+
   test("anciens réglages : le nombre recopié des antisondes n'est pas gardé en plus", () => {
     const lire = (reglages: object, reprise: boolean) =>
       page.lire<[number, number]>(`(() => {

@@ -11,10 +11,11 @@ const page = creerPage(
     "js/class/Parametre.js",
     "js/class/Joueur.js",
     "js/class/Armee.js",
+    "js/class/UnitesGardees.js",
     "js/page/Attaquer.js",
   ],
   `var METHODE_FLOOD = ["Standard", "Optimisée", "Uniforme", "Dégressive"],
-     AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {}, TOAST_WARNING = {};
+     AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {}, TOAST_WARNING = {}, AttaqueLancee = {};
    var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"],
      NOM_UNITES = ["Ouvrières", "Jeunes Soldates Naines"];`,
 );
@@ -23,6 +24,7 @@ const page = creerPage(
 function ouvrir(reglages: object) {
   page.lire(`(() => {
     localStorage.setItem("outiiil_parametre", JSON.stringify({ reserveFlood: 0, reserveFloodAuto: false, ...${JSON.stringify(reglages)} }));
+    localStorage.setItem("fzzz_reserveEnPlus", "1");
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
     document.body.innerHTML = '<span id="quantite_tdc">100000</span><table class="simulateur"></table>';
     window.p = Object.create(PageAttaquer.prototype);
@@ -39,6 +41,11 @@ const attaques = () =>
   page.lire<number[]>(`[1, 2, 3].map((i) => $("#o_attaque" + i).spinner("value"))`);
 const saisir = (ligne: number, valeur: number) =>
   page.lire(`$("#o_attaque${ligne}").spinner("value", ${valeur}).trigger("input")`);
+// bloc « Unités gardées pour cette attaque » du lanceur
+const gardees = () => page.lire<string>(`$("#o_floodGardees .o_gardeesTexte").text()`);
+const garderEnPlus = (n: number) =>
+  page.lire(`$("#o_floodGardees .o_gardeesPlus").spinner("value", ${n})`);
+const nombre = (n: number) => page.lire<string>(`numeral(${n}).format()`);
 
 describe("page d'attaque : flood dégressif réglable", () => {
   test("préférences par défaut : 20 % du TdC restant, comme avant", () => {
@@ -107,41 +114,69 @@ describe("page d'attaque : flood dégressif réglable", () => {
     expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(600000);
   });
 
-  test("unités gardées sous le lanceur ; réserve changée dans les préférences : attaques refaites", () => {
+  test("unités gardées modifiables pour cette attaque, sans toucher aux préférences", () => {
     ouvrir({ methodeFlood: 0 });
-    expect(page.lire<string>(`$("#o_floodGardees").text()`)).toBe("aucune");
+    expect(gardees()).toBe("aucune");
     saisir(1, 700000);
-    // réglée depuis les préférences (lien « Régler »), lanceur toujours ouvert
-    page.lire(`monProfil.parametre.reserveFlood.valeur = 400000;
-      monProfil.parametre.reserveFlood.sauvegarde()`);
-    expect(page.lire<string>(`$("#o_floodGardees").text()`)).toBe(
-      page.lire<string>(`numeral(400000).format()`) + " Jeunes Soldates Naines",
-    );
+    garderEnPlus(400000);
+    expect(gardees()).toBe(nombre(400000) + " Jeunes Soldates Naines");
     expect(attaques()).toEqual([600000, 0, 0]);
     expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(600000);
-    // réserve rendue : le nombre d'attaques choisi est toujours là
-    page.lire(`monProfil.parametre.reserveFlood.valeur = 0;
-      monProfil.parametre.reserveFlood.sauvegarde()`);
+    // préférences inchangées, en mémoire comme enregistrées
+    expect(page.lire<number>(`monProfil.parametre.reserveFlood.valeur`)).toBe(0);
+    expect(
+      page.lire<number>(`JSON.parse(localStorage.getItem("outiiil_parametre")).reserveFlood`),
+    ).toBe(0);
+    // rendues : le nombre d'attaques choisi est toujours là
+    garderEnPlus(0);
     expect(page.lire<number>(`$("input[id^='o_attaque']").length`)).toBe(3);
   });
 
-  test("dégressive : réserve agrandie puis rendue, les attaques reviennent", () => {
+  test("valeurs de départ : celles des préférences, qui ne changent plus l'attaque en cours", () => {
+    ouvrir({ methodeFlood: 0, reserveFlood: 1000, reserveFloodType: 1 });
+    expect(page.lire<number>(`$("#o_floodGardees .o_gardeesPlus").spinner("value")`)).toBe(1000);
+    expect(gardees()).toBe(nombre(1000) + " Jeunes Soldates Naines");
+    page.lire(`monProfil.parametre.reserveFlood.valeur = 5000;
+      monProfil.parametre.reserveFlood.sauvegarde()`);
+    expect(gardees()).toBe(nombre(1000) + " Jeunes Soldates Naines");
+  });
+
+  test("antisondes gardées ou non pour cette attaque", () => {
+    ouvrir({
+      methodeFlood: 0,
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeDome: 999,
+    });
+    expect(page.lire<string>(`$("#o_floodGardees .o_gardeesNbAntisondes").text()`)).toBe(
+      "(1 en terrain + 999 en dôme)",
+    );
+    expect(gardees()).toBe(nombre(1000) + " Jeunes Soldates Naines");
+    page.lire(`$("#o_floodGardees .o_gardeesAntisondes").prop("checked", false).trigger("change")`);
+    expect(gardees()).toBe("aucune");
+    expect(page.lire<boolean>(`monProfil.parametre.reserveFloodAuto.valeur`)).toBe(true);
+  });
+
+  test("dégressive : unités gardées agrandies puis rendues, les attaques reviennent", () => {
     ouvrir({ methodeFlood: 3 });
-    const regler = (n: number) =>
-      page.lire(`monProfil.parametre.reserveFlood.valeur = ${n};
-        monProfil.parametre.reserveFlood.sauvegarde()`);
-    regler(2000000);
+    garderEnPlus(2000000);
     expect(attaques()).toEqual([0, 0, 0]);
-    regler(0);
+    garderEnPlus(0);
     expect(attaques()).toEqual([20000, 16000, 12800]);
   });
 
-  test("flood en cours d'envoi : un réglage changé ne touche pas aux attaques", () => {
+  test("flood en cours d'envoi : les unités gardées ne bougent plus", () => {
     ouvrir({ methodeFlood: 0 });
     saisir(1, 700000);
-    page.lire(`$("#o_lanceFlood").prop("disabled", true)`);
-    page.lire(`monProfil.parametre.reserveFlood.valeur = 400000;
-      monProfil.parametre.reserveFlood.sauvegarde()`);
+    page.lire(`p._armee.envoyerFlood = () => {}; $("#o_lanceFlood").trigger("click")`);
+    expect(
+      page.lire<boolean>(`$("#o_floodGardees .o_gardeesPlus").spinner("option", "disabled")`),
+    ).toBe(true);
+    expect(page.lire<boolean>(`$("#o_floodGardees .o_gardeesAntisondes").prop("disabled")`)).toBe(
+      true,
+    );
+    // même modifiées par programme, les attaques prévues ne changent pas
+    garderEnPlus(400000);
     expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(700000);
   });
 

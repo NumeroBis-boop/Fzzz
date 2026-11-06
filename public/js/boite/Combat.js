@@ -767,11 +767,16 @@ class BoiteCombat extends Boite {
    * @method multiFlood
    */
   multiFlood() {
+    this._mfUnitesGardees = new UnitesGardees(
+      "o_mfGardees",
+      () => this._mfGardeesChangees(),
+      "Unités gardées pour ce multi-flood",
+    );
     $("#o_tabsCombat3").append(`<div id="o_multiFlood" class="centre">
             <div id="o_mfFormWrap"></div>
             <div id="o_mfResultats" class="o_marginT15"></div>
             <p id="o_mfRecap" class="o_marginT15"></p>
-            <p id="o_mfGardees" class="reduce"></p>
+            ${this._mfUnitesGardees.html()}
             <div class='o_pile o_marginT15'><button id="o_mfLancer" class="o_button f_success" type="button" disabled>Lancer ces attaques</button>
             <button id="o_mfLancerPartager" class="o_button f_info" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button></div>
         </div>`);
@@ -783,9 +788,12 @@ class BoiteCombat extends Boite {
     this._mfAttaquantOpts = { terrainFinal: null, priseMax: null };
     this._mfTotalUnites = null; // chargé lazy via Armee.getArmee()
     this._mfRenderForm();
+    this._mfUnitesGardees.brancher();
     this._mfEcouterReserve();
     // Pré-charge l'armée pour le check garnison ; ne bloque pas l'UI
     if (!this._mfArmee) this._mfArmee = new Armee();
+    this._mfArmee.gardees = this._mfUnitesGardees.reglage;
+    this._mfAfficherGardees();
     this._mfArmee.getArmee().then((data) => {
       this._mfArmee.chargeData(data);
       this._mfTotalUnites = (this._mfArmee.unite || []).reduce((s, n) => s + (n || 0), 0);
@@ -1063,6 +1071,7 @@ class BoiteCombat extends Boite {
   simulerMultiFlood() {
     if (!this._mfArmee) this._mfArmee = new Armee();
     this._mfLance = false;
+    if (this._mfUnitesGardees) this._mfUnitesGardees.activer(true);
     // Seuils alignés sur le natif (Attaquer.js:231 → tdcCible ∈ [tdcAtt × 0.5, tdcAtt × 3])
     const SEUIL_TROP_HAUT = 3;
     const SEUIL_TROP_BAS = 2;
@@ -1327,6 +1336,7 @@ class BoiteCombat extends Boite {
     )
       return;
     this._mfLance = true;
+    if (this._mfUnitesGardees) this._mfUnitesGardees.activer(false);
     $("#o_mfLancer, #o_mfLancerPartager").prop("disabled", true);
     $("#o_mfLancer").text("Lancement…");
     this._mfPartager = partager;
@@ -1344,9 +1354,10 @@ class BoiteCombat extends Boite {
         $.toast({
           ...TOAST_ERROR,
           hideAfter: false,
-          text: `Rien n'est parti : ces attaques demandent ${numeral(demandees).format()} unités, ${numeral(disponibles).format()} disponibles sans les unités gardées (Préférences → Attaque).`,
+          text: `Rien n'est parti : ces attaques demandent ${numeral(demandees).format()} unités, ${numeral(disponibles).format()} disponibles sans les unités gardées.`,
         });
         this._mfLance = false;
+        if (this._mfUnitesGardees) this._mfUnitesGardees.activer(true);
         $("#o_mfLancer").text("Lancer ces attaques");
         this.afficherRecapMultiFlood(this._mfResultats);
         return;
@@ -1355,22 +1366,27 @@ class BoiteCombat extends Boite {
     });
   }
   /**
-   * « Régler » ouvre les préférences ; une réserve changée refait le
-   * récapitulatif, sauf après un lancement (les boutons restent bloqués).
+   * Réglage changé dans les préférences (nombre d'antisondes…) : unités
+   * gardées et récapitulatif refaits.
    *
    * @private
    * @method _mfEcouterReserve
    */
   _mfEcouterReserve() {
-    $("#o_multiFlood").on("click", ".o_reglerReserve", (e) => {
-      e.preventDefault();
-      BoiteParametre.ouvrirOnglet("Attaque");
-    });
     $(document)
       .off("o_parametre.o_mf")
-      .on("o_parametre.o_mf", () => {
-        if (this._mfResultats && !this._mfLance) this.afficherRecapMultiFlood(this._mfResultats);
-      });
+      .on("o_parametre.o_mf", () => this._mfGardeesChangees());
+  }
+  /**
+   * Unités gardées changées : récapitulatif refait, sauf après un lancement
+   * (les boutons restent bloqués).
+   *
+   * @private
+   * @method _mfGardeesChangees
+   */
+  _mfGardeesChangees() {
+    if (this._mfResultats && !this._mfLance) this.afficherRecapMultiFlood(this._mfResultats);
+    else this._mfAfficherGardees();
   }
   /**
    * @private
@@ -1381,16 +1397,15 @@ class BoiteCombat extends Boite {
     return this._mfArmee.disponibleFlood().reduce((s, n) => s + n, 0);
   }
   /**
-   * Unités gardées au flood (réserve des préférences), sous le récapitulatif.
+   * Unités gardées pour ce multi-flood, sous le récapitulatif ; leur liste une
+   * fois l'armée lue.
    *
    * @private
    * @method _mfAfficherGardees
    */
   _mfAfficherGardees() {
-    if (!(this._mfTotalUnites > 0)) return;
-    $("#o_mfGardees").html(
-      `Unités gardées (réserve) : ${Armee.texteGardees(this._mfArmee.gardeesFlood())} · <a href="#" class="o_reglerReserve">Régler</a>`,
-    );
+    if (this._mfUnitesGardees)
+      this._mfUnitesGardees.afficher(this._mfTotalUnites > 0 ? this._mfArmee : null);
   }
   /**
    *

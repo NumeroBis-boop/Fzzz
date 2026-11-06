@@ -574,6 +574,7 @@ class PageAttaquer {
     let methode = monProfil.parametre["methodeFlood"].valeur,
       // créneaux d'attaques simultanées encore libres (VA + 1 au total)
       creneaux = Math.max(0, this._nbAttaque);
+    this._unitesGardees = new UnitesGardees("o_floodGardees", () => this.actualiserFlood());
     $(".simulateur:not(.o_blocAttaques):first")
       .append(`<fieldset id='o_prepaFlood' class='centre'><legend><span class='titre'>Lanceur de Flood</span> <span class='reduce'>(${creneaux} créneau${creneaux > 1 ? "x" : ""} libre${creneaux > 1 ? "s" : ""} sur ${monProfil.niveauRecherche[6] + 1})</span></legend>
             <table id='o_simulationFlood' class='o_maxWidth' cellspacing=0>
@@ -585,13 +586,15 @@ class PageAttaquer {
             <div class='o_pile'><button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
             <button type='button' id='o_lanceFloodPartager' class='o_button f_info' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div>
             <p class="reduce left">Reste : place les unités restantes sur l'attaque sélectionnée.</p>
-            <p class="reduce left">Unités gardées (réserve) : <span id="o_floodGardees"></span> · <a href="#" class="o_reglerReserve">Régler</a></p>
+            ${this._unitesGardees.html()}
             </fieldset>`);
     $("#o_floodTDCA, #o_floodTDCB, #o_floodAntiSonde, input[id^='o_attaque']").spinner({
       min: 0,
       numberFormat: "i",
     });
     $("#o_simulationFlood tr:even").addClass("ligne_paire");
+    this._unitesGardees.brancher();
+    this._armee.gardees = this._unitesGardees.reglage;
     this.afficherGardees();
     let proposees = Math.max(1, parseInt(monProfil.parametre["floodAttaques"].valeur) || 3);
     for (let i = 1; i < Math.min(proposees + 1, this._nbAttaque); i++) this.ajouterAttaque();
@@ -634,6 +637,7 @@ class PageAttaquer {
       // désactivés dès le premier clic : un double clic lançait deux floods en
       // parallèle (chaque attaque partait deux fois)
       $("#o_lanceFlood, #o_lanceFloodPartager").prop("disabled", true);
+      this._unitesGardees.activer(false);
       $("#o_lanceFlood").text("Flood en cours…");
       // contexte pour que envoyerFlood capture chaque attaque confirmée. Le
       // terrain de départ est celui saisi dans la simulation (par défaut celui
@@ -649,19 +653,10 @@ class PageAttaquer {
         $("#t:last").attr("name") + "=" + $("#t:last").attr("value"),
       );
     });
-    $("#o_prepaFlood .o_reglerReserve").click((e) => {
-      e.preventDefault();
-      BoiteParametre.ouvrirOnglet("Attaque");
-    });
-    // réglage changé dans les préférences : les attaques affichées sont celles
-    // qui partiront ; rien ne change pendant l'envoi
+    // réglage changé dans les préférences (antisondes, flood dégressif…)
     $(document)
       .off("o_parametre.o_flood")
-      .on("o_parametre.o_flood", () => {
-        if ($("#o_lanceFlood").prop("disabled")) return;
-        this.afficherGardees();
-        this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
-      });
+      .on("o_parametre.o_flood", () => this.actualiserFlood());
     $("#o_ajouteAttaque").click((e) => {
       this.ajouterAttaque();
     });
@@ -670,13 +665,25 @@ class PageAttaquer {
     });
   }
   /**
-   * Unités gardées au flood (réserve des préférences), sous le lanceur.
+   * Unités gardées pour cette attaque, sous le lanceur.
    *
    * @private
    * @method afficherGardees
    */
   afficherGardees() {
-    $("#o_floodGardees").text(Armee.texteGardees(this._armee.gardeesFlood()));
+    this._unitesGardees.afficher(this._armee);
+  }
+  /**
+   * Unités gardées ou réglage changés : les attaques affichées sont celles qui
+   * partiront ; rien ne change pendant l'envoi.
+   *
+   * @private
+   * @method actualiserFlood
+   */
+  actualiserFlood() {
+    if ($("#o_lanceFlood").prop("disabled")) return;
+    this.afficherGardees();
+    this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
   }
   /**
    * Lance une simulation si les données saisies sont correctes.

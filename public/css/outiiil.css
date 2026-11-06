@@ -2570,6 +2570,16 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   margin-left: 0;
   margin-right: 0;
 }
+/* lanceur de flood et multi-flood : unités gardées pour cette attaque, sur
+   plusieurs lignes sur téléphone */
+.o_gardees {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 8px 0;
+  text-align: left;
+}
 /* page Armée : déplacement d'armée resserré */
 .o_deplacerArmee h3 {
   margin: 0 0 2px;

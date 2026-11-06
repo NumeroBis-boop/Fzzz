@@ -343,7 +343,7 @@ class BoiteParametre extends Boite {
         ${p["floodAttaques"].getForm("Nombre d'attaques proposées")}
         ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
         ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
-        <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(jamais envoyées par le lanceur de flood ni le multi-flood)</span></p>
+        <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(par défaut ; modifiables pour chaque attaque dans le Lanceur de Flood et le multi-flood)</span></p>
         ${p["reserveFloodAuto"].getForm("Les antisondes", "<span id='o_reserveAntisondes' class='o_aideParam'></span>")}
         ${p["reserveFlood"].getForm("Autres unités, en plus")}
         ${p["reserveFloodType"].getForm("Lesquelles", "<span id='o_reserveComplement' class='o_aideParam'>si l'armée n'en a pas assez : complétée par les dernières unités</span>")}

@@ -3,10 +3,14 @@ import { creerPage } from "./harnais";
 
 const page = creerPage(
   [
+    "js/lib/jquery-ui_1.12.1.js",
+    "js/lib/globalize_0.1.1.js",
+    "js/lib/globalize-locale-fr.js",
     "js/class/Utils.js",
     "js/class/Parametre.js",
     "js/class/Joueur.js",
     "js/class/Armee.js",
+    "js/class/UnitesGardees.js",
     "js/boite/Boite.js",
     "js/boite/Combat.js",
   ],
@@ -29,10 +33,16 @@ function ouvrir(reglages: object, prises: number[]) {
       reserveFloodAuto: false,
       ...reglages,
     })}));
+    localStorage.setItem("fzzz_reserveEnPlus", "1");
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
-    document.body.innerHTML = '<div id="o_multiFlood"><p id="o_mfRecap"></p><p id="o_mfGardees"></p><button id="o_mfLancer"></button><button id="o_mfLancerPartager"></button></div>';
+    document.body.innerHTML = '<div id="o_multiFlood"><p id="o_mfRecap"></p><button id="o_mfLancer"></button><button id="o_mfLancerPartager"></button></div>';
     window.boite = Object.create(BoiteCombat.prototype);
+    // bloc « Unités gardées pour ce multi-flood », comme dans multiFlood()
+    boite._mfUnitesGardees = new UnitesGardees("o_mfGardees", () => boite._mfGardeesChangees());
+    $("#o_mfRecap").after(boite._mfUnitesGardees.html());
+    boite._mfUnitesGardees.brancher();
     boite._mfArmee = new Armee({ unite: { "Jeune Soldate Naine": 1000, "Jeune Soldate": 500 } });
+    boite._mfArmee.gardees = boite._mfUnitesGardees.reglage;
     boite._mfTotalUnites = 1500;
     boite._mfResultats = [{
       cible: { pseudo: "X", id: 7, terrain: 100000, tempsParcours: 60 },
@@ -55,17 +65,22 @@ function ouvrir(reglages: object, prises: number[]) {
 }
 const recap = () => page.lire<string>(`$("#o_mfRecap").text()`);
 const bloque = () => page.lire<boolean>(`$("#o_mfLancer").prop("disabled")`);
+const garderEnPlus = (n: number) =>
+  page.lire(`$("#o_mfGardees .o_gardeesPlus").spinner("value", ${n})`);
 async function lancer() {
   page.lire(`boite._mfLancer(false)`);
   await new Promise((r) => setTimeout(r, 20));
   return page.lire<[number, number][]>(`envois`);
 }
 
-describe("multi-flood : unités gardées (réserve des préférences)", () => {
+describe("multi-flood : unités gardées", () => {
   test("unités gardées affichées, récapitulatif sur les unités disponibles", () => {
-    // les 500 dernières unités (les JS) restent : 1 000 disponibles
+    // préférences : les 500 dernières unités (les JS) restent ; 1 000 disponibles
     ouvrir({ reserveFlood: 500 }, [600, 300]);
-    expect(page.lire<string>(`$("#o_mfGardees").text()`)).toContain("500 Jeunes Soldates");
+    expect(page.lire<number>(`$("#o_mfGardees .o_gardeesPlus").spinner("value")`)).toBe(500);
+    expect(page.lire<string>(`$("#o_mfGardees .o_gardeesTexte").text()`)).toBe(
+      "500 Jeunes Soldates",
+    );
     expect(recap()).toContain("90% de votre armée en garnison hors unités gardées");
     expect(bloque()).toBe(false);
     ouvrir({ reserveFlood: 500 }, [800, 400]);
@@ -96,26 +111,42 @@ describe("multi-flood : unités gardées (réserve des préférences)", () => {
     ]);
   });
 
-  test("réserve agrandie après le récapitulatif : rien ne part", async () => {
+  test("unités gardées agrandies sans nouveau récapitulatif : rien ne part", async () => {
     ouvrir({ reserveFlood: 0 }, [600, 300]);
     expect(bloque()).toBe(false);
-    page.lire(`monProfil.parametre.reserveFlood.valeur = 1000`);
+    page.lire(`boite._mfUnitesGardees.reglage.plus = 1000`);
     expect(await lancer()).toEqual([]);
     expect(page.lire<string[]>(`toasts`)[0]).toContain("Rien n'est parti");
     expect(bloque()).toBe(true);
   });
 
-  test("réserve changée dans les préférences : récapitulatif refait, sauf après un lancement", async () => {
+  test("unités gardées changées pour ce multi-flood : récapitulatif refait, préférences inchangées", async () => {
     ouvrir({ reserveFlood: 0 }, [600, 300]);
-    page.lire(`monProfil.parametre.reserveFlood.valeur = 1000;
-      monProfil.parametre.reserveFlood.sauvegarde()`);
+    garderEnPlus(1000);
     expect(bloque()).toBe(true);
-    page.lire(`monProfil.parametre.reserveFlood.valeur = 0;
-      monProfil.parametre.reserveFlood.sauvegarde()`);
+    garderEnPlus(0);
     expect(bloque()).toBe(false);
+    expect(page.lire<number>(`monProfil.parametre.reserveFlood.valeur`)).toBe(0);
+    expect(
+      page.lire<number>(`JSON.parse(localStorage.getItem("outiiil_parametre")).reserveFlood`),
+    ).toBe(0);
     await lancer();
-    // après le lancement, les boutons restent bloqués : pas de second envoi
+    // après le lancement : champs bloqués, boutons aussi (pas de second envoi)
+    expect(
+      page.lire<boolean>(`$("#o_mfGardees .o_gardeesPlus").spinner("option", "disabled")`),
+    ).toBe(true);
     page.lire(`monProfil.parametre.reserveFlood.sauvegarde()`);
     expect(bloque()).toBe(true);
+  });
+
+  test("unités gardées pour ce multi-flood seulement : les JSN restent", async () => {
+    ouvrir({}, [500, 200]);
+    garderEnPlus(800);
+    page.lire(`$("#o_mfGardees .o_gardeesUnite").val("1").trigger("change")`);
+    expect(await lancer()).toEqual([
+      [200, 300],
+      [0, 200],
+    ]);
+    expect(page.lire<number>(`monProfil.parametre.reserveFloodType.valeur`)).toBe(0);
   });
 });

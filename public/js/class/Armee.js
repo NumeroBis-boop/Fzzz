@@ -47,6 +47,15 @@ class Armee {
      * @type array
      */
     this._repartition = new Array();
+    /**
+     * Unités gardées au flood pour l'attaque en cours (voir gardeesParDefaut) ;
+     * null : celles des préférences.
+     *
+     * @private
+     * @property gardees
+     * @type object
+     */
+    this._gardees = null;
   }
   /**
    *
@@ -89,6 +98,29 @@ class Armee {
    */
   get repartition() {
     return this._repartition;
+  }
+  /**
+   * @param {{antisondes: Boolean, plus: Number, plusType: Number}} reglage voir gardeesParDefaut
+   */
+  set gardees(reglage) {
+    this._gardees = reglage;
+  }
+  /**
+   * Unités gardées au flood par défaut, réglées dans les préférences (onglet
+   * Attaque) : les antisondes ou non, et `plus` autres unités, de l'unité
+   * NOM_UNITE[plusType] (0 : les dernières unités de l'armée).
+   *
+   * @static
+   * @method gardeesParDefaut
+   * @return {{antisondes: Boolean, plus: Number, plusType: Number}}
+   */
+  static gardeesParDefaut() {
+    let p = monProfil.parametre;
+    return {
+      antisondes: !!p["reserveFloodAuto"].valeur,
+      plus: Math.max(0, parseInt(p["reserveFlood"].valeur) || 0),
+      plusType: parseInt(p["reserveFloodType"].valeur) || 0,
+    };
   }
   /**
    * Récupére l'armée du joueur via un appel ajax.
@@ -749,17 +781,17 @@ class Armee {
     }
   }
   /**
-   * Unités que le flood peut envoyer, par type. Les unités gardées au flood
-   * (onglet Attaque des préférences) restent à la maison : les antisondes si
-   * la case est cochée (unités de l'onglet Armée), plus les autres unités
-   * gardées, de l'unité choisie ; à défaut, ou si l'armée n'en a pas assez,
-   * les dernières unités de l'armée.
+   * Unités que le flood peut envoyer, par type. Les unités gardées restent à
+   * la maison : les antisondes si elles sont gardées (unités de l'onglet
+   * Armée), plus les autres unités gardées, de l'unité choisie ; à défaut, ou
+   * si l'armée n'en a pas assez, les dernières unités de l'armée.
    *
    * @method disponibleFlood
    * @return {Array<Number>} nombre par type, dans l'ordre de Armee.unite
    */
   disponibleFlood() {
     let p = monProfil.parametre,
+      g = this._gardees || Armee.gardeesParDefaut(),
       dispo = this._unite.map((n) => Math.ceil(n) || 0),
       // comme le replacement de la page Armée : l'unité choisie si l'armée en a,
       // sinon la première disponible
@@ -768,13 +800,13 @@ class Armee {
         return i >= 0 && dispo[i] ? i : dispo.findIndex((n) => n > 0);
       },
       gardes = [
-        ...(p["reserveFloodAuto"].valeur
+        ...(g.antisondes
           ? [
               [uniteAntisonde("uniteAntisondeTerrainType"), p["uniteAntisondeTerrain"].valeur],
               [uniteAntisonde("uniteAntisondeDomeType"), p["uniteAntisondeDome"].valeur],
             ]
           : []),
-        [(parseInt(p["reserveFloodType"].valeur) || 0) - 1, p["reserveFlood"].valeur],
+        [g.plusType - 1, g.plus],
       ],
       reste = gardes.reduce((somme, [, nombre]) => somme + Math.max(0, nombre || 0), 0);
     gardes.forEach(([i, nombre]) => {

@@ -176,35 +176,34 @@ class BoiteParametre extends Boite {
         $("#ratioRecolteGroupe").toggle(e.currentTarget.value == "3");
       })
       .trigger("change");
-    // « Suivre antisondes » : la réserve vaut antisondes terrain + dôme
-    let syncReserveFlood = () => {
-      if ($("#reserveFloodAuto").prop("checked")) {
-        let sum =
-          monProfil.parametre["uniteAntisondeTerrain"].valeur +
-          monProfil.parametre["uniteAntisondeDome"].valeur;
-        $("#reserveFlood").spinner("value", sum).spinner("disable");
-      } else $("#reserveFlood").spinner("enable");
+    // antisondes gardées au flood : leur nombre, réglé dans l'onglet Armée
+    let afficherAntisondes = () => {
+      let p = monProfil.parametre;
+      $("#o_reserveAntisondes").text(
+        `${numeral(p["uniteAntisondeTerrain"].valeur).format()} en terrain + ${numeral(p["uniteAntisondeDome"].valeur).format()} en dôme (onglet Armée)`,
+      );
     };
-    syncReserveFlood();
-    $("#reserveFloodAuto").on("change", syncReserveFlood);
-    $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", syncReserveFlood);
-    // réglages du flood utiles à la méthode par défaut ; réserve : son unité, ou celles des antisondes
+    afficherAntisondes();
+    $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", afficherAntisondes);
+    // réglages du flood utiles à la méthode par défaut ; unité des autres
+    // unités gardées seulement s'il y en a
     let afficherFlood = () => {
-      let methode = $("#methodeFlood").val(),
-        antisondes = $("#reserveFloodAuto").prop("checked");
+      let methode = $("#methodeFlood").val();
       $("#floodAttaques")
         .closest(".o_ligneParam")
         .toggle(methode != "1");
       $("#degressifBase, #degressifRegle")
         .closest(".o_ligneParam")
         .toggle(methode == "3");
-      $("#reserveFloodType").closest(".o_ligneParam").toggle(!antisondes);
+      $("#reserveFloodType")
+        .closest(".o_ligneParam")
+        .toggle($("#reserveFlood").spinner("value") > 0);
       $("#o_reserveComplement").toggle($("#reserveFloodType").val() != "0");
-      $("#o_reserveAntisondes").toggle(antisondes);
       this.ajusterTaille();
     };
     afficherFlood();
-    $("#methodeFlood, #reserveFloodAuto, #reserveFloodType").on("change", afficherFlood);
+    $("#methodeFlood, #reserveFloodType").on("change", afficherFlood);
+    $("#reserveFlood").on("spinchange spinstop", afficherFlood);
     // un affichage présent dans deux onglets : les deux cases suivent
     $("#o_tabsParametre input[data-affichage]").on("change", (e) => {
       let cle = e.currentTarget.dataset.affichage,
@@ -344,12 +343,10 @@ class BoiteParametre extends Boite {
         ${p["floodAttaques"].getForm("Nombre d'attaques proposées")}
         ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
         ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
-        ${p["reserveFlood"].getForm(
-          "Unités gardées au flood (réserve)",
-          `<label class='o_aideParam'><input id='reserveFloodAuto' type='checkbox' ${p["reserveFloodAuto"].valeur ? "checked" : ""}/> = antisondes terrain + dôme</label>`,
-        )}
-        ${p["reserveFloodType"].getForm("Unité gardée", "<span id='o_reserveComplement' class='o_aideParam'>si l'armée n'en a pas assez : complétée par les dernières unités</span>")}
-        <div id='o_reserveAntisondes' class='o_ligneParam'><span class='o_aideParam'>Unités gardées : celles des antisondes (onglet Armée)</span></div>
+        <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(jamais envoyées par le lanceur de flood ni le multi-flood)</span></p>
+        ${p["reserveFloodAuto"].getForm("Les antisondes", "<span id='o_reserveAntisondes' class='o_aideParam'></span>")}
+        ${p["reserveFlood"].getForm("Autres unités, en plus")}
+        ${p["reserveFloodType"].getForm("Lesquelles", "<span id='o_reserveComplement' class='o_aideParam'>si l'armée n'en a pas assez : complétée par les dernières unités</span>")}
         <p class='o_titreParam'>Sonder</p>
         ${p["sondeUnite"].getForm("Unité envoyée en sonde")}
         ${p["sondeQuantite"].getForm("Nombre d'unités (au plus)")}

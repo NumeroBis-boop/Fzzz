@@ -749,10 +749,11 @@ class Armee {
     }
   }
   /**
-   * Unités que le flood peut envoyer, par type. La réserve (onglet Attaque des
-   * préférences) reste à la maison : l'unité choisie, ou celles des antisondes
-   * (onglet Armée) ; sinon, ou si l'armée n'en a pas assez, les dernières unités
-   * de l'armée.
+   * Unités que le flood peut envoyer, par type. Les unités gardées au flood
+   * (onglet Attaque des préférences) restent à la maison : les antisondes si
+   * la case est cochée (unités de l'onglet Armée), plus les autres unités
+   * gardées, de l'unité choisie ; à défaut, ou si l'armée n'en a pas assez,
+   * les dernières unités de l'armée.
    *
    * @method disponibleFlood
    * @return {Array<Number>} nombre par type, dans l'ordre de Armee.unite
@@ -766,12 +767,15 @@ class Armee {
         let i = (parseInt(p[cle].valeur) || 0) - 1;
         return i >= 0 && dispo[i] ? i : dispo.findIndex((n) => n > 0);
       },
-      gardes = p["reserveFloodAuto"].valeur
-        ? [
-            [uniteAntisonde("uniteAntisondeTerrainType"), p["uniteAntisondeTerrain"].valeur],
-            [uniteAntisonde("uniteAntisondeDomeType"), p["uniteAntisondeDome"].valeur],
-          ]
-        : [[(parseInt(p["reserveFloodType"].valeur) || 0) - 1, p["reserveFlood"].valeur]],
+      gardes = [
+        ...(p["reserveFloodAuto"].valeur
+          ? [
+              [uniteAntisonde("uniteAntisondeTerrainType"), p["uniteAntisondeTerrain"].valeur],
+              [uniteAntisonde("uniteAntisondeDomeType"), p["uniteAntisondeDome"].valeur],
+            ]
+          : []),
+        [(parseInt(p["reserveFloodType"].valeur) || 0) - 1, p["reserveFlood"].valeur],
+      ],
       reste = gardes.reduce((somme, [, nombre]) => somme + Math.max(0, nombre || 0), 0);
     gardes.forEach(([i, nombre]) => {
       if (i < 0 || !dispo[i]) return;

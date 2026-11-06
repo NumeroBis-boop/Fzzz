@@ -5,6 +5,8 @@
 
 // Compte+ : recherche en cours lue dans l'encart du jeu, {nom, fin (ms)}
 const CLE_RECHERCHE_EN_COURS = "fzzz_rechercheEnCours";
+// présent : reserveFlood compte les unités gardées en plus des antisondes (voir getParametre)
+const CLE_RESERVE_EN_PLUS = "fzzz_reserveEnPlus";
 
 /**
  * Classe pour creer et gérer un joueur
@@ -149,22 +151,23 @@ class Joueur {
       "Fourmilière (dôme)",
       "Loge impériale",
     ]);
+    // unités gardées au flood en plus des antisondes (case reserveFloodAuto)
     this._parametre["reserveFlood"] = new Parametre(
       "reserveFlood",
-      "Réserve d'unités au flood",
+      "Autres unités gardées au flood",
       "number",
       0,
     );
     this._parametre["reserveFloodAuto"] = new Parametre(
       "reserveFloodAuto",
-      "Suivre antisondes",
+      "Antisondes gardées au flood",
       "checkbox",
       true,
     );
     // 0 : dernières unités de l'armée ; liste posée à l'affichage des préférences (NOM_UNITE, content.js)
     this._parametre["reserveFloodType"] = new Parametre(
       "reserveFloodType",
-      "Unité gardée au flood",
+      "Unité des autres unités gardées au flood",
       "select",
       0,
       [],
@@ -531,6 +534,19 @@ class Joueur {
       ["uniteAntisondeTerrainType", "uniteAntisondeDomeType"].forEach((cle) => {
         if (data[cle] == null) this._parametre[cle].valeur = data.uniteReplacement;
       });
+    // case « antisondes » cochée, reserveFlood recopiait leur nombre ; il compte
+    // maintenant les unités gardées en plus : remis à 0, une fois par navigateur
+    try {
+      if (!localStorage.getItem(CLE_RESERVE_EN_PLUS)) {
+        if (this._parametre["reserveFloodAuto"].valeur) {
+          this._parametre["reserveFlood"].valeur = 0;
+          localStorage.setItem("outiiil_parametre", JSON.stringify(this._parametre));
+        }
+        localStorage.setItem(CLE_RESERVE_EN_PLUS, "1");
+      }
+    } catch (e) {
+      /* stockage indisponible : rien n'est enregistré non plus */
+    }
     return this;
   }
   /**

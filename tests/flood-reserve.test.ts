@@ -54,6 +54,7 @@ function regler(reglages: object) {
     reserveFloodAuto: false,
     ...reglages,
   })}));
+    localStorage.setItem("fzzz_reserveEnPlus", "1");
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();`);
 }
 
@@ -117,7 +118,7 @@ describe("flood : unités gardées (réserve)", () => {
   test("« = antisondes terrain + dôme » : les unités des antisondes restent, pas les dernières", () => {
     regler({
       reserveFloodAuto: true,
-      reserveFloodType: choix(TANK), // ignorée quand la case est cochée
+      reserveFloodType: choix(TANK), // sans autres unités gardées (0), sans effet
       uniteAntisondeTerrain: 1,
       uniteAntisondeTerrainType: choix(JSN),
       uniteAntisondeDome: 500,
@@ -126,6 +127,49 @@ describe("flood : unités gardées (réserve)", () => {
     const r = flood({ [JSN]: 3000, [JS]: 1000, [TANK]: 200 }, "0", [0, 100000], 3);
     expect(r.gardees).toEqual(parType({ [JSN]: 1, [JS]: 500 }));
     expect(r.floods).toEqual([0, 3699]);
+  });
+
+  test("antisondes cochées et autres unités en plus : les deux restent", () => {
+    regler({
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeTerrainType: choix(JSN),
+      uniteAntisondeDome: 500,
+      uniteAntisondeDomeType: choix(JS),
+      reserveFlood: 200,
+      reserveFloodType: choix(TANK),
+    });
+    const r = flood({ [JSN]: 3000, [JS]: 1000, [TANK]: 300 }, "0", [0, 100000], 3);
+    expect(r.gardees).toEqual(parType({ [JSN]: 1, [JS]: 500, [TANK]: 200 }));
+    expect(r.floods).toEqual([0, 3599]);
+    // autres unités sans unité choisie : les dernières de l'armée, après les antisondes
+    regler({
+      reserveFloodAuto: true,
+      uniteAntisondeTerrain: 1,
+      uniteAntisondeTerrainType: choix(JSN),
+      uniteAntisondeDome: 500,
+      uniteAntisondeDomeType: choix(JS),
+      reserveFlood: 200,
+    });
+    expect(flood({ [JSN]: 3000, [JS]: 1000 }, "0", [0, 100000], 3).gardees).toEqual(
+      parType({ [JSN]: 1, [JS]: 700 }),
+    );
+  });
+
+  test("anciens réglages : le nombre recopié des antisondes n'est pas gardé en plus", () => {
+    const lire = (reglages: object, reprise: boolean) =>
+      page.lire<[number, number]>(`(() => {
+        localStorage.setItem("outiiil_parametre", JSON.stringify(${JSON.stringify(reglages)}));
+        if (${reprise}) localStorage.removeItem("fzzz_reserveEnPlus");
+        let p = new Joueur({ pseudo: "Moi" }).getParametre().parametre;
+        return [p.reserveFlood.valeur, JSON.parse(localStorage.getItem("outiiil_parametre")).reserveFlood];
+      })()`);
+    // case cochée : reserveFlood valait leur somme, remis à 0 et enregistré
+    expect(lire({ reserveFloodAuto: true, reserveFlood: 1001 }, true)).toEqual([0, 0]);
+    // une seule fois : ensuite c'est un vrai nombre d'unités en plus
+    expect(lire({ reserveFloodAuto: true, reserveFlood: 300 }, false)).toEqual([300, 300]);
+    // case décochée : la réserve saisie reste, comptée en plus de rien
+    expect(lire({ reserveFloodAuto: false, reserveFlood: 5000 }, true)).toEqual([5000, 5000]);
   });
 
   test("antisondes en « Première disponible » : la première unité de l'armée reste", () => {

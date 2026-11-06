@@ -369,8 +369,12 @@ describe("lanceur : difficulté plancher (Paramètres)", () => {
 
 describe("lanceur : difficulté et pertes fixées ensemble", () => {
   test("la limite qui tient s'affiche, l'autre champ garde sa valeur et montre le réel", () => {
+    expect(lire(`$("#o_chasseDiffQualif").text()`)).toBe("");
     cocher("o_chasseBudgetAuto", false);
     saisir("o_chasseBudget", 5);
+    // les deux fixées : les libellés disent le sens de chaque limite
+    expect(lire(`$("#o_chasseDiffQualif").text()`)).toBe(" (au moins)");
+    expect(lire(`$("#o_chasseBudgetQualif").text()`)).toBe(" (au plus)");
     // difficulté 9 fixée et pertes 5 % fixées : les pertes tiennent avant, le ratio réel dépasse 9
     const p = plan();
     expect(p.limite).toBe("budget");

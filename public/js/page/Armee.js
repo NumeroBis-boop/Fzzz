@@ -764,7 +764,7 @@ class PageArmee {
             $("#boiteComptePlus").length)))
     ) {
       this._boiteComptePlus.attaque = listeAttaque;
-      this._boiteComptePlus.startAttaque = moment();
+      this._boiteComptePlus.startAttaque = Horloge.serveur();
       this._boiteComptePlus.sauvegarder().majAttaque();
     }
     return this;

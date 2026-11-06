@@ -24,7 +24,7 @@ const page = creerPage(
     "js/content.js",
   ],
   `var chrome = { runtime: { getManifest: () => ({ version: "0" }), getURL: (p) => p } };
-   var Horloge = { serveur: () => moment() };
+   var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
    var CommerceFzzz = { copier: (t) => { window.copie = t; } };
    document.body.innerHTML = "<div class='boite_connexion_titre'>Connexion</div><span id='pseudo'>Test</span><span id='quantite_tdc'>1000000</span>"
      + "<div id='boite_tdc'><span class='titre'>Chasse en cours</span>"

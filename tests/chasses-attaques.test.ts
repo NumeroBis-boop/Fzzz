@@ -5,7 +5,7 @@ const page = creerPage(
   ["js/class/Utils.js", "js/class/AttaqueLancee.js"],
   `var CLE_FIN_CHASSES_PARTAGEES = "fzzz_finChassesPartagees";
    var monProfil = { pseudo: "DoggyBag" };
-   var Horloge = { serveur: () => moment("2026-11-01 10:00", "YYYY-MM-DD HH:mm") };
+   var Horloge = { serveur: () => moment("2026-11-01 10:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-01 10:00", "YYYY-MM-DD HH:mm").valueOf() };
    var LECTURES = 0, CHASSES = [];
    var PartageChasses = {
      enFile: (f) => f(),

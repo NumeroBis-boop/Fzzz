@@ -9,7 +9,7 @@ const page = creerPage(
    var COUT_UNITE = [5, 16, 20, 26, 30, 36, 70, 100, 30];
    var VIE_UNITE = [-1, 8, 10, 13, 16, 20, 30, 40, 10];
    var posts = [];
-   var Horloge = { clic: () => moment(), libelleLatence: () => "" };
+   var Horloge = { clic: () => moment(), maintenant: () => Date.now(), libelleLatence: () => "" };
    var AttaqueLancee = { enregistrer: (cible, lieu, unite, o) => envois.push({ lieu, partager: !!o.partager }) };`,
 );
 page.lire(`$.toast = (o) => toasts.push(o.text); Utils.incrementTime = () => {};

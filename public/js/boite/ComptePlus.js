@@ -250,7 +250,7 @@ class BoiteComptePlus {
    */
   verifierDonnees() {
     // si la construction est fini
-    if (this._construction && moment(this._expConstruction).diff(moment()) < 0) {
+    if (this._construction && moment(this._expConstruction).diff(Horloge.serveur()) < 0) {
       // on met à jour le niveau de la construction
       let index = CONSTRUCTION.findIndex((elt) => {
         return this._construction.toLowerCase().includes(elt.toLowerCase());
@@ -265,7 +265,7 @@ class BoiteComptePlus {
       this._construction = "";
     }
     // si la recherche est fini
-    if (this._recherche && moment(this._expRecherche).diff(moment()) < 0) {
+    if (this._recherche && moment(this._expRecherche).diff(Horloge.serveur()) < 0) {
       // on met à jour le niveau de la recherche
       let index = RECHERCHE.findIndex((elt) => {
         return this._recherche.toLowerCase().includes(elt.toLowerCase());
@@ -280,19 +280,19 @@ class BoiteComptePlus {
     }
     // si la ou les pontes sont finis
     for (let i = this._ponte.length; i--; )
-      if (moment(this._ponte[i].exp).diff(moment()) < 0) this._ponte.splice(i, 1);
+      if (moment(this._ponte[i].exp).diff(Horloge.serveur()) < 0) this._ponte.splice(i, 1);
     if (!this._ponte.length) this._startPonte = 0;
     // si la ou les convois sont finis
     for (let i = this._convoi.length; i--; )
-      if (moment(this._convoi[i].exp).diff(moment()) < 0) this._convoi.splice(i, 1);
+      if (moment(this._convoi[i].exp).diff(Horloge.serveur()) < 0) this._convoi.splice(i, 1);
     if (!this._convoi.length) this._startConvoi = 0;
     // si la ou les attaques sont finis
     for (let i = this._attaque.length; i--; )
-      if (moment(this._attaque[i].exp).diff(moment()) < 0) this._attaque.splice(i, 1);
+      if (moment(this._attaque[i].exp).diff(Horloge.serveur()) < 0) this._attaque.splice(i, 1);
     if (!this._attaque.length) this._startAttaque = 0;
     // si la ou les chasses sont finis
     for (let i = this._chasse.length; i--; )
-      if (moment(this._chasse[i].exp).diff(moment()) < 0) this._chasse.splice(i, 1);
+      if (moment(this._chasse[i].exp).diff(Horloge.serveur()) < 0) this._chasse.splice(i, 1);
     if (!this._chasse.length) this._startChasse = 0;
     return this.sauvegarder();
   }
@@ -301,7 +301,10 @@ class BoiteComptePlus {
    */
   recalculeTempsPonte() {
     this._ponte.forEach((ponte) => {
-      ponte.exp = moment().add(Math.round((moment(ponte.exp).diff(moment()) / 1000) * 0.9), "s");
+      ponte.exp = Horloge.serveur().add(
+        Math.round((moment(ponte.exp).diff(Horloge.serveur()) / 1000) * 0.9),
+        "s",
+      );
     });
   }
   /**
@@ -469,18 +472,20 @@ class BoiteComptePlus {
     let debut = moment(start).valueOf(),
       fin = moment(exp).valueOf(),
       progression = $("#o_progress" + ligne);
-    Utils.decreaseTime((fin - Date.now()) / 1000, "o_temps" + ligne, {
+    Utils.decreaseTime((fin - Horloge.maintenant()) / 1000, "o_temps" + ligne, {
       format: (t) => (t > 3600 ? Utils.shortcutTime(t) : Utils.intToTime(t)),
       chaqueSeconde: (t) => {
         progression
-          .progressbar({ value: fin > debut ? ((Date.now() - debut) * 100) / (fin - debut) : 100 })
+          .progressbar({
+            value: fin > debut ? ((Horloge.maintenant() - debut) * 100) / (fin - debut) : 100,
+          })
           .toggleClass("highlight_success", t <= 600);
       },
       aZero: () => {
         if (!liste) return;
         // une seconde plus tard, pour que l'élément soit bien passé
         setTimeout(() => {
-          this[liste] = this[liste].filter((elt) => moment(elt.exp).isAfter(moment()));
+          this[liste] = this[liste].filter((elt) => moment(elt.exp).isAfter(Horloge.serveur()));
           this["maj" + (ligne == "Unite" ? "Ponte" : ligne)]();
         }, 1000);
       },
@@ -513,7 +518,7 @@ class BoiteComptePlus {
             : TEMPS_UNITE[NOM_UNITE.indexOf(this._ponte[i].unite)];
         if (i == 0)
           nombreU = Math.ceil(
-            moment(this._ponte[i].exp).diff(moment()) /
+            moment(this._ponte[i].exp).diff(Horloge.serveur()) /
               1000 /
               (tempsU * Math.pow(0.9, monProfil.getTDP())),
           );

@@ -43,7 +43,9 @@ class TroupesDehors {
       liste = [];
     }
     return liste.filter((t) =>
-      t.id ? t.retour > Date.now() : Date.now() - t.lancee < DUREE_VIE_ENVOI * 1000,
+      t.id
+        ? t.retour > Horloge.maintenant()
+        : Horloge.maintenant() - t.lancee < DUREE_VIE_ENVOI * 1000,
     );
   }
   /**
@@ -61,7 +63,13 @@ class TroupesDehors {
    */
   static ajouterAttaque(id, unite, retour) {
     let liste = TroupesDehors.charger().filter((t) => !(t.type == "attaque" && t.id == id));
-    liste.push({ type: "attaque", id: id, unite: unite, lancee: Date.now(), retour: retour });
+    liste.push({
+      type: "attaque",
+      id: id,
+      unite: unite,
+      lancee: Horloge.maintenant(),
+      retour: retour,
+    });
     TroupesDehors.sauvegarder(liste);
   }
   /**
@@ -85,7 +93,13 @@ class TroupesDehors {
   static enregistrerChasse(unite) {
     if (!unite.some((nb) => nb)) return;
     let liste = TroupesDehors.charger();
-    liste.push({ type: "chasse", id: null, unite: unite, lancee: Date.now(), retour: null });
+    liste.push({
+      type: "chasse",
+      id: null,
+      unite: unite,
+      lancee: Horloge.maintenant(),
+      retour: null,
+    });
     TroupesDehors.sauvegarder(liste);
   }
   /**
@@ -103,7 +117,7 @@ class TroupesDehors {
       if (!isNaN(secondes))
         lignes.push({
           id: parseInt($(elt).attr("id").split("_")[1]),
-          retour: Date.now() + secondes * 1000,
+          retour: Horloge.maintenant() + secondes * 1000,
         });
     });
     lignes.sort((a, b) => a.id - b.id);
@@ -125,7 +139,7 @@ class TroupesDehors {
         ? true
         : t.id
           ? lignes.some((l) => l.id == t.id)
-          : Date.now() - t.lancee < DELAI_LIAISON_CHASSE * 1000,
+          : Horloge.maintenant() - t.lancee < DELAI_LIAISON_CHASSE * 1000,
     );
     TroupesDehors.sauvegarder(liste);
     return liste;

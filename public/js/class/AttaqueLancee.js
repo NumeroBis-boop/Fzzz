@@ -48,7 +48,7 @@ class AttaqueLancee {
     return liste.filter((a) =>
       a.id
         ? moment(a.arrivee).isAfter(Horloge.serveur())
-        : a.lancee && moment().diff(a.lancee, "s") < DUREE_VIE_CAPTURE,
+        : a.lancee && Horloge.serveur().diff(a.lancee, "s") < DUREE_VIE_CAPTURE,
     );
   }
   /**
@@ -79,7 +79,7 @@ class AttaqueLancee {
         cible: cible,
         lieu: lieu,
         unite: unite,
-        lancee: moment().valueOf(),
+        lancee: Horloge.maintenant(),
         arrivee: null,
         // terrain de la cible avant cette attaque puis estimé après : on
         // repart de l'estimation de la dernière attaque encore en vol sur
@@ -322,7 +322,7 @@ class AttaqueLancee {
       // lié sur une page chargée après lui ; la marge couvre une page d'un
       // autre onglet servie avant que le jeu n'enregistre l'envoi
       refusees = retirer
-        ? liste.filter((a) => !a.id && a.lancee < Date.now() - MARGE_REFUS * 1000)
+        ? liste.filter((a) => !a.id && a.lancee < Horloge.maintenant() - MARGE_REFUS * 1000)
         : [];
     // Elle rend le terrain qu'elle aurait pris aux attaques lancées après elle.
     [...annulees, ...refusees].forEach((annulee) => {
@@ -389,7 +389,7 @@ class AttaqueLancee {
    */
   static formatArrivee(secondes) {
     let rArrivee = Utils.roundMinute(secondes);
-    return `${rArrivee.isSame(moment(), "day") ? "à" : "le " + rArrivee.format("D MMM à")} ${rArrivee.format("HH[h]mm")}`;
+    return `${rArrivee.isSame(Horloge.serveur(), "day") ? "à" : "le " + rArrivee.format("D MMM à")} ${rArrivee.format("HH[h]mm")}`;
   }
   /**
    * Non-C+ : ajoute l'heure d'arrivée sous chaque ligne « Des renforts
@@ -616,7 +616,7 @@ class AttaqueLancee {
     attaques.forEach((a, i) => {
       let restant =
         a.capture && !a.capture.reconstituee
-          ? a.capture.lancee + DELAI_ANNULATION * 1000 - Date.now()
+          ? a.capture.lancee + DELAI_ANNULATION * 1000 - Horloge.maintenant()
           : null;
       a.cellule = `#${id}Annuler${i}`;
       if (a.annuler.length && !(restant !== null && restant <= 0)) {

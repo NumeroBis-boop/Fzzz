@@ -4,7 +4,7 @@ import { creerPage } from "./harnais";
 // heure serveur figée : les événements antérieurs sont écartés
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js"],
-  `var Horloge = { serveur: () => moment("2026-10-26 12:00", "YYYY-MM-DD HH:mm") };`,
+  `var Horloge = { serveur: () => moment("2026-10-26 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-10-26 12:00", "YYYY-MM-DD HH:mm").valueOf() };`,
 );
 
 /** Simule `d` avec les TdC `connus` et renvoie les événements. */

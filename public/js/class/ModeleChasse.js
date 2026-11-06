@@ -88,7 +88,7 @@ class ModeleChasse {
    * @param {Number} graine
    * @return {Function} () => nombre dans [0, 1)
    */
-  static alea(graine = Date.now()) {
+  static alea(graine = Math.floor(Math.random() * 4294967296)) {
     let etat = graine >>> 0;
     return () => {
       etat = (etat + 0x6d2b79f5) >>> 0;

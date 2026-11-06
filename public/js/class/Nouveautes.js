@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.83.0",
+    notes: [
+      "Heures : toutes les heures de l'extension (attaques, chasses, convois, pontes, constructions, recherches, partages dans le forum) sont prises sur l'heure du serveur. Un PC ou un téléphone mal réglé ne les décale plus.",
+      "Fuseau horaire : elles restent à l'heure de Paris, celle du jeu, même si ton appareil est réglé sur un autre fuseau. Dans ce cas, ton heure locale s'affiche sous l'horloge de l'extension, par exemple « Chez toi : 18:01 (−6 h) ».",
+    ],
+  },
+  {
     version: "1.82.0",
     notes: [
       "Boîte Combat, temps de trajet : les coordonnées viennent de l'export public des joueurs, gardé une heure dans le navigateur, au lieu de lire la page de chaque joueur. Avec toi en joueur 1, les temps partaient d'une mauvaise position : corrigé. Un pseudo inconnu est signalé au lieu de donner une ligne fausse.",

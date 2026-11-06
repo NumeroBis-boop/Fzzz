@@ -25,7 +25,7 @@ The maintainer describes changes with these words (full guide: the « Lexique Ex
 - **encart « S5 Pseudo »**, **encart Compte +**, **boîte « Extension OUAF »** = the left column boxes; **Préférences** = the settings window and its tabs.
 - **Lanceur → cible** = direction of a flood (same text on both players' timelines; the sign and colour of the variation do not change).
 - When the place or the expected effect is unclear, ask for: page, bloc, element, what happens (click, hover, load), and what must not change. Never infer « comme avant » without checking what « avant » did.
-- **lien de l'extension** / « lien pour mettre à jour l'extension » = the userscript link to share with players, https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js (installs or updates it in Violentmonkey/Tampermonkey). Give it directly, without correcting the term; the signed Firefox `.xpi` only when Firefox or xpi is named.
+- **lien de l'extension** / « lien pour mettre à jour l'extension » = the userscript link to share with players, https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js (installs or updates it in Violentmonkey/Tampermonkey). Give it directly, without correcting the term. The Firefox `.xpi` is no longer maintained (see Release pipeline): if it is asked for, say so and give this link.
 - When the maintainer uses a wrong or inexact term (menu for onglet, extension for script utilisateur except in the update link above, « pull » for a branch without pull request…), say so at the start of the answer, briefly, with the right term — the maintainer asked for it.
 
 ## Commands
@@ -99,6 +99,12 @@ The `data_collection_permissions.required: ["none"]` declaration in the manifest
 
 **Default target = TEST (maintainer rule since 1.82.0).** Unless the maintainer says otherwise (« en version finale », « sur main », « publie »…), every change goes to the `test` branch only: commit there, run the usual checks, `bun run userscript:test`, commit `fzzz-test.user.js`, push `test`, give the link https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/test/fzzz-test.user.js. No version bump and no `NOUVEAUTES` entry on `test` (the timestamp suffix already makes each build an update). Promotion to `main` happens only on request, by cherry-picking those commits — never merge `test` into `main`: it also holds unreleased work (Grim's hunt launcher, reverted on `main` in 1.80.1) — then the usual release steps on `main`.
 
+### Game time — server clock and Paris time (Fzzz 1.83)
+
+- Every game time (arrival, return, end of a ponte, construction, research, convoy or hunt; any time displayed or shared in the forum) uses the server clock: `Horloge.serveur()` (moment) or `Horloge.maintenant()` (ms), never `moment()` or `Date.now()`, because the PC clock can be wrong. `content.js` starts the page modules only once the stored clock offset is read.
+- The PC clock is kept only for local durations measured on that same clock, ids, caches and request pacing. `tests/horloge-pc.test.ts` counts every PC clock read per file: a new one fails until it is classified there, with its reason.
+- Times are Paris time: `public/js/class/Fuseau.js` makes it moment-timezone's default zone when the PC is set to another zone (`tests/fuseau.test.ts`).
+
 ### « Rétablir l'affichage d'origine » — mandatory for every change (Fzzz 1.59)
 
 Each preferences tab (`ONGLETS_PARAMETRE` in `public/js/boite/Parametres.js`) has a « Rétablir l'affichage d'origine » checkbox (`fzzz_origine_<tab>` in localStorage). When it is checked, the pages of that tab must look exactly as the game displays them, and the « Général » tab does the same for everything the extension changes on all pages. The maintainer requires this for every update and new feature:
@@ -123,6 +129,8 @@ Firefox exposes `chrome.*` as an alias for `browser.*`, so `chrome.runtime.*` wo
 
 ## Firefox publication specifics
 
+Kept for reference: the Firefox build is no longer published (see Release pipeline).
+
 - `browser_specific_settings.gecko.id` is `fzzz@numerobis-boop.github.io` — this ID must stay stable across uploads to AMO (changing it breaks updates for installed users).
 - `strict_min_version: "142.0"` — Firefox **142** is when `data_collection_permissions` is honored on **Firefox for Android** (desktop got it earlier, but AMO's review surfaces an Android-specific warning if `strict_min_version` is below 142). Lower values let AMO accept the upload but warn that the privacy declaration is ignored on older Firefox/Android.
 - AMO requires non-minified sources for review — keep the vendored libs in `public/js/lib/` readable (they currently are).
@@ -143,6 +151,8 @@ If you modify files that oxfmt would reformat, let the pre-commit hook handle it
 Note: oxfmt's `.ts` config loader used to break in CI on Node 20 (version-check bug: 20.20.2 read as not matching `^20.19.0`). CI now runs Node 22 (required by WXT 0.21) so that bug is moot, but there is no reason to switch — stay on `.oxfmtrc.json`.
 
 ## Release pipeline
+
+**The Firefox build is no longer published (maintainer decision, 1.83.0).** Every player uses the userscript, Firefox included. Do not run `release-firefox.yml` or propose a Firefox release; the last signed build (1.80.3, the GitHub release marked _latest_) stays as it is. The rest of this section describes the former pipeline.
 
 Releasing is split into two independent workflows that both trigger on `v*.*.*` tag push and on `workflow_dispatch` (version read from `package.json`, release `vX.Y.Z` created by the workflow):
 
@@ -239,7 +249,9 @@ Two people now change the code: the maintainer (with Claude) and contributors su
 - Contributors work on a branch (`feat/…`, `fix/…`) and open a pull request to `main`; CI (`format:check`, `compile`, `check:js`, `test`) must pass. One topic per pull request.
 - A contributor's pull request does **not** touch the version (`package.json`), `NOUVEAUTES` (`public/js/class/Nouveautes.js`) or `fzzz.user.js`: the maintainer does these after merging, so two branches never conflict on them. It may add a note in the description to reuse in the release notes.
 - Every change still follows the s5 rules and « Rétablir l'affichage d'origine » above, with a test for any calculation it changes.
+- **Cross-cutting change** (clock, time zone, a storage key or format, the forum line format, a helper used in many files): search every use first, change them all in the same change, add a test that catches a missed or new use, and tell the maintainer what was changed and what was deliberately left as is (maintainer rule).
 - Publishing (maintainer, after merge): bump version + new `NOUVEAUTES` entry, run the checks, commit, push, `bun run userscript`, commit and push `fzzz.user.js`.
+- **Before every publication** (final or TEST): review the whole diff since the last published commit (`git diff <last published>..HEAD`, file list then hunks) and check that every changed file and hunk belongs to the intended change; report the result, and anything else found, to the maintainer (maintainer rule).
 - Template: `.github/pull_request_template.md`. Body: only `## Summary` (2-3 concise bullets), no « Test plan » section; checks are discussed with the maintainer.
 
 ## License

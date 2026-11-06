@@ -3,7 +3,7 @@ import { creerPage } from "./harnais";
 
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js"],
-  `var Horloge = { serveur: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm") };
+  `var Horloge = { serveur: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm").valueOf() };
    var monProfil = { pseudo: "DoggyBag" };
    var ECRIT = null, LECTURES = 0;`,
 );

@@ -90,7 +90,7 @@ describe("retrait automatique des floods disparus de la liste", () => {
   // sujet « Floods | Moi » : un flood à venir (#20) et un arrivé (#21)
   const sujet = (ecrits: string[]) => {
     page.lire(`var ECRITS = []; var monProfil = { pseudo: "Moi" };
-      var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm") };
+      var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm").valueOf() };
       var AttaqueLancee = { majPartages() {} };
       $.toast = () => {}; var TOAST_SUCCESS = {}, TOAST_ERROR = {}, TOAST_INFO = {};
       PartageChasses.sujets = () => Promise.resolve({ "Floods | moi": 5 });
@@ -118,7 +118,7 @@ describe("retrait automatique des floods disparus de la liste", () => {
 describe("retraits repris après une page quittée trop tôt", () => {
   const preparer = (ecritureOk: boolean) =>
     page.lire(`var ECRITS = []; var monProfil = { pseudo: "Moi" };
-      var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm") };
+      var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm").valueOf() };
       var PARTAGES_REPRIS = 0;
       var AttaqueLancee = { majPartages() {}, partagerMarquees() { PARTAGES_REPRIS++; return Promise.resolve(); } };
       $.toast = () => {}; var TOAST_SUCCESS = {}, TOAST_ERROR = {}, TOAST_INFO = {};
@@ -156,7 +156,7 @@ describe("retraits repris après une page quittée trop tôt", () => {
 describe("attaques en dôme ou en loge partagées", () => {
   const page2 = creerPage(
     ["js/class/Utils.js", "js/class/AttaqueLancee.js", "js/page/PartageChasses.js"],
-    `var Horloge = { serveur: () => moment("2026-11-04 12:00", "YYYY-MM-DD HH:mm") };`,
+    `var Horloge = { serveur: () => moment("2026-11-04 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-04 12:00", "YYYY-MM-DD HH:mm").valueOf() };`,
   );
   test("ligne sans « cm² », relue avec sa zone, sans TdC pris", async () => {
     const ligne = page2.lire<string>(

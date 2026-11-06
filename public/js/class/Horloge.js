@@ -106,7 +106,19 @@ class Horloge {
    * @return {Object} moment
    */
   static serveur() {
-    return moment(Date.now() + (decalageServeur || 0));
+    return moment(Horloge.maintenant());
+  }
+  /**
+   * Heure du serveur maintenant, en ms (à défaut, heure du PC). Une heure de
+   * jeu (arrivée, retour, fin de ponte…) se compare à elle, pas à Date.now() :
+   * l'horloge du PC peut être fausse.
+   *
+   * @static
+   * @method maintenant
+   * @return {Number} ms
+   */
+  static maintenant() {
+    return Date.now() + (decalageServeur || 0);
   }
   /**
    * Heure du serveur à un instant donné de l'horloge du PC (ms).
@@ -128,7 +140,7 @@ class Horloge {
    * @return {Object} moment
    */
   static clic() {
-    return moment(Date.now() + (decalageServeur || 0) + Horloge.latence);
+    return moment(Horloge.maintenant() + Horloge.latence);
   }
   /**
    * Libellé de la latence, ex. « +0,3 s ».
@@ -157,6 +169,7 @@ class Horloge {
           <button type='button' id='o_latencePlus' title='Latence + 0,1 s'>+</button>
         </span>
         <span id='o_horlogeHeure'></span>
+        <span id='o_horlogeLocale'></span>
       </div>`).appendTo("body"),
       h = $h[0],
       // position déplacée {x, y} (px dans la fenêtre), null : position d'origine
@@ -257,13 +270,61 @@ class Horloge {
     if (!$("#o_horloge").length) return;
     $("#o_horlogeHeure").text(Horloge.clic().format("HH:mm:ss"));
     $("#o_latenceValeur").text(Horloge.libelleLatence());
+    let instant = Horloge.maintenant(),
+      local = Horloge.heureLocale(instant),
+      ligne = Horloge.ligneLocale(instant),
+      titre = Horloge.estSynchronisee()
+        ? `Heure du serveur${local ? " (Paris)" : ""} + latence`
+        : "Heure du PC : l’heure du serveur sera connue après le chargement d’une page du jeu";
     $("#o_horloge")
       .toggleClass("o_horlogePC", !Horloge.estSynchronisee())
-      .attr(
-        "title",
-        Horloge.estSynchronisee()
-          ? "Heure du serveur + latence"
-          : "Heure du PC : l’heure du serveur sera connue après le chargement d’une page du jeu",
-      );
+      .toggleClass("o_horlogeAvecLocale", !!ligne)
+      .attr("title", local ? `${titre}\n${local}` : titre);
+    $("#o_horlogeLocale").text(ligne || "");
+  }
+  /**
+   * Heure locale du joueur dont le PC n'est pas à l'heure de Paris, pour
+   * l'info-bulle de l'horloge (le reste de l'extension suit l'heure du jeu).
+   *
+   * @static
+   * @method heureLocale
+   * @param {Number} instant ms
+   * @return {String|null} null sur un PC à l'heure de Paris
+   */
+  static heureLocale(instant) {
+    let l = Horloge._local(instant);
+    if (!l) return null;
+    return `Chez toi : ${l.heure}${l.ecart ? ` (${l.duree} ${l.ecart < 0 ? "de moins" : "de plus"} que le jeu)` : ""}`;
+  }
+  /**
+   * Même heure, en court, pour la ligne sous l'horloge (visible sur téléphone,
+   * où l'info-bulle ne s'affiche pas).
+   *
+   * @static
+   * @method ligneLocale
+   * @param {Number} instant ms
+   * @return {String|null} null sur un PC à l'heure de Paris
+   */
+  static ligneLocale(instant) {
+    let l = Horloge._local(instant);
+    if (!l) return null;
+    return `Chez toi : ${l.heure}${l.ecart ? ` (${l.ecart < 0 ? "−" : "+"}${l.duree})` : ""}`;
+  }
+  /**
+   * @private
+   * @static
+   * @return {Object|null} {heure, ecart (min, PC − jeu), duree}
+   */
+  static _local(instant) {
+    if (typeof PC_AUTRE_FUSEAU == "undefined" || !PC_AUTRE_FUSEAU) return null;
+    let local = moment(instant).local(),
+      ecart = local.utcOffset() - moment.tz(instant, FUSEAU_JEU).utcOffset(),
+      heures = Math.floor(Math.abs(ecart) / 60),
+      minutes = Math.abs(ecart) % 60;
+    return {
+      heure: local.format("HH:mm"),
+      ecart,
+      duree: `${heures} h${minutes ? " " + String(minutes).padStart(2, "0") : ""}`,
+    };
   }
 }

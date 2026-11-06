@@ -276,16 +276,16 @@ class PageLaboratoire {
     if (
       recherche &&
       (!this._boiteComptePlus.recherche ||
-        moment().diff(moment(this._boiteComptePlus.expRecherche), "s") > 0) &&
+        Horloge.serveur().diff(moment(this._boiteComptePlus.expRecherche), "s") > 0) &&
       !Utils.comptePlus &&
       $("#boiteComptePlus").length
     ) {
       this._boiteComptePlus.recherche = recherche.substr(0, 1).toUpperCase() + recherche.substr(1);
-      this._boiteComptePlus.expRecherche = moment().add(
+      this._boiteComptePlus.expRecherche = Horloge.serveur().add(
         parseInt(str.split(",")[0].split("(")[1]),
         "s",
       );
-      this._boiteComptePlus.startRecherche = moment();
+      this._boiteComptePlus.startRecherche = Horloge.serveur();
       this._boiteComptePlus.sauvegarder().majRecherche();
     }
     return this;

@@ -23,6 +23,34 @@ const NOM_EXTENSION =
 // titre de l'encadré de synthèse recréé hors Compte+ (et de son bascule radar)
 const TITRE_SYNTHESE = "Synthèse OUAF";
 
+// Fzzz : champs jQuery UI « spinner » : nombres affichés et relus à la
+// française, quelle que soit la langue du navigateur. Le widget délègue à
+// Globalize dès qu'un numberFormat est donné ; le format « i » qu'utilisait
+// l'extension partout affichait via toLocaleString() (« 1.804 » en allemand,
+// « 1'804 » en suisse, « 9,1 » en français pour un décimal) mais relisait en
+// culture « en », celle par défaut (1.804, NaN, 91 : les flèches multipliaient
+// le ratio par dix). Ici, sans numberFormat : culture française fixe
+// (« 1 804 000 », « 9,1 »), autant de décimales que le nombre en a, et la
+// relecture accepte « 9,1 » comme « 9.1 » (le point n'est pas un séparateur en
+// français). Un numberFormat explicite (« d2 » : niveau sur deux chiffres)
+// passe à Globalize en culture française.
+if (typeof $ != "undefined" && $.ui && $.ui.spinner && typeof Globalize != "undefined")
+  $.widget("ui.spinner", $.ui.spinner, {
+    _format(value) {
+      if (typeof value != "number" || !isFinite(value)) return this._super(value);
+      let format = this.options.numberFormat;
+      if (!format) {
+        let [, decimales = ""] = String(Math.round(value * 1e4) / 1e4).split(".");
+        format = "n" + decimales.length;
+      }
+      return Globalize.format(value, format, "fr");
+    },
+    _parse(val) {
+      if (typeof val == "string" && val !== "") val = Globalize.parseFloat(val, 10, "fr");
+      return val === "" || isNaN(val) ? null : val;
+    },
+  });
+
 // Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres (onglets : ONGLETS_PARAMETRE)
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",

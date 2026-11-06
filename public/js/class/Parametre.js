@@ -139,7 +139,6 @@ class Parametre {
         $("#" + this._id).spinner({
           min: 0,
           classes: { "ui-spinner": "o_number ui-corner-all" },
-          numberFormat: "i",
         });
         $("#" + this._id).on("spinchange spinstop", (e) => {
           this._valeur = $(e.currentTarget).spinner("value") ?? 0;
@@ -206,7 +205,7 @@ class Parametre {
             if (e.originalEvent) enregistrer(ui.value);
           },
         });
-        champ.spinner({ min: min, max: max, step: decimales ? pas : 1, numberFormat: "i" });
+        champ.spinner({ min: min, max: max, step: decimales ? pas : 1 });
         champ.on("spinstop change", () => {
           let v = lireNombre(champ.val());
           $("#" + this._id).slider("value", v);

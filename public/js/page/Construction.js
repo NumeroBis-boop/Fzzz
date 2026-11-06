@@ -109,7 +109,7 @@ class PageConstruction {
         this._renderCoutsCharts();
       },
     });
-    $("#o_coutsArchi, #o_coutsSa").spinner({ min: 0, max: 45, numberFormat: "i" });
+    $("#o_coutsArchi, #o_coutsSa").spinner({ min: 0, max: 45 });
     $("#o_coutsConstru, #o_coutsRecherche").on("change", () => this._renderCoutsCharts());
     $("#o_coutsArchi, #o_coutsSa").on("input spin", () => this._renderCoutsCharts());
     // Toggle natif <-> widget selon le hash : sur #cout on masque la simulation

@@ -109,6 +109,11 @@ The `data_collection_permissions.required: ["none"]` declaration in the manifest
 - The PC clock is kept only for local durations measured on that same clock, ids, caches and request pacing. `tests/horloge-pc.test.ts` counts every PC clock read per file: a new one fails until it is classified there, with its reason.
 - Times are Paris time: `public/js/class/Fuseau.js` makes it moment-timezone's default zone when the PC is set to another zone (`tests/fuseau.test.ts`).
 
+### Numbers shown to players — French (Fzzz 1.86.2)
+
+- Every number a player sees is written the French way (« 1 234 », « 12,5 % », « 7,2 »): `numeral(n).format(…)` (fr locale set at the top of `content.js`) or `Utils.decimal(n, decimales, facultatives)`. Never `toFixed()`, `String()` or a raw decimal in a template (« 7.2 »), nor `toLocaleString()` / `Intl.NumberFormat()` without a language (they follow the browser's). jQuery UI spinners display and read French by themselves (`Utils.js`).
+- `toFixed` only rounds a number kept as a number (`Number(x.toFixed(n))`). `tests/nombres-francais.test.ts` fails on any other `toFixed()`, `toLocaleString()` or `Intl.NumberFormat()` without a language; a raw decimal in a template is not caught by it, so check new displays by hand.
+
 ### « Rétablir l'affichage d'origine » — mandatory for every change (Fzzz 1.59)
 
 Each preferences tab (`ONGLETS_PARAMETRE` in `public/js/boite/Parametres.js`) has a « Rétablir l'affichage d'origine » checkbox (`fzzz_origine_<tab>` in localStorage). When it is checked, the pages of that tab must look exactly as the game displays them, and the « Général » tab does the same for everything the extension changes on all pages. The maintainer requires this for every update and new feature:

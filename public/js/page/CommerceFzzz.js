@@ -3,7 +3,7 @@
  * NumeroBis-boop
  **********************************************************************/
 
-// pseudos suivis dans le tableau « Joueur à livrer », dans l'ordre d'ajout
+// pseudos suivis dans le bloc « Récapitulatif », dans l'ordre d'ajout
 const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
 // tri du « Récapitulatif » : gardé tant qu'on reste sur la page Convois
 // (envoi d'un convoi = rechargement), oublié au chargement d'une autre page
@@ -263,7 +263,7 @@ class CommerceFzzz {
       });
   }
   /**
-   * Tableau « Joueur à livrer » sous les convois en cours : pour chaque membre
+   * Bloc « Récapitulatif » sous les convois en cours : pour chaque membre
    * suivi, temps de trajet (avec la Vitesse d'attaque), heure de retour d'un
    * convoi lancé maintenant, et reste à livrer d'après le site de suivi OUAF
    * (lu une fois à l'ouverture, si le mot de passe est enregistré). Les
@@ -464,7 +464,7 @@ class CommerceFzzz {
       if ($bloc.find(".o_convoisMembreVide").length) return;
       $bloc.find("tbody").append(ligne(""));
     });
-    // heure de retour : recalculée chaque minute (affichage seulement)
+    // heure de retour : recalculée toutes les 30 s (affichage seulement)
     setInterval(() => {
       $bloc.find("tr[data-pseudo]").each((i, tr) => {
         let t = trajet(String($(tr).data("pseudo")));

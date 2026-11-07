@@ -2449,7 +2449,7 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   color: var(--fzzz-succes);
   font-weight: bold;
 }
-/* Fzzz : tableau « Joueur à livrer » (page Convois) */
+/* Fzzz : bloc « Récapitulatif » (page Convois) */
 #o_convoisMembres {
   /* largeur du cadre « Organiser un convoi » (CommerceFzzz.calerSurCadreConvoi), jamais plus étroit que son tableau */
   box-sizing: border-box;

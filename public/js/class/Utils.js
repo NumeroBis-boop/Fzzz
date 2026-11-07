@@ -84,7 +84,7 @@ const AFFICHAGES_CONVOIS = {
   convoisRetour: "Heure de retour de chaque convoi en cours (hors Compte+)",
   convoisRecherche: "Recherche du destinataire pendant la saisie (hors Compte+)",
   convoisMembres:
-    "Tableau « Joueur à livrer » sous les convois en cours (trajet, retour, reste à livrer)",
+    "Bloc « Récapitulatif » sous les convois en cours (convoi à faire, temps de trajet, horaire de retour)",
   convoisSuiviLignes:
     "Suivi OUAF devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
 };

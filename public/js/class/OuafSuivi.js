@@ -467,13 +467,19 @@ class OuafSuivi {
    * nouveau) ; en avance, une seule ligne de ce montant vers ce joueur est
    * retirée, même s'il y en a d'identiques.
    *
+   * Chaque étape faite est passée à `progres` avant la suivante, pour qu'un
+   * nouvel essai après un échec reprenne là où il s'est arrêté : le reste à
+   * noter après une remise à zéro n'est pas perdu, et une avance n'est pas
+   * retirée deux fois.
+   *
    * @static
    * @method retirer
-   * @param {Object} a {vers, prevu, avance}
+   * @param {Object} a {vers, prevu, avance} et l'avancement d'un essai précédent
+   * @param {Function} [progres] reçoit l'avancement à garder ({remise}, {prevuFait}…)
    * @return {Promise<Object>} {prevu, avance, manque: [textes]}
    */
-  static retirer(a) {
-    let retrait = fileEnvoisOuaf.then(() => OuafSuivi._retirer(a));
+  static retirer(a, progres = () => {}) {
+    let retrait = fileEnvoisOuaf.then(() => OuafSuivi._retirer(a, progres));
     fileEnvoisOuaf = retrait.catch(() => {});
     return retrait;
   }
@@ -481,30 +487,41 @@ class OuafSuivi {
    * @private
    * @static
    */
-  static _retirer(a) {
+  static _retirer(a, progres) {
     let bilan = { prevu: 0, avance: 0, manque: [] },
-      meme = (x, y) => String(x || "").toLowerCase() == String(y || "").toLowerCase();
+      meme = (x, y) => String(x || "").toLowerCase() == String(y || "").toLowerCase(),
+      fait = (champs) => {
+        Object.assign(a, champs);
+        progres(champs);
+      };
     return OuafSuivi.connecter().then((session) =>
       OuafSuivi.requete("GET", "/api/mes").then((mes) => {
         let pseudo = mes.pseudo || session.pseudo,
           /** @type {Promise<any>} */
           etape = Promise.resolve();
-        if (a.prevu > 0) {
+        if (a.prevuFait && a.remise) bilan.prevu = Math.min(a.remise.avant, a.prevu);
+        if (a.avanceFait) bilan.avance = a.avance;
+        if (a.prevu > 0 && !a.prevuFait) {
           let ligne = (mes.lignes || []).find((l) => meme(l.vers, a.vers));
           if (!ligne) bilan.manque.push(`convoi prévu vers ${a.vers} introuvable`);
           else {
             let envoye = Number(ligne.envoye) || 0,
-              reste = Math.max(0, Math.round(envoye - a.prevu));
-            if (envoye + 1 < a.prevu)
-              bilan.manque.push(
-                `le site n'avait que ${numeral(envoye).format()} d'envoyé vers ${a.vers}`,
-              );
-            etape = etape
-              .then(() =>
+              // remise à zéro déjà faite par un essai précédent : seul le reste est à noter
+              remis = a.remise && envoye + 1 < a.remise.avant,
+              reste = remis ? a.remise.reste : Math.max(0, Math.round(envoye - a.prevu));
+            if (!remis) {
+              if (envoye + 1 < a.prevu)
+                bilan.manque.push(
+                  `le site n'avait que ${numeral(envoye).format()} d'envoyé vers ${a.vers}`,
+                );
+              fait({ remise: { avant: envoye, reste } });
+              etape = etape.then(() =>
                 OuafSuivi.requete("PUT", "/api/mes", {
                   lignes: [{ de: pseudo, vers: ligne.vers, reprendre: true }],
                 }),
-              )
+              );
+            }
+            etape = etape
               .then(() =>
                 reste > 0
                   ? OuafSuivi.requete("PUT", "/api/mes", {
@@ -515,10 +532,13 @@ class OuafSuivi {
                     })
                   : null,
               )
-              .then(() => (bilan.prevu = Math.min(envoye, a.prevu)));
+              .then(() => {
+                fait({ prevuFait: true });
+                bilan.prevu = Math.min(a.remise.avant, a.prevu);
+              });
           }
         }
-        if (a.avance > 0)
+        if (a.avance > 0 && !a.avanceFait)
           etape = etape
             .then(() => OuafSuivi.requete("GET", "/api/avances"))
             .then((av) => {
@@ -527,27 +547,33 @@ class OuafSuivi {
                   vers: l.vers,
                   montant: Number(l.montant) || 0,
                 })),
-                i = lignes.findIndex(
-                  (l) =>
-                    meme(l.de, pseudo) &&
-                    meme(l.vers, a.vers) &&
-                    Math.abs(l.montant - a.avance) <= 1,
-                );
-              if (i == -1) {
+                pareilles = (l) =>
+                  meme(l.de, pseudo) && meme(l.vers, a.vers) && Math.abs(l.montant - a.avance) <= 1,
+                nombre = lignes.filter(pareilles).length;
+              // retrait déjà fait par un essai précédent (réponse perdue) : pas un second
+              if (a.avancesAvant != null && nombre < a.avancesAvant) {
+                fait({ avanceFait: true });
+                bilan.avance = a.avance;
+                return;
+              }
+              if (!nombre) {
                 bilan.manque.push(
                   `avance de ${numeral(a.avance).format()} vers ${a.vers} introuvable`,
                 );
                 return;
               }
-              lignes.splice(i, 1);
-              return OuafSuivi.requete("PUT", "/api/avances", { lignes }).then(
-                () => (bilan.avance = a.avance),
-              );
+              fait({ avancesAvant: nombre });
+              lignes.splice(lignes.findIndex(pareilles), 1);
+              return OuafSuivi.requete("PUT", "/api/avances", { lignes }).then(() => {
+                fait({ avanceFait: true });
+                bilan.avance = a.avance;
+              });
             });
         return etape.then(() => bilan);
       }),
     );
   }
+
   /**
    * Ouvre la page de l'extension qui demande l'accès à ouafchaine.fr (le
    * navigateur ne le permet qu'au clic, depuis une page de l'extension).

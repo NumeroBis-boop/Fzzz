@@ -172,29 +172,34 @@ class ConvoisForum {
   /**
    * Retire du sujet la ligne d'un convoi annulé, une seule : par numéro, sinon
    * (#0) par destinataire, montant et arrivée. Un convoi identique resté en
-   * cours garde la sienne.
+   * cours garde la sienne. Le nombre de lignes pareilles est passé à
+   * `progres` avant l'écriture : un nouvel essai après une réponse perdue ne
+   * retire pas une seconde ligne.
    *
    * @static
    * @method retirer
-   * @param {Object} c {id, vers, montant, arrivee (ms)}
-   * @return {Promise<Boolean>} ligne trouvée et retirée
+   * @param {Object} c {id, vers, montant, arrivee (ms), lignesForum?}
+   * @param {Function} [progres] reçoit {lignesForum}
+   * @return {Promise<Boolean>} ligne retirée (maintenant ou par un essai précédent)
    */
-  static retirer(c) {
+  static retirer(c, progres = () => {}) {
     let retiree = false;
     return ConvoisForum._reecrire((anciens) => {
-      let i = anciens.findIndex((n) => c.id && n.id == c.id);
-      if (i == -1)
-        i = anciens.findIndex(
-          (n) =>
-            !n.id &&
-            String(n.vers).toLowerCase() == c.vers.toLowerCase() &&
-            n.montant == c.montant &&
-            Math.abs(moment(n.arrivee, "YYYY-MM-DD HH:mm").valueOf() - c.arrivee) <=
-              OUAF_ECART_ARRIVEE,
-        );
-      if (i == -1) return null;
+      let parNumero = (n) => c.id && n.id == c.id,
+        pareille = (n) =>
+          !n.id &&
+          String(n.vers).toLowerCase() == c.vers.toLowerCase() &&
+          n.montant == c.montant &&
+          Math.abs(moment(n.arrivee, "YYYY-MM-DD HH:mm").valueOf() - c.arrivee) <=
+            OUAF_ECART_ARRIVEE,
+        egal = anciens.some(parNumero) ? parNumero : pareille,
+        nombre = anciens.filter(egal).length;
+      if (c.lignesForum != null && nombre < c.lignesForum) retiree = true;
+      if (retiree || !nombre) return null;
+      progres({ lignesForum: nombre });
       retiree = true;
-      return anciens.filter((n, j) => j != i);
+      let i = anciens.findIndex(egal);
+      return anciens.filter((n, k) => k != i);
     }).then(() => retiree);
   }
   /**

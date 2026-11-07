@@ -52,14 +52,14 @@ class PageCommerce {
         newValue = Utils.arrondiQuantite(value);
       $("#input_nbNourriture").val(numeral(newValue).format());
       $("#nbNourriture").val(newValue);
-      // mise à jour des ouvrieres
+      // ouvrières arrondies au-dessus : une de moins ne porterait pas tout
       $("#input_nbOuvriere").val(
         numeral(
-          Math.floor((newValue + nbMat) / (10 + monProfil.niveauConstruction[11] / 2)),
+          Math.ceil((newValue + nbMat) / (10 + monProfil.niveauConstruction[11] / 2)),
         ).format(),
       );
       $("#nbOuvriere").val(
-        Math.floor((newValue + nbMat) / (10 + monProfil.niveauConstruction[11] / 2)),
+        Math.ceil((newValue + nbMat) / (10 + monProfil.niveauConstruction[11] / 2)),
       );
       return false;
     });
@@ -74,14 +74,14 @@ class PageCommerce {
         newValue = Utils.arrondiQuantite(value);
       $("#input_nbMateriaux").val(numeral(newValue).format());
       $("#nbMateriaux").val(newValue);
-      // mise à jour des ouvrieres
+      // ouvrières arrondies au-dessus : une de moins ne porterait pas tout
       $("#input_nbOuvriere").val(
         numeral(
-          Math.floor((newValue + nbNou) / (10 + monProfil.niveauConstruction[11] / 2)),
+          Math.ceil((newValue + nbNou) / (10 + monProfil.niveauConstruction[11] / 2)),
         ).format(),
       );
       $("#nbOuvriere").val(
-        Math.floor((newValue + nbNou) / (10 + monProfil.niveauConstruction[11] / 2)),
+        Math.ceil((newValue + nbNou) / (10 + monProfil.niveauConstruction[11] / 2)),
       );
       return false;
     });

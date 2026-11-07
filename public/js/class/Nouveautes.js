@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.86.1",
+    notes: [
+      "Convois annulés : si le site de suivi ou le forum échoue en cours de retrait, le nouvel essai reprend là où il s'était arrêté (rien de perdu, rien de retiré deux fois).",
+    ],
+  },
+  {
     version: "1.86.0",
     notes: [
       "Convois, suivi OUAF : un convoi enregistré puis annulé avec le lien « Annuler » du jeu est retiré du suivi au chargement suivant de la page Convois : sa part sur le site de suivi (convoi prévu et avance) et sa ligne du forum. Seulement les siennes : un convoi identique resté en cours garde les siennes.",

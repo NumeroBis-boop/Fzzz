@@ -56,6 +56,22 @@ describe("tableaux en français", () => {
     ]);
   });
 
+  test("export CSV pour Excel en français : « ; » entre les colonnes, marque UTF-8 en tête", async () => {
+    tableau(`{ dom: "Bfrti", buttons: ["csvHtml5"] }`, "<tr><td>Élodie</td><td>1 234,5</td></tr>");
+    page.lire(`(() => {
+      window.fichierCsv = null;
+      URL.createObjectURL = (blob) => { window.fichierCsv = blob; return "blob:csv"; };
+      URL.revokeObjectURL = () => {};
+      $(".buttons-csv").trigger("click");
+    })()`);
+    const octets = await page.lire<Promise<number[]>>(
+      `fichierCsv.arrayBuffer().then((b) => Array.from(new Uint8Array(b)))`,
+    );
+    expect(octets.slice(0, 3)).toEqual([0xef, 0xbb, 0xbf]);
+    const texte = new TextDecoder().decode(new Uint8Array(octets));
+    expect(texte.split(/\r?\n/)).toEqual(['"Pseudo";"Terrain"', '"Élodie";"1 234,5"']);
+  });
+
   test("un tableau garde les textes qu'il précise", () => {
     tableau(
       `{ dom: "Bfrti", buttons: ["colvis", "copyHtml5"], language: { buttons: { colvis: "Colonne" }, zeroRecords: "Aucun joueur trouvé" } }`,

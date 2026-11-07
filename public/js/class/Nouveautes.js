@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.86.4",
+    notes: [
+      "Bouton « CSV » des tableaux : le fichier s'ouvre correctement dans Excel en français (une colonne par donnée, accents corrects).",
+    ],
+  },
+  {
     version: "1.86.3",
     notes: [
       "Tableaux en français : bouton « Copier » (au lieu de « Copy ») et ses messages, « Aucune donnée » quand un tableau est vide (Temps de trajet pendant le calcul). Sur téléphone, la fenêtre « Copie du tableau » tient dans l'écran.",

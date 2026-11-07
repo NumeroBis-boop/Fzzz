@@ -51,10 +51,10 @@ if (typeof $ != "undefined" && $.ui && $.ui.spinner && typeof Globalize != "unde
     },
   });
 
-// tableaux DataTables : textes de la bibliothèque et de ses boutons en
-// français (« Copy », « No data available in table » sinon) ; un tableau peut
-// préciser les siens dans son option `language`
-if (typeof $ != "undefined" && $.fn && $.fn.dataTable)
+// tableaux DataTables
+if (typeof $ != "undefined" && $.fn && $.fn.dataTable) {
+  // textes de la bibliothèque et de ses boutons en français (« Copy », « No data
+  // available in table » sinon) ; un tableau peut préciser les siens (`language`)
   $.extend(true, $.fn.dataTable.defaults, {
     language: {
       emptyTable: "Aucune donnée",
@@ -87,6 +87,11 @@ if (typeof $ != "undefined" && $.fn && $.fn.dataTable)
       },
     },
   });
+  // export CSV : Excel en français sépare les colonnes par « ; » et, sans marque
+  // UTF-8 en tête du fichier, lit les accents de travers (« Ã© » pour « é »)
+  if ($.fn.dataTable.ext.buttons && $.fn.dataTable.ext.buttons.csvHtml5)
+    Object.assign($.fn.dataTable.ext.buttons.csvHtml5, { fieldSeparator: ";", bom: true });
+}
 
 // Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres (onglets : ONGLETS_PARAMETRE)
 const AFFICHAGES_FZZZ = {

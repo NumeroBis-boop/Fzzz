@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.86.2",
+    notes: [
+      "Nombres écrits à la française partout (« 12,5 % » et non « 12.5% ») : analyses de combat et de chasse, lanceur de chasses (ratios, réplique, ratio plancher), sonde et vitesse d'attaque estimée, info-bulle des entrepôts, page Reine, ressources par ouvrière (page Convois), carte de l'alliance.",
+    ],
+  },
+  {
     version: "1.86.1",
     notes: [
       "Convois annulés : si le site de suivi ou le forum échoue en cours de retrait, le nouvel essai reprend là où il s'était arrêté (rien de perdu, rien de retiré deux fois).",

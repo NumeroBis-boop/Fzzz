@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.6",
+    notes: [
+      "Convois, suivi OUAF : deux convois identiques (même joueur, même montant, même arrivée) ne passent plus tous les deux « ✅ Enregistré » quand un seul a été envoyé au suivi ; chaque envoi noté ne compte que pour un convoi. Un convoi marqué à tort avant cette version : retire sa ligne de ton sujet « Convois » du forum pour pouvoir l'envoyer.",
+    ],
+  },
+  {
     version: "1.85.5",
     notes: [
       "Convois : « arrondir… » compte les ouvrières à l'arrondi supérieur ; il n'en manque plus une quand le total ne tombe pas juste.",

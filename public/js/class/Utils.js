@@ -273,6 +273,21 @@ class Utils {
     return val;
   }
   /**
+   * Nombre écrit à la française, « 1 234,5 » : toFixed() et String() donnent
+   * « 1234.5 ». Décimales facultatives : « 12 » plutôt que « 12,0 ».
+   *
+   * @static
+   * @method decimal
+   * @param {Number} n
+   * @param {Number} [decimales]
+   * @param {Boolean} [facultatives]
+   * @return {String}
+   */
+  static decimal(n, decimales = 0, facultatives = false) {
+    let d = "0".repeat(decimales);
+    return numeral(n).format(decimales ? `0,0.${facultatives ? `[${d}]` : d}` : "0,0");
+  }
+  /**
    * Formate un nombre en version courte : 950, 12,3k, 1,5M, 2G, 3,2T, puis P et
    * E, que numeral ne connaît pas (il afficherait 1000T).
    *
@@ -772,7 +787,7 @@ class Utils {
       classe = (inverse ? -signe : signe) > 0 ? "o_varPos" : signe ? "o_varNeg" : "",
       // pourcentage calculé ici : le format « % » de numeral est faux en français
       p = base ? (diff / base) * 100 : 0,
-      pct = base ? ` (${p > 0 ? "+" : ""}${p.toFixed(1).replace(".", ",")} %)` : "";
+      pct = base ? ` (${p > 0 ? "+" : ""}${Utils.decimal(p, 1)} %)` : "";
     return `<span class='${classe}'>${numeral(diff).format("+0,0")}${pct}</span>`;
   }
   /**

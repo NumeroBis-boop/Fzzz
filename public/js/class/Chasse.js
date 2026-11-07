@@ -200,7 +200,7 @@ class Chasse {
       ap = this._armeeAp,
       pertes = av.getSommeUnite() - this._armeePe.getSommeUnite(),
       xpTotal = this._xp.reduce((s, n) => s + n, 0),
-      pct = (n, d) => (d ? ((n * 100) / d).toFixed(2).replace(".", ",") + " %" : ""),
+      pct = (n, d) => (d ? Utils.decimal((n * 100) / d, 2) + " %" : ""),
       entete = [
         this._terrain ? `<b>${fmt(this._terrain)}</b> cm²` : "",
         `<span class='o_varNeg'>${fmt(pertes)}</span> pertes`,
@@ -259,15 +259,15 @@ class Chasse {
       bonusVie =
         this._armeeAp.getTotalVie(monProfil.niveauRecherche[1]) -
         this._armeeAv.getTotalVie(monProfil.niveauRecherche[1]),
-      pAtt = ((baseAtt * 100) / this._armeeAv.getBaseAtt()).toFixed(2),
-      pDef = ((baseDef * 100) / this._armeeAv.getBaseDef()).toFixed(2),
-      pVie = ((baseVie * 100) / this._armeeAv.getBaseVie()).toFixed(2);
+      pAtt = (baseAtt * 100) / this._armeeAv.getBaseAtt(),
+      pDef = (baseDef * 100) / this._armeeAv.getBaseDef(),
+      pVie = (baseVie * 100) / this._armeeAv.getBaseVie();
     return `<p class='retour'>Perte HOF : ${Utils.intToTime(this._armeeAv.getTemps(0) - this._armeePe.getTemps(0))} - Perte (TDP ${tdp}) : ${Utils.intToTime(this._armeeAv.getTemps(tdp) - this._armeePe.getTemps(tdp))}</p>
             <table class='o_tabAnalyse right' cellspacing='0'>
-			<tr><td><img width='35' src='images/icone/icone_ouvriere.png' alt='nb_unite'/></td><td colspan='2' style='padding-left:10px'>${numeral(sommeUnite).format()}</td><td style='padding-left:10px'>${((sommeUnite * 100) / this._armeeAv.getSommeUnite()).toFixed(2)}%</td></tr>
-			<tr><td>${IMG_VIE}</td><td class='right'>${(baseVie > 0 ? "+" : "") + numeral(baseVie).format()}(HB)</td><td class='right'>${(bonusVie > 0 ? "+" : "") + numeral(bonusVie).format()}(AB)</td><td style='padding-left:10px'>${(pVie > 0 ? "+" : "") + pVie}%</td></tr>
-			<tr><td>${IMG_ATT}</td><td style='padding-left:10px' class='right'>${(baseAtt > 0 ? "+" : "") + numeral(baseAtt).format()}(HB)</td><td style='padding-left:10px' class='right'>${(bonusAtt > 0 ? "+" : "") + numeral(bonusAtt).format()}(AB)</td><td style='padding-left:10px'>${(pAtt > 0 ? "+" : "") + pAtt}%</td></tr>
-			<tr><td>${IMG_DEF}</td><td class='right'>${(baseDef > 0 ? "+" : "") + numeral(baseDef).format()}(HB)</td><td class='right'>${(bonusDef > 0 ? "+" : "") + numeral(bonusDef).format()}(AB)</td></td><td style='padding-left:10px'>${(pDef > 0 ? "+" : "") + pDef}%</td></tr>
+			<tr><td><img width='35' src='images/icone/icone_ouvriere.png' alt='nb_unite'/></td><td colspan='2' style='padding-left:10px'>${numeral(sommeUnite).format()}</td><td style='padding-left:10px'>${Utils.decimal((sommeUnite * 100) / this._armeeAv.getSommeUnite(), 2)} %</td></tr>
+			<tr><td>${IMG_VIE}</td><td class='right'>${(baseVie > 0 ? "+" : "") + numeral(baseVie).format()}(HB)</td><td class='right'>${(bonusVie > 0 ? "+" : "") + numeral(bonusVie).format()}(AB)</td><td style='padding-left:10px'>${(pVie > 0 ? "+" : "") + Utils.decimal(pVie, 2)} %</td></tr>
+			<tr><td>${IMG_ATT}</td><td style='padding-left:10px' class='right'>${(baseAtt > 0 ? "+" : "") + numeral(baseAtt).format()}(HB)</td><td style='padding-left:10px' class='right'>${(bonusAtt > 0 ? "+" : "") + numeral(bonusAtt).format()}(AB)</td><td style='padding-left:10px'>${(pAtt > 0 ? "+" : "") + Utils.decimal(pAtt, 2)} %</td></tr>
+			<tr><td>${IMG_DEF}</td><td class='right'>${(baseDef > 0 ? "+" : "") + numeral(baseDef).format()}(HB)</td><td class='right'>${(bonusDef > 0 ? "+" : "") + numeral(bonusDef).format()}(AB)</td></td><td style='padding-left:10px'>${(pDef > 0 ? "+" : "") + Utils.decimal(pDef, 2)} %</td></tr>
 			</table>`;
   }
   /**

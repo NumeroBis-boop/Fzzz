@@ -149,7 +149,7 @@ class Horloge {
    */
   static libelleLatence() {
     let v = Horloge.latence / 1000;
-    return `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1).replace(".", ",")} s`;
+    return `${v >= 0 ? "+" : "−"}${Utils.decimal(Math.abs(v), 1)} s`;
   }
   /**
    * Horloge flottante : fixée à l'écran (visible en faisant défiler la page),

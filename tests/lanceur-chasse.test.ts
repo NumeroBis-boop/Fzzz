@@ -440,6 +440,9 @@ describe("lanceur : liste des ratios de référence", () => {
     lire(`$("#o_chasseDiffBouton").trigger("click")`);
     expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).not.toBe("none");
     expect(lire(`$("#o_chasseDiffMenu .o_chasseDiffItem").length`)).toBe(13);
+    expect(lire(`$("#o_chasseDiffMenu .o_chasseDiffItem[data-ratio='7.5']").text()`)).toMatch(
+      /^7,5 → Rep10% : (\d+,\d\d|< 20) %$/,
+    );
     lire(`$("#o_chasseDiffMenu .o_chasseDiffItem[data-ratio='7.5']").trigger("click")`);
     expect(lire(`$("#o_chasseDiffMenu")[0].style.display`)).toBe("none");
     expect(valeur("o_chasseDiff")).toBe(7.5);
@@ -460,14 +463,16 @@ describe("lanceur : difficulté plancher (Paramètres)", () => {
     expect(plan().ratioMin).toBe(7.2);
     expect(lire(`SimulationChasse.RATIO_PLANCHER`)).toBe(7.2);
     expect(plan().ratio).toBeGreaterThanOrEqual(7.2);
-    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 7.2");
+    // ratio écrit à la française : « 7,2 », pas « 7.2 »
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 7,2 :");
+    expect(lire(`$("#o_chasseLimite").text()`)).toBe("le ratio plancher 7,2");
     creerLanceur(`monProfil.parametre["ratioPlancher"].valeur = 6;`);
     cocher("o_chasseDiffAuto", true);
     saisir("o_chasseBudget", 500);
     expect(plan().ratioMin).toBe(6);
     expect(plan().ratio).toBeGreaterThanOrEqual(6);
     expect(plan().ratio).toBeLessThan(7.2);
-    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 6");
+    expect(lire(`$("#o_chasseAlerte").text()`)).toContain("plafonné à 6 :");
   });
 });
 

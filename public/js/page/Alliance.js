@@ -1084,7 +1084,7 @@ class PageAlliance {
       },
       subtitle: {
         text: allDists.length
-          ? `Distance min ${dMin.toFixed(0)} • max ${dMax.toFixed(0)} • moyenne ${dAvg.toFixed(0)}`
+          ? `Distance min ${Utils.decimal(dMin)} • max ${Utils.decimal(dMax)} • moyenne ${Utils.decimal(dAvg)}`
           : "",
         style: { fontSize: "11px", color: "#888" },
       },
@@ -1103,7 +1103,7 @@ class PageAlliance {
         useHTML: true,
         formatter: function () {
           const spot = this.point.spot;
-          const pos = `(${spot.x.toFixed(0)}, ${spot.y.toFixed(0)})`;
+          const pos = `(${Math.round(spot.x)}, ${Math.round(spot.y)})`;
           let html = "";
           if (spot.members.length === 1) {
             const m = spot.members[0];

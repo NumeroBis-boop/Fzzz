@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.5",
+    notes: [
+      "Convois : « arrondir… » compte les ouvrières à l'arrondi supérieur ; il n'en manque plus une quand le total ne tombe pas juste.",
+      "Préférences → Convois : la case du bloc « Récapitulatif » porte son nom (elle s'appelait encore « Joueur à livrer »).",
+    ],
+  },
+  {
     version: "1.85.4",
     notes: [
       "Chasses et Préférences (correction de Grim) : dans un navigateur en français, les flèches ne multiplient plus le ratio par dix, et une virgule tapée n'est plus effacée. Les champs de nombres s'affichent à la française (« 1 804 000 », « 9,1 ») quelle que soit la langue du navigateur ; virgule ou point acceptés.",

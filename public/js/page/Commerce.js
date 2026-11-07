@@ -24,7 +24,7 @@ class PageCommerce {
     // ajout d'information
     if (Utils.affichage("convoisInfoEtable"))
       $("form table").append(
-        `<tr class='centre'><td colspan=6>Info : Niveau d'étable <strong>${monProfil.niveauConstruction[11]}</strong>, 1 ouvrière peut transporter : <strong>${10 + monProfil.niveauConstruction[11] / 2}</strong> ressources.</td></tr>`,
+        `<tr class='centre'><td colspan=6>Info : Niveau d'étable <strong>${monProfil.niveauConstruction[11]}</strong>, 1 ouvrière peut transporter : <strong>${Utils.decimal(10 + monProfil.niveauConstruction[11] / 2, 1, true)}</strong> ressources.</td></tr>`,
       );
     // ajout des boutons pour arrondir les quantités
     if (Utils.affichage("convoisArrondir")) this.arrondir();

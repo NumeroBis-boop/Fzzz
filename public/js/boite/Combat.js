@@ -126,7 +126,7 @@ class BoiteCombat extends Boite {
               <tbody>
                 <tr>
                   <td class='left'>Multiplicateur de vie ennemi</td>
-                  <td class='right'>×${sonde.multiplicateur.toFixed(4)}</td>
+                  <td class='right'>×${Utils.decimal(sonde.multiplicateur, 4)}</td>
                   <td class='left'>Vie HB × 3</td>
                   <td class='right'>${numeral(sonde.vieHBx3).format()}</td>
                 </tr>
@@ -1744,7 +1744,7 @@ class BoiteCombat extends Boite {
       this._afficherResultatVa(
         va,
         hors ? null : arrondi,
-        hors ? `VA estimée hors plage [0..50] : ${va.toFixed(2)}` : null,
+        hors ? `VA estimée hors plage [0 à 50] : ${Utils.decimal(va, 2)}` : null,
         ennemi.pseudo,
       );
     });
@@ -1762,7 +1762,7 @@ class BoiteCombat extends Boite {
       btn.hide();
     } else {
       text.html(
-        `Vitesse d'attaque estimée : <strong>${va.toFixed(2)}</strong> (arrondi : <strong>${arrondi}</strong>) `,
+        `Vitesse d'attaque estimée : <strong>${Utils.decimal(va, 2)}</strong> (arrondi : <strong>${arrondi}</strong>) `,
       );
       btn
         .data("va", arrondi)

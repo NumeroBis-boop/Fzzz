@@ -7,6 +7,10 @@
  * CONSTANTE
  */
 const VERSION = chrome.runtime.getManifest().version;
+// nombres et dates à la française pour tout le code, même sur les chemins qui
+// s'arrêtent avant le routage (extension désactivée) : sinon « 1,234.5 »
+numeral.locale("fr");
+moment.locale("fr");
 // Classe `o_chrome` posée sur <html> pour scoper les règles CSS qui doivent
 // uniquement s'appliquer sous Chromium (cf. radar du Compte+ — Firefox et
 // Chrome divergent sur la distribution de largeur en `table-layout: auto`).
@@ -504,9 +508,6 @@ const DATEPICKER_OPTION = {
       $("head").append(
         `<link rel='stylesheet' href='${chrome.runtime.getURL("css/lib/jquery-ui-humanity/jquery-ui.min.css")}'/>`,
       );
-    // Chargement du language francais
-    numeral.locale("fr");
-    moment.locale("fr");
     // Ajout du tri pour les nombres
     $.fn.dataTable.ext.type.order["quantite-grade-pre"] = (d) => {
       return parseInt(d.replace(/\s/g, ""));
@@ -674,7 +675,7 @@ const DATEPICKER_OPTION = {
             const max = maxEntrepot(niveau);
             const restant = Math.max(0, max - value);
             const percentReel = max > 0 ? Math.round((value / max) * 1000) / 10 : 0;
-            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${percentReel}%)<br/><b class="o_succesClair">Place libre : ${numeral(restant).format()}</b>`;
+            html = `<b>${type}</b><br/>Actuel : ${numeral(value).format()}<br/>Maximum : ${numeral(max).format()} (${Utils.decimal(percentReel, 1, true)} %)<br/><b class="o_succesClair">Place libre : ${numeral(restant).format()}</b>`;
           } else if (percentAffiche > 0 && value > 0) {
             // Fallback : type non reconnu (ni Nourriture ni Matériaux) ou
             // niveauConstruction non chargé. On retombe sur l'ancien ratio.

@@ -553,7 +553,7 @@ class PageAttaquer {
     let tic = () => {
       let reste = cible - Horloge.clic().valueOf();
       if (reste > 0) {
-        $("#o_decSyncA").text((reste / 1000).toFixed(1).replace(".", ",") + " s");
+        $("#o_decSyncA").text(Utils.decimal(reste / 1000, 1) + " s");
         setTimeout(tic, Math.min(100, reste));
       } else {
         $("#o_syncA").html(`<b>Clique sur ${libelle} maintenant.</b>`).addClass("red");

@@ -177,7 +177,7 @@ class LanceurChasse {
     let R = this.reglagesLanceur,
       ratios = RATIO_CHASSE.map(
         (r, i) =>
-          `<div class='o_chasseDiffItem ${LanceurChasse.classeRatio(r)}' data-ratio='${r}'>${r.toFixed(1)} → Rep10% : ${this._replique(i)}</div>`,
+          `<div class='o_chasseDiffItem ${LanceurChasse.classeRatio(r)}' data-ratio='${r}'>${Utils.decimal(r, 1)} → Rep10% : ${this._replique(i)}</div>`,
       ).join(""),
       auto = (id, coche, titre = "") =>
         `<input id='${this._p}${id}' type='checkbox' class='o_chasseAuto'${coche ? " checked='checked'" : ""}/><label for='${this._p}${id}'${titre ? ` title='${titre}'` : ""}>Auto</label>`;
@@ -806,7 +806,7 @@ class LanceurChasse {
           : plan.erreur == "budget"
             ? "Pertes acceptées trop faibles : même 1 cm² coûte davantage."
             : plan.erreur == "plancher"
-              ? `Armée trop faible pour ce TdC : le ratio ${LanceurChasse.ratioPlancher()} ne tient même pas sur 1 cm².`
+              ? `Armée trop faible pour ce TdC : le ratio ${Utils.decimal(LanceurChasse.ratioPlancher(), 1, true)} ne tient même pas sur 1 cm².`
               : "Rien ne borne le coût : fixe le ratio, les pertes acceptées ou le rendement.",
       ]);
       this.$("#o_simulationChasse").empty();
@@ -843,7 +843,7 @@ class LanceurChasse {
     let infos = [];
     if (plan.plafonne)
       alertes.push(
-        `Ratio plafonné à ${plan.ratioMin} : pertes ${fmt(100 * plan.budget, 1)} % seulement.`,
+        `Ratio plafonné à ${Utils.decimal(plan.ratioMin, 1, true)} : pertes ${fmt(100 * plan.budget, 1)} % seulement.`,
       );
     if (plan.infaisable)
       alertes.push(`Rendement inatteignable : au mieux ${fmt(plan.rendement * 3600)} cm² / h.`);
@@ -902,7 +902,7 @@ class LanceurChasse {
    * @method _replique
    */
   _replique(i) {
-    return REPLIQUE_CHASSE[i] >= 0.2 ? (100 * REPLIQUE_CHASSE[i]).toFixed(2) + "%" : "< 20%";
+    return REPLIQUE_CHASSE[i] >= 0.2 ? Utils.decimal(100 * REPLIQUE_CHASSE[i], 2) + " %" : "< 20 %";
   }
   /**
    * Sous la difficulté : la part des chasses à 10 % de réplique à ce ratio
@@ -923,7 +923,7 @@ class LanceurChasse {
   _majInfoDiff(plan, tdcArrivee, choisi, auto, libre = false) {
     let max = plan.attArmee / SimulationChasse.difficulte(Math.max(1, tdcArrivee), 1),
       rep10 = SimulationChasse.table("rep10", plan.ratio),
-      sousChamp = `Rep10% : ${rep10 >= 0.2 ? (100 * rep10).toFixed(0) + " %" : "< 20 %"}`,
+      sousChamp = `Rep10% : ${rep10 >= 0.2 ? Utils.decimal(100 * rep10) + " %" : "< 20 %"}`,
       info = "";
     // difficulté fixée mais dépassée (une autre limite a tenu avant) : le réel
     if (!libre && plan.ratio > choisi + 0.05)
@@ -1025,7 +1025,7 @@ class LanceurChasse {
         sign = varAvg >= 0 ? "+" : "",
         cls = varAvg > 0.5 ? "red" : varAvg < -0.5 ? "green" : "";
       this.$(`.o_otherHfVar[data-idx='${i}']`).html(
-        `<span class='${cls}'>${sign}${varAvg.toFixed(1)} %</span>`,
+        `<span class='${cls}'>${sign}${Utils.decimal(varAvg, 1)} %</span>`,
       );
     });
   }
@@ -1099,7 +1099,7 @@ class LanceurChasse {
         fixe: "nombre et terrain fixés",
         ratio: "le ratio choisi",
         budget: "les pertes acceptées",
-        plancher: `le ratio plancher ${plan.ratioMin}`,
+        plancher: `le ratio plancher ${Utils.decimal(plan.ratioMin, 1, true)}`,
         rendement: "le rendement demandé",
       }[plan.limite] || "",
     );

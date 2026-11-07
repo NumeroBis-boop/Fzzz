@@ -51,6 +51,43 @@ if (typeof $ != "undefined" && $.ui && $.ui.spinner && typeof Globalize != "unde
     },
   });
 
+// tableaux DataTables : textes de la bibliothèque et de ses boutons en
+// français (« Copy », « No data available in table » sinon) ; un tableau peut
+// préciser les siens dans son option `language`
+if (typeof $ != "undefined" && $.fn && $.fn.dataTable)
+  $.extend(true, $.fn.dataTable.defaults, {
+    language: {
+      emptyTable: "Aucune donnée",
+      zeroRecords: "Aucun résultat",
+      search: "Rechercher : ",
+      lengthMenu: "Afficher _MENU_ lignes",
+      info: "Lignes _START_ à _END_ sur _TOTAL_",
+      infoEmpty: "Aucun enregistrement",
+      infoFiltered: "(Filtré par _MAX_ enregistrements)",
+      thousands: " ",
+      loadingRecords: "Chargement…",
+      processing: "Traitement…",
+      paginate: { first: "Début", previous: "Préc.", next: "Suiv.", last: "Fin" },
+      aria: {
+        sortAscending: " : trier par ordre croissant",
+        sortDescending: " : trier par ordre décroissant",
+      },
+      buttons: {
+        copy: "Copier",
+        copyTitle: "Copie du tableau",
+        copySuccess: { 0: "Aucune ligne copiée", 1: "1 ligne copiée", _: "%d lignes copiées" },
+        copyKeys:
+          "Appuie sur <i>Ctrl</i> ou <i>⌘</i> + <i>C</i> pour copier le tableau.<br><br>Pour annuler, clique sur ce message ou appuie sur Échap.",
+        csv: "CSV",
+        excel: "Excel",
+        colvis: "Colonnes",
+        colvisRestore: "Rétablir les colonnes",
+        collection: "Plus",
+        pageLength: { "-1": "Afficher toutes les lignes", _: "Afficher %d lignes" },
+      },
+    },
+  });
+
 // Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres (onglets : ONGLETS_PARAMETRE)
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",

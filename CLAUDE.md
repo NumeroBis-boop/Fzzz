@@ -10,7 +10,7 @@ Fzzz (shown to players as « Extension OUAF » since 1.41: `NOM_EXTENSION` / `TI
 
 "L'optimisation est autorisée, pas l'automatisation." Never add: a timer that clicks or sends a game action by itself (the player's click is always final — a countdown is fine), periodic requests to the game (they keep the 30-min session alive), automatic re-login, or background page polling. A single click may chain several sends (multi-flood, multi-chasse).
 
-All user-facing strings are in French (game domain vocabulary: ponte, chasse, convoi, alliance, etc.).
+All user-facing strings are in French (game domain vocabulary: ponte, chasse, convoi, alliance, etc.). DataTables tables get the library's texts and export buttons in French by default (`Utils.js`, `tests/tableaux-francais.test.ts`); a table only sets its own wording in `language`.
 
 ### Maintainer vocabulary
 

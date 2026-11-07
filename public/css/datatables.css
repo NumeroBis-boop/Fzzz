@@ -600,8 +600,10 @@ div.dt-button-info {
   top: 50%;
   left: 50%;
   width: 400px;
+  /* tient dans l'écran d'un téléphone (360 à 430 px) */
+  max-width: calc(100vw - 16px);
   margin-top: -100px;
-  margin-left: -200px;
+  transform: translateX(-50%);
   background-color: white;
   border: 2px solid #111;
   box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.3);

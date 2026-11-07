@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.86.3",
+    notes: [
+      "Tableaux en français : bouton « Copier » (au lieu de « Copy ») et ses messages, « Aucune donnée » quand un tableau est vide (Temps de trajet pendant le calcul). Sur téléphone, la fenêtre « Copie du tableau » tient dans l'écran.",
+    ],
+  },
+  {
     version: "1.86.2",
     notes: [
       "Nombres écrits à la française partout (« 12,5 % » et non « 12.5% ») : analyses de combat et de chasse, lanceur de chasses (ratios, réplique, ratio plancher), sonde et vitesse d'attaque estimée, info-bulle des entrepôts, page Reine, ressources par ouvrière (page Convois), carte de l'alliance.",

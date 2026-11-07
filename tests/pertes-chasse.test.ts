@@ -58,7 +58,8 @@ describe("PERTES_CHASSE : générées par le modèle", () => {
           attendu.replace(/"(\w+)":/g, "$1: ").replace(/,(\w+): /g, ",\n  $1: "),
       );
     expect(actuel).toBe(attendu);
-  });
+    // tables recalculées en entier : près de 5 s, la limite par défaut, quand la machine est chargée
+  }, 30000);
 
   test("201 pas de 0,05 de 1 à 11, tables croissantes ou décroissantes", () => {
     const t = lire(`PERTES_CHASSE`);

@@ -43,11 +43,19 @@ const site = (envoye: number, avances: number[]) =>
           etat.ecritures.push(m.methode + " " + m.chemin + " " + JSON.stringify(m.corps));
           if (m.chemin == "/api/mes") {
             let l = m.corps.lignes[0];
+            if (!l.reprendre && window.echecAjout) {
+              window.echecAjout = 0;
+              return Promise.resolve({ erreur: "reseau" });
+            }
             if (l.reprendre) etat.envoye = 0;
             else etat.envoye += l.ajout;
             return ok(mes());
           }
           etat.avances = m.corps.lignes;
+          if (window.perteAvances) {
+            window.perteAvances = 0;
+            return Promise.resolve({ erreur: "reseau" });
+          }
           return ok({});
         },
       },
@@ -226,5 +234,59 @@ describe("page Convois : annulation d'un des deux convois identiques", () => {
     expect(page.lire(`etatSite.ecritures`)).toEqual([]);
     expect(page.lire(`retraitsForum`)).toEqual([101]);
     expect(page.lire<string[]>(`toasts`).join(" ")).toContain("à la main du site de suivi");
+  });
+});
+
+describe("annulation reprise après un échec en cours de route", () => {
+  // annulation retenue pour le convoi 101 (466 945 vers Kwhwwymwn), puis report
+  const reporter = (repartition: string) =>
+    page.lire<Promise<void>>(`(() => {
+      ouafPanne = 0;
+      $.toast = () => {};
+      OuafSuivi.enregistrerAnnulations([{ id: 101, vers: "Kwhwwymwn", montant: 466945, arrivee: Horloge.maintenant() + 3600000, ${repartition}, dansForum: false, siteFait: false, quand: Horloge.maintenant() }]);
+      return CommerceFzzz.reporterAnnulations([]);
+    })()`);
+  const relancer = () =>
+    page.lire<Promise<void>>(`(ouafPanne = 0, CommerceFzzz.reporterAnnulations([]))`);
+
+  test("remise à zéro faite, reste pas noté : le nouvel essai note le reste, rien n'est perdu", async () => {
+    site(933890, []);
+    page.lire(`window.echecAjout = 1`);
+    await reporter(`prevu: 466945, avance: 0`);
+    expect(page.lire(`etatSite.envoye`)).toBe(0);
+    expect(page.lire<number[]>(`OuafSuivi.annulations().map((a) => a.id)`)).toEqual([101]);
+    await relancer();
+    expect(page.lire(`etatSite.envoye`)).toBe(466945);
+    expect(page.lire(`OuafSuivi.annulations()`)).toEqual([]);
+  });
+
+  test("avance retirée mais réponse perdue : pas de second retrait parmi les avances identiques", async () => {
+    site(0, [166945, 166945]);
+    page.lire(`window.perteAvances = 1`);
+    await reporter(`prevu: 0, avance: 166945`);
+    expect(page.lire<number[]>(`etatSite.avances.map((l) => l.montant)`)).toEqual([166945]);
+    await relancer();
+    expect(page.lire<number[]>(`etatSite.avances.map((l) => l.montant)`)).toEqual([166945]);
+    expect(page.lire(`OuafSuivi.annulations()`)).toEqual([]);
+  });
+
+  test("forum : ligne déjà retirée par l'essai précédent (#0 identiques), pas une seconde", async () => {
+    page.lire(`(() => {
+      window.ecrit = null;
+      ConvoisForum._sujet = () => Promise.resolve({ titre: "Convois | Moi", id: 5 });
+      ConvoisForum._contenu = () => Promise.resolve(ConvoisForum.lire("01/01/99 10:00 | Kwhwwymwn | 466 945 | #0"));
+      PartageChasses._xajax = () => { window.ecrit = true; return Promise.resolve(); };
+    })()`);
+    const c = {
+      id: 101,
+      vers: "Kwhwwymwn",
+      montant: 466945,
+      arrivee: Date.parse("2099-01-01T10:00:00"),
+      lignesForum: 2,
+    };
+    expect(await page.lire<Promise<boolean>>(`ConvoisForum.retirer(${JSON.stringify(c)})`)).toBe(
+      true,
+    );
+    expect(page.lire(`ecrit`)).toBeNull();
   });
 });

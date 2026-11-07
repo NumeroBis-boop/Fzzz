@@ -304,11 +304,13 @@ class CommerceFzzz {
               TOAST_WARNING,
             );
           }
-          let site = a.siteFait || a.prevu == null ? Promise.resolve(null) : OuafSuivi.retirer(a);
+          let progres = (champs) => changer(a, champs),
+            site =
+              a.siteFait || a.prevu == null ? Promise.resolve(null) : OuafSuivi.retirer(a, progres);
           return site
             .then((bilan) => {
               if (bilan) changer(a, { siteFait: true });
-              return (a.dansForum ? ConvoisForum.retirer(a) : Promise.resolve(false)).then(
+              return (a.dansForum ? ConvoisForum.retirer(a, progres) : Promise.resolve(false)).then(
                 () => bilan,
               );
             })

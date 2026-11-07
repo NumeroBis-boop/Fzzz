@@ -2774,6 +2774,13 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   font-style: italic;
   opacity: 0.85;
 }
+/* site de suivi sans réponse : écrit en clair (pas d'info-bulle sur téléphone) */
+.o_convoisOuafPanne {
+  margin: 6px 0;
+  text-align: center;
+  font-weight: bold;
+  color: #b42318;
+}
 
 /* attaque partagée en dôme ou en loge : pas de TdC pris */
 .o_priseLieu {

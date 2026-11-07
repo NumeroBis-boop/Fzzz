@@ -84,6 +84,8 @@ class CommerceFzzz {
     let convois = OuafSuivi.convoisJeu();
     if (!convois.length) return;
     let toast = (texte, type = TOAST_INFO) => $.toast({ ...type, text: texte, hideAfter: 8000 }),
+      // clés des convois affichés « ✅ Enregistré »
+      enregistres = new Set(),
       // état affiché devant un convoi : enregistré, ou bouton d'envoi
       etatLigne = (c, statut, detail = "") => {
         let $l = $(c.elt).find(".o_ouafLigne");
@@ -101,14 +103,16 @@ class CommerceFzzz {
             envoyer(c);
           });
         }
-        let fait = statut == "transmis" || statut == "envoye",
-          titres = {
-            verif: "Vérification sur le site de suivi…",
-            envoi: "Envoi au site de suivi…",
-            non: "Pas encore noté sur le site de suivi",
-            introuvable: "Destinataire introuvable sur le site de suivi",
-            erreur: "Le dernier envoi a échoué",
-          };
+        let fait = statut == "transmis" || statut == "envoye";
+        if (fait) enregistres.add(c.cle);
+        else enregistres.delete(c.cle);
+        let titres = {
+          verif: "Vérification sur le site de suivi…",
+          envoi: "Envoi au site de suivi…",
+          non: "Pas encore noté sur le site de suivi",
+          introuvable: "Destinataire introuvable sur le site de suivi",
+          erreur: "Le dernier envoi a échoué",
+        };
         $l.find(".o_ouafOui")
           .toggle(fait)
           .attr("title", fait ? detail || "Noté sur le site de suivi" : "");
@@ -147,10 +151,15 @@ class CommerceFzzz {
         ),
       envoyer = (c) => {
         etatLigne(c, "envoi");
-        OuafSuivi.envoyer([c], (x, statut, detail) => {
-          etatLigne(x, statut, detail);
-          if (statut == "envoye") noterForum([x]);
-        }).then(
+        OuafSuivi.envoyer(
+          [c],
+          (x, statut, detail) => {
+            etatLigne(x, statut, detail);
+            if (statut == "envoye") noterForum([x]);
+          },
+          convois,
+          enregistres,
+        ).then(
           (b) => {
             if (b.introuvables)
               toast(
@@ -166,33 +175,39 @@ class CommerceFzzz {
         );
       };
     convois.forEach((c) => etatLigne(c, "verif"));
-    // ouverture de la page : numéros notés dans le forum (exacts), puis
-    // historique du site pour les convois qui n'y sont pas
-    let forum = ConvoisForum.notes();
+    // ouverture de la page : convois notés dans le forum (exacts), puis
+    // historique du site pour les autres, lu en même temps
+    let forum = ConvoisForum.notes().then((notes) => {
+      let ids = new Set(notes.map((n) => n.id)),
+        // convoi sans numéro (lien Annuler disparu, autre appareil) : reconnu
+        // dans le forum par destinataire, montant et arrivée
+        pris = new Set(convois.map((c) => c.id).filter((id) => id && ids.has(id))),
+        cles = new Set();
+      convois.forEach((c) => {
+        let retrouve = !c.id && OuafSuivi.retrouver(notes, c, pris);
+        if (retrouve) pris.add(retrouve.id);
+        if ((c.id && ids.has(c.id)) || retrouve) cles.add(c.cle);
+      });
+      return cles;
+    });
     OuafSuivi.lireCode().then((code) => {
       let site = code
-        ? OuafSuivi.etat(convois).then(
+        ? OuafSuivi.etat(convois, forum).then(
             (transmis) => ({ transmis }),
             (erreur) => ({ erreur }),
           )
-        : Promise.resolve({ transmis: new Set() });
-      Promise.all([forum, site]).then(([notes, r]) => {
-        let ids = new Set(notes.map((n) => n.id)),
-          // convoi sans numéro (lien Annuler disparu, autre appareil) : reconnu
-          // dans le forum par destinataire, montant et arrivée
-          pris = new Set(convois.map((c) => c.id).filter((id) => id && ids.has(id))),
+        : Promise.resolve({});
+      Promise.all([forum, site]).then(([dansForum, r]) => {
+        // site non lu (pas de mot de passe, injoignable) : forum et marques de ce navigateur
+        let transmis = r.transmis || OuafSuivi.apparier(convois, [], dansForum),
           aNoter = [];
         convois.forEach((c) => {
-          let retrouve = !c.id && OuafSuivi.retrouver(notes, c, pris);
-          if (retrouve) pris.add(retrouve.id);
-          if ((c.id && ids.has(c.id)) || retrouve)
-            etatLigne(c, "transmis", "Noté dans le forum de l'alliance");
-          else if (r.transmis) {
-            let fait = r.transmis.has(c.cle);
-            etatLigne(c, fait ? "transmis" : "non");
+          if (dansForum.has(c.cle)) etatLigne(c, "transmis", "Noté dans le forum de l'alliance");
+          else if (transmis.has(c.cle)) {
+            etatLigne(c, "transmis");
             // noté sur le site mais pas dans le forum : ajouté pour les autres appareils
-            if (fait && c.id) aNoter.push(c);
-          } else etatLigne(c, "non", "état du site inconnu");
+            if (r.transmis && c.id) aNoter.push(c);
+          } else etatLigne(c, "non", r.erreur ? "état du site inconnu" : "");
         });
         if (aNoter.length) noterForum(aNoter);
         // site injoignable à l'ouverture de la page : expliqué au clic sur un envoi

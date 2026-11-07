@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.7",
+    notes: [
+      "Convois, suivi OUAF : deux clics rapprochés sur « 📤 Envoyer au suivi » partent l'un après l'autre ; le convoi prévu n'est plus compté deux fois. Deux envois identiques faits à moins de 2 minutes d'intervalle sont reconnus tous les deux, même depuis un autre appareil.",
+    ],
+  },
+  {
     version: "1.85.6",
     notes: [
       "Convois, suivi OUAF : deux convois identiques (même joueur, même montant, même arrivée) ne passent plus tous les deux « ✅ Enregistré » quand un seul a été envoyé au suivi ; chaque envoi noté ne compte que pour un convoi. Un convoi marqué à tort avant cette version : retire sa ligne de ton sujet « Convois » du forum pour pouvoir l'envoyer.",

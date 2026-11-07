@@ -150,3 +150,109 @@ describe("page Convois : deux convois identiques, un seul transmis", () => {
     expect(page.lire(`ajoutsForum`)).toEqual([102]);
   });
 });
+
+describe("historique du site : deux envois identiques coup sur coup", () => {
+  const debut = maintenant - 10 * 60000;
+  const ligne = (action: string, montant: number, secondes: number, detail = "") => ({
+    quand: new Date(debut + secondes * 1000).toISOString(),
+    action,
+    de: "Moi",
+    vers: "Kwhwwymwn",
+    montant,
+    detail,
+    sens: "envoye",
+  });
+  const nets = (hist: object[]) =>
+    page
+      .lire<{ net: number }[]>(`OuafSuivi.transmissions(${JSON.stringify(hist)}, "Moi")`)
+      .map((g) => g.net);
+
+  test("deux envois notés à 30 s d'écart : deux envois, pas un du double", () => {
+    expect(
+      nets([
+        ligne("convoi", 466945, 0, "Envoyé : 0 → 466945"),
+        ligne("convoi", 466945, 30, "Envoyé : 466945 → 933890"),
+      ]),
+    ).toEqual([466945, 466945]);
+  });
+
+  test("deux avances à 30 s d'écart : deux envois", () => {
+    expect(nets([ligne("avance", 466945, 0), ligne("avance", 466945, 30)])).toEqual([
+      466945, 466945,
+    ]);
+  });
+
+  test("envoi noté + avance, deux fois : deux envois", () => {
+    expect(
+      nets([
+        ligne("convoi", 300000, 0, "Envoyé : 0 → 300000"),
+        ligne("avance", 166945, 2),
+        ligne("convoi", 300000, 30, "Envoyé : 300000 → 600000"),
+        ligne("avance", 166945, 32),
+      ]),
+    ).toEqual([466945, 466945]);
+  });
+
+  test("avance remplacée dans la même seconde, dans un ordre ou dans l'autre : un seul envoi", () => {
+    const envoiNote = ligne("convoi", 1500, 0, "Envoyé : 500 → 1500");
+    expect(nets([envoiNote, ligne("avance_annule", 100, 4), ligne("avance", 600, 4)])).toEqual([
+      1500,
+    ]);
+    expect(nets([envoiNote, ligne("avance", 600, 4), ligne("avance_annule", 100, 4)])).toEqual([
+      1500,
+    ]);
+  });
+
+  test("deux convois identiques, rien dans le forum ni dans ce navigateur : les deux validés", () => {
+    page.lire(`localStorage.clear()`);
+    expect(apparier([A, B], [ligne("avance", 466945, 0), ligne("avance", 466945, 30)])).toEqual([
+      "id101",
+      "id102",
+    ]);
+  });
+});
+
+describe("deux clics « Envoyer au suivi » rapprochés", () => {
+  test("le second part après le premier : rien d'écrasé, convoi prévu compté une fois", async () => {
+    page.lire(`(() => {
+      localStorage.clear();
+      // site simulé avec son état : convoi prévu de 466 945 vers ce joueur
+      let etat = { envoye: 0, avances: [], historique: [] },
+        noter = (action, montant, detail = "") =>
+          etat.historique.push({ quand: new Date().toISOString(), action, de: "Moi", vers: "Kwhwwymwn", montant, detail, sens: "envoye" }),
+        reponse = (donnees) => new Promise((r) => setTimeout(() => r({ ok: true, donnees }), 5)),
+        mes = () => ({ pseudo: "Moi", membres: ["Kwhwwymwn"], lignes: [{ de: "Moi", vers: "Kwhwwymwn", demande: 466945, envoye: etat.envoye }] });
+      window.etatSite = etat;
+      window.chrome = {
+        storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x" }) } },
+        runtime: {
+          sendMessage: (m) => {
+            if (m.chemin == "/api/session") return reponse({ connecte: true, pseudo: "Moi" });
+            if (m.chemin == "/api/historique") return reponse({ lignes: etat.historique.slice() });
+            if (m.chemin == "/api/mes" && m.methode == "GET") return reponse(mes());
+            if (m.chemin == "/api/mes") {
+              let avant = etat.envoye;
+              etat.envoye += m.corps.lignes[0].ajout;
+              noter("convoi", m.corps.lignes[0].ajout, "Envoyé : " + avant + " → " + etat.envoye);
+              return reponse(mes());
+            }
+            if (m.methode == "GET") return reponse({ lignes: etat.avances.slice() });
+            etat.avances = m.corps.lignes;
+            noter("avance", m.corps.lignes[m.corps.lignes.length - 1].montant);
+            return reponse({});
+          },
+        },
+      };
+      window.statuts = [];
+      let page = ${JSON.stringify([A, B])}, connus = new Set(),
+        suivi = (c, s) => { statuts.push(c.cle + " " + s); if (s == "envoye") connus.add(c.cle); };
+      OuafSuivi.envoyer([page[0]], suivi, page, connus);
+      OuafSuivi.envoyer([page[1]], suivi, page, connus);
+    })()`);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(page.lire(`statuts`)).toEqual(["id101 envoye", "id102 envoye"]);
+    // le premier remplit le convoi prévu, le second part en avance
+    expect(page.lire(`etatSite.envoye`)).toBe(466945);
+    expect(page.lire(`etatSite.avances.map((l) => l.montant)`)).toEqual([466945]);
+  });
+});

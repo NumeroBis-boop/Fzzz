@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.85.8",
+    notes: [
+      "Convois, suivi OUAF : « ✅ Enregistré » vient seulement de ton sujet « Convois » dans le forum de l'alliance, plus de l'historique du site de suivi. Un convoi envoyé au site mais que le forum n'a pas pu noter affiche « 📝 Noter dans le forum » : ce bouton le note sans le renvoyer au site.",
+    ],
+  },
+  {
     version: "1.85.7",
     notes: [
       "Convois, suivi OUAF : deux clics rapprochés sur « 📤 Envoyer au suivi » partent l'un après l'autre ; le convoi prévu n'est plus compté deux fois. Deux envois identiques faits à moins de 2 minutes d'intervalle sont reconnus tous les deux, même depuis un autre appareil.",

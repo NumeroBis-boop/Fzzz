@@ -8,6 +8,8 @@ const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
 // tri du « Récapitulatif » : gardé tant qu'on reste sur la page Convois
 // (envoi d'un convoi = rechargement), oublié au chargement d'une autre page
 const CLE_TRI_CONVOIS = "fzzz_triConvoisMembres";
+const OUAF_PANNE =
+  "Le site de suivi OUAF ne répond pas : « Convoi à faire » et « 📤 Envoyer au suivi » sont indisponibles pour l'instant. Réessaie plus tard.";
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
@@ -122,10 +124,18 @@ class CommerceFzzz {
           .toggle(statut == "transmis")
           .attr("title", statut == "transmis" ? detail || "Noté dans le forum de l'alliance" : "");
         $l.find(".o_ouafEnvoyer")
+          .text(
+            statut == "verif"
+              ? "⏳ Vérification…"
+              : statut == "envoi"
+                ? "⏳ Envoi au suivi…"
+                : "📤 Envoyer au suivi",
+          )
           .toggle(statut != "transmis" && !aNoter)
           .prop("disabled", statut == "verif" || statut == "envoi")
           .attr("title", titre);
         $l.find(".o_ouafNoter")
+          .text(statut == "note" ? "⏳ Note dans le forum…" : "📝 Noter dans le forum")
           .toggle(aNoter)
           .prop("disabled", statut == "note")
           .attr("title", titre);
@@ -140,12 +150,13 @@ class CommerceFzzz {
             .off("click.ouafAcces")
             .on("click.ouafAcces", "#o_ouafAcces", () => OuafSuivi.demanderAcces());
         } else if (e.name == "code") CommerceFzzz.ouvrirParametresOuaf();
-        else if (e.name == "reseau")
+        else if (e.name == "reseau") {
+          CommerceFzzz.signalerSuiviOuaf(OUAF_PANNE);
           toast(
-            `Le site de suivi n'a pas pu être joint. Il n'est pas en https : le mode « HTTPS uniquement » de Firefox le bloque souvent. Ouvre une fois <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a>, choisis « Continuer vers le site HTTP », puis réessaie.`,
+            `Le site de suivi OUAF ne répond pas : rien n'a été envoyé, réessaie plus tard. Si <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a> s'ouvre normalement dans un onglet, c'est ton navigateur qui le bloque (Firefox, mode « HTTPS uniquement » : choisis « Continuer vers le site HTTP »).`,
             TOAST_ERROR,
           );
-        else
+        } else
           toast(
             "Le site de suivi n'a pas pu être joint : " + Utils.echapper(e.message),
             TOAST_ERROR,
@@ -177,8 +188,10 @@ class CommerceFzzz {
       envoyer = (c) => {
         etatLigne(c, "envoi");
         OuafSuivi.envoyer([c], (x, statut, detail) => {
-          if (statut == "envoye") noter(x, detail);
-          else etatLigne(x, statut, detail);
+          if (statut == "envoye") {
+            $("#centre .o_convoisOuafPanne").remove();
+            noter(x, detail);
+          } else etatLigne(x, statut, detail);
         }).then(
           (b) => {
             if (b.introuvables)
@@ -213,6 +226,28 @@ class CommerceFzzz {
         );
       },
     );
+  }
+  /**
+   * Problème du site de suivi écrit sur la page (une info-bulle ne se voit pas
+   * sur téléphone) : dans le Récapitulatif, sinon sous « Convois en cours ».
+   *
+   * @static
+   * @method signalerSuiviOuaf
+   * @param {String} texte
+   */
+  static signalerSuiviOuaf(texte) {
+    let $p = $("#centre .o_convoisOuafPanne");
+    if (!$p.length) {
+      $p = $("<p class='o_convoisOuafPanne'></p>");
+      let $recap = $("#o_convoisMembres table.o_convoisMembres"),
+        $titre = $("#centre > h3")
+          .filter((i, e) => $(e).text().includes("Convois en cours"))
+          .first();
+      if ($recap.length) $p.insertBefore($recap);
+      else if ($titre.length) $p.insertAfter($titre);
+      else return;
+    }
+    $p.text("⚠ " + texte);
   }
   /**
    * Écrit le destinataire du convoi, sans donner le focus au champ ni
@@ -506,10 +541,11 @@ class CommerceFzzz {
               e.name == "permission"
                 ? "Accès à ouafchaine.fr non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
                 : e.name == "reseau"
-                  ? "Site de suivi injoignable (non https : Firefox peut le bloquer, ouvre-le une fois et accepte le http)"
-                  : "Site de suivi : " + e.message,
+                  ? OUAF_PANNE
+                  : "Site de suivi OUAF : " + e.message,
           });
           afficher();
+          CommerceFzzz.signalerSuiviOuaf(ouaf.erreur);
         },
       );
     });

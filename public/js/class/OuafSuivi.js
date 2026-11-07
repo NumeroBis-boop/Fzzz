@@ -19,6 +19,12 @@ let connexionOuaf = null;
 // envois au site l'un après l'autre : deux clics rapprochés liraient le même
 // état du site (avance de l'un écrasée par l'autre, convoi prévu compté deux fois)
 let fileEnvoisOuaf = Promise.resolve();
+// site sans réponse : une lecture est abandonnée après ce délai (une écriture
+// attend sa fin, elle a pu aboutir), puis les requêtes échouent tout de suite
+// pendant la pause au lieu de faire attendre chaque clic
+const OUAF_DELAI_LECTURE = 10000;
+const OUAF_PAUSE_PANNE = 60000;
+let ouafPanne = 0;
 
 /**
  * Envoi des convois au site de suivi de la OUAF, au clic du joueur.
@@ -83,26 +89,50 @@ class OuafSuivi {
     }
   }
   /**
-   * Requête au site, faite par le script d'arrière-plan.
+   * Requête au site, faite par le script d'arrière-plan. Site sans réponse ou
+   * en panne (erreur 5xx) : erreur « reseau », et les requêtes suivantes
+   * échouent tout de suite pendant OUAF_PAUSE_PANNE.
    *
    * @static
    * @method requete
+   * @param {String} methode
+   * @param {String} chemin
+   * @param {Object} [corps]
+   * @param {Number} [delai] attente maximale d'une lecture (ms)
    * @return {Promise<Object>} réponse JSON du site
    */
-  static requete(methode, chemin, corps = undefined) {
-    return Promise.resolve(
+  static requete(methode, chemin, corps = undefined, delai = OUAF_DELAI_LECTURE) {
+    let panne = (texte) => {
+      let e = new Error(texte);
+      e.name = "reseau";
+      return e;
+    };
+    if (Date.now() - ouafPanne < OUAF_PAUSE_PANNE)
+      return Promise.reject(panne("site de suivi sans réponse il y a moins d'une minute"));
+    let envoi = Promise.resolve(
       chrome.runtime.sendMessage({ type: "fzzz_ouaf", methode, chemin, corps }),
-    ).then((r) => {
+    );
+    if (methode != "PUT")
+      envoi = Promise.race([
+        envoi,
+        new Promise((r) => setTimeout(() => r({ erreur: "delai" }), delai)),
+      ]);
+    return envoi.then((r) => {
       if (!r) throw new Error("le script d'arrière-plan n'a pas répondu");
       if (r.erreur == "permission") {
         let e = new Error("accès à ouafchaine.fr non autorisé");
         e.name = "permission";
         throw e;
       }
-      if (r.erreur) {
-        let e = new Error("site injoignable");
-        e.name = "reseau";
-        throw e;
+      if (r.erreur || r.statut >= 500) {
+        ouafPanne = Date.now();
+        throw panne(
+          r.erreur == "delai"
+            ? "site de suivi sans réponse"
+            : r.erreur
+              ? "site de suivi injoignable"
+              : `site de suivi en panne (erreur ${r.statut})`,
+        );
       }
       if (!r.ok) throw new Error((r.donnees && r.donnees.detail) || `erreur ${r.statut}`);
       return r.donnees || {};

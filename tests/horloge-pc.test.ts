@@ -16,6 +16,7 @@ const LECTURES_PC: Record<string, number> = {
   "class/ExportJoueurs.js": 2, // âge de la base des joueurs
   "class/Horloge.js": 1, // heure du serveur = heure du PC + décalage mesuré
   "class/MiseAJour.js": 1, // cadence de la lecture de la version publiée (une par heure)
+  "class/OuafSuivi.js": 2, // pause des requêtes au site de suivi après une panne
   "class/LanceurChasse.js": 1, // délai de partage après l'envoi des chasses, posé (relu dans Ressource.js)
   "class/Requetes.js": 2, // cadence des requêtes
   "class/Utils.js": 12, // identifiant, comptes à rebours, défilement de la page

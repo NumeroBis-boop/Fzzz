@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.86.0",
+    notes: [
+      "Convois, suivi OUAF : un convoi enregistré puis annulé avec le lien « Annuler » du jeu est retiré du suivi au chargement suivant de la page Convois : sa part sur le site de suivi (convoi prévu et avance) et sa ligne du forum. Seulement les siennes : un convoi identique resté en cours garde les siennes.",
+      "Un convoi enregistré avant cette version est retiré du forum, mais pas du site de suivi : retire-le à la main sur le site.",
+    ],
+  },
+  {
     version: "1.85.9",
     notes: [
       "Convois : quand le site de suivi OUAF ne répond pas, la page le dit en clair (au lieu de « ? »), l'attente est plus courte et un nouveau clic répond tout de suite. Pendant un envoi, le bouton affiche « ⏳ Envoi au suivi… ».",

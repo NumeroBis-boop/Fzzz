@@ -70,11 +70,12 @@ class CommerceFzzz {
     if (deborde > 0) $bloc.css("marginLeft", `${Math.max(0, gauche - deborde / 2)}px`);
   }
   /**
-   * Devant chaque convoi envoyé, son état sur le site de suivi de la OUAF :
-   * « ✅ Enregistré », ou un bouton « 📤 Envoyer au suivi ». À l'ouverture de
-   * la page, l'historique du site est lu (si le mot de passe est enregistré
-   * et l'accès accordé) pour savoir ce qui est déjà noté. Le mot de passe se
-   * renseigne seulement dans Paramètres → Convois.
+   * Devant chaque convoi envoyé, son état d'après le sujet « Convois » du forum
+   * de l'alliance, seule référence : « ✅ Enregistré » s'il y est noté, sinon
+   * un bouton « 📤 Envoyer au suivi », qui le transmet au site de suivi puis le
+   * note dans le sujet. Transmis mais pas noté (écriture du forum en échec) :
+   * bouton « 📝 Noter dans le forum », qui ne renvoie rien au site. Le mot de
+   * passe du site se renseigne seulement dans Paramètres → Convois.
    *
    * @static
    * @method suiviOuaf
@@ -84,14 +85,22 @@ class CommerceFzzz {
     let convois = OuafSuivi.convoisJeu();
     if (!convois.length) return;
     let toast = (texte, type = TOAST_INFO) => $.toast({ ...type, text: texte, hideAfter: 8000 }),
-      // clés des convois affichés « ✅ Enregistré »
-      enregistres = new Set(),
-      // état affiché devant un convoi : enregistré, ou bouton d'envoi
+      titres = {
+        verif: "Lecture du forum de l'alliance…",
+        envoi: "Envoi au site de suivi…",
+        non: "Pas encore noté dans le forum de l'alliance",
+        introuvable: "Destinataire introuvable sur le site de suivi",
+        erreur: "Le dernier envoi a échoué",
+        forum: "Transmis au site de suivi, pas encore noté dans le forum : ne le renvoie pas",
+        note: "Écriture dans le forum…",
+      },
+      // état affiché devant un convoi : noté dans le forum, bouton d'envoi, ou
+      // bouton de note dans le forum (transmis au site, pas encore noté)
       etatLigne = (c, statut, detail = "") => {
         let $l = $(c.elt).find(".o_ouafLigne");
         if (!$l.length) {
           $l = $(
-            `<span class='o_ouafLigne'><span class='o_ouafOui'>✅ Enregistré</span><button type='button' class='o_button o_ouafEnvoyer'>📤 Envoyer au suivi</button></span>`,
+            `<span class='o_ouafLigne'><span class='o_ouafOui'>✅ Enregistré</span><button type='button' class='o_button o_ouafEnvoyer'>📤 Envoyer au suivi</button><button type='button' class='o_button o_ouafNoter'>📝 Noter dans le forum</button></span>`,
           );
           // entre le « - » du jeu et « Vous allez livrer… »
           let noeud = c.elt.firstChild,
@@ -102,24 +111,24 @@ class CommerceFzzz {
             e.preventDefault();
             envoyer(c);
           });
+          $l.find(".o_ouafNoter").on("click", (e) => {
+            e.preventDefault();
+            noter(c);
+          });
         }
-        let fait = statut == "transmis" || statut == "envoye";
-        if (fait) enregistres.add(c.cle);
-        else enregistres.delete(c.cle);
-        let titres = {
-          verif: "Vérification sur le site de suivi…",
-          envoi: "Envoi au site de suivi…",
-          non: "Pas encore noté sur le site de suivi",
-          introuvable: "Destinataire introuvable sur le site de suivi",
-          erreur: "Le dernier envoi a échoué",
-        };
+        let titre = [titres[statut], detail].filter(Boolean).join(" : "),
+          aNoter = statut == "forum" || statut == "note";
         $l.find(".o_ouafOui")
-          .toggle(fait)
-          .attr("title", fait ? detail || "Noté sur le site de suivi" : "");
+          .toggle(statut == "transmis")
+          .attr("title", statut == "transmis" ? detail || "Noté dans le forum de l'alliance" : "");
         $l.find(".o_ouafEnvoyer")
-          .toggle(!fait)
+          .toggle(statut != "transmis" && !aNoter)
           .prop("disabled", statut == "verif" || statut == "envoi")
-          .attr("title", [titres[statut], detail].filter(Boolean).join(" : "));
+          .attr("title", titre);
+        $l.find(".o_ouafNoter")
+          .toggle(aNoter)
+          .prop("disabled", statut == "note")
+          .attr("title", titre);
       },
       echec = (e) => {
         if (e.name == "permission") {
@@ -142,24 +151,35 @@ class CommerceFzzz {
             TOAST_ERROR,
           );
       },
-      noterForum = (liste) =>
-        ConvoisForum.noter(liste).catch((e) =>
-          toast(
-            `${liste.length > 1 ? "Convois notés" : "Convoi noté"} sur le site de suivi, mais pas dans le forum de l'alliance (${e.message == "absente" ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » introuvable" : Utils.echapper(e.message)}) : sur un autre appareil, ${liste.length > 1 ? "ils pourront" : "il pourra"} s'afficher « Pas encore noté ».`,
-            TOAST_WARNING,
-          ),
-        ),
+      // la note dans le sujet du forum fait « ✅ Enregistré »
+      noter = (c, detail = "") => {
+        etatLigne(c, "note");
+        ConvoisForum.noter([c]).then(
+          () =>
+            etatLigne(
+              c,
+              "transmis",
+              ["Noté dans le forum de l'alliance", detail].filter(Boolean).join(" : "),
+            ),
+          (e) => {
+            let raison =
+              e.message == "absente"
+                ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » introuvable"
+                : Utils.echapper(e.message);
+            etatLigne(c, "forum", raison);
+            toast(
+              `Convoi noté sur le site de suivi, mais pas dans le forum de l'alliance (${raison}). Clique « 📝 Noter dans le forum » : sinon il s'affichera de nouveau « 📤 Envoyer au suivi », et le renvoyer le compterait deux fois sur le site.`,
+              TOAST_WARNING,
+            );
+          },
+        );
+      },
       envoyer = (c) => {
         etatLigne(c, "envoi");
-        OuafSuivi.envoyer(
-          [c],
-          (x, statut, detail) => {
-            etatLigne(x, statut, detail);
-            if (statut == "envoye") noterForum([x]);
-          },
-          convois,
-          enregistres,
-        ).then(
+        OuafSuivi.envoyer([c], (x, statut, detail) => {
+          if (statut == "envoye") noter(x, detail);
+          else etatLigne(x, statut, detail);
+        }).then(
           (b) => {
             if (b.introuvables)
               toast(
@@ -175,45 +195,24 @@ class CommerceFzzz {
         );
       };
     convois.forEach((c) => etatLigne(c, "verif"));
-    // ouverture de la page : convois notés dans le forum (exacts), puis
-    // historique du site pour les autres, lu en même temps
-    let forum = ConvoisForum.notes().then((notes) => {
-      let ids = new Set(notes.map((n) => n.id)),
-        // convoi sans numéro (lien Annuler disparu, autre appareil) : reconnu
-        // dans le forum par destinataire, montant et arrivée
-        pris = new Set(convois.map((c) => c.id).filter((id) => id && ids.has(id))),
-        cles = new Set();
-      convois.forEach((c) => {
-        let retrouve = !c.id && OuafSuivi.retrouver(notes, c, pris);
-        if (retrouve) pris.add(retrouve.id);
-        if ((c.id && ids.has(c.id)) || retrouve) cles.add(c.cle);
-      });
-      return cles;
-    });
-    OuafSuivi.lireCode().then((code) => {
-      let site = code
-        ? OuafSuivi.etat(convois, forum).then(
-            (transmis) => ({ transmis }),
-            (erreur) => ({ erreur }),
-          )
-        : Promise.resolve({});
-      Promise.all([forum, site]).then(([dansForum, r]) => {
-        // site non lu (pas de mot de passe, injoignable) : forum et marques de ce navigateur
-        let transmis = r.transmis || OuafSuivi.apparier(convois, [], dansForum),
-          aNoter = [];
-        convois.forEach((c) => {
-          if (dansForum.has(c.cle)) etatLigne(c, "transmis", "Noté dans le forum de l'alliance");
-          else if (transmis.has(c.cle)) {
-            etatLigne(c, "transmis");
-            // noté sur le site mais pas dans le forum : ajouté pour les autres appareils
-            if (r.transmis && c.id) aNoter.push(c);
-          } else etatLigne(c, "non", r.erreur ? "état du site inconnu" : "");
-        });
-        if (aNoter.length) noterForum(aNoter);
-        // site injoignable à l'ouverture de la page : expliqué au clic sur un envoi
-        if (r.erreur && r.erreur.name != "permission" && r.erreur.name != "reseau") echec(r.erreur);
-      });
-    });
+    // état lu dans le sujet « Convois » du forum seulement, jamais sur le site de suivi
+    ConvoisForum.notes().then(
+      (notes) => {
+        let notees = ConvoisForum.trouves(convois, notes);
+        convois.forEach((c) => etatLigne(c, notees.has(c) ? "transmis" : "non"));
+      },
+      (e) => {
+        let raison =
+          e.message == "absente"
+            ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » introuvable"
+            : Utils.echapper(e.message);
+        convois.forEach((c) => etatLigne(c, "non", "forum illisible, état inconnu"));
+        toast(
+          `Le forum de l'alliance n'a pas pu être lu (${raison}) : l'état des convois est inconnu. N'envoie pas au suivi un convoi déjà noté.`,
+          TOAST_WARNING,
+        );
+      },
+    );
   }
   /**
    * Écrit le destinataire du convoi, sans donner le focus au champ ni

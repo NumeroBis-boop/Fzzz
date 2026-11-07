@@ -17,7 +17,6 @@ const LECTURES_PC: Record<string, number> = {
   "class/Horloge.js": 1, // heure du serveur = heure du PC + décalage mesuré
   "class/MiseAJour.js": 1, // cadence de la lecture de la version publiée (une par heure)
   "class/LanceurChasse.js": 1, // délai de partage après l'envoi des chasses, posé (relu dans Ressource.js)
-  "class/OuafSuivi.js": 2, // âge des convois transmis
   "class/Requetes.js": 2, // cadence des requêtes
   "class/Utils.js": 12, // identifiant, comptes à rebours, défilement de la page
   "page/Alliance.js": 3, // âge de la carte, nom du fichier exporté

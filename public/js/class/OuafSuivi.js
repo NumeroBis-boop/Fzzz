@@ -8,21 +8,11 @@
 const OUAF_SITE = "http://ouafchaine.fr/";
 // code de connexion, dans le stockage de l'extension (illisible par le jeu)
 const CLE_OUAF_CODE = "fzzz_ouafCode";
-// convois transmis depuis ce navigateur : {clé du convoi: date (ms)}
-const CLE_OUAF_TRANSMIS = "fzzz_ouafTransmis";
 // numéros des convois vus avec leur lien Annuler : {numéro: {vers, montant, arrivee (ms)}}
 const CLE_OUAF_NUMEROS = "fzzz_ouafNumeros";
-// écart d'arrivée toléré pour reconnaître un convoi sans son lien Annuler
-// (heure lue à la seconde près ici, à la minute dans le forum)
+// écart d'arrivée toléré pour reconnaître un convoi sans son numéro (heure lue
+// à la seconde près ici, à la minute dans le forum)
 const OUAF_ECART_ARRIVEE = 2 * 60000;
-// au-delà, un convoi est forcément arrivé : son marquage local est oublié
-const OUAF_DUREE_VIE = 10 * 86400000;
-// trajet maximal d'un convoi (vitesse 0) : fenêtre de recherche dans l'historique
-const OUAF_TRAJET_MAX = 637200 * 1000;
-// départ d'un convoi estimé d'après le trajet calculé : marge minimale, et part
-// du trajet tolérée (vitesse réelle du convoi, heure du site décalée d'un fuseau)
-const OUAF_MARGE_DEPART = 10 * 60000;
-const OUAF_MARGE_TRAJET = 0.5;
 // connexion au site, partagée par les lectures d'une même page (cookie de session)
 /** @type {Promise<Object>|null} */
 let connexionOuaf = null;
@@ -34,13 +24,12 @@ let fileEnvoisOuaf = Promise.resolve();
  * Envoi des convois au site de suivi de la OUAF, au clic du joueur.
  *
  * Les requêtes passent par le script d'arrière-plan (le site est en http et
- * hors de fourmizzz.fr). Pour chaque convoi « Vous allez livrer » :
- *  - déjà transmis (marqué dans ce navigateur, ou retrouvé dans l'historique
- *    du site, pour les envois faits depuis un autre appareil) : rien ;
+ * hors de fourmizzz.fr). Pour un convoi « Vous allez livrer » :
  *  - destinataire inconnu du site : rien, « joueur introuvable » ;
  *  - sinon, la part qui manque au convoi prévu est notée dans « Mes convois »
  *    (« Nouvel envoi » + Enregistrer), et le surplus (ou tout le convoi s'il
  *    n'était pas prévu) est noté en avance vers ce joueur.
+ * Savoir si un convoi a déjà été transmis ne dépend que du forum (ConvoisForum).
  *
  * @class OuafSuivi
  */
@@ -156,7 +145,7 @@ class OuafSuivi {
    *
    * @static
    * @method convoisJeu
-   * @return {Array} [{elt, cle, id, vers, montant, arrivee (ms), depart (ms, null si trajet inconnu)}]
+   * @return {Array} [{elt, id, vers, montant, arrivee (ms)}]
    */
   static convoisJeu() {
     let convois = CommerceFzzz.lignes()
@@ -171,7 +160,6 @@ class OuafSuivi {
           vers = $(elt).find("a[href*='Pseudo=']").first().text().trim() || m[3].trim(),
           montant = nombre(m[1]) + nombre(m[2]),
           arrivee = Horloge.serveur().valueOf() + Utils.timeToInt(m[4]) * 1000,
-          trajet = OuafSuivi.trajet(vers),
           annuler = OuafSuivi._lienAnnuler(elt);
         return {
           elt,
@@ -180,21 +168,10 @@ class OuafSuivi {
           vers,
           montant,
           arrivee,
-          depart: trajet == null ? null : arrivee - trajet * 1000,
         };
       })
       .filter(Boolean);
     OuafSuivi.numeroter(convois);
-    // numéro d'annulation du jeu, sinon destinataire, montant et minute d'arrivée ;
-    // convois identiques sans numéro : rang en plus, marquer l'un ne marque pas l'autre
-    let vus = {};
-    convois.forEach((c) => {
-      let cle = c.id
-        ? "id" + c.id
-        : `${c.vers.toLowerCase()}|${c.montant}|${Math.round(c.arrivee / 60000)}`;
-      vus[cle] = (vus[cle] || 0) + 1;
-      c.cle = vus[cle] > 1 ? `${cle}|${vus[cle]}` : cle;
-    });
     return convois;
   }
   /**
@@ -204,7 +181,7 @@ class OuafSuivi {
    *
    * @static
    * @method numeroter
-   * @param {Array} convois voir convoisJeu (sans cle)
+   * @param {Array} convois voir convoisJeu
    */
   static numeroter(convois) {
     let maintenant = Horloge.maintenant(),
@@ -272,137 +249,6 @@ class OuafSuivi {
     return null;
   }
   /**
-   * Envois du joueur dans l'historique du site, regroupés par destinataire et
-   * par moment (un convoi transmis = un envoi noté + une avance éventuelle,
-   * à quelques secondes d'écart), avec leur montant net. Deux convois envoyés
-   * coup sur coup au même joueur restent deux envois : le second commence par
-   * son envoi noté, ou par son avance si le premier en a déjà une.
-   *
-   * @static
-   * @method transmissions
-   * @param {Array} lignes historique du site
-   * @param {String} pseudo
-   * @return {Array} [{vers, net, quand (ms)}]
-   */
-  static transmissions(lignes, pseudo) {
-    let moi = String(pseudo || "").toLowerCase(),
-      ecart = (detail) => {
-        let m = String(detail || "").match(/([\d.]+)\s*→\s*([\d.]+)/);
-        return m ? parseFloat(m[2]) - parseFloat(m[1]) : null;
-      },
-      // même seconde : dans l'ordre d'un envoi (envoi noté, avance remplacée, avance)
-      rang = { convoi: 0, convoi_annule: 1, avance_annule: 2, avance: 3 },
-      mouvements = (lignes || [])
-        .filter((r) => r.sens == "envoye" && String(r.de || "").toLowerCase() == moi)
-        .map((r) => {
-          let montant = Number(r.montant) || 0,
-            delta =
-              r.action == "convoi"
-                ? (ecart(r.detail) ?? montant)
-                : r.action == "convoi_annule"
-                  ? (ecart(r.detail) ?? -montant)
-                  : r.action == "avance"
-                    ? montant
-                    : r.action == "avance_annule"
-                      ? -montant
-                      : 0;
-          return {
-            vers: String(r.vers || "").toLowerCase(),
-            action: r.action,
-            delta,
-            quand: Date.parse(r.quand),
-          };
-        })
-        .filter((r) => r.delta && !isNaN(r.quand))
-        .sort((a, b) => a.quand - b.quand || rang[a.action] - rang[b.action]),
-      groupes = [];
-    mouvements.forEach((r) => {
-      let g = groupes.filter((x) => x.vers == r.vers).pop();
-      if (
-        !g ||
-        r.quand - g.quand > 120000 ||
-        (r.action == "convoi" && (g.actions.has("convoi") || g.actions.has("avance"))) ||
-        ((r.action == "avance" || r.action == "avance_annule") && g.actions.has("avance"))
-      )
-        groupes.push((g = { vers: r.vers, net: 0, quand: r.quand, actions: new Set() }));
-      g.net += r.delta;
-      g.actions.add(r.action);
-    });
-    return groupes.filter((g) => g.net > 0).map(({ vers, net, quand }) => ({ vers, net, quand }));
-  }
-  /**
-   * Convois déjà transmis : connus (forum, ou marqués dans ce navigateur), ou
-   * retrouvés dans l'historique (même destinataire, même montant, noté après
-   * le départ du convoi, ou son départ le plus tôt possible si le trajet est
-   * inconnu). Chaque envoi de l'historique ne vaut que pour un convoi, et les
-   * convois connus prennent le leur d'abord : deux convois identiques dont un
-   * seul a été transmis ne sont pas tous deux validés par son envoi.
-   *
-   * @static
-   * @method apparier
-   * @param {Array} convois tous les convois de la page (voir convoisJeu)
-   * @param {Array} groupes voir transmissions
-   * @param {Set<String>} [connus] clés des convois déjà reconnus transmis (forum, page)
-   * @return {Set<String>} clés des convois transmis
-   */
-  static apparier(convois, groupes, connus = new Set()) {
-    let locaux = OuafSuivi.transmisLocaux(),
-      libres = groupes.slice(),
-      transmis = new Set(),
-      prendre = (c) => {
-        let i = libres.findIndex(
-          (g) =>
-            g.vers == c.vers.toLowerCase() &&
-            Math.abs(g.net - c.montant) <= 1 &&
-            // un envoi noté avant le départ de ce convoi en est un autre (même
-            // montant vers le même joueur, convoi précédent déjà arrivé)
-            g.quand >= OuafSuivi.departAuPlusTot(c),
-        );
-        if (i != -1) libres.splice(i, 1);
-        return i != -1;
-      },
-      ordre = convois.slice().sort((a, b) => a.arrivee - b.arrivee),
-      connu = (c) => connus.has(c.cle) || !!locaux[c.cle];
-    ordre.filter(connu).forEach((c) => {
-      prendre(c);
-      transmis.add(c.cle);
-    });
-    ordre.filter((c) => !connu(c) && prendre(c)).forEach((c) => transmis.add(c.cle));
-    return transmis;
-  }
-  /**
-   * Instant avant lequel une entrée de l'historique ne peut pas être ce convoi.
-   *
-   * @static
-   * @method departAuPlusTot
-   */
-  static departAuPlusTot(c) {
-    if (c.depart == null) return c.arrivee - OUAF_TRAJET_MAX;
-    let marge = Math.max(OUAF_MARGE_DEPART, (c.arrivee - c.depart) * OUAF_MARGE_TRAJET);
-    return c.depart - marge;
-  }
-  /**
-   * @static
-   * @method transmisLocaux
-   */
-  static transmisLocaux() {
-    let liste = Utils.lireStockage(CLE_OUAF_TRANSMIS, {}),
-      limite = Date.now() - OUAF_DUREE_VIE;
-    for (let cle in liste) if (liste[cle] < limite) delete liste[cle];
-    return liste;
-  }
-  /**
-   * @static
-   * @method marquerTransmis
-   */
-  static marquerTransmis(cle) {
-    let liste = OuafSuivi.transmisLocaux();
-    liste[cle] = Date.now();
-    try {
-      localStorage.setItem(CLE_OUAF_TRANSMIS, JSON.stringify(liste));
-    } catch (e) {}
-  }
-  /**
    * Répartition d'un convoi : part notée sur le convoi prévu (au plus ce
    * qu'il reste à livrer) et surplus noté en avance.
    *
@@ -454,55 +300,16 @@ class OuafSuivi {
     );
   }
   /**
-   * État des convois vis-à-vis du site. L'historique est lu pendant que les
-   * convois du forum sont cherchés, puis apparié avec eux (voir apparier).
-   *
-   * @static
-   * @method etat
-   * @param {Array} convois tous les convois de la page
-   * @param {Promise<Set<String>>} [connus] clés des convois notés dans le forum
-   * @return {Promise<Set<String>>} clés des convois transmis
-   */
-  static etat(convois, connus = Promise.resolve(new Set())) {
-    return Promise.all([
-      OuafSuivi.connecter().then((session) =>
-        OuafSuivi.requete("GET", "/api/historique").then((h) =>
-          OuafSuivi.transmissions(h.lignes, session.pseudo),
-        ),
-      ),
-      connus,
-    ]).then(([groupes, notes]) => {
-      let transmis = OuafSuivi.apparier(convois, groupes, notes);
-      // une ligne par convoi non retrouvé (console F12) : envois du site vers ce joueur
-      convois
-        .filter((c) => !transmis.has(c.cle))
-        .forEach((c) =>
-          console.info(
-            `[${NOM_EXTENSION}] convoi vers ${c.vers} (${c.montant}) non retrouvé sur le site ; noté après ${moment(OuafSuivi.departAuPlusTot(c)).format("DD/MM HH:mm")} attendu ; envois du site vers ce joueur :`,
-            groupes
-              .filter((g) => g.vers == c.vers.toLowerCase())
-              .map((g) => `${g.net} le ${moment(g.quand).format("DD/MM HH:mm")}`)
-              .join(", ") || "aucun",
-          ),
-        );
-      return transmis;
-    });
-  }
-  /**
-   * Transmet les convois pas encore notés, l'un après l'autre et après les
-   * envois déjà en cours. Les autres convois de la page comptent : l'envoi
-   * d'un convoi identique déjà transmis ne fait pas passer celui-ci pour transmis.
+   * Transmet des convois, l'un après l'autre et après les envois déjà en cours.
    *
    * @static
    * @method envoyer
-   * @param {Array} convois à transmettre, voir convoisJeu
+   * @param {Array} convois voir convoisJeu
    * @param {Function} suivi (convoi, statut, detail) appelé pour chaque convoi
-   * @param {Array} [page] tous les convois de la page
-   * @param {Set<String>} [connus] clés des convois de la page déjà reconnus transmis, lues au moment de l'envoi
-   * @return {Promise<Object>} {envoyes, deja, introuvables, erreurs}
+   * @return {Promise<Object>} {envoyes, introuvables, erreurs}
    */
-  static envoyer(convois, suivi = () => {}, page = convois, connus = new Set()) {
-    let envoi = fileEnvoisOuaf.then(() => OuafSuivi._envoyer(convois, suivi, page, connus));
+  static envoyer(convois, suivi = () => {}) {
+    let envoi = fileEnvoisOuaf.then(() => OuafSuivi._envoyer(convois, suivi));
     fileEnvoisOuaf = envoi.catch(() => {});
     return envoi;
   }
@@ -510,28 +317,16 @@ class OuafSuivi {
    * @private
    * @static
    */
-  static _envoyer(convois, suivi, page, connus) {
-    let bilan = { envoyes: 0, deja: 0, introuvables: 0, erreurs: 0 };
+  static _envoyer(convois, suivi) {
+    let bilan = { envoyes: 0, introuvables: 0, erreurs: 0 };
     return OuafSuivi.connecter().then((session) =>
-      Promise.all([
-        OuafSuivi.requete("GET", "/api/mes"),
-        OuafSuivi.requete("GET", "/api/historique"),
-      ]).then(([mes, historique]) => {
+      OuafSuivi.requete("GET", "/api/mes").then((mes) => {
         let pseudo = mes.pseudo || session.pseudo,
-          membres = mes.membres || [],
-          transmis = OuafSuivi.apparier(
-            page,
-            OuafSuivi.transmissions(historique.lignes, pseudo),
-            connus,
-          );
+          membres = mes.membres || [];
         return convois
           .reduce(
             (suite, c) =>
               suite.then(() => {
-                if (transmis.has(c.cle)) {
-                  bilan.deja++;
-                  return suivi(c, "transmis");
-                }
                 let nom = membres.find((m) => m.toLowerCase() == c.vers.toLowerCase());
                 if (!nom) {
                   bilan.introuvables++;
@@ -567,7 +362,6 @@ class OuafSuivi {
                     );
                 return etape.then(
                   () => {
-                    OuafSuivi.marquerTransmis(c.cle);
                     bilan.envoyes++;
                     suivi(
                       c,

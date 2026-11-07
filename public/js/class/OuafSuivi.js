@@ -10,6 +10,11 @@ const OUAF_SITE = "http://ouafchaine.fr/";
 const CLE_OUAF_CODE = "fzzz_ouafCode";
 // numéros des convois vus avec leur lien Annuler : {numéro: {vers, montant, arrivee (ms)}}
 const CLE_OUAF_NUMEROS = "fzzz_ouafNumeros";
+// convois transmis dont le joueur a cliqué « Annuler », à retirer du suivi au
+// chargement suivant : [{id, vers, montant, arrivee, prevu?, avance?, dansForum, siteFait, quand}]
+const CLE_OUAF_ANNULES = "fzzz_ouafAnnules";
+// au-delà, une annulation non reportée est abandonnée (à corriger à la main)
+const OUAF_DUREE_ANNULATION = 86400000;
 // écart d'arrivée toléré pour reconnaître un convoi sans son numéro (heure lue
 // à la seconde près ici, à la minute dans le forum)
 const OUAF_ECART_ARRIVEE = 2 * 60000;
@@ -18,6 +23,7 @@ const OUAF_ECART_ARRIVEE = 2 * 60000;
 let connexionOuaf = null;
 // envois au site l'un après l'autre : deux clics rapprochés liraient le même
 // état du site (avance de l'un écrasée par l'autre, convoi prévu compté deux fois)
+/** @type {Promise<any>} */
 let fileEnvoisOuaf = Promise.resolve();
 // site sans réponse : une lecture est abandonnée après ce délai (une écriture
 // attend sa fin, elle a pu aboutir), puis les requêtes échouent tout de suite
@@ -271,11 +277,24 @@ class OuafSuivi {
    * @static
    */
   static _lienAnnuler(elt) {
+    let lien = OuafSuivi.lienAnnuler(elt);
+    return lien ? (lien.getAttribute("href") || "").match(/annuler=(\d+)/)[1] : null;
+  }
+  /**
+   * Lien « Annuler » du jeu qui suit une ligne de convoi.
+   *
+   * @static
+   * @method lienAnnuler
+   * @param {Element} elt ligne du convoi (voir CommerceFzzz.lignes)
+   * @return {Element|null}
+   */
+  static lienAnnuler(elt) {
     for (let n = elt.nextSibling; n && n.nodeName != "BR"; n = n.nextSibling)
-      if (n.nodeName == "A") {
-        let m = (n.getAttribute("href") || "").match(/annuler=(\d+)/);
-        if (m) return m[1];
-      }
+      if (
+        n.nodeName == "A" &&
+        /annuler=\d+/.test(/** @type {Element} */ (n).getAttribute("href") || "")
+      )
+        return /** @type {Element} */ (n);
     return null;
   }
   /**
@@ -392,6 +411,8 @@ class OuafSuivi {
                     );
                 return etape.then(
                   () => {
+                    c.prevu = r.convoi;
+                    c.avance = r.avance;
                     bilan.envoyes++;
                     suivi(
                       c,
@@ -414,6 +435,116 @@ class OuafSuivi {
             Promise.resolve(),
           )
           .then(() => bilan);
+      }),
+    );
+  }
+  /**
+   * Annulations à reporter, les plus anciennes abandonnées.
+   *
+   * @static
+   * @method annulations
+   * @return {Array} voir CLE_OUAF_ANNULES
+   */
+  static annulations() {
+    let liste = Utils.lireStockage(CLE_OUAF_ANNULES, []);
+    return Array.isArray(liste) ? liste : [];
+  }
+  /**
+   * @static
+   * @method enregistrerAnnulations
+   * @param {Array} liste voir CLE_OUAF_ANNULES
+   */
+  static enregistrerAnnulations(liste) {
+    try {
+      if (liste.length) localStorage.setItem(CLE_OUAF_ANNULES, JSON.stringify(liste));
+      else localStorage.removeItem(CLE_OUAF_ANNULES);
+    } catch (e) {}
+  }
+  /**
+   * Retire du site la part d'un convoi annulé, elle seule : sur le convoi
+   * prévu, l'envoyé redescend de `prevu` (le site ne sait que le remettre à
+   * zéro, comme son bouton « Annuler l'envoi » : le reste est noté de
+   * nouveau) ; en avance, une seule ligne de ce montant vers ce joueur est
+   * retirée, même s'il y en a d'identiques.
+   *
+   * @static
+   * @method retirer
+   * @param {Object} a {vers, prevu, avance}
+   * @return {Promise<Object>} {prevu, avance, manque: [textes]}
+   */
+  static retirer(a) {
+    let retrait = fileEnvoisOuaf.then(() => OuafSuivi._retirer(a));
+    fileEnvoisOuaf = retrait.catch(() => {});
+    return retrait;
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _retirer(a) {
+    let bilan = { prevu: 0, avance: 0, manque: [] },
+      meme = (x, y) => String(x || "").toLowerCase() == String(y || "").toLowerCase();
+    return OuafSuivi.connecter().then((session) =>
+      OuafSuivi.requete("GET", "/api/mes").then((mes) => {
+        let pseudo = mes.pseudo || session.pseudo,
+          /** @type {Promise<any>} */
+          etape = Promise.resolve();
+        if (a.prevu > 0) {
+          let ligne = (mes.lignes || []).find((l) => meme(l.vers, a.vers));
+          if (!ligne) bilan.manque.push(`convoi prévu vers ${a.vers} introuvable`);
+          else {
+            let envoye = Number(ligne.envoye) || 0,
+              reste = Math.max(0, Math.round(envoye - a.prevu));
+            if (envoye + 1 < a.prevu)
+              bilan.manque.push(
+                `le site n'avait que ${numeral(envoye).format()} d'envoyé vers ${a.vers}`,
+              );
+            etape = etape
+              .then(() =>
+                OuafSuivi.requete("PUT", "/api/mes", {
+                  lignes: [{ de: pseudo, vers: ligne.vers, reprendre: true }],
+                }),
+              )
+              .then(() =>
+                reste > 0
+                  ? OuafSuivi.requete("PUT", "/api/mes", {
+                      lignes: [
+                        { de: pseudo, vers: ligne.vers, demande: ligne.demande, ajout: reste },
+                      ],
+                      creer_avance: false,
+                    })
+                  : null,
+              )
+              .then(() => (bilan.prevu = Math.min(envoye, a.prevu)));
+          }
+        }
+        if (a.avance > 0)
+          etape = etape
+            .then(() => OuafSuivi.requete("GET", "/api/avances"))
+            .then((av) => {
+              let lignes = (av.lignes || []).map((l) => ({
+                  de: l.de,
+                  vers: l.vers,
+                  montant: Number(l.montant) || 0,
+                })),
+                i = lignes.findIndex(
+                  (l) =>
+                    meme(l.de, pseudo) &&
+                    meme(l.vers, a.vers) &&
+                    Math.abs(l.montant - a.avance) <= 1,
+                );
+              if (i == -1) {
+                bilan.manque.push(
+                  `avance de ${numeral(a.avance).format()} vers ${a.vers} introuvable`,
+                );
+                return;
+              }
+              lignes.splice(i, 1);
+              return OuafSuivi.requete("PUT", "/api/avances", { lignes }).then(
+                () => (bilan.avance = a.avance),
+              );
+            });
+        return etape.then(() => bilan);
       }),
     );
   }

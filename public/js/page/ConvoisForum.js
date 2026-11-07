@@ -22,16 +22,21 @@ let fileConvoisForum = Promise.resolve();
  */
 class ConvoisForum {
   /**
-   * Lignes de convois d'un texte de sujet.
+   * Lignes de convois d'un texte de sujet. La répartition (part du convoi
+   * prévu, part en avance) n'est connue que des lignes écrites depuis 1.86.
    *
    * @static
    * @method lire
    * @param {String} texte
-   * @return {Array} [{arrivee "AAAA-MM-JJ HH:mm", vers, montant, id}]
+   * @return {Array} [{arrivee "AAAA-MM-JJ HH:mm", vers, montant, id, prevu?, avance?}]
    */
   static lire(texte) {
-    let re =
-        /(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2})[:hH](\d{2})\s*\|\s*([^|\n]+?)\s*\|\s*(\d[\d   .]*)\s*\|\s*#(\d+)/g,
+    let nombre = "(\\d[\\d \\u00a0\\u202f.]*)",
+      re = new RegExp(
+        `(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})\\s+(\\d{1,2})[:hH](\\d{2})\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*${nombre}\\s*\\|\\s*#(\\d+)(?:[ \\t]*\\|[ \\t]*prévu[ \\t]+${nombre}[ \\t]*\\|[ \\t]*avance[ \\t]+${nombre})?`,
+        "g",
+      ),
+      entier = (t) => parseInt(t.replace(/\D/g, "")),
       convois = [],
       m;
     while ((m = re.exec(String(texte || ""))))
@@ -41,8 +46,9 @@ class ConvoisForum {
           "D/M/YYYY H:mm",
         ).format("YYYY-MM-DD HH:mm"),
         vers: PartageChasses.nettoyer(m[6]),
-        montant: parseInt(m[7].replace(/\D/g, "")),
+        montant: entier(m[7]),
         id: parseInt(m[8]),
+        ...(m[9] != null ? { prevu: entier(m[9]), avance: entier(m[10]) } : {}),
       });
     return convois;
   }
@@ -51,7 +57,7 @@ class ConvoisForum {
    *
    * @static
    * @method ecrire
-   * @param {Array} convois [{arrivee, vers, montant, id}]
+   * @param {Array} convois [{arrivee, vers, montant, id, prevu?, avance?}]
    * @param {String} maintenant "AAAA-MM-JJ HH:mm"
    */
   static ecrire(convois, maintenant) {
@@ -62,7 +68,10 @@ class ConvoisForum {
       .slice(0, PARTAGE_MAX_ENTREES)
       .map(
         (c) =>
-          `${moment(c.arrivee, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm")} | ${c.vers} | ${numeral(c.montant).format()} | #${c.id}`,
+          `${moment(c.arrivee, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm")} | ${c.vers} | ${numeral(c.montant).format()} | #${c.id}` +
+          (c.prevu != null
+            ? ` | prévu ${numeral(c.prevu).format()} | avance ${numeral(c.avance || 0).format()}`
+            : ""),
       )
       .join("\n");
   }
@@ -115,16 +124,14 @@ class ConvoisForum {
    * @method trouves
    * @param {Array} convois voir OuafSuivi.convoisJeu
    * @param {Array} notes voir notes
-   * @return {Set<Object>} convois notés
+   * @return {Map<Object, Object>} convoi noté → sa ligne
    */
   static trouves(convois, notes) {
     let libres = notes.slice(),
-      trouves = new Set(),
+      trouves = new Map(),
       prendre = (c, egal) => {
         let i = libres.findIndex(egal);
-        if (i == -1) return;
-        libres.splice(i, 1);
-        trouves.add(c);
+        if (i != -1) trouves.set(c, libres.splice(i, 1)[0]);
       };
     convois.filter((c) => c.id).forEach((c) => prendre(c, (n) => n.id == c.id));
     // sans numéro d'abord : une ligne au numéro inconnu ici est la leur
@@ -143,8 +150,8 @@ class ConvoisForum {
     return trouves;
   }
   /**
-   * Ajoute des convois transmis au sujet du joueur (créé au premier envoi).
-   * Les écritures d'une même page passent l'une après l'autre.
+   * Ajoute des convois transmis au sujet du joueur (créé au premier envoi),
+   * avec leur répartition si elle est connue (c.prevu, c.avance).
    *
    * @static
    * @method noter
@@ -157,16 +164,55 @@ class ConvoisForum {
       vers: c.vers,
       montant: c.montant,
       id: c.id || 0,
+      ...(c.prevu != null ? { prevu: c.prevu, avance: c.avance || 0 } : {}),
     }));
     if (!nouveaux.length) return Promise.resolve();
+    return ConvoisForum._reecrire((anciens) => anciens.concat(nouveaux));
+  }
+  /**
+   * Retire du sujet la ligne d'un convoi annulé, une seule : par numéro, sinon
+   * (#0) par destinataire, montant et arrivée. Un convoi identique resté en
+   * cours garde la sienne.
+   *
+   * @static
+   * @method retirer
+   * @param {Object} c {id, vers, montant, arrivee (ms)}
+   * @return {Promise<Boolean>} ligne trouvée et retirée
+   */
+  static retirer(c) {
+    let retiree = false;
+    return ConvoisForum._reecrire((anciens) => {
+      let i = anciens.findIndex((n) => c.id && n.id == c.id);
+      if (i == -1)
+        i = anciens.findIndex(
+          (n) =>
+            !n.id &&
+            String(n.vers).toLowerCase() == c.vers.toLowerCase() &&
+            n.montant == c.montant &&
+            Math.abs(moment(n.arrivee, "YYYY-MM-DD HH:mm").valueOf() - c.arrivee) <=
+              OUAF_ECART_ARRIVEE,
+        );
+      if (i == -1) return null;
+      retiree = true;
+      return anciens.filter((n, j) => j != i);
+    }).then(() => retiree);
+  }
+  /**
+   * Réécrit le sujet du joueur : `changer` reçoit ses lignes et rend les
+   * nouvelles (null : rien à écrire). Les écritures d'une même page passent
+   * l'une après l'autre.
+   *
+   * @private
+   * @static
+   */
+  static _reecrire(changer) {
     let ecriture = fileConvoisForum
       .then(() => ConvoisForum._sujet())
       .then((s) =>
         ConvoisForum._contenu(s.id).then((anciens) => {
-          let message = ConvoisForum.ecrire(
-              anciens.concat(nouveaux),
-              Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-            ),
+          let lignes = changer(anciens);
+          if (!lignes) return;
+          let message = ConvoisForum.ecrire(lignes, Horloge.serveur().format("YYYY-MM-DD HH:mm")),
             q = `sujet=${encodeURIComponent(s.titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
           return s.id
             ? PartageChasses._xajax(
@@ -180,7 +226,7 @@ class ConvoisForum {
         }),
       );
     fileConvoisForum = ecriture.catch((e) =>
-      console.error(`[${NOM_EXTENSION}] convois : note dans le forum impossible`, e),
+      console.error(`[${NOM_EXTENSION}] convois : écriture dans le forum impossible`, e),
     );
     return ecriture;
   }

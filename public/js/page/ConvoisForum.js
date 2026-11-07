@@ -8,18 +8,15 @@
 let fileConvoisForum = Promise.resolve();
 
 /**
- * Le site de suivi ne garde pas le numéro du convoi dans le jeu : retrouver un
- * envoi dans son historique reste une estimation (même joueur, même montant,
- * à peu près au bon moment). Chaque convoi transmis par l'extension est donc
- * noté, avec son numéro, dans le sujet « Convois | pseudo » de la section
- * « BDD partagée cachée » : sur tout appareil, un convoi dont le numéro y figure est
- * enregistré, sans estimation.
+ * Chaque convoi transmis au site de suivi est noté dans le sujet « Convois |
+ * pseudo » de la section « BDD partagée cachée » : c'est la seule référence de
+ * son état, sur tout appareil (le site de suivi ne garde pas le numéro du
+ * convoi dans le jeu).
  *
  * Une ligne par convoi : « 27/10/26 21:37 | Kwhwwymwn | 250 000 | #123456 »
- * (arrivée, destinataire, montant). Les convois arrivés sont retirés à chaque
- * écriture. Requêtes : lecture à l'ouverture de la page Convois, écriture
- * après un envoi au suivi, ou à l'ouverture pour un convoi déjà noté sur le
- * site mais absent du sujet.
+ * (arrivée, destinataire, montant, numéro ; #0 : numéro inconnu, lien Annuler
+ * disparu). Les convois arrivés sont retirés à chaque écriture. Requêtes :
+ * lecture à l'ouverture de la page Convois, écriture après un envoi au suivi.
  *
  * @class ConvoisForum
  */
@@ -60,7 +57,7 @@ class ConvoisForum {
   static ecrire(convois, maintenant) {
     let vus = new Set();
     return convois
-      .filter((c) => c.arrivee >= maintenant && !vus.has(c.id) && vus.add(c.id))
+      .filter((c) => c.arrivee >= maintenant && (!c.id || (!vus.has(c.id) && vus.add(c.id))))
       .sort((a, b) => (a.arrivee < b.arrivee ? 1 : a.arrivee > b.arrivee ? -1 : b.id - a.id))
       .slice(0, PARTAGE_MAX_ENTREES)
       .map(
@@ -93,8 +90,9 @@ class ConvoisForum {
     });
   }
   /**
-   * Convois notés dans le sujet du joueur ; vide si la section ou le sujet
-   * n'existe pas.
+   * Convois notés dans le sujet du joueur ; vide si le sujet n'existe pas
+   * encore. Rejetée si le forum n'a pas pu être lu (section absente comprise) :
+   * l'état des convois est alors inconnu, pas « non noté ».
    *
    * @static
    * @method notes
@@ -105,8 +103,44 @@ class ConvoisForum {
       .then((s) => ConvoisForum._contenu(s.id))
       .then((convois) =>
         convois.map((c) => ({ ...c, arrivee: moment(c.arrivee, "YYYY-MM-DD HH:mm").valueOf() })),
-      )
-      .catch(() => []);
+      );
+  }
+  /**
+   * Convois de la page notés dans le sujet : par numéro, sinon par
+   * destinataire, montant et arrivée. Chaque ligne du sujet ne vaut que pour
+   * un convoi : deux convois identiques dont un seul a été noté n'en donnent
+   * qu'un.
+   *
+   * @static
+   * @method trouves
+   * @param {Array} convois voir OuafSuivi.convoisJeu
+   * @param {Array} notes voir notes
+   * @return {Set<Object>} convois notés
+   */
+  static trouves(convois, notes) {
+    let libres = notes.slice(),
+      trouves = new Set(),
+      prendre = (c, egal) => {
+        let i = libres.findIndex(egal);
+        if (i == -1) return;
+        libres.splice(i, 1);
+        trouves.add(c);
+      };
+    convois.filter((c) => c.id).forEach((c) => prendre(c, (n) => n.id == c.id));
+    // sans numéro d'abord : une ligne au numéro inconnu ici est la leur
+    convois
+      .filter((c) => !trouves.has(c))
+      .sort((a, b) => (a.id ? 1 : 0) - (b.id ? 1 : 0))
+      .forEach((c) =>
+        prendre(
+          c,
+          (n) =>
+            String(n.vers).toLowerCase() == c.vers.toLowerCase() &&
+            n.montant == c.montant &&
+            Math.abs(n.arrivee - c.arrivee) <= OUAF_ECART_ARRIVEE,
+        ),
+      );
+    return trouves;
   }
   /**
    * Ajoute des convois transmis au sujet du joueur (créé au premier envoi).
@@ -114,18 +148,16 @@ class ConvoisForum {
    *
    * @static
    * @method noter
-   * @param {Array} convois voir OuafSuivi.convoisJeu (id requis)
+   * @param {Array} convois voir OuafSuivi.convoisJeu
    * @return {Promise} rejetée si l'écriture a échoué
    */
   static noter(convois) {
-    let nouveaux = convois
-      .filter((c) => c.id)
-      .map((c) => ({
-        arrivee: moment(c.arrivee).format("YYYY-MM-DD HH:mm"),
-        vers: c.vers,
-        montant: c.montant,
-        id: c.id,
-      }));
+    let nouveaux = convois.map((c) => ({
+      arrivee: moment(c.arrivee).format("YYYY-MM-DD HH:mm"),
+      vers: c.vers,
+      montant: c.montant,
+      id: c.id || 0,
+    }));
     if (!nouveaux.length) return Promise.resolve();
     let ecriture = fileConvoisForum
       .then(() => ConvoisForum._sujet())

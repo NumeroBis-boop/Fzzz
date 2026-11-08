@@ -98,7 +98,9 @@ export function classeurSimule(onglets: Record<string, any> = {}) {
     getSheetByName: (n: string) => onglets[n] || null,
     insertSheet: (n: string) => (onglets[n] = feuille(n)),
   };
+  const avertissements: string[] = [];
   const ctx: any = {
+    console: { warn: (m: string) => avertissements.push(m) },
     SpreadsheetApp: { getActiveSpreadsheet: () => classeur },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     ContentService: {
@@ -110,6 +112,8 @@ export function classeurSimule(onglets: Record<string, any> = {}) {
   vm.runInContext(CODE, ctx);
   return {
     onglets,
+    /** Messages du journal d'Apps Script (console.warn). */
+    avertissements,
     doGet: () => ctx.doGet(),
     doPost: (corps: object) => ctx.doPost({ postData: { contents: JSON.stringify(corps) } }),
     /** Corps tel quel (requête illisible). */

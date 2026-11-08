@@ -228,14 +228,16 @@ function retirerCles(classeur, noms, cles) {
 }
 
 // lignes d'une ligne de haut, texte en haut de cellule ; une mise en forme
-// impossible n'empêche pas l'ajout des lignes
+// impossible n'empêche pas l'ajout des lignes (raison dans Apps Script → Exécutions)
 function compacter(feuille) {
   try {
     var n = feuille.getLastRow() - 1;
     if (n < 1) return;
     feuille.getRange(2, 1, n, feuille.getLastColumn()).setVerticalAlignment("top");
     feuille.setRowHeightsForced(2, n, HAUTEUR_LIGNE);
-  } catch (err) {}
+  } catch (err) {
+    console.warn("Mise en forme impossible : " + err);
+  }
 }
 
 // un texte qui commence par = + - @ reste du texte (pas une formule)

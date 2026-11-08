@@ -296,9 +296,15 @@ describe("lignes compactes", () => {
     expect(f.alignements).toEqual({ 2: "top", 3: "top" });
   });
 
-  test("mise en forme impossible : les lignes sont ajoutées quand même", () => {
+  test("mise en forme impossible : les lignes sont ajoutées quand même, la raison va au journal", () => {
     onglets["BDD chasse"] = feuille("BDD chasse", [ENTETES]);
     delete onglets["BDD chasse"].setRowHeightsForced;
+    const fichier = classeurSimule(onglets);
+    poster(
+      { doPost: (e: any) => fichier.doPost(JSON.parse(e.postData.contents)) },
+      { onglet: "BDD chasse", entetes: ENTETES, lignes: [["k0", "Alpha", "d", 1, "a"]] },
+    );
+    expect(fichier.avertissements[0]).toContain("Mise en forme impossible");
     const ctx = charger();
     expect(
       poster(ctx, {

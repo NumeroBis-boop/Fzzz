@@ -40,7 +40,8 @@ export default defineConfig({
         data_collection_permissions: {
           required: ["none"],
           // suivi des convois OUAF (optionnel, au clic) : code de connexion et
-          // convois envoyés transmis à ouafchaine.fr
+          // convois envoyés transmis à ouafchaine.fr ; RC exportés au clic vers
+          // le Google Sheet de l'alliance
           optional: ["authenticationInfo", "websiteContent"],
         },
       },
@@ -63,7 +64,12 @@ export default defineConfig({
     host_permissions: ["*://s5.fourmizzz.fr/*"],
     // site de suivi des convois de la OUAF : accès demandé au premier envoi
     // (page ouaf-autorisation.html), pas à l'installation
-    optional_host_permissions: ["http://ouafchaine.fr/*"],
+    optional_host_permissions: [
+      "http://ouafchaine.fr/*",
+      // export des RC vers le Google Sheet de l'alliance (script Apps Script)
+      "https://script.google.com/*",
+      "https://script.googleusercontent.com/*",
+    ],
     content_scripts: [
       // Bootstrap au document_start : pose des classes CSS sur <html> dès
       // l'arrivée du HTML, avant le parsing du body. Permet d'éviter le flash
@@ -127,6 +133,7 @@ export default defineConfig({
           "js/data/menuRapide.js",
           "js/class/Utils.js",
           "js/class/ExportJoueurs.js",
+          "js/class/ExportRapports.js",
           "js/class/Alliance.js",
           "js/class/Armee.js",
           "js/class/AttaqueLancee.js",

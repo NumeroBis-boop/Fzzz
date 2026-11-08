@@ -373,7 +373,73 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Couleurs des titres <span class='o_aideParam'>(case décochée : couleur du jeu)</span>
           <button type='button' id='o_couleursMessagesDefaut' class='o_button'>Par défaut</button></p>
         <div class='o_grilleParam'>${couleurs}</div>
+        <p class='o_titreParam'>Export vers le Google Sheet de l'alliance</p>
+        <p class='left small'><label for='o_exportSheet'>Adresse du script :</label>
+          <input type='password' id='o_exportSheet' autocomplete='new-password' spellcheck='false' placeholder='https://script.google.com/macros/s/…/exec' style='width:16em; max-width:100%'/>
+          <button type='button' id='o_exportSheetVoir' class='o_button' title="Afficher l'adresse enregistrée">👁 Afficher</button>
+          <button type='button' id='o_exportSheetEnregistrer' class='o_button f_success'>Enregistrer</button>
+          <button type='button' id='o_exportSheetTester' class='o_button'>Tester</button>
+          <button type='button' id='o_exportSheetEffacer' class='o_button f_error'>Effacer</button></p>
+        <p id='o_exportSheetEtat' class='left small'></p>
+        <p class='left small'><em>Adresse donnée par le chef qui gère le fichier. Elle reste dans ton navigateur, dans l'espace privé de l'extension, et n'est utilisée que par les boutons « Exporter mes chasses » et « Exporter mes RC » de la messagerie.</em></p>
       </form>`);
+    let etatSheet = (/** @type {String} */ url, message = "") =>
+        $("#o_exportSheetEtat").html(
+          message ||
+            (url
+              ? "<span class='green'>Adresse enregistrée.</span>"
+              : "<span class='red'>Aucune adresse enregistrée : à renseigner pour exporter tes rapports.</span>"),
+        ),
+      masquerSheet = () => {
+        $("#o_exportSheet").attr("type", "password").val("");
+        $("#o_exportSheetVoir").text("👁 Afficher").attr("title", "Afficher l'adresse enregistrée");
+      };
+    ExportRapports.adresse().then((url) => etatSheet(url));
+    $("#o_exportSheetEnregistrer").on("click", () => {
+      let url = String($("#o_exportSheet").val() || "").trim();
+      if (!url) return;
+      if (!ExportRapports.adresseValide(url)) {
+        etatSheet(
+          url,
+          "<span class='red'>Adresse refusée : elle commence par https://script.google.com/ et finit par /exec.</span>",
+        );
+        return;
+      }
+      ExportRapports.enregistrerAdresse(url).then(() => {
+        masquerSheet();
+        etatSheet(url);
+      });
+    });
+    $("#o_exportSheetEffacer").on("click", () =>
+      ExportRapports.enregistrerAdresse("").then(() => {
+        masquerSheet();
+        etatSheet("");
+      }),
+    );
+    $("#o_exportSheetVoir").on("click", () => {
+      if ($("#o_exportSheet").attr("type") == "text") return masquerSheet();
+      ExportRapports.adresse().then((url) => {
+        if (!url) return etatSheet("");
+        $("#o_exportSheet").attr("type", "text").val(url);
+        $("#o_exportSheetVoir").text("🙈 Masquer").attr("title", "Masquer l'adresse");
+      });
+    });
+    $("#o_exportSheetTester").on("click", () => {
+      let saisie = String($("#o_exportSheet").val() || "").trim();
+      (saisie ? Promise.resolve(saisie) : ExportRapports.adresse()).then((url) => {
+        if (!ExportRapports.adresseValide(url))
+          return etatSheet(url, "<span class='red'>Aucune adresse valide à tester.</span>");
+        etatSheet(url, "Test en cours…");
+        ExportRapports.requete(url, "GET").then(
+          (r) =>
+            etatSheet(
+              url,
+              `<span class='green'>Script joignable${r.fichier ? ` : fichier « ${Utils.echapper(String(r.fichier))} »` : ""}.</span>`,
+            ),
+          (e) => etatSheet(url, `<span class='red'>Échec : ${Utils.echapper(e.message)}.</span>`),
+        );
+      });
+    });
     let enregistrer = (type) => {
       let active = $onglet.find(`input[data-couleur-active='${type}']`).prop("checked"),
         couleur = $onglet.find(`input[data-couleur='${type}']`).val();

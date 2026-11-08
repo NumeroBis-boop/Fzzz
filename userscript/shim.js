@@ -11,7 +11,9 @@
  *    ou GM.getValue / GM.setValue asynchrones quand le gestionnaire n'a que
  *    ceux-là (Userscripts sur Safari iOS) ;
  *  - runtime.sendMessage : site de suivi OUAF par GM_xmlhttpRequest (@connect
- *    ouafchaine.fr, accès demandé par le gestionnaire au premier envoi) ;
+ *    ouafchaine.fr, accès demandé par le gestionnaire au premier envoi), et
+ *    script du Google Sheet de l'alliance (export des RC, @connect
+ *    script.google.com) ;
  *  - horloge serveur : lecture passive de l'en-tête Date des requêtes déjà
  *    faites par Fzzz (aucune requête ajoutée), comme le fait l'extension.
  **********************************************************************/
@@ -49,6 +51,8 @@ var FZZZ_NOM_EXTENSION = (function () {
 // `var` : masque le `window.chrome` de la page dans la portée du script
 var chrome = (function () {
   const OUAF = "http://ouafchaine.fr";
+  const ADRESSE_SHEET =
+    /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/\s]+|macros)\/s\/[\w-]+\/exec$/;
   const MAX_ECHANTILLONS = 30;
 
   /** Dossier public/ de la version installée, d'après la ressource fzzzBase. */
@@ -161,6 +165,43 @@ var chrome = (function () {
     });
   }
 
+  /**
+   * Script du Google Sheet de l'alliance (export des RC) : adresse de script
+   * Google seulement, JSON en texte brut. GM.xmlHttpRequest quand le
+   * gestionnaire n'a que lui (Userscripts sur Safari iOS).
+   */
+  function requeteSheet(m) {
+    if (!ADRESSE_SHEET.test(String(m.url || "")) || !["GET", "POST"].includes(m.methode))
+      return Promise.resolve({ erreur: "requete" });
+    let xhr =
+      typeof GM_xmlhttpRequest == "function"
+        ? GM_xmlhttpRequest
+        : typeof GM != "undefined" && GM && typeof GM.xmlHttpRequest == "function"
+          ? GM.xmlHttpRequest
+          : null;
+    if (!xhr) return Promise.resolve({ erreur: "reseau" });
+    return new Promise((resoudre) => {
+      xhr({
+        method: m.methode,
+        url: m.url,
+        headers: m.corps === undefined ? {} : { "Content-Type": "text/plain;charset=utf-8" },
+        data: m.corps === undefined ? undefined : JSON.stringify(m.corps),
+        timeout: 60000,
+        onload: (r) => {
+          let donnees = {};
+          try {
+            donnees = JSON.parse(r.responseText);
+          } catch (e) {
+            /* réponse vide ou non JSON */
+          }
+          resoudre({ ok: r.status >= 200 && r.status < 300, statut: r.status, donnees });
+        },
+        onerror: () => resoudre({ erreur: "reseau" }),
+        ontimeout: () => resoudre({ erreur: "reseau" }),
+      });
+    });
+  }
+
   // Horloge : heure d'envoi et en-tête Date des requêtes vers le jeu (lecture seule)
   const cleHorloge = `fzzz_horloge_${location.hostname.split(".")[0]}`;
   function echantillon(envoi, entete) {
@@ -218,6 +259,7 @@ var chrome = (function () {
       sendMessage(message) {
         let type = message && message.type;
         if (type == "fzzz_ouaf") return requeteOuaf(message);
+        if (type == "fzzz_sheet") return requeteSheet(message);
         if (type == "fzzz_majVerifier")
           return Promise.resolve({ statut: "userscript", url: adresseScript() });
         return Promise.resolve(undefined);
@@ -227,7 +269,8 @@ var chrome = (function () {
       local,
       onChanged: { addListener: (f) => ecouteurs.push(f) },
     },
-    // l'accès à ouafchaine.fr est géré par le gestionnaire de scripts (@connect)
+    // l'accès à ouafchaine.fr et à script.google.com est géré par le
+    // gestionnaire de scripts (@connect)
     permissions: {
       contains: () => Promise.resolve(true),
       request: () => Promise.resolve(true),

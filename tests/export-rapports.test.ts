@@ -71,9 +71,9 @@ const conv = (
   camp,
   messages: messages.map((m) => ({ date: DATE, ...m })),
 });
-const lignes = (type: string, conversations: object[], pseudo = "Alpha") =>
+const lignes = (type: string, conversations: object[], pseudo = "Alpha", membres: string[] = []) =>
   lire<{ onglet: string; ligne: any[] }[]>(
-    `ExportRapports.lignes(${JSON.stringify(type)}, ${JSON.stringify(conversations)}, ${JSON.stringify(pseudo)})`,
+    `ExportRapports.lignes(${JSON.stringify(type)}, ${JSON.stringify(conversations)}, ${JSON.stringify(pseudo)}, new Set(${JSON.stringify(membres)}))`,
   );
 
 describe("lecture des rapports", () => {
@@ -202,6 +202,74 @@ describe("clé unique et onglet de chaque RC", () => {
       );
     expect([vol[0]!.onglet, butin[0]!.onglet]).toEqual(["defense", "attaque"]);
     expect(vol[0]!.ligne[0]).toBe(butin[0]!.ligne[0]);
+  });
+
+  test("flood entre membres de l'alliance : « Flood internes », même clé vu des deux camps", () => {
+    const membres = ["alpha", "bravo"],
+      a = lignes("combat", [conv([{ id: 5, texte: ATTAQUE }])], "Alpha", membres),
+      d = lignes("combat", [conv([{ id: 9, texte: DEFENSE }])], "Bravo", membres),
+      vol = lignes(
+        "combat",
+        [conv([{ id: 6, texte: "Alpha vous a pris 7 500 cm²." }])],
+        "Bravo",
+        membres,
+      ),
+      butin = lignes(
+        "combat",
+        [conv([{ id: 7, texte: "Vos fourmis ont conquis 7 500 cm² qui appartenaient à Bravo." }])],
+        "Alpha",
+        membres,
+      ),
+      titreSeul = lignes(
+        "combat",
+        [conv([{ id: 8, texte: "Texte inconnu" }], "Vol par ALPHA : 7 500 cm²")],
+        "Bravo",
+        membres,
+      );
+    expect([a, d, vol, butin, titreSeul].map((l) => l[0]!.onglet)).toEqual([
+      "interne",
+      "interne",
+      "interne",
+      "interne",
+      "interne",
+    ]);
+    expect(a[0]!.ligne[0]).toBe(d[0]!.ligne[0]);
+    expect(vol[0]!.ligne[0]).toBe(butin[0]!.ligne[0]);
+  });
+
+  test("adversaire hors de l'alliance, ou inconnu : onglet du camp, comme avant", () => {
+    // le joueur qui exporte est membre, pas son adversaire
+    const membre = ["alpha"];
+    expect(
+      lignes(
+        "combat",
+        [conv([{ id: 6, texte: "Charlie vous a pris 1 000 cm²." }])],
+        "Alpha",
+        membre,
+      )[0]!.onglet,
+    ).toBe("defense");
+    expect(
+      lignes(
+        "combat",
+        [
+          conv([
+            { id: 7, texte: "Vos fourmis ont conquis 1 000 cm² qui appartenaient à Charlie." },
+          ]),
+        ],
+        "Alpha",
+        membre,
+      )[0]!.onglet,
+    ).toBe("attaque");
+    expect(
+      lignes("combat", [conv([{ id: 5, texte: ATTAQUE }])], "Alpha", ["alpha"])[0]!.onglet,
+    ).toBe("attaque");
+    const rc = ATTAQUE.replace("Vous attaquez la fourmilière de Bravo", "Rapport");
+    expect(
+      lignes("combat", [conv([{ id: 5, texte: rc }], "Invasion de Bravo", "defense")], "Alpha", [
+        "alpha",
+        "bravo",
+      ])[0]!.onglet,
+    ).toBe("defense");
   });
 
   test("tournure de RC inconnue : le camp vient du titre de la conversation", () => {
@@ -501,6 +569,51 @@ describe("export complet depuis la messagerie", () => {
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain(
       "1 ligne ajoutée dans « BDD défenses », 1 ligne ajoutée dans « BDD attaques »",
     );
+  });
+
+  // alliance de la page et export public des joueurs du jeu (simulé)
+  const alliance = (joueurs: string) =>
+    lire(`document.body.insertAdjacentHTML("beforeend", '<div id="tag_alliance">OUAF</div>');
+      window.LECTURES_JOUEURS = 0;
+      window.ExportJoueurs = { lire: () => { LECTURES_JOUEURS++; return ${joueurs}; } };`);
+
+  test("RC contre un membre de l'alliance : « Flood internes », membres lus une fois avant les conversations", async () => {
+    alliance(
+      `Promise.resolve(new Map([["DoggyBag", { alliance: "OUAF" }], ["Bravo", { alliance: "ouaf" }], ["Charlie", { alliance: "AUTRE" }]]))`,
+    );
+    await lire(`ExportRapports.exporter("combat")`);
+    expect(lire(`LECTURES_JOUEURS`)).toBe(1);
+    expect(lire(`POSTS`)).toEqual([21, 22]);
+    const corps = lire<any[]>(`ENVOIS.map((e) => e.corps)`);
+    expect(corps.map((c) => c.onglet)).toEqual(["Flood internes"]);
+    expect(corps[0].lignes).toHaveLength(2);
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("2 lignes ajoutées dans « Flood internes »");
+  });
+
+  test("export des joueurs du jeu injoignable : rien lu, rien envoyé, rien marqué", async () => {
+    alliance(`Promise.reject(new Error("réseau"))`);
+    await lire(`ExportRapports.exporter("combat")`);
+    expect(lire(`POSTS`)).toEqual([]);
+    expect(lire(`ENVOIS`)).toEqual([]);
+    const message = lire<string[]>(`TOASTS`).at(-1);
+    expect(message).toContain("l'export public des joueurs du jeu ne répond pas");
+    expect(message).toContain("Rien n'a été marqué comme exporté");
+  });
+
+  test("alliance du joueur absente de l'export (arrivée récente) : export refusé plutôt que mal rangé", async () => {
+    alliance(
+      `Promise.resolve(new Map([["DoggyBag", { alliance: null }], ["Bravo", { alliance: "OUAF" }]]))`,
+    );
+    await lire(`ExportRapports.exporter("combat")`);
+    expect(lire(`ENVOIS`)).toEqual([]);
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("n'apparaît pas encore dans l'export public");
+  });
+
+  test("chasses : l'export des joueurs n'est pas lu", async () => {
+    alliance(`Promise.reject(new Error("réseau"))`);
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`LECTURES_JOUEURS`)).toBe(0);
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("4 lignes ajoutées dans « BDD chasse »");
   });
 
   test("script injoignable : message clair et rien de marqué (le prochain clic relit tout)", async () => {

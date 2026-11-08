@@ -49,7 +49,9 @@ const ENTETES_COMBATS = [
  * Onglets du fichier et leurs colonnes, dans l'ordre des valeurs envoyées. Le
  * script du fichier crée l'onglet et ses titres au premier envoi, et ajoute à
  * la fin une colonne qu'il ne connaît pas. Les combats vont dans « BDD
- * attaques » ou « BDD défenses » selon le camp du joueur qui exporte.
+ * attaques » ou « BDD défenses » selon le camp du joueur qui exporte, ou dans
+ * « Flood internes » contre un membre de l'alliance (même clé vu des deux
+ * camps : une seule ligne).
  */
 const EXPORTS_RAPPORTS = {
   chasse: {
@@ -68,6 +70,7 @@ const EXPORTS_RAPPORTS = {
   },
   attaque: { onglet: "BDD attaques", entetes: ENTETES_COMBATS },
   defense: { onglet: "BDD défenses", entetes: ENTETES_COMBATS },
+  interne: { onglet: "Flood internes", entetes: ENTETES_COMBATS },
 };
 
 /**
@@ -251,7 +254,7 @@ class ExportRapports {
    * @param {String} texte
    * @param {String} date
    * @param {String} pseudo
-   * @return {{signature: String, date: String, camp: String, valeurs: Array}|null}
+   * @return {{signature: String, date: String, camp: String, adversaire: String, valeurs: Array}|null}
    */
   static combat(texte, date, pseudo) {
     texte = ExportRapports.espaces(texte);
@@ -288,6 +291,7 @@ class ExportRapports {
       signature: ["combat", date, attaque, defense].map(ExportRapports.comparable).join("|"),
       date,
       camp: !connu ? "" : jAttaque ? "attaque" : "defense",
+      adversaire: !connu ? "" : jAttaque ? defenseur : attaquant,
       valeurs: [
         pseudo,
         date,
@@ -330,7 +334,7 @@ class ExportRapports {
    * @param {String} date
    * @param {String} pseudo
    * @param {String} [titre] titre de la conversation, pour son premier message sans RC
-   * @return {{signature: String, date: String, camp: String, valeurs: Array}|null}
+   * @return {{signature: String, date: String, camp: String, adversaire: String, valeurs: Array}|null}
    */
   static prise(texte, date, pseudo, titre = "") {
     titre = ExportRapports.espaces(titre).trim();
@@ -366,12 +370,14 @@ class ExportRapports {
     attaquant = ExportRapports.pseudo(attaquant);
     defenseur = ExportRapports.pseudo(defenseur);
     if (!attaquant || !defenseur) return null;
+    let jAttaque = attaquant.toLowerCase() == pseudo.toLowerCase();
     return {
       signature: ["prise", date, attaquant, defenseur, terrain, nourriture, materiaux]
         .map((v) => ExportRapports.comparable(String(v)))
         .join("|"),
       date,
-      camp: attaquant.toLowerCase() == pseudo.toLowerCase() ? "attaque" : "defense",
+      camp: jAttaque ? "attaque" : "defense",
+      adversaire: jAttaque ? defenseur : attaquant,
       valeurs: [
         pseudo,
         date,
@@ -392,19 +398,21 @@ class ExportRapports {
   }
   /**
    * Lignes à envoyer pour des conversations lues : un RC par ligne, précédé de
-   * sa clé, avec son onglet (chasse, attaque ou défense : le camp du joueur
-   * d'après le RC, sinon d'après le titre de la conversation). Deux RC
-   * identiques (même minute, mêmes armées, ou même prise) sont distingués par
-   * leur rang, dans l'ordre des messages.
+   * sa clé, avec son onglet (chasse ; interne contre un membre de l'alliance ;
+   * sinon attaque ou défense : le camp du joueur d'après le RC, à défaut
+   * d'après le titre de la conversation). Deux RC identiques (même minute,
+   * mêmes armées, ou même prise) sont distingués par leur rang, dans l'ordre
+   * des messages.
    *
    * @static
    * @method lignes
    * @param {String} type "chasse" ou "combat"
    * @param {Array} conversations [{id, titre, camp?, messages: [{id, date, texte}]}]
    * @param {String} pseudo
+   * @param {Set<String>} [membres] pseudos des membres de l'alliance, en minuscules
    * @return {Array<{onglet: String, ligne: Array}>} ligne : [clé, ...valeurs]
    */
-  static lignes(type, conversations, pseudo) {
+  static lignes(type, conversations, pseudo, membres = new Set()) {
     /** @type {Array<{id: Number, onglet: String, rc: {signature: String, date: String, valeurs: Array}}>} */
     let rcs = [];
     conversations.forEach((c) => {
@@ -420,7 +428,8 @@ class ExportRapports {
           ExportRapports.prise(m.texte, m.date, pseudo, titreUtilise ? "" : c.titre);
         if (!rc) return;
         if (rc.valeurs[2] == "Prise") titreUtilise = true;
-        rcs.push({ id: m.id, onglet: rc.camp || c.camp || "attaque", rc });
+        let interne = !!rc.adversaire && membres.has(rc.adversaire.toLowerCase());
+        rcs.push({ id: m.id, onglet: interne ? "interne" : rc.camp || c.camp || "attaque", rc });
       });
     });
     let rangs = new Map();
@@ -504,7 +513,10 @@ class ExportRapports {
    * @param {String} type
    */
   static _cleExportees(type) {
-    return `fzzz_exportees_${type}_${Utils.serveur}_${String(monProfil.pseudo || "").toLowerCase()}`;
+    // « combat2 » : marques distinctes de celles posées avant l'onglet « Flood
+    // internes », pour que ces RC soient relus une fois et rangés à part
+    let nom = type == "combat" ? "combat2" : type;
+    return `fzzz_exportees_${nom}_${Utils.serveur}_${String(monProfil.pseudo || "").toLowerCase()}`;
   }
   /**
    * Numéros des conversations déjà exportées depuis ce navigateur.
@@ -713,6 +725,41 @@ class ExportRapports {
     return ADRESSE_EXPORT_SHEET.test(String(url || "").trim());
   }
   /**
+   * Pseudos des membres de l'alliance du joueur (minuscules), d'après l'export
+   * public des joueurs du jeu (refait chaque heure) : un RC contre l'un d'eux
+   * va dans « Flood internes ». Sans alliance : aucun.
+   *
+   * @static
+   * @method membres
+   * @return {Promise<Set<String>>} rejetée avec un message pour le joueur
+   */
+  static membres() {
+    let tag = String(Utils.alliance || "")
+        .trim()
+        .toLowerCase(),
+      moi = String(monProfil.pseudo || "").toLowerCase();
+    if (!tag) return Promise.resolve(new Set());
+    return ExportJoueurs.lire().then(
+      (index) => {
+        let membres = new Set();
+        index.forEach((j, p) => {
+          if (String(j.alliance || "").toLowerCase() == tag) membres.add(p.toLowerCase());
+        });
+        // export pas encore à jour (arrivée récente) : un flood interne serait mal rangé
+        if (!membres.has(moi))
+          throw new Error(
+            "ton alliance n'apparaît pas encore dans l'export public des joueurs du jeu (refait chaque heure), qui sert à reconnaître les floods internes",
+          );
+        return membres;
+      },
+      () => {
+        throw new Error(
+          "l'export public des joueurs du jeu ne répond pas (il sert à reconnaître les floods internes) ; réessaie dans un instant",
+        );
+      },
+    );
+  }
+  /**
    * Requête au script du fichier, faite par le script d'arrière-plan (ou le
    * gestionnaire de scripts utilisateur).
    *
@@ -832,30 +879,35 @@ class ExportRapports {
           return;
         }
         let lues = [],
-          echecs = 0;
-        $.toast({
-          ...TOAST_INFO,
-          hideAfter: false,
-          text: `Export des ${quoi} : lecture des conversations, une à une (le jeu n'en sert qu'une à la fois) <strong id='o_exportProgres'>0/${aLire.length}</strong>`,
-        });
-        return aLire
-          .reduce(
-            (suite, c, k) =>
-              suite.then(() =>
-                ExportRapports.messages(c.id)
-                  .then(
-                    (messages) => lues.push({ ...c, messages }),
-                    () => echecs++,
-                  )
-                  .then(() => $("#o_exportProgres").text(`${k + 1}/${aLire.length}`)),
-              ),
-            Promise.resolve(),
-          )
+          echecs = 0,
+          membres = new Set();
+        // membres lus avant les conversations : sans eux, pas de lecture
+        return (type == "combat" ? ExportRapports.membres() : Promise.resolve(new Set()))
+          .then((m) => {
+            membres = m;
+            $.toast({
+              ...TOAST_INFO,
+              hideAfter: false,
+              text: `Export des ${quoi} : lecture des conversations, une à une (le jeu n'en sert qu'une à la fois) <strong id='o_exportProgres'>0/${aLire.length}</strong>`,
+            });
+            return aLire.reduce(
+              (suite, c, k) =>
+                suite.then(() =>
+                  ExportRapports.messages(c.id)
+                    .then(
+                      (messages) => lues.push({ ...c, messages }),
+                      () => echecs++,
+                    )
+                    .then(() => $("#o_exportProgres").text(`${k + 1}/${aLire.length}`)),
+                ),
+              Promise.resolve(),
+            );
+          })
           .then(() => {
-            let lignes = ExportRapports.lignes(type, lues, pseudo),
+            let lignes = ExportRapports.lignes(type, lues, pseudo, membres),
               // conversations sans RC reconnu : relues au prochain export
               avecRC = lues
-                .filter((c) => ExportRapports.lignes(type, [c], pseudo).length)
+                .filter((c) => ExportRapports.lignes(type, [c], pseudo, membres).length)
                 .map((c) => c.id),
               onglets = [...new Set(lignes.map((l) => l.onglet))],
               bilans = /** @type {Array<{onglet: String, ajoutees: Number, deja: Number}>} */ ([]);

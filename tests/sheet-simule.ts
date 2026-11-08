@@ -18,6 +18,9 @@ export function feuille(nom: string, grille: Grille = []) {
   const f: any = {
     nom,
     grille,
+    // mise en forme demandée par le script : hauteur forcée et alignement par ligne
+    hauteurs: {} as Record<number, number>,
+    alignements: {} as Record<number, string>,
     getLastRow: () => {
       for (let r = grille.length; r > 0; r--)
         if (grille[r - 1]!.some((v) => v !== "" && v != null)) return r;
@@ -32,6 +35,12 @@ export function feuille(nom: string, grille: Grille = []) {
         }),
       ),
     setFrozenRows: () => {},
+    deleteRows: (r: number, n: number) => {
+      grille.splice(r - 1, n);
+    },
+    setRowHeightsForced: (r: number, n: number, h: number) => {
+      for (let i = 0; i < n; i++) f.hauteurs[r + i] = h;
+    },
     getRange: (r: number, c: number, nl = 1, nc = 1) => {
       const plage: any = {
         getValues: () =>
@@ -49,6 +58,10 @@ export function feuille(nom: string, grille: Grille = []) {
         },
         setValue: (x: unknown) => plage.setValues([[x]]),
         setFontWeight: () => plage,
+        setVerticalAlignment: (a: string) => {
+          for (let i = 0; i < nl; i++) f.alignements[r + i] = a;
+          return plage;
+        },
       };
       return plage;
     },

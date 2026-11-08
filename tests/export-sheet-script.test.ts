@@ -85,16 +85,21 @@ describe("script du Google Sheet", () => {
     ]);
   });
 
-  test("onglets acceptés : chasses, attaques, défenses", () => {
+  test("onglets acceptés : chasses, attaques, défenses, floods internes", () => {
     const ctx = charger();
-    for (const onglet of ["BDD chasse", "BDD attaques", "BDD défenses"])
+    for (const onglet of ["BDD chasse", "BDD attaques", "BDD défenses", "Flood internes"])
       expect(
         poster(ctx, { onglet, entetes: ENTETES, lignes: [["k1", "Alpha", "d", 1, "a"]] }),
       ).toEqual({
         ajoutees: 1,
         deja: 0,
       });
-    expect(Object.keys(onglets)).toEqual(["BDD chasse", "BDD attaques", "BDD défenses"]);
+    expect(Object.keys(onglets)).toEqual([
+      "BDD chasse",
+      "BDD attaques",
+      "BDD défenses",
+      "Flood internes",
+    ]);
     expect(poster(ctx, { onglet: "BDD RC", entetes: ENTETES, lignes: [] }).erreur).toBe(
       "requête invalide",
     );
@@ -112,5 +117,111 @@ describe("script du Google Sheet", () => {
       erreur: "requête illisible",
     });
     expect(Object.keys(onglets)).toEqual([]);
+  });
+});
+
+describe("floods internes : une seule ligne, jamais dans les onglets des camps", () => {
+  const COMBAT = ["Clé", "Exporté par", "Date", "Type"];
+  const cles = (nom: string) => onglets[nom].grille.slice(1).map((l: unknown[]) => l[0]);
+
+  test("arrivé dans « Flood internes » : retiré de « BDD attaques » et « BDD défenses »", () => {
+    onglets["BDD attaques"] = feuille("BDD attaques", [
+      COMBAT,
+      ["a", "Alpha", "d", "Combat"],
+      ["k1", "Alpha", "d", "Combat"],
+      ["k2", "Alpha", "d", "Prise"],
+      ["b", "Alpha", "d", "Combat"],
+      ["k3", "Alpha", "d", "Combat"],
+    ]);
+    onglets["BDD défenses"] = feuille("BDD défenses", [COMBAT, ["k1", "Bravo", "d", "Combat"]]);
+    const ctx = charger();
+    expect(
+      poster(ctx, {
+        onglet: "Flood internes",
+        entetes: COMBAT,
+        lignes: [
+          ["k1", "Alpha", "d", "Combat"],
+          ["k2", "Alpha", "d", "Prise"],
+          ["k3", "Alpha", "d", "Combat"],
+        ],
+      }),
+    ).toEqual({ ajoutees: 3, deja: 0 });
+    expect(cles("BDD attaques")).toEqual(["a", "b"]);
+    expect(cles("BDD défenses")).toEqual([]);
+    expect(cles("Flood internes")).toEqual(["k1", "k2", "k3"]);
+  });
+
+  test("le même flood exporté par l'autre camp : déjà présent ; vers un onglet de camp : refusé", () => {
+    const ctx = charger();
+    poster(ctx, {
+      onglet: "Flood internes",
+      entetes: COMBAT,
+      lignes: [["k1", "Alpha", "d", "Combat"]],
+    });
+    expect(
+      poster(ctx, {
+        onglet: "Flood internes",
+        entetes: COMBAT,
+        lignes: [["k1", "Bravo", "d", "Combat"]],
+      }),
+    ).toEqual({ ajoutees: 0, deja: 1 });
+    expect(
+      poster(ctx, {
+        onglet: "BDD défenses",
+        entetes: COMBAT,
+        lignes: [
+          ["k1", "Bravo", "d", "Combat"],
+          ["k9", "Bravo", "d", "Combat"],
+        ],
+      }),
+    ).toEqual({ ajoutees: 1, deja: 1 });
+    expect(cles("Flood internes")).toEqual(["k1"]);
+    expect(cles("BDD défenses")).toEqual(["k9"]);
+  });
+
+  test("ligne sans clé : rien n'est retiré des autres onglets", () => {
+    onglets["BDD attaques"] = feuille("BDD attaques", [
+      COMBAT,
+      ["", "note à la main", "", ""],
+      ["a", "Alpha", "d", "Combat"],
+    ]);
+    const ctx = charger();
+    poster(ctx, {
+      onglet: "Flood internes",
+      entetes: COMBAT,
+      lignes: [["", "Alpha", "d", "Combat"]],
+    });
+    expect(onglets["BDD attaques"].grille).toHaveLength(3);
+  });
+});
+
+describe("lignes compactes", () => {
+  test("toutes les lignes de l'onglet : hauteur d'une ligne, texte en haut ; titres intacts", () => {
+    onglets["BDD chasse"] = feuille("BDD chasse", [
+      ENTETES,
+      ["k0", "Alpha", "d", 1, "RC\nsur\nplusieurs lignes"],
+    ]);
+    const ctx = charger();
+    poster(ctx, {
+      onglet: "BDD chasse",
+      entetes: ENTETES,
+      lignes: [["k1", "Alpha", "d", 1, "RC\n2"]],
+    });
+    const f = onglets["BDD chasse"];
+    expect(f.hauteurs).toEqual({ 2: 21, 3: 21 });
+    expect(f.alignements).toEqual({ 2: "top", 3: "top" });
+  });
+
+  test("mise en forme impossible : les lignes sont ajoutées quand même", () => {
+    onglets["BDD chasse"] = feuille("BDD chasse", [ENTETES]);
+    delete onglets["BDD chasse"].setRowHeightsForced;
+    const ctx = charger();
+    expect(
+      poster(ctx, {
+        onglet: "BDD chasse",
+        entetes: ENTETES,
+        lignes: [["k1", "Alpha", "d", 1, "a"]],
+      }),
+    ).toEqual({ ajoutees: 1, deja: 0 });
   });
 });

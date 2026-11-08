@@ -233,6 +233,56 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
     expect(fichier.cles("BDD attaques")[0]).toBe(fichier.cles("BDD défenses")[0]);
   });
 
+  // alliance OUAF dans la page, membres d'après l'export public des joueurs (simulé)
+  const allianceOuaf = () =>
+    lire(`document.body.insertAdjacentHTML("beforeend", '<div id="tag_alliance">OUAF</div>');
+      window.ExportJoueurs = { lire: () => Promise.resolve(new Map([["DoggyBag", { alliance: "OUAF" }], ["Canaille", { alliance: "OUAF" }], ["Grim", { alliance: "OUAF" }]])) };`);
+
+  test("flood interne exporté par les deux camps, deux fois chacun : une seule ligne, dans « Flood internes »", async () => {
+    messagerie({ 21: { titre: "Attaque réussie", html: message(201, ATTAQUE) } });
+    allianceOuaf();
+    const commun = fichier;
+    await exporter("combat");
+    lire(`localStorage.clear()`);
+    await exporter("combat");
+    lire(`monProfil.pseudo = "Canaille"`);
+    messagerie({ 31: { titre: "Invasion de DoggyBag", html: message(301, DEFENSE) } });
+    allianceOuaf();
+    fichier = commun;
+    await exporter("combat");
+    lire(`localStorage.clear()`);
+    await exporter("combat");
+    lire(`monProfil.pseudo = "DoggyBag"`);
+    expect(fichier.cles("Flood internes")).toHaveLength(1);
+    expect(fichier.cles("BDD attaques")).toEqual([]);
+    expect(fichier.cles("BDD défenses")).toEqual([]);
+    expect(dernierMessage()).toContain("0 ligne ajoutée dans « Flood internes » (1 déjà présente)");
+  });
+
+  test("RC internes déjà rangés dans les onglets des camps : déplacés dans « Flood internes » au clic suivant", async () => {
+    messagerie({
+      21: { titre: "Attaque réussie", html: message(201, ATTAQUE) },
+      22: {
+        titre: "Butin chez Canaille : 1 000 cm²",
+        html: message(221, "Vos fourmis ont conquis 1 000 cm² qui appartenaient à Canaille."),
+      },
+    });
+    // rangés sans alliance connue (version précédente)
+    await exporter("combat");
+    expect(fichier.cles("BDD attaques")).toHaveLength(2);
+    // marques de la version précédente (« combat ») : conversations relues une fois
+    lire(`(() => {
+      const k = Object.keys(localStorage).find((k) => k.startsWith("fzzz_exportees_combat2_"));
+      localStorage.setItem(k.replace("combat2", "combat"), localStorage.getItem(k));
+      localStorage.removeItem(k);
+    })()`);
+    allianceOuaf();
+    await exporter("combat");
+    expect(fichier.cles("BDD attaques")).toEqual([]);
+    expect(fichier.cles("Flood internes")).toHaveLength(2);
+    sansDoublon(fichier.cles("Flood internes"));
+  });
+
   test("joueur hors liste : jamais l'adresse du forum, seulement la sienne", async () => {
     const PERSO = "https://script.google.com/macros/s/AKfyPerso_2/exec";
     messagerie(CHASSES);

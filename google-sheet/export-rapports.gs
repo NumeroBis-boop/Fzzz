@@ -2,7 +2,9 @@
  * Script du Google Sheet de l'alliance (Apps Script) : reçoit les rapports
  * exportés par l'extension (boutons « Exporter mes chasses » et « Exporter mes
  * RC » de la messagerie) et les ajoute à leur onglet, sans doublon : une ligne
- * dont la « Clé » est déjà dans l'onglet n'est pas ajoutée.
+ * dont la « Clé » est déjà dans l'onglet n'est pas ajoutée. Un combat entre
+ * membres de l'alliance n'est que dans « Flood internes » (même clé vu des deux
+ * camps : une seule ligne).
  *
  * Installation, par le propriétaire du fichier :
  *  1. Extensions → Apps Script ; remplacer le contenu de Code.gs par ce fichier.
@@ -22,7 +24,11 @@
  */
 
 // onglets que l'extension peut remplir
-var ONGLETS_EXPORT = ["BDD chasse", "BDD attaques", "BDD défenses"];
+var ONGLETS_EXPORT = ["BDD chasse", "BDD attaques", "BDD défenses", "Flood internes"];
+var ONGLET_INTERNE = "Flood internes";
+var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
+// hauteur d'une ligne de texte : un RC (plusieurs lignes) n'y montre que la première
+var HAUTEUR_LIGNE = 21;
 
 function doGet() {
   return reponseJson({ ok: true, fichier: SpreadsheetApp.getActiveSpreadsheet().getName() });
@@ -47,8 +53,19 @@ function doPost(e) {
   var verrou = LockService.getScriptLock();
   verrou.waitLock(30000);
   try {
-    var classeur = SpreadsheetApp.getActiveSpreadsheet();
-    return reponseJson(ajouterLignes(classeur, d.onglet, d.entetes, d.lignes));
+    var classeur = SpreadsheetApp.getActiveSpreadsheet(),
+      cles = {},
+      exclues = {};
+    d.lignes.forEach(function (l) {
+      var cle = String((l && l[0]) || "");
+      if (cle) cles[cle] = true;
+    });
+    // combat entre membres : retiré des onglets des camps (exporté avant d'être
+    // reconnu comme interne), et jamais rajouté à l'un d'eux ensuite
+    if (d.onglet == ONGLET_INTERNE) retirerCles(classeur, ONGLETS_CAMPS, cles);
+    else if (ONGLETS_CAMPS.indexOf(d.onglet) != -1) exclues = clesDe(classeur, ONGLET_INTERNE);
+    var bilan = ajouterLignes(classeur, d.onglet, d.entetes, d.lignes, exclues);
+    return reponseJson(bilan);
   } finally {
     verrou.releaseLock();
   }
@@ -56,10 +73,11 @@ function doPost(e) {
 
 /**
  * Ajoute à l'onglet `nom` (créé au besoin, avec ses titres) les lignes dont la
- * clé (première valeur) n'y est pas encore. Une colonne inconnue de l'onglet
- * est ajoutée à la fin ; les colonnes ajoutées à la main sont laissées vides.
+ * clé (première valeur) n'y est pas encore, ni dans `exclues`. Une colonne
+ * inconnue de l'onglet est ajoutée à la fin ; les colonnes ajoutées à la main
+ * sont laissées vides.
  */
-function ajouterLignes(classeur, nom, entetes, lignes) {
+function ajouterLignes(classeur, nom, entetes, lignes, exclues) {
   var feuille = classeur.getSheetByName(nom);
   if (!feuille) {
     feuille = classeur.insertSheet(nom);
@@ -83,16 +101,12 @@ function ajouterLignes(classeur, nom, entetes, lignes) {
       .setValue(t)
       .setFontWeight("bold");
   });
-  var colonneCle = titres.indexOf("Clé"),
-    derniere = feuille.getLastRow(),
+  var derniere = feuille.getLastRow(),
     cles = {};
-  if (derniere > 1)
-    feuille
-      .getRange(2, colonneCle + 1, derniere - 1, 1)
-      .getValues()
-      .forEach(function (r) {
-        cles[String(r[0])] = true;
-      });
+  for (var k in exclues || {}) cles[k] = true;
+  lireCles(feuille).forEach(function (c) {
+    cles[c] = true;
+  });
   var nouvelles = [];
   lignes.forEach(function (l) {
     var cle = String((l && l[0]) || "");
@@ -108,7 +122,59 @@ function ajouterLignes(classeur, nom, entetes, lignes) {
   });
   if (nouvelles.length)
     feuille.getRange(derniere + 1, 1, nouvelles.length, titres.length).setValues(nouvelles);
+  compacter(feuille);
   return { ajoutees: nouvelles.length, deja: lignes.length - nouvelles.length };
+}
+
+// clés de l'onglet (colonne « Clé »), de la ligne 2 à la dernière
+function lireCles(feuille) {
+  var derniere = feuille.getLastRow(),
+    largeur = Math.max(feuille.getLastColumn(), 1),
+    colonne = feuille.getRange(1, 1, 1, largeur).getValues()[0].map(String).indexOf("Clé");
+  if (colonne == -1 || derniere < 2) return [];
+  return feuille
+    .getRange(2, colonne + 1, derniere - 1, 1)
+    .getValues()
+    .map(function (r) {
+      return String(r[0]);
+    });
+}
+
+function clesDe(classeur, nom) {
+  var feuille = classeur.getSheetByName(nom),
+    cles = {};
+  if (feuille)
+    lireCles(feuille).forEach(function (c) {
+      cles[c] = true;
+    });
+  return cles;
+}
+
+// supprime des onglets `noms` les lignes dont la clé est dans `cles`
+function retirerCles(classeur, noms, cles) {
+  noms.forEach(function (nom) {
+    var feuille = classeur.getSheetByName(nom);
+    if (!feuille) return;
+    var valeurs = lireCles(feuille);
+    // de bas en haut, par blocs contigus : une suppression ne décale pas les lignes restant à voir
+    for (var i = valeurs.length - 1; i >= 0; i--) {
+      if (!valeurs[i] || !cles[valeurs[i]]) continue;
+      var fin = i;
+      while (i > 0 && valeurs[i - 1] && cles[valeurs[i - 1]]) i--;
+      feuille.deleteRows(i + 2, fin - i + 1);
+    }
+  });
+}
+
+// lignes d'une ligne de haut, texte en haut de cellule ; une mise en forme
+// impossible n'empêche pas l'ajout des lignes
+function compacter(feuille) {
+  try {
+    var n = feuille.getLastRow() - 1;
+    if (n < 1) return;
+    feuille.getRange(2, 1, n, feuille.getLastColumn()).setVerticalAlignment("top");
+    feuille.setRowHeightsForced(2, n, HAUTEUR_LIGNE);
+  } catch (err) {}
 }
 
 // un texte qui commence par = + - @ reste du texte (pas une formule)

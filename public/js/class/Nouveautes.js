@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.0",
+    notes: [
+      "Synthèse : sous chacun des 7 chiffres de chasse, l'écart en % avec la moyenne des chasseurs de la période (au-dessus en vert, en dessous en rouge).",
+      "Synthèse : à la fin, un tableau par chasseur — terrain, terrain par multi-chasse, pertes, pertes par M cm², nourriture, nourriture par multi-chasse — et leur moyenne.",
+      "Synthèse : plus de courbe épaisse ; les chiffres rangés en lignes égales selon la largeur de la boîte.",
+      "Google Sheet : le tableau et les écarts demandent le script à jour (la personne qui gère le fichier le recolle et le redéploie).",
+    ],
+  },
+  {
     version: "1.94.0",
     notes: [
       "Synthèse : terrain (colonnes), nourriture et pertes de chaque chasse, chacune son axe ; « Chasse 1 (01/11) »… en abscisse.",

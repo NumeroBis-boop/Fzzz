@@ -848,19 +848,19 @@ html:not(.o_origineGenerale) #recherche {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
-/* bords des boîtes : poignées pour les déplacer, comme le titre (celui-ci peut
- * sortir de l'écran sur un petit écran) */
+/* bords et coins des boîtes : poignées pour les redimensionner, comme une
+ * fenêtre (le titre les déplace) */
 .o_bord {
   position: absolute;
   z-index: 2;
-  cursor: move;
   touch-action: none;
 }
 .o_bordHaut,
 .o_bordBas {
-  left: 0;
-  right: 0;
+  left: 12px;
+  right: 12px;
   height: 10px;
+  cursor: ns-resize;
 }
 .o_bordHaut {
   top: -3px;
@@ -870,15 +870,67 @@ html:not(.o_origineGenerale) #recherche {
 }
 .o_bordGauche,
 .o_bordDroite {
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
   width: 10px;
+  cursor: ew-resize;
 }
 .o_bordGauche {
   left: -3px;
 }
 .o_bordDroite {
   right: -3px;
+}
+.o_bordHautGauche,
+.o_bordHautDroite,
+.o_bordBasGauche,
+.o_bordBasDroite {
+  width: 16px;
+  height: 16px;
+  z-index: 3;
+}
+.o_bordHautGauche {
+  top: -3px;
+  left: -3px;
+  cursor: nwse-resize;
+}
+.o_bordBasDroite {
+  bottom: -3px;
+  right: -3px;
+  cursor: nwse-resize;
+}
+.o_bordHautDroite {
+  top: -3px;
+  right: -3px;
+  cursor: nesw-resize;
+}
+.o_bordBasGauche {
+  bottom: -3px;
+  left: -3px;
+  cursor: nesw-resize;
+}
+/* coin bas droit : poignée visible, comme sur une fenêtre */
+.o_bordBasDroite::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(
+    135deg,
+    transparent 45%,
+    rgba(0, 0, 0, 0.35) 45% 55%,
+    transparent 55% 70%,
+    rgba(0, 0, 0, 0.35) 70% 80%,
+    transparent 80%
+  );
+  pointer-events: none;
+}
+/* taille choisie par le joueur : plus de largeur imposée */
+.o_content.o_boiteRedimensionnee {
+  min-width: 0;
+  max-width: none;
 }
 .o_content table {
   border-collapse: collapse;
@@ -1113,6 +1165,18 @@ form > .o_titreParam:first-child {
     max-width: none;
     left: 10px !important;
     right: 10px !important;
+  }
+  /* toute la largeur : seule la hauteur se règle (bords haut et bas) */
+  .o_content.o_boiteRedimensionnee {
+    width: auto !important;
+  }
+  .o_bordGauche,
+  .o_bordDroite,
+  .o_bordHautGauche,
+  .o_bordHautDroite,
+  .o_bordBasGauche,
+  .o_bordBasDroite {
+    display: none;
   }
   #o_boiteGuerre,
   .o_content[id^="o_boiteRang"],

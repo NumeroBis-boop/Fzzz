@@ -837,9 +837,48 @@ html:not(.o_origineGenerale) #recherche {
   border: 3px solid;
   text-align: center;
   z-index: 25000;
-  padding: 8px 0px;
+  /* marges latérales : place des bords qui servent de poignée */
+  padding: 8px 10px;
   display: none;
   font-size: 0.9em;
+}
+/* contenu des boîtes : défile à l'intérieur quand il dépasse la fenêtre */
+.o_corps {
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* bords des boîtes : poignées pour les déplacer, comme le titre (celui-ci peut
+ * sortir de l'écran sur un petit écran) */
+.o_bord {
+  position: absolute;
+  z-index: 2;
+  cursor: move;
+  touch-action: none;
+}
+.o_bordHaut,
+.o_bordBas {
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+.o_bordHaut {
+  top: -3px;
+}
+.o_bordBas {
+  bottom: -3px;
+}
+.o_bordGauche,
+.o_bordDroite {
+  top: 0;
+  bottom: 0;
+  width: 10px;
+}
+.o_bordGauche {
+  left: -3px;
+}
+.o_bordDroite {
+  right: -3px;
 }
 .o_content table {
   border-collapse: collapse;
@@ -2869,14 +2908,70 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_syntheseDates input[type="date"] {
   max-width: 100%;
 }
-.o_syntheseResume td,
+.o_synthese {
+  width: min(880px, calc(100vw - 60px));
+  max-width: 100%;
+  margin: 0 auto;
+}
+.o_syntheseTitre {
+  margin: 10px 0 6px;
+}
+.o_syntheseCartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.o_syntheseCarte {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.o_syntheseCarte span {
+  display: block;
+  font-size: 0.85em;
+}
+.o_syntheseCarte b {
+  display: block;
+  font-size: 1.25em;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.o_syntheseGain b {
+  color: #2e7d32;
+}
+.o_synthesePerte b {
+  color: #b03a2e;
+}
+.o_synthese .o_spoilerTitre {
+  text-align: left;
+  margin-top: 8px;
+}
+.o_syntheseGrille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 8px 16px;
+  align-items: start;
+  margin: 6px 0;
+}
+.o_syntheseGrille table {
+  width: 100%;
+}
 .o_syntheseTableau td {
   padding: 2px 6px;
 }
-.o_syntheseSection td {
-  padding-top: 8px;
+.o_syntheseGraphiques {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 10px;
+  margin: 6px 0;
+}
+/* terrain : graphique principal, sur toute la largeur */
+.o_syntheseGraphique:first-child {
+  grid-column: 1 / -1;
 }
 .o_syntheseGraphique {
-  width: 100%;
-  min-height: 260px;
+  min-width: 0;
+  min-height: 230px;
 }

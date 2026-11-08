@@ -25,6 +25,8 @@ const EXPORT_MAX_PRECEDENTS = 30;
 const EXPORT_NOMBRE = "(\\d[\\d \\u00a0\\u202f]*)";
 // un export à la fois (double clic, ou les deux boutons)
 let exportEnCours = false;
+// source des entrées du journal de l'extension
+const JOURNAL_EXPORT = "Export Google Sheet";
 
 // colonnes des onglets d'attaques et de défenses
 const ENTETES_COMBATS = [
@@ -418,25 +420,33 @@ class ExportRapports {
     let rcs = [];
     conversations.forEach((c) => {
       let titreUtilise = false;
-      c.messages.forEach((/** @type {{id: Number, date: String, texte: String}} */ m) => {
-        if (type == "chasse") {
-          let rc = ExportRapports.chasse(m.texte, m.date, pseudo);
-          if (rc) rcs.push({ id: m.id, conversation: c.id, onglet: "chasse", rc });
-          return;
-        }
-        let rc =
-          ExportRapports.combat(m.texte, m.date, pseudo) ||
-          ExportRapports.prise(m.texte, m.date, pseudo, titreUtilise ? "" : c.titre);
-        if (!rc) return;
-        if (rc.valeurs[2] == "Prise") titreUtilise = true;
-        let interne = !!rc.adversaire && membres.has(rc.adversaire.toLowerCase());
-        rcs.push({
-          id: m.id,
-          conversation: c.id,
-          onglet: interne ? "interne" : rc.camp || c.camp || "attaque",
-          rc,
-        });
-      });
+      c.messages.forEach(
+        (/** @type {{id: Number, date: String, texte: String, rc?: String}} */ m) => {
+          if (type == "chasse") {
+            let rc = ExportRapports.chasse(m.texte, m.date, pseudo);
+            if (rc)
+              rcs.push({
+                id: m.id,
+                conversation: c.id,
+                onglet: "chasse",
+                rc: ExportRapports._texteAffiche(rc, m),
+              });
+            return;
+          }
+          let rc =
+            ExportRapports.combat(m.texte, m.date, pseudo) ||
+            ExportRapports.prise(m.texte, m.date, pseudo, titreUtilise ? "" : c.titre);
+          if (!rc) return;
+          if (rc.valeurs[2] == "Prise") titreUtilise = true;
+          let interne = !!rc.adversaire && membres.has(rc.adversaire.toLowerCase());
+          rcs.push({
+            id: m.id,
+            conversation: c.id,
+            onglet: interne ? "interne" : rc.camp || c.camp || "attaque",
+            rc: ExportRapports._texteAffiche(rc, m),
+          });
+        },
+      );
     });
     let rangs = new Map();
     return rcs
@@ -448,6 +458,23 @@ class ExportRapports {
         let cle = `${rc.date}|${ExportRapports.empreinte(rc.signature)}${rang > 1 ? "|" + rang : ""}`;
         return { onglet, conversation, ligne: [cle, ...rc.valeurs] };
       });
+  }
+  /**
+   * Colonne « RC » (la dernière) : texte affiché du message, images comprises,
+   * quand il est connu ; la clé et les valeurs restent celles du texte lu.
+   *
+   * @private
+   * @static
+   * @param {{valeurs: Array}} rc
+   * @param {{rc?: String}} message
+   * @return {any} rc
+   */
+  static _texteAffiche(rc, message) {
+    if (message.rc)
+      rc.valeurs[rc.valeurs.length - 1] = ExportRapports.texteRC(
+        ExportRapports.espaces(message.rc),
+      );
+    return rc;
   }
   /**
    * Messages d'une conversation, tous : chargée comme à son ouverture, puis
@@ -505,10 +532,19 @@ class ExportRapports {
         $message.find("br").replaceWith("\n");
         // ajouts de l'extension (analyses, boutons) : pas dans le RC
         $message.find("div[id^='o_analyse'], .o_optionMessage").remove();
+        // colonne « RC » : texte des images comme à la copie (la pomme = « de
+        // nourriture ») ; la lecture du RC, elle, se fait sans
+        let $affiche = $message.clone();
+        $affiche
+          .find("img")
+          .each((i, img) =>
+            $(img).replaceWith(` ${img.getAttribute("alt") || img.getAttribute("title") || ""}`),
+          );
         return {
           id: parseInt((tr.id.match(/\d+/) || ["0"])[0]),
           date: ExportRapports.date($(tr).find(".expe").first().text()),
           texte: $message.text(),
+          rc: $affiche.text(),
         };
       })
       .filter((m) => m.id && m.texte.trim());
@@ -617,18 +653,28 @@ class ExportRapports {
       (r) => {
         let autorise = ExportRapports.autorise(r.joueurs, pseudo),
           adresse = autorise ? r.adresse : "";
+        Journal.info(
+          JOURNAL_EXPORT,
+          `forum lu : ${r.joueurs.length} joueur(s) dans la liste, toi ${autorise ? "dedans" : "hors liste"}, adresse de l'alliance ${r.adresse ? "postée" : "absente"}`,
+        );
         // texte JSON : gardé tel quel par tous les gestionnaires de scripts
         return ExportRapports._garder(
           CLE_EXPORT_SHEET_ALLIANCE,
           autorise ? JSON.stringify({ pseudo, adresse }) : "",
         ).then(() => ({ autorise, adresse }));
       },
-      () =>
+      (e) =>
         ExportRapports._lire(CLE_EXPORT_SHEET_ALLIANCE).then((texte) => {
           let c = null;
           try {
             c = JSON.parse(texte);
           } catch (e) {}
+          Journal.noter(
+            "alerte",
+            JOURNAL_EXPORT,
+            `forum de l'alliance illisible : ${pseudo && c && c.pseudo == pseudo ? "dernière lecture gardée utilisée" : "aucune lecture gardée"}`,
+            e,
+          );
           return pseudo && c && c.pseudo == pseudo
             ? { autorise: true, adresse: String(c.adresse || "") }
             : { autorise: false, adresse: "", illisible: true };
@@ -779,17 +825,32 @@ class ExportRapports {
    * @return {Promise<Object>} réponse du script ; rejetée avec un message pour le joueur
    */
   static requete(url, methode, corps) {
-    let echec = (/** @type {String} */ message) => Promise.reject(new Error(message));
+    let quoi =
+        corps && corps.verifier
+          ? "vérification des RC déjà exportés"
+          : corps && corps.onglet
+            ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
+            : "test du script",
+      echec = (/** @type {String} */ message, /** @type {any} */ r) => {
+        // statut, réponse du script, ou texte de la page d'erreur de Google
+        Journal.erreur(
+          JOURNAL_EXPORT,
+          `${quoi} : ${message}`,
+          r && { statut: r.statut, reponse: r.donnees, extrait: r.extrait, erreur: r.erreur },
+        );
+        return Promise.reject(new Error(message));
+      };
     return Promise.resolve(chrome.runtime.sendMessage({ type: "fzzz_sheet", url, methode, corps }))
       .catch(() => ({ erreur: "reseau" }))
       .then((/** @type {any} */ r) => {
-        if (!r || r.erreur == "reseau") return echec("le script du Google Sheet ne répond pas");
+        if (!r || r.erreur == "reseau") return echec("le script du Google Sheet ne répond pas", r);
         if (r.erreur == "permission")
-          return echec("le navigateur n'a pas accordé l'accès à script.google.com");
-        if (r.erreur) return echec("adresse du script invalide");
-        if (r.donnees && r.donnees.erreur) return echec(`le script refuse : ${r.donnees.erreur}`);
+          return echec("le navigateur n'a pas accordé l'accès à script.google.com", r);
+        if (r.erreur) return echec("adresse du script invalide", r);
+        if (r.donnees && r.donnees.erreur)
+          return echec(`le script refuse : ${r.donnees.erreur}`, r);
         if (!r.ok || !r.donnees || typeof r.donnees != "object")
-          return echec(`réponse inattendue du script (erreur ${r.statut || "?"})`);
+          return echec(`réponse inattendue du script (erreur ${r.statut || "?"})`, r);
         return r.donnees;
       });
   }
@@ -912,17 +973,17 @@ class ExportRapports {
               camp: MessagerieFzzz.typeCouleur($(elt)) == "defense" ? "defense" : "attaque",
             }))
             .filter((c) => c.id);
-        return ExportRapports.absentes(
-          type,
-          listees.flatMap((c) => memoire[c.id] || []),
-          url,
-        ).then((absentes) =>
-          ExportRapports._exporterListees(
-            type,
-            listees.filter((c) => !memoire[c.id] || memoire[c.id].some((cle) => absentes.has(cle))),
-            url,
-          ),
-        );
+        let connues = listees.flatMap((c) => memoire[c.id] || []);
+        return ExportRapports.absentes(type, connues, url).then((absentes) => {
+          let aLire = listees.filter(
+            (c) => !memoire[c.id] || memoire[c.id].some((cle) => absentes.has(cle)),
+          );
+          Journal.info(
+            JOURNAL_EXPORT,
+            `Export des ${quoi} vers le fichier ${alliance ? "de l'alliance" : "personnel"} : ${listees.length} conversation(s) listée(s), ${connues.length} RC déjà exporté(s) dont ${absentes.size} absent(s) du fichier, ${aLire.length} conversation(s) à lire`,
+          );
+          return ExportRapports._exporterListees(type, aLire, url);
+        });
       })
       .catch((e) =>
         $.toast({
@@ -960,6 +1021,11 @@ class ExportRapports {
     return (type == "combat" ? ExportRapports.membres() : Promise.resolve(new Set()))
       .then((m) => {
         membres = m;
+        if (type == "combat")
+          Journal.info(
+            JOURNAL_EXPORT,
+            `membres de l'alliance (export public des joueurs) : ${m.size}`,
+          );
         $.toast({
           ...TOAST_INFO,
           hideAfter: false,
@@ -971,7 +1037,14 @@ class ExportRapports {
               ExportRapports.messages(c.id)
                 .then(
                   (messages) => lues.push({ ...c, messages }),
-                  () => echecs++,
+                  (e) => {
+                    echecs++;
+                    Journal.erreur(
+                      JOURNAL_EXPORT,
+                      `conversation ${c.id} illisible (« ${c.titre} »)`,
+                      e,
+                    );
+                  },
                 )
                 .then(() => $("#o_exportProgres").text(`${k + 1}/${aLire.length}`)),
             ),
@@ -989,6 +1062,10 @@ class ExportRapports {
           (parConversation[l.conversation] = parConversation[l.conversation] || []).push(
             l.ligne[0],
           ),
+        );
+        Journal.info(
+          JOURNAL_EXPORT,
+          `${lues.length} conversation(s) lue(s) : ${lignes.length} RC reconnu(s) (${onglets.map((o) => `${lignes.filter((l) => l.onglet == o).length} pour « ${EXPORTS_RAPPORTS[o].onglet} »`).join(", ") || "aucun"}), ${lues.length - Object.keys(parConversation).length} sans RC reconnu`,
         );
         if (lignes.length) $("#o_exportProgres").text("envoi au Google Sheet…");
         return onglets

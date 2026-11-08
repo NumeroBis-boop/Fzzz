@@ -254,6 +254,31 @@ describe("export des RC : script du Google Sheet de l'alliance", () => {
     expect(JSON.parse(requetes[0].data)).toEqual({ onglet: "BDD RC", lignes: [] });
   });
 
+  test("page d'erreur de Google au lieu de JSON : son texte gardé pour le journal", async () => {
+    const chrome = charger({
+      GM_xmlhttpRequest: (d: any) =>
+        d.onload({
+          status: 500,
+          responseText:
+            "<html><head><style>body{color:red}</style><title>Erreur</title></head><body><div>Exception: Cannot read properties of null (reading 'getRange') (ligne 120, fichier « Code »)</div></body></html>",
+        }),
+    });
+    expect(
+      await chrome.runtime.sendMessage({
+        type: "fzzz_sheet",
+        url: URL_SCRIPT,
+        methode: "POST",
+        corps: {},
+      }),
+    ).toEqual({
+      ok: false,
+      statut: 500,
+      donnees: {},
+      extrait:
+        "Erreur Exception: Cannot read properties of null (reading 'getRange') (ligne 120, fichier « Code »)",
+    });
+  });
+
   test("Userscripts (Safari iOS) : GM.xmlHttpRequest ; script injoignable : erreur réseau", async () => {
     const chrome = charger({
       GM: { xmlHttpRequest: (d: any) => d.onerror() },

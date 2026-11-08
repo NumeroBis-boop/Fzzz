@@ -188,13 +188,25 @@ var chrome = (function () {
         data: m.corps === undefined ? undefined : JSON.stringify(m.corps),
         timeout: 60000,
         onload: (r) => {
-          let donnees = {};
+          let donnees = {},
+            extrait = "";
           try {
             donnees = JSON.parse(r.responseText);
           } catch (e) {
-            /* réponse vide ou non JSON */
+            // page d'erreur de Google (exception du script…) : son texte, pour le journal
+            extrait = String(r.responseText || "")
+              .replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 300);
           }
-          resoudre({ ok: r.status >= 200 && r.status < 300, statut: r.status, donnees });
+          resoudre({
+            ok: r.status >= 200 && r.status < 300,
+            statut: r.status,
+            donnees,
+            ...(extrait ? { extrait } : {}),
+          });
         },
         onerror: () => resoudre({ erreur: "reseau" }),
         ontimeout: () => resoudre({ erreur: "reseau" }),

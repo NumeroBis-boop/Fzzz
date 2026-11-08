@@ -144,6 +144,7 @@ async function requeteSheet(m: RequeteSheet): Promise<{
   ok?: boolean;
   statut?: number;
   donnees?: unknown;
+  extrait?: string;
   erreur?: "permission" | "requete" | "reseau";
 }> {
   if (!ADRESSE_SHEET.test(String(m.url)) || !["GET", "POST"].includes(m.methode))
@@ -157,8 +158,19 @@ async function requeteSheet(m: RequeteSheet): Promise<{
       headers: m.corps === undefined ? {} : { "Content-Type": "text/plain;charset=utf-8" },
       body: m.corps === undefined ? undefined : JSON.stringify(m.corps),
     });
-    const donnees = await r.json().catch(() => ({}));
-    return { ok: r.ok, statut: r.status, donnees };
+    const texte = await r.text();
+    try {
+      return { ok: r.ok, statut: r.status, donnees: JSON.parse(texte) };
+    } catch {
+      // page d'erreur de Google (exception du script…) : son texte, pour le journal
+      const extrait = texte
+        .replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 300);
+      return { ok: r.ok, statut: r.status, donnees: {}, ...(extrait ? { extrait } : {}) };
+    }
   } catch (e) {
     return { erreur: "reseau" };
   }

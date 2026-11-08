@@ -307,6 +307,22 @@ describe("lecture d'une conversation", () => {
     `<tr id="message_${id}"><td class="expe">07/11/26 à 21h07</td><td class="message">${chasse(id).replace(/\n/g, "<br/>")}</td></tr>`;
   const precedent = `<tr><td><a href="#" class="lien_voir_precedent">Voir les messages précédents</a></td></tr>`;
 
+  test("icône du jeu (pomme) : son texte dans la colonne RC, clé et valeurs inchangées", async () => {
+    const avecIcone = chasse(1)
+      .replace(/de nourriture$/, "<img src='images/icone/icone_pomme.png' alt='de nourriture'/>")
+      .replace(/\n/g, "<br/>");
+    lire(
+      `$.post = () => Promise.resolve(${JSON.stringify(`<tr id="message_1"><td class="expe">07/11/26 à 21h07</td><td class="message">${avecIcone}</td></tr>`)});`,
+    );
+    const messages = await lire<Promise<any[]>>(`ExportRapports.messages(5)`);
+    expect(messages[0].texte).toMatch(/rapportent 61 000\s*$/);
+    expect(messages[0].rc).toMatch(/rapportent 61 000\s+de nourriture$/);
+    const avec = lignes("chasse", [conv(messages)])[0]!.ligne,
+      sans = lignes("chasse", [conv([{ id: 1, texte: chasse(1) }])])[0]!.ligne;
+    expect(avec.at(-1)).toMatch(/vous rapportent 61 000 de nourriture$/);
+    expect(avec.slice(0, -1)).toEqual(sans.slice(0, -1));
+  });
+
   test("longue conversation : « messages précédents » suivis jusqu'au premier", async () => {
     lire(`window.POSTS = [];
       $.post = (url, d) => {
@@ -668,6 +684,36 @@ describe("export complet depuis la messagerie", () => {
     await lire(`ExportRapports.exporter("chasse")`);
     expect(lire(`LECTURES_JOUEURS`)).toBe(0);
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain("4 lignes ajoutées dans « BDD chasse »");
+  });
+
+  test("journal : étapes de l'export, puis détail d'un refus du script (statut, réponse)", async () => {
+    lire(
+      `Journal.vider(); REPONSE = { ok: true, statut: 200, donnees: { erreur: "requête invalide" } };`,
+    );
+    await lire(`ExportRapports.exporter("chasse")`);
+    const e = lire<any[]>(`Journal.entrees()`).filter((x) => x.s == "Export Google Sheet");
+    expect(e.map((x) => x.m)).toEqual([
+      "envoi de 4 ligne(s) à « BDD chasse » : le script refuse : requête invalide",
+      "2 conversation(s) lue(s) : 4 RC reconnu(s) (4 pour « BDD chasse »), 0 sans RC reconnu",
+      "Export des chasses vers le fichier de l'alliance : 2 conversation(s) listée(s), 0 RC déjà exporté(s) dont 0 absent(s) du fichier, 2 conversation(s) à lire",
+      "forum lu : 4 joueur(s) dans la liste, toi dedans, adresse de l'alliance postée",
+    ]);
+    expect(e[0].n).toBe("erreur");
+    expect(e[0].d).toBe('{"statut":200,"reponse":{"erreur":"requête invalide"}}');
+  });
+
+  test("journal : page d'erreur de Google à la place de la réponse, son texte gardé", async () => {
+    lire(
+      `Journal.vider(); REPONSE = { ok: false, statut: 500, donnees: {}, extrait: "Exception: Cannot read properties of null (ligne 120, fichier « Code »)" };`,
+    );
+    await lire(`ExportRapports.exporter("chasse")`);
+    const refus = lire<any[]>(`Journal.entrees()`).find(
+      (x) => x.n == "erreur" && x.s == "Export Google Sheet",
+    );
+    expect(refus.m).toBe(
+      "envoi de 4 ligne(s) à « BDD chasse » : réponse inattendue du script (erreur 500)",
+    );
+    expect(refus.d).toContain("Exception: Cannot read properties of null (ligne 120");
   });
 
   test("script injoignable : message clair et rien de marqué (le prochain clic relit tout)", async () => {

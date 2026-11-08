@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.89.0",
+    notes: [
+      "Forum caché : les chasses, floods et convois passés ne sont plus effacés de tes sujets « Chasses | pseudo », « Floods | pseudo » et « Convois | pseudo ». Ils sont rangés dans « Historique Chasses 1 | pseudo » (de même pour Floods et Convois), puis dans la page 2, 3… quand une page est pleine. Les sujets de suivi ne gardent que ce qui est en cours.",
+    ],
+  },
+  {
     version: "1.88.0",
     notes: [
       "Messagerie : boutons « Exporter mes chasses » et « Exporter mes RC » vers le Google Sheet de l'alliance (joueurs de la liste du sujet « Export Google Sheet » du forum caché ; les autres renseignent leur propre fichier dans Préférences → Messagerie). Les floods entre membres de l'alliance vont dans « Flood internes », une seule ligne quel que soit le camp qui exporte.",

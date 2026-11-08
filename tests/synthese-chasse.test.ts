@@ -155,23 +155,51 @@ describe("affichage", () => {
     );
   });
 
-  test("résumé et classements : nombres à la française, cases vides en « — », pseudos échappés", () => {
+  test("chiffres clés en tête, détail replié, graphiques et classements ouverts", () => {
     const html = lire<string>(`SyntheseChasse.html(${JSON.stringify(STATS)})`);
     expect(html).toContain("Synthèse de DoggyBag du 01/11/2026 au 07/11/2026");
+    expect(lire(`SyntheseChasse.cartes(${JSON.stringify(STATS)})`)).toEqual([
+      { libelle: "Chasses", texte: "2", classe: "" },
+      { libelle: "Terrain conquis", texte: "20 000 cm²", classe: "" },
+      { libelle: "Nourriture rapportée", texte: "150 000", classe: "" },
+      { libelle: "Pertes / M cm²", texte: "50 000", classe: "" },
+      { libelle: "Floods internes", texte: "0 cm²", classe: "" },
+      { libelle: "Terrain gagné", texte: "+21 500 cm²", classe: "o_syntheseGain" },
+    ]);
+    // sections repliables (état retenu par le navigateur), « Détail » replié au départ
+    expect(html).toContain(
+      "data-spoiler='syntheseDetail'><span class='o_spoilerFleche'>▶</span> Détail",
+    );
+    expect(html).toContain(
+      "data-spoiler='syntheseEvolution'><span class='o_spoilerFleche'>▼</span> Évolution par jour",
+    );
+    expect(html).toContain(
+      "data-spoiler='syntheseClassements'><span class='o_spoilerFleche'>▼</span> Classements",
+    );
+  });
+
+  test("détail et classements : nombres à la française, pseudos échappés", () => {
+    const html = lire<string>(`SyntheseChasse.html(${JSON.stringify(STATS)})`);
+    expect(html).toContain("<td colspan='2' class='left'>Attaques hors alliance</td>");
     expect(html).toContain(
       "<td class='left'>Terrain conquis (cm²)</td><td class='right'>20 000</td>",
     );
     expect(html).toContain(
       "<td class='left'>Pertes par million de cm²</td><td class='right'>50 000</td>",
     );
-    expect(html).toContain(
-      "<tr class='gras o_syntheseSection'><td colspan='2' class='left'>Attaques hors alliance</td></tr>",
-    );
-    expect(html).toContain("Évolution par jour");
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
     expect(html).not.toContain("<img src=x");
     // aucune défense ni flood interne sur la période
     expect(html.match(/<em>Aucun\.<\/em>/g)).toHaveLength(2);
+  });
+
+  test("terrain perdu sur la période : carte en rouge, signe moins", () => {
+    const s = JSON.parse(JSON.stringify(STATS));
+    s.resume = s.resume.map((l: [string, unknown]) =>
+      l[0] == "Terrain gagné (cm²)" ? [l[0], -1234] : l,
+    );
+    const c = lire<any[]>(`SyntheseChasse.cartes(${JSON.stringify(s)})`).at(-1);
+    expect(c).toEqual({ libelle: "Terrain gagné", texte: "-1 234 cm²", classe: "o_synthesePerte" });
   });
 
   test("graphiques : mêmes séries et mêmes périodes que l'onglet « Statistiques »", () => {

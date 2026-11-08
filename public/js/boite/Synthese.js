@@ -103,6 +103,10 @@ class SyntheseChasse {
       );
       this._graphiques.push(Highcharts.chart($div[0], options));
     });
+    // dessinés repliés : à leur taille réelle quand la section s'ouvre
+    $resultat
+      .find(".o_spoilerTitre")
+      .on("click", () => setTimeout(() => this._graphiques.forEach((g) => g.reflow()), 0));
   }
   /**
    * Message si la période ne peut pas être demandée, sinon "".
@@ -122,7 +126,8 @@ class SyntheseChasse {
     return "";
   }
   /**
-   * Résumé, place des graphiques et classements, au style des tableaux du jeu.
+   * Chiffres clés en tête, puis détail, graphiques et classements dans des
+   * sections repliables (état retenu par Utils.spoiler).
    *
    * @static
    * @method html
@@ -137,17 +142,33 @@ class SyntheseChasse {
           : typeof v == "number"
             ? numeral(v).format()
             : Utils.echapper(v),
-      resume = s.resume
-        .map((/** @type {any[]} */ l) =>
-          l[1] === ""
-            ? `<tr class='gras o_syntheseSection'><td colspan='2' class='left'>${Utils.echapper(l[0])}</td></tr>`
-            : `<tr><td class='left'>${Utils.echapper(l[0])}</td><td class='right'>${valeur(l[1])}</td></tr>`,
+      // résumé du script découpé en sections : une ligne sans valeur est un titre
+      sections = /** @type {Array<{titre: String, lignes: any[][]}>} */ ([]);
+    s.resume.forEach((/** @type {any[]} */ l) => {
+      if (l[1] === "") sections.push({ titre: l[0], lignes: [] });
+      else if (sections.length) sections[sections.length - 1].lignes.push(l);
+    });
+    let cartes = SyntheseChasse.cartes(s)
+        .map(
+          (c) =>
+            `<div class='o_syntheseCarte ${c.classe}'><span>${c.libelle}</span><b>${c.texte}</b></div>`,
         )
         .join(""),
-      tableau = (/** @type {String} */ titre, /** @type {any} */ t) =>
-        `<p class='gras o_marginT15'>${titre}</p>` +
+      detail = sections
+        .map(
+          (sec) =>
+            `<table class='o_syntheseTableau' cellspacing='0'><tr class='gras'><td colspan='2' class='left'>${Utils.echapper(sec.titre)}</td></tr>${sec.lignes
+              .map(
+                (l) =>
+                  `<tr><td class='left'>${Utils.echapper(l[0])}</td><td class='right'>${valeur(l[1])}</td></tr>`,
+              )
+              .join("")}</table>`,
+        )
+        .join(""),
+      classement = (/** @type {String} */ titre, /** @type {any} */ t) =>
+        `<div><p class='gras'>${titre}</p>` +
         (t.lignes.length
-          ? `<table class='o_maxWidth o_syntheseTableau' cellspacing='0'><tr class='gras'>${t.titres
+          ? `<table class='o_syntheseTableau' cellspacing='0'><tr class='gras'>${t.titres
               .map(
                 (/** @type {String} */ x, /** @type {Number} */ i) =>
                   `<td class='${i ? "right" : "left"}'>${Utils.echapper(x)}</td>`,
@@ -158,14 +179,48 @@ class SyntheseChasse {
                   `<tr>${l.map((v, i) => `<td class='${i ? "right" : "left"}'>${valeur(v)}</td>`).join("")}</tr>`,
               )
               .join("")}</table>`
-          : "<p><em>Aucun.</em></p>");
-    return `<p class='gras o_marginT15'>Synthèse de ${Utils.echapper(s.joueur)} du ${jour(s.debut)} au ${jour(s.fin)}</p>
-      <table class='o_maxWidth o_syntheseResume' cellspacing='0'>${resume}</table>
-      <p class='gras o_marginT15'>Évolution ${PAS_SYNTHESE[/** @type {"jour"} */ (s.pas)] || ""}</p>
-      <div class='o_syntheseGraphiques'></div>
-      ${tableau("Cibles hors alliance", s.cibles)}
-      ${tableau("Attaquants hors alliance", s.attaquants)}
-      ${tableau("Floods internes", s.internes)}`;
+          : "<p><em>Aucun.</em></p>") +
+        "</div>";
+    return `<p class='gras o_syntheseTitre'>Synthèse de ${Utils.echapper(s.joueur)} du ${jour(s.debut)} au ${jour(s.fin)}</p>
+      <div class='o_syntheseCartes'>${cartes}</div>
+      ${Utils.spoiler("Détail", `<div class='o_syntheseGrille'>${detail}</div>`, "syntheseDetail", "gras", false)}
+      ${Utils.spoiler(`Évolution ${PAS_SYNTHESE[/** @type {"jour"} */ (s.pas)] || ""}`, "<div class='o_syntheseGraphiques'></div>", "syntheseEvolution", "gras")}
+      ${Utils.spoiler(
+        "Classements",
+        `<div class='o_syntheseGrille'>${classement("Cibles hors alliance", s.cibles)}${classement("Attaquants hors alliance", s.attaquants)}${classement("Floods internes", s.internes)}</div>`,
+        "syntheseClassements",
+        "gras",
+      )}`;
+  }
+  /**
+   * Chiffres clés de la période, lus dans le résumé du script.
+   *
+   * @static
+   * @method cartes
+   * @param {any} s statistiques renvoyées par le script
+   * @return {Array<{libelle: String, texte: String, classe: String}>}
+   */
+  static cartes(s) {
+    let v = (/** @type {String} */ libelle) => {
+        let l = s.resume.find((/** @type {any[]} */ x) => x[0] == libelle);
+        return l && typeof l[1] == "number" ? l[1] : null;
+      },
+      nombre = (/** @type {Number|null} */ n, unite = "", signe = false) =>
+        n == null ? "—" : (signe && n > 0 ? "+" : "") + numeral(n).format() + unite,
+      sens = (/** @type {Number|null} */ n) =>
+        n == null || n == 0 ? "" : n > 0 ? "o_syntheseGain" : "o_synthesePerte",
+      recu = v("Terrain reçu des alliés (cm²)"),
+      donne = v("Terrain donné aux alliés (cm²)"),
+      internes = recu == null || donne == null ? null : recu - donne,
+      gagne = v("Terrain gagné (cm²)");
+    return [
+      { libelle: "Chasses", texte: nombre(v("Chasses (RC)")), classe: "" },
+      { libelle: "Terrain conquis", texte: nombre(v("Terrain conquis (cm²)"), " cm²"), classe: "" },
+      { libelle: "Nourriture rapportée", texte: nombre(v("Nourriture rapportée")), classe: "" },
+      { libelle: "Pertes / M cm²", texte: nombre(v("Pertes par million de cm²")), classe: "" },
+      { libelle: "Floods internes", texte: nombre(internes, " cm²", true), classe: sens(internes) },
+      { libelle: "Terrain gagné", texte: nombre(gagne, " cm²", true), classe: sens(gagne) },
+    ];
   }
   /**
    * Options Highcharts des trois graphiques de l'évolution (mêmes séries que
@@ -186,7 +241,7 @@ class SyntheseChasse {
         /** @type {String} */ titre,
         /** @type {Array<any>} */ series,
       ) => ({
-        chart: { type, height: 260, backgroundColor: "transparent", spacing: [6, 6, 6, 6] },
+        chart: { type, height: 230, backgroundColor: "transparent", spacing: [6, 6, 6, 6] },
         title: { text: titre, style: { fontSize: "13px", fontWeight: "bold" } },
         credits: { enabled: false },
         xAxis: {

@@ -700,7 +700,7 @@ describe("export complet depuis la messagerie", () => {
 
   test("journal : étapes de l'export, puis détail d'un refus du script (statut, réponse)", async () => {
     lire(
-      `Journal.vider(); REPONSE = { ok: true, statut: 200, donnees: { erreur: "requête invalide" } };`,
+      `Journal.installer(); Journal.vider(); REPONSE = { ok: true, statut: 200, donnees: { erreur: "requête invalide" } };`,
     );
     await lire(`ExportRapports.exporter("chasse")`);
     const e = lire<any[]>(`Journal.entrees()`).filter((x) => x.s == "Export Google Sheet");
@@ -716,7 +716,7 @@ describe("export complet depuis la messagerie", () => {
 
   test("journal : page d'erreur de Google à la place de la réponse, son texte gardé", async () => {
     lire(
-      `Journal.vider(); REPONSE = { ok: false, statut: 500, donnees: {}, extrait: "Exception: Cannot read properties of null (ligne 120, fichier « Code »)" };`,
+      `Journal.installer(); Journal.vider(); REPONSE = { ok: false, statut: 500, donnees: {}, extrait: "Exception: Cannot read properties of null (ligne 120, fichier « Code »)" };`,
     );
     await lire(`ExportRapports.exporter("chasse")`);
     const refus = lire<any[]>(`Journal.entrees()`).find(

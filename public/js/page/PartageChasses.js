@@ -13,8 +13,9 @@ const PARTAGE_MAX_ENTREES = 300;
 // un seul message chacun, car une réponse empêche de modifier le premier
 // message ; page suivante quand ce message dépasserait cette taille
 const HISTORIQUE_MAX_CARACTERES = 15000;
-// sujet où est réglée, pour toute l'alliance, l'adresse du script du Google
-// Sheet qui reçoit les rapports exportés (ExportRapports)
+// sujet où la personne qui gère le Google Sheet de l'alliance poste, à la main,
+// l'adresse du script qui reçoit les rapports exportés et la liste des joueurs
+// qui l'utilisent (ExportRapports.lireReglage)
 const TITRE_EXPORT_SHEET = "Export Google Sheet";
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur

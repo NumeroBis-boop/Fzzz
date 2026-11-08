@@ -8,10 +8,12 @@
  *  1. Extensions → Apps Script ; remplacer le contenu de Code.gs par ce fichier.
  *  2. Déployer → Nouveau déploiement → type « Application Web » ;
  *     « Exécuter en tant que : moi », « Qui a accès : Tout le monde ».
- *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et la coller
- *     une fois dans l'extension (Préférences → Messagerie → « Enregistrer pour
- *     l'alliance ») : elle est rangée dans le forum caché et l'extension de
- *     chaque membre la lit toute seule.
+ *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et la poster
+ *     dans le forum de l'alliance, section « BDD partagée cachée », sujet
+ *     « Export Google Sheet », suivie de « Joueurs autorisés à partager des
+ *     RC : » et de leurs pseudos : l'extension de ces joueurs lit l'adresse
+ *     toute seule. Pas de réponse dans ce sujet : elle empêcherait de modifier
+ *     le message (ajouter ou retirer un joueur).
  * Après une modification de ce code : Déployer → Gérer les déploiements →
  * modifier → Nouvelle version (l'adresse ne change pas).
  *
@@ -45,9 +47,8 @@ function doPost(e) {
   var verrou = LockService.getScriptLock();
   verrou.waitLock(30000);
   try {
-    return reponseJson(
-      ajouterLignes(SpreadsheetApp.getActiveSpreadsheet(), d.onglet, d.entetes, d.lignes)
-    );
+    var classeur = SpreadsheetApp.getActiveSpreadsheet();
+    return reponseJson(ajouterLignes(classeur, d.onglet, d.entetes, d.lignes));
   } finally {
     verrou.releaseLock();
   }
@@ -118,7 +119,6 @@ function valeurCellule(v) {
 }
 
 function reponseJson(o) {
-  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(
-    ContentService.MimeType.JSON
-  );
+  var sortie = ContentService.createTextOutput(JSON.stringify(o));
+  return sortie.setMimeType(ContentService.MimeType.JSON);
 }

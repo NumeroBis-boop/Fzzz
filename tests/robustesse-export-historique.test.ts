@@ -27,6 +27,9 @@ const page = creerPage(
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const fenetre = page.window as any;
 const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbRobuste_1/exec";
+// premier message du sujet « Export Google Sheet », écrit à la main dans le forum
+const reglage = (adresse = URL_SCRIPT, joueurs = "Kwhwwymwn, Canaille, DoggyBag, Grim") =>
+  `Adresse du script qui reçoit les rapports exportés par l'extension :\n${adresse}\n\nJoueurs autorisés à partager des RC :\n${joueurs}`;
 
 // rapports inventés au format du jeu
 const chasse = (n: number) =>
@@ -43,13 +46,17 @@ let fichier: ReturnType<typeof classeurSimule>;
 // mode du script : normal, réponse perdue (page rechargée), panne, panne au lot n
 let mode: { perdue?: boolean; panne?: boolean; panneAuLot?: number } = {};
 let lots = 0;
+// adresses où le script a été appelé
+let urls: string[] = [];
 
 /** Messagerie listée, conversations servies par le « jeu », fichier vide. */
 function messagerie(conversations: Record<number, { titre: string; html: string }>) {
   fichier = classeurSimule({});
   mode = {};
   lots = 0;
+  urls = [];
   fenetre.__envoyer = (m: any) => {
+    urls.push(m.url);
     if (m.methode == "GET") return { ok: true, statut: 200, donnees: fichier.doGet() };
     lots++;
     if (mode.panne || lots === mode.panneAuLot) return { erreur: "reseau" };
@@ -78,7 +85,7 @@ function messagerie(conversations: Record<number, { titre: string; html: string 
       runtime: { sendMessage: (m) => Promise.resolve(__envoyer(m)) },
     };
   })()`);
-  forum([{ id: "1", titre: "Export Google Sheet", messages: [URL_SCRIPT] }]);
+  forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
 }
 
 /** Forum caché simulé : sujets {id, titre, messages}, appels xajax notés. */
@@ -227,25 +234,51 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
   });
 
   test("joueur hors liste : jamais l'adresse du forum, seulement la sienne", async () => {
+    const PERSO = "https://script.google.com/macros/s/AKfyPerso_2/exec";
     messagerie(CHASSES);
-    lire(`monProfil.pseudo = "Inconnu"; FORUM.appels.length = 0;`);
+    lire(`monProfil.pseudo = "Inconnu"`);
     await exporter("chasse");
-    expect(dernierMessage()).toContain("renseigne d'abord l'adresse du script de ton Google Sheet");
-    expect(lire(`FORUM.appels`)).toEqual([]);
+    expect(dernierMessage()).toContain("ton pseudo n'est pas dans la liste des joueurs autorisés");
     expect(lire(`LECTURES`)).toEqual([]);
-    await lire(`ExportRapports.enregistrerAdresse("${URL_SCRIPT}")`);
-    expect(lire(`FORUM.appels`)).toEqual([]);
+    await lire(`ExportRapports.enregistrerAdresse("${PERSO}")`);
     await exporter("chasse");
     expect(fichier.cles("BDD chasse")).toHaveLength(4);
+    expect(new Set(urls)).toEqual(new Set([PERSO]));
+    // rien d'écrit dans le forum, rien gardé de l'adresse de l'alliance
+    expect(lire<string[]>(`FORUM.appels`).filter((a) => a.startsWith("envoi"))).toEqual([]);
+    expect(lire(`"fzzz_exportSheetAlliance" in GARDE`)).toBe(false);
     lire(`monProfil.pseudo = "DoggyBag"`);
   });
 
-  test("liste des joueurs : casse ignorée, pseudo partiel refusé", () => {
-    expect(lire(`ExportRapports.alliance("doggybag")`)).toBe(true);
-    expect(lire(`ExportRapports.alliance("DOGGYBAG")`)).toBe(true);
-    expect(lire(`ExportRapports.alliance("Doggy")`)).toBe(false);
-    expect(lire(`ExportRapports.alliance("")`)).toBe(false);
-    expect(lire<number>(`JOUEURS_EXPORT_ALLIANCE.length`)).toBe(32);
+  test("liste modifiée dans le forum : prise en compte au clic suivant, sans nouvelle version", async () => {
+    messagerie(CHASSES);
+    const message = (joueurs: string) =>
+      lire(`FORUM.sujets[0].messages[0] = ${JSON.stringify(reglage(URL_SCRIPT, joueurs))};`);
+    // retiré de la liste : plus d'export vers le fichier de l'alliance
+    message("Kwhwwymwn, Canaille");
+    await exporter("chasse");
+    expect(dernierMessage()).toContain("ton pseudo n'est pas dans la liste");
+    expect(lots).toBe(0);
+    // ajouté (casse différente, sur la ligne du titre) : export sans rien régler
+    lire(
+      `FORUM.sujets[0].messages[0] = ${JSON.stringify(`${URL_SCRIPT}\nJoueurs autorisés : Kwhwwymwn DOGGYBAG`)};`,
+    );
+    await exporter("chasse");
+    expect(fichier.cles("BDD chasse")).toHaveLength(4);
+    expect(new Set(urls)).toEqual(new Set([URL_SCRIPT]));
+  });
+
+  test("forum injoignable au clic : la dernière lecture faite pour ce joueur sert", async () => {
+    messagerie(CHASSES);
+    await exporter("chasse");
+    lire(`localStorage.clear(); FORUM.echoue = () => true;`);
+    await exporter("chasse");
+    expect(dernierMessage()).toContain("(4 déjà présentes)");
+    // un autre pseudo sur ce navigateur ne profite pas de cette lecture
+    lire(`localStorage.clear(); monProfil.pseudo = "Grim";`);
+    await exporter("chasse");
+    expect(dernierMessage()).toContain("le forum de l'alliance n'a pas pu être lu");
+    lire(`monProfil.pseudo = "DoggyBag"; FORUM.echoue = null;`);
   });
 
   test("sujet « Export Google Sheet » créé deux fois : le plus ancien fait foi", async () => {
@@ -254,11 +287,11 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
       {
         id: "9",
         titre: "Export Google Sheet",
-        messages: ["https://script.google.com/macros/s/AKfyRecent/exec"],
+        messages: [reglage("https://script.google.com/macros/s/AKfyRecent/exec", "Inconnu")],
       },
-      { id: "4", titre: "Export Google Sheet", messages: [URL_SCRIPT] },
+      { id: "4", titre: "Export Google Sheet", messages: [reglage()] },
     ]);
-    expect(await lire<Promise<string>>(`ExportRapports.adresse()`)).toBe(URL_SCRIPT);
+    expect(await lire(`ExportRapports.cible()`)).toEqual({ url: URL_SCRIPT, alliance: true });
   });
 });
 

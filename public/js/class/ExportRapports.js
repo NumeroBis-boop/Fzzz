@@ -5,48 +5,14 @@
  **********************************************************************/
 
 // adresse du script Google (Apps Script) d'un fichier : elle permet d'y écrire,
-// donc jamais dans le code (public). Celle de l'alliance est réglée une fois
-// dans le sujet TITRE_EXPORT_SHEET du forum caché et lue par l'extension des
-// joueurs de JOUEURS_EXPORT_ALLIANCE (copie gardée ici si le forum ne répond
-// pas) ; un autre joueur peut donner l'adresse de son propre fichier
+// donc jamais dans le code (public). Celle de l'alliance et la liste des joueurs
+// qui l'utilisent sans rien régler sont postées à la main dans le premier message
+// du sujet TITRE_EXPORT_SHEET du forum caché (copie gardée ici, pour ce joueur,
+// si le forum ne répond pas) ; un autre joueur donne celle de son propre fichier
 const CLE_EXPORT_SHEET_ALLIANCE = "fzzz_exportSheetAlliance";
 const CLE_EXPORT_SHEET = "fzzz_exportSheet";
-// joueurs qui exportent vers le fichier de l'alliance sans rien régler (liste
-// du mainteneur) ; casse ignorée
-const JOUEURS_EXPORT_ALLIANCE = [
-  "Kwhwwymwn",
-  "Boursouf",
-  "Bull",
-  "Callisto",
-  "Sirius",
-  "Lassie",
-  "Rantanplan",
-  "Maddog",
-  "Missyl",
-  "Hera",
-  "Krokmou",
-  "Kyle",
-  "ChaOs",
-  "Cocop",
-  "Ramuthra",
-  "DogGyneco",
-  "DirtyPaws",
-  "Didier",
-  "SerPounce",
-  "Canaille",
-  "Spike",
-  "DonLapatte",
-  "Marmule",
-  "Sacapuces",
-  "Madakai",
-  "DoggyBag",
-  "Grim",
-  "Staffie",
-  "Harkonnen",
-  "Vegas",
-  "LabraDrungor",
-  "Daek",
-];
+// titre de la liste, dans ce message : « Joueurs autorisés à partager des RC : »
+const LISTE_EXPORT_ALLIANCE = /joueurs\s+autoris[ée]s?[^:\n]*(?::|\n|$)/i;
 const ADRESSE_EXPORT_SHEET =
   /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/\s]+|macros)\/s\/[\w-]+\/exec$/;
 // lignes envoyées par requête au script
@@ -569,66 +535,135 @@ class ExportRapports {
     } catch (e) {}
   }
   /**
-   * Le joueur exporte-t-il vers le fichier de l'alliance (adresse du forum) ?
+   * Réglage de l'alliance, dans le premier message du sujet TITRE_EXPORT_SHEET
+   * (réponse de callGetTopic) : l'adresse du script, n'importe où dans le
+   * message, et les pseudos écrits après « Joueurs autorisés … : », séparés par
+   * des virgules, des espaces ou des retours à la ligne, jusqu'à la fin du
+   * message ou la prochaine ligne qui contient « : ».
    *
    * @static
-   * @method alliance
-   * @param {String} [pseudo]
-   * @return {Boolean}
+   * @method lireReglage
+   * @param {any} data réponse xajax
+   * @return {{adresse: String, joueurs: Array<String>}}
    */
-  static alliance(pseudo = monProfil.pseudo) {
-    let p = String(pseudo || "").toLowerCase();
-    return !!p && JOUEURS_EXPORT_ALLIANCE.some((j) => j.toLowerCase() == p);
+  static lireReglage(data) {
+    let $div = Utils.parseHtml(PartageChasses._html(data)),
+      $premier = $div.find(".messageForum").first(),
+      $message = $premier.length ? $premier : $div,
+      // le forum peut changer l'adresse en lien (texte raccourci) : href lus aussi
+      liens = $message
+        .find("a[href]")
+        .get()
+        .map((/** @type {Element} */ a) => a.getAttribute("href"));
+    $message.find("br").replaceWith("\n");
+    let texte = $message.text(),
+      url = /https:\/\/script\.google\.com\/[^\s"'<>]+?\/exec\b/.exec([texte, ...liens].join(" ")),
+      titre = LISTE_EXPORT_ALLIANCE.exec(texte),
+      joueurs = /** @type {Array<String>} */ ([]);
+    if (titre) {
+      let [reste, ...suite] = texte.slice(titre.index + titre[0].length).split("\n"),
+        fin = suite.findIndex((l) => l.includes(":"));
+      joueurs = [reste, ...(fin == -1 ? suite : suite.slice(0, fin))]
+        .join(" ")
+        .split(/[\s,;]+/)
+        .map((p) => PartageChasses.nettoyer(p).replace(/\.+$/, ""))
+        .filter((p) => p && !/[:/]/.test(p));
+    }
+    return { adresse: url && ExportRapports.adresseValide(url[0]) ? url[0] : "", joueurs };
   }
   /**
-   * Adresse du script : pour un joueur de JOUEURS_EXPORT_ALLIANCE, celle du
-   * forum caché de l'alliance (sujet TITRE_EXPORT_SHEET), qui fait foi quand il
-   * se lit, sinon la dernière lue ; pour un autre joueur, celle qu'il a donnée.
+   * @static
+   * @method autorise
+   * @param {Array<String>} joueurs pseudos de la liste du forum
+   * @param {String} [pseudo]
+   * @return {Boolean} pseudo dans la liste, casse ignorée
+   */
+  static autorise(joueurs, pseudo = monProfil.pseudo) {
+    let p = String(pseudo || "").toLowerCase();
+    return !!p && joueurs.some((j) => j.toLowerCase() == p);
+  }
+  /**
+   * Le joueur est-il dans la liste du forum caché, et l'adresse du fichier de
+   * l'alliance ? Le forum fait foi quand il se lit ; sinon, la dernière lecture
+   * faite pour ce joueur (rien pour un joueur hors liste ni un autre pseudo).
    *
    * @static
-   * @method adresse
-   * @return {Promise<String>} adresse, ou ""
+   * @method reglageAlliance
+   * @return {Promise<{autorise: Boolean, adresse: String, illisible?: Boolean}>} illisible : forum pas lu et aucune lecture gardée
    */
-  static adresse() {
-    if (!ExportRapports.alliance()) return ExportRapports._lire(CLE_EXPORT_SHEET);
-    return ExportRapports._adresseForum().then(
-      (url) => {
-        ExportRapports._garder(CLE_EXPORT_SHEET_ALLIANCE, url);
-        return url;
+  static reglageAlliance() {
+    let pseudo = String(monProfil.pseudo || "").toLowerCase();
+    return ExportRapports._reglageForum().then(
+      (r) => {
+        let autorise = ExportRapports.autorise(r.joueurs, pseudo),
+          adresse = autorise ? r.adresse : "";
+        // texte JSON : gardé tel quel par tous les gestionnaires de scripts
+        return ExportRapports._garder(
+          CLE_EXPORT_SHEET_ALLIANCE,
+          autorise ? JSON.stringify({ pseudo, adresse }) : "",
+        ).then(() => ({ autorise, adresse }));
       },
-      () => ExportRapports._lire(CLE_EXPORT_SHEET_ALLIANCE),
+      () =>
+        ExportRapports._lire(CLE_EXPORT_SHEET_ALLIANCE).then((texte) => {
+          let c = null;
+          try {
+            c = JSON.parse(texte);
+          } catch (e) {}
+          return pseudo && c && c.pseudo == pseudo
+            ? { autorise: true, adresse: String(c.adresse || "") }
+            : { autorise: false, adresse: "", illisible: true };
+        }),
     );
   }
   /**
    * @private
    * @static
-   * @return {Promise<String>} "" si le sujet n'existe pas ; rejetée si le forum ne se lit pas
+   * @return {Promise<{adresse: String, joueurs: Array<String>}>} rien si le sujet n'existe pas ; rejetée si le forum ne se lit pas
    */
-  static _adresseForum() {
-    return PartageChasses.sujets(true).then((sujets) => {
-      if (!sujets.exportSheet) return "";
-      return PartageChasses._xajax("callGetTopic", sujets.exportSheet).then((data) => {
-        // le forum peut changer l'adresse en lien (texte raccourci) : href lus aussi
-        let $div = Utils.parseHtml(PartageChasses._html(data)),
-          $premier = $div.find(".messageForum").first(),
-          $message = $premier.length ? $premier : $div,
-          texte = [
-            $message.text(),
-            ...$message
-              .find("a[href]")
-              .get()
-              .map((/** @type {Element} */ a) => a.getAttribute("href")),
-          ].join(" "),
-          m = /https:\/\/script\.google\.com\/[^\s"'<>]+?\/exec\b/.exec(texte);
-        return m && ExportRapports.adresseValide(m[0]) ? m[0] : "";
-      });
-    });
+  static _reglageForum() {
+    return PartageChasses.sujets(true).then((sujets) =>
+      sujets.exportSheet
+        ? PartageChasses._xajax("callGetTopic", sujets.exportSheet).then((data) =>
+            ExportRapports.lireReglage(data),
+          )
+        : { adresse: "", joueurs: [] },
+    );
+  }
+  /**
+   * Adresse où exporter : celle de l'alliance pour un joueur de la liste du
+   * forum caché, sinon celle de son propre fichier.
+   *
+   * @static
+   * @method cible
+   * @return {Promise<{url: String, alliance: Boolean, illisible?: Boolean}>} url "" si aucune
+   */
+  static cible() {
+    return ExportRapports.reglageAlliance().then((r) =>
+      r.autorise
+        ? { url: r.adresse, alliance: true }
+        : ExportRapports.adressePersonnelle().then((url) => ({
+            url,
+            alliance: false,
+            illisible: !!r.illisible,
+          })),
+    );
+  }
+  /**
+   * Adresse du propre fichier d'un joueur hors de la liste, gardée dans ce
+   * navigateur.
+   *
+   * @static
+   * @method adressePersonnelle
+   * @return {Promise<String>}
+   */
+  static adressePersonnelle() {
+    return ExportRapports._lire(CLE_EXPORT_SHEET);
   }
   /**
    * @private
    * @static
    * @param {String} cle
-   * @return {Promise<String>}
+   * @return {Promise<String>} valeur gardée, ou ""
    */
   static _lire(cle) {
     try {
@@ -644,45 +679,29 @@ class ExportRapports {
    * @private
    * @static
    * @param {String} cle
-   * @param {String} url "" pour oublier
+   * @param {String} valeur "" pour oublier
    * @return {Promise}
    */
-  static _garder(cle, url) {
+  static _garder(cle, valeur) {
     try {
       return (
-        url ? chrome.storage.local.set({ [cle]: url }) : chrome.storage.local.remove(cle)
+        valeur ? chrome.storage.local.set({ [cle]: valeur }) : chrome.storage.local.remove(cle)
       ).catch(() => {});
     } catch (e) {
       return Promise.resolve();
     }
   }
   /**
-   * Règle l'adresse : pour un joueur de JOUEURS_EXPORT_ALLIANCE, celle de toute
-   * l'alliance (sujet TITRE_EXPORT_SHEET du forum caché, créé au premier
-   * enregistrement) ; pour un autre joueur, la sienne, gardée dans ce navigateur.
+   * Adresse du propre fichier d'un joueur hors de la liste, gardée dans ce
+   * navigateur (un joueur de la liste ne l'utilise jamais).
    *
    * @static
    * @method enregistrerAdresse
-   * @param {String} url "" pour effacer (joueur hors liste seulement)
-   * @return {Promise} rejetée si le forum n'a pas pu être lu ou modifié
+   * @param {String} url "" pour effacer
+   * @return {Promise}
    */
   static enregistrerAdresse(url) {
-    if (!ExportRapports.alliance()) return ExportRapports._garder(CLE_EXPORT_SHEET, url);
-    return PartageChasses.sujets().then((sujets) => {
-      let message = `Adresse du script qui reçoit les rapports exportés par l'extension (ne pas modifier ici : Préférences → Messagerie) :\n${url}`,
-        q = `sujet=${encodeURIComponent(TITRE_EXPORT_SHEET)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
-      return (
-        sujets.exportSheet
-          ? PartageChasses._xajax(
-              "envoiEditTopic",
-              `<xjxquery><q>IDTopic=${sujets.exportSheet}&${q}</q></xjxquery>`,
-            )
-          : PartageChasses._xajax(
-              "envoiNouveauSujet",
-              `<xjxquery><q>cat=${PartageChasses.idSection}&${q}&type=normal&question=&reponse[]=&reponse[]=&reponse[]=</q></xjxquery>`,
-            )
-      ).then(() => ExportRapports._garder(CLE_EXPORT_SHEET_ALLIANCE, url));
-    });
+    return ExportRapports._garder(CLE_EXPORT_SHEET, url);
   }
   /**
    * @static
@@ -777,15 +796,17 @@ class ExportRapports {
       if ($bouton) $bouton.prop("disabled", false);
       $("#o_exportProgres").closest(".jq-toast-single").remove();
     };
-    return ExportRapports.adresse()
-      .then((url) => {
+    return ExportRapports.cible()
+      .then(({ url, alliance, illisible }) => {
         if (!ExportRapports.adresseValide(url)) {
           $.toast({
             ...TOAST_ERROR,
             hideAfter: 10000,
-            text: ExportRapports.alliance()
-              ? "Export impossible : l'adresse du Google Sheet n'est pas encore réglée pour l'alliance (la personne qui gère le fichier la colle une fois dans Préférences → Messagerie)."
-              : "Export impossible : renseigne d'abord l'adresse du script de ton Google Sheet (Préférences → Messagerie).",
+            text: alliance
+              ? `Export impossible : l'adresse du Google Sheet de l'alliance n'est pas encore postée dans le forum caché (sujet « ${TITRE_EXPORT_SHEET} »).`
+              : illisible
+                ? `Export impossible : le forum de l'alliance n'a pas pu être lu (liste des joueurs autorisés à partager des RC, sujet « ${TITRE_EXPORT_SHEET} »). Réessaie dans un instant.`
+                : `Export impossible : ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC (forum caché, sujet « ${TITRE_EXPORT_SHEET} ») et aucune adresse de Google Sheet n'est renseignée dans Préférences → Messagerie.`,
           });
           return;
         }

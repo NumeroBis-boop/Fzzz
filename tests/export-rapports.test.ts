@@ -4,8 +4,8 @@ import { creerPage } from "./harnais";
 /**
  * Export des RC de la messagerie vers le Google Sheet de l'alliance
  * (ExportRapports) : lecture des rapports, clé unique de chaque RC, onglet
- * (chasse, attaques, défenses), adresse du script réglée une fois dans le forum
- * caché, lecture des conversations longues et parcours complet d'un export.
+ * (chasse, attaques, défenses), adresse du script et liste des joueurs lues dans
+ * le forum caché, lecture des conversations longues et parcours complet d'un export.
  * Rapports inventés, au format du jeu (aucune armée réelle dans le dépôt public).
  */
 const page = creerPage(
@@ -15,7 +15,7 @@ const page = creerPage(
     "js/page/MessagerieFzzz.js",
     "js/page/PartageChasses.js",
   ],
-  // joueur de la liste de l'alliance : adresse lue dans le forum caché
+  // joueur de la liste du forum caché (LISTE)
   `var monProfil = { pseudo: "DoggyBag", parametre: {} };
    var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};`,
 );
@@ -259,10 +259,74 @@ describe("lecture d'une conversation", () => {
   });
 });
 
+// premier message du sujet « Export Google Sheet », tel que le forum le sert
+const LISTE = "Joueurs autorisés à partager des RC :<br/>Kwhwwymwn, Boursouf, DoggyBag, Daek";
+const reglage = (adresse = URL_SCRIPT, liste = LISTE) =>
+  `<div class="messageForum">Adresse du script qui reçoit les rapports exportés par l'extension :<br/>${adresse}<br/><br/>${liste}</div>`;
+const lireReglage = (html: string) =>
+  lire<{ adresse: string; joueurs: string[] }>(
+    `ExportRapports.lireReglage(${JSON.stringify(html)})`,
+  );
+
+describe("réglage de l'alliance : adresse et liste des joueurs dans le message du forum caché", () => {
+  // réponse xajax déjà réduite à son HTML, comme dans preparer()
+  beforeEach(() => lire(`PartageChasses._html = (d) => d`));
+
+  test("adresse et pseudos lus dans le premier message seulement", () => {
+    const r = lireReglage(
+      reglage() + `<div class="messageForum">réponse : Joueurs autorisés : Intrus</div>`,
+    );
+    expect(r.adresse).toBe(URL_SCRIPT);
+    expect(r.joueurs).toEqual(["Kwhwwymwn", "Boursouf", "DoggyBag", "Daek"]);
+  });
+
+  test("pseudos séparés par des virgules, des espaces ou des retours à la ligne, sur la ligne du titre ou après", () => {
+    const joueurs = (liste: string) => lireReglage(reglage(URL_SCRIPT, liste)).joueurs;
+    expect(joueurs("Joueurs autorisés à partager des RC : Bull Callisto  Sirius")).toEqual([
+      "Bull",
+      "Callisto",
+      "Sirius",
+    ]);
+    expect(joueurs("joueurs autorises :<br/>Bull ;Callisto,<br/>Sirius.")).toEqual([
+      "Bull",
+      "Callisto",
+      "Sirius",
+    ]);
+    // sans « : » après le titre, la liste commence à la ligne suivante
+    expect(joueurs("Joueurs autorisés à partager des RC<br/>Bull, Callisto")).toEqual([
+      "Bull",
+      "Callisto",
+    ]);
+    expect(joueurs("Pas de liste ici")).toEqual([]);
+  });
+
+  test("la liste s'arrête à la ligne suivante qui contient « : » ; liens et balises ignorés", () => {
+    const r = lireReglage(
+      `<div class="messageForum">Joueurs autorisés à partager des RC :<br/>Bull, <b>Callisto</b><br/>Adresse du script :<br/><a href="${URL_SCRIPT}">https://script.google.com/macros/s/AKfy...</a></div>`,
+    );
+    expect(r.joueurs).toEqual(["Bull", "Callisto"]);
+    expect(r.adresse).toBe(URL_SCRIPT);
+  });
+
+  test("casse ignorée, pseudo partiel refusé", () => {
+    const autorise = (p: string) =>
+      lire<boolean>(`ExportRapports.autorise(["DoggyBag", "Grim"], ${JSON.stringify(p)})`);
+    expect(autorise("doggybag")).toBe(true);
+    expect(autorise("GRIM")).toBe(true);
+    expect(autorise("Doggy")).toBe(false);
+    expect(autorise("DoggyBag2")).toBe(false);
+    expect(autorise("")).toBe(false);
+  });
+
+  test("adresse autre qu'un script Google : ignorée", () => {
+    expect(lireReglage(reglage("https://evil.example/macros/s/AKfy/exec")).adresse).toBe("");
+  });
+});
+
 // forum caché simulé (sujet de l'adresse) et stockage de l'extension
 function preparer(forum: { sujet?: string | null; message?: string; echoue?: boolean }) {
   lire(`(() => {
-    window.GARDE = {}; window.ECRITURES = [];
+    window.GARDE = {}; window.ECRITURES = []; window.LECTURES_FORUM = 0;
     window.chrome = {
       storage: { local: {
         get: (k) => Promise.resolve(k in GARDE ? { [k]: GARDE[k] } : {}),
@@ -273,11 +337,11 @@ function preparer(forum: { sujet?: string | null; message?: string; echoue?: boo
     };
     PartageChasses.idSection = "7";
     PartageChasses._html = (d) => d;
-    PartageChasses.sujets = () => ${
+    PartageChasses.sujets = () => { LECTURES_FORUM++; return ${
       forum.echoue
         ? `Promise.reject(new Error("forum"))`
         : `Promise.resolve(${JSON.stringify(forum.sujet ? { exportSheet: forum.sujet } : {})})`
-    };
+    }; };
     PartageChasses._xajax = (f, args) => {
       if (f == "callGetTopic") return Promise.resolve(${JSON.stringify(forum.message || "")});
       ECRITURES.push([f, decodeURIComponent(args)]);
@@ -285,47 +349,74 @@ function preparer(forum: { sujet?: string | null; message?: string; echoue?: boo
     };
   })()`);
 }
+const cible = () =>
+  lire<Promise<{ url: string; alliance: boolean; illisible?: boolean }>>(`ExportRapports.cible()`);
+const PERSO = "https://script.google.com/macros/s/AKfyPerso/exec";
 
-describe("adresse du script : réglée une fois pour toute l'alliance", () => {
-  test("lue dans le sujet du forum caché, puis gardée ici", async () => {
-    preparer({
-      sujet: "9",
-      message: `<div class="messageForum">Adresse du script :<br/>${URL_SCRIPT}</div><div class="messageForum">réponse ${URL_SCRIPT.replace("Test", "Autre")}</div>`,
+describe("adresse du script : celle de l'alliance pour un joueur de la liste, sinon la sienne", () => {
+  test("joueur de la liste : adresse du forum, gardée ici pour ce pseudo", async () => {
+    preparer({ sujet: "9", message: reglage() });
+    lire(`GARDE.fzzz_exportSheet = "${PERSO}"`);
+    expect(await cible()).toEqual({ url: URL_SCRIPT, alliance: true });
+    expect(JSON.parse(lire(`GARDE.fzzz_exportSheetAlliance`))).toEqual({
+      pseudo: "doggybag",
+      adresse: URL_SCRIPT,
     });
-    expect(await lire<Promise<string>>(`ExportRapports.adresse()`)).toBe(URL_SCRIPT);
-    await lire(`new Promise((r) => setTimeout(r, 0))`);
-    expect(lire(`GARDE.fzzz_exportSheetAlliance`)).toBe(URL_SCRIPT);
   });
 
   test("lien raccourci par le forum : adresse lue dans le lien", async () => {
     preparer({
       sujet: "9",
-      message: `<div class="messageForum">Adresse :<br/><a href="${URL_SCRIPT}">https://script.google.com/macros/s/AKfy...</a></div>`,
+      message: reglage(`<a href="${URL_SCRIPT}">https://script.google.com/macros/s/AKfy...</a>`),
     });
-    expect(await lire<Promise<string>>(`ExportRapports.adresse()`)).toBe(URL_SCRIPT);
+    expect(await cible()).toEqual({ url: URL_SCRIPT, alliance: true });
   });
 
-  test("forum illisible : la dernière adresse lue sert ; forum lu sans sujet : plus d'adresse", async () => {
+  test("joueur de la liste sans adresse postée : jamais son adresse personnelle", async () => {
+    preparer({ sujet: "9", message: reglage("") });
+    lire(`GARDE.fzzz_exportSheet = "${PERSO}"`);
+    expect(await cible()).toEqual({ url: "", alliance: true });
+  });
+
+  test("joueur hors liste (ou retiré) : son adresse seulement, rien gardé de l'alliance", async () => {
+    preparer({ sujet: "9", message: reglage(URL_SCRIPT, "Joueurs autorisés : Kwhwwymwn, Daek") });
+    lire(
+      `GARDE.fzzz_exportSheet = "${PERSO}"; GARDE.fzzz_exportSheetAlliance = JSON.stringify({ pseudo: "doggybag", adresse: "${URL_SCRIPT}" });`,
+    );
+    expect(await cible()).toEqual({ url: PERSO, alliance: false, illisible: false });
+    expect(lire(`"fzzz_exportSheetAlliance" in GARDE`)).toBe(false);
+  });
+
+  test("forum illisible : la dernière lecture faite pour ce pseudo sert", async () => {
     preparer({ echoue: true });
+    lire(
+      `GARDE.fzzz_exportSheetAlliance = JSON.stringify({ pseudo: "doggybag", adresse: "${URL_SCRIPT}" })`,
+    );
+    expect(await cible()).toEqual({ url: URL_SCRIPT, alliance: true });
+    // lecture faite pour un autre pseudo, ou ancienne copie (adresse seule) : hors liste
+    lire(
+      `GARDE.fzzz_exportSheetAlliance = JSON.stringify({ pseudo: "canaille", adresse: "${URL_SCRIPT}" }); GARDE.fzzz_exportSheet = "${PERSO}";`,
+    );
+    expect(await cible()).toEqual({ url: PERSO, alliance: false, illisible: true });
     lire(`GARDE.fzzz_exportSheetAlliance = "${URL_SCRIPT}"`);
-    expect(await lire<Promise<string>>(`ExportRapports.adresse()`)).toBe(URL_SCRIPT);
-    preparer({ sujet: null });
-    lire(`GARDE.fzzz_exportSheetAlliance = "${URL_SCRIPT}"`);
-    expect(await lire<Promise<string>>(`ExportRapports.adresse()`)).toBe("");
+    expect(await cible()).toEqual({ url: PERSO, alliance: false, illisible: true });
   });
 
-  test("enregistrée pour l'alliance : sujet créé, puis modifié", async () => {
+  test("forum lu sans sujet : personne n'est dans la liste", async () => {
     preparer({ sujet: null });
+    lire(
+      `GARDE.fzzz_exportSheetAlliance = JSON.stringify({ pseudo: "doggybag", adresse: "${URL_SCRIPT}" })`,
+    );
+    expect(await cible()).toEqual({ url: "", alliance: false, illisible: false });
+    expect(lire(`"fzzz_exportSheetAlliance" in GARDE`)).toBe(false);
+  });
+
+  test("adresse personnelle : gardée dans le navigateur, jamais écrite dans le forum", async () => {
+    preparer({ sujet: "9", message: reglage() });
     await lire(`ExportRapports.enregistrerAdresse("${URL_SCRIPT}")`);
-    let e = lire<string[][]>(`ECRITURES`);
-    expect(e[0]![0]).toBe("envoiNouveauSujet");
-    expect(e[0]![1]).toContain("cat=7&sujet=Export Google Sheet&message=");
-    expect(e[0]![1]).toContain(URL_SCRIPT);
-    preparer({ sujet: "9" });
-    await lire(`ExportRapports.enregistrerAdresse("${URL_SCRIPT}")`);
-    e = lire<string[][]>(`ECRITURES`);
-    expect(e[0]![0]).toBe("envoiEditTopic");
-    expect(e[0]![1]).toContain("IDTopic=9&sujet=Export Google Sheet");
+    expect(lire(`GARDE.fzzz_exportSheet`)).toBe(URL_SCRIPT);
+    expect(await lire<Promise<string>>(`ExportRapports.adressePersonnelle()`)).toBe(URL_SCRIPT);
+    expect(lire(`ECRITURES`)).toEqual([]);
   });
 });
 
@@ -342,7 +433,7 @@ describe("export complet depuis la messagerie", () => {
   };
 
   beforeEach(() => {
-    preparer({ sujet: "9", message: `<div class="messageForum">${URL_SCRIPT}</div>` });
+    preparer({ sujet: "9", message: reglage() });
     lire(`localStorage.clear();
       window.ENVOIS = []; window.TOASTS = []; window.POSTS = []; window.REPONSE = null;
       document.body.innerHTML = '<table id="liste">' + ${JSON.stringify(
@@ -421,11 +512,28 @@ describe("export complet depuis la messagerie", () => {
     expect(lire(`POSTS`)).toEqual([11, 12]);
   });
 
-  test("adresse pas encore réglée pour l'alliance : message, aucune lecture", async () => {
-    preparer({ sujet: null });
+  test("adresse pas encore postée pour l'alliance : message, aucune lecture", async () => {
+    preparer({ sujet: "9", message: reglage("") });
     await lire(`ExportRapports.exporter("chasse")`);
     expect(lire(`POSTS`)).toEqual([]);
-    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("pas encore réglée pour l'alliance");
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("pas encore postée dans le forum caché");
+  });
+
+  test("forum illisible sans lecture gardée : le message le dit (pas « hors liste »)", async () => {
+    preparer({ echoue: true });
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`POSTS`)).toEqual([]);
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("le forum de l'alliance n'a pas pu être lu");
+  });
+
+  test("joueur hors liste sans adresse à lui : message qui cite la liste, aucune lecture", async () => {
+    preparer({ sujet: "9", message: reglage(URL_SCRIPT, "Joueurs autorisés : Daek") });
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`POSTS`)).toEqual([]);
+    expect(lire(`ENVOIS`)).toEqual([]);
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain(
+      "ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC",
+    );
   });
 
   test("adresses acceptées : script Google seulement", () => {

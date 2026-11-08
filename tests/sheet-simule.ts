@@ -54,6 +54,10 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     hideRows: (r: number) => {
       f.lignesCachees.push(r);
     },
+    isRowHiddenByUser: (r: number) => f.lignesCachees.includes(r),
+    showRows: (r: number) => {
+      f.lignesCachees = f.lignesCachees.filter((x: number) => x != r);
+    },
     newChart: () => {
       const g: any = { plages: [], options: {} },
         b: any = {

@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.4";
+var VERSION_SCRIPT = "2026-11-08.5";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -855,23 +855,31 @@ function autresChasseurs(parJoueur, moi, periodes, pas) {
     });
 }
 
-// droite des moindres carrés : valeur ajustée de chaque période, arrondie
+// droite des moindres carrés sur les seules périodes chassées : une période
+// sans chasse (ou d'avant les premiers exports) n'est pas une mesure. Vide
+// ailleurs, jamais sous 0 (un terrain chassé n'est pas négatif).
 function tendance(valeurs) {
-  var n = valeurs.length,
-    mx = (n - 1) / 2,
+  var points = [];
+  valeurs.forEach(function (y, x) {
+    if (y > 0) points.push([x, y]);
+  });
+  var n = points.length || 1,
+    mx =
+      points.reduce(function (a, p) {
+        return a + p[0];
+      }, 0) / n,
     my =
-      valeurs.reduce(function (a, b) {
-        return a + b;
-      }, 0) / (n || 1),
+      points.reduce(function (a, p) {
+        return a + p[1];
+      }, 0) / n,
     sxy = 0,
     sxx = 0;
-  valeurs.forEach(function (y, x) {
-    sxy += (x - mx) * (y - my);
-    sxx += (x - mx) * (x - mx);
+  points.forEach(function (p) {
+    sxy += (p[0] - mx) * (p[1] - my);
+    sxx += (p[0] - mx) * (p[0] - mx);
   });
   return valeurs.map(function (y, x) {
-    // « || 0 » : pas de « -0 »
-    return Math.round(my + (sxx ? sxy / sxx : 0) * (x - mx)) || 0;
+    return y > 0 ? Math.max(0, Math.round(my + (sxx ? sxy / sxx : 0) * (x - mx))) : "";
   });
 }
 
@@ -1214,10 +1222,23 @@ function formuleControle() {
 // onglet « Statistiques » manquant : créé (doGet) ; une erreur n'empêche pas la réponse
 function preparerStatistiques(classeur) {
   try {
-    if (!classeur.getSheetByName(ONGLET_STATISTIQUES)) creerStatistiques(classeur);
+    var f = classeur.getSheetByName(ONGLET_STATISTIQUES);
+    if (!f) creerStatistiques(classeur);
+    // onglet créé par la version du 08/11/2026 (.3 à .4) : sa ligne 6 cachée
+    // masquait aussi la 4e ligne de chaque tableau et des graphiques
+    else if (f.isRowHiddenByUser(6)) {
+      f.showRows(6);
+      controleDiscret(f);
+    }
   } catch (err) {
     console.warn("Onglet Statistiques non créé : " + err);
   }
+}
+
+// case de contrôle : valeur invisible (format sans aucune section affichée)
+function controleDiscret(f) {
+  f.getRange(6, 1).setValue("Contrôle (ne pas effacer)");
+  f.getRange(6, 2).setNumberFormat(";;;");
 }
 
 function creerStatistiques(classeur) {
@@ -1257,10 +1278,10 @@ function creerStatistiques(classeur) {
   f.getRange(7, 1).setValue(
     "Choisis un joueur et une période : tableaux et graphiques se mettent à jour seuls.",
   );
-  // contrôle des données (ligne cachée), lu avec les paramètres
-  f.getRange(6, 1).setValue("Contrôle");
+  // contrôle des données, lu avec les paramètres ; sa ligne reste visible : la
+  // cacher masquerait aussi une ligne de chaque tableau du résultat
   f.getRange(6, 2).setFormula(formuleControle());
-  f.hideRows(6);
+  controleDiscret(f);
   f.getRange(1, c0).setFormula("=STATS_OUAF(B3:B6)");
   f.getRange(1, c0, 2, cJoueurs - c0 + 1).setFontWeight("bold");
   f.getRange(3, c0 + 1, donnees, cJoueurs - c0).setNumberFormat("#,##0");
@@ -1295,7 +1316,8 @@ function creerStatistiques(classeur) {
       type: Charts.ChartType.LINE,
       titre: "Terrain chassé (cm²) et sa tendance",
       plages: [plage("evolution", 0), plage("evolution", 1), plage("evolution", 7)],
-      options: { series: { 1: { lineDashStyle: [6, 4] } } },
+      // tendance vide les jours sans chasse : une seule droite d'un jour chassé à l'autre
+      options: { series: { 1: { lineDashStyle: [6, 4] } }, interpolateNulls: true },
     },
     {
       type: Charts.ChartType.LINE,

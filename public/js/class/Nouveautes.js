@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.91.1",
+    notes: [
+      "Synthèse : la tendance du terrain chassé ne tient compte que des jours où tu as chassé (un jour sans chasse, ou d'avant tes premiers exports, ne la tire plus vers le bas) et n'est jamais négative.",
+      "Google Sheet, onglet « Statistiques » : la 4e ligne de chaque tableau n'est plus masquée (après mise à jour du script, ouvre son adresse une fois).",
+    ],
+  },
+  {
     version: "1.91.0",
     notes: [
       "Synthèse : nombre de multi-chasses (chasses rentrées à moins de 5 minutes l'une de l'autre), pertes par cm² chassé, nourriture par chasse, et ton armée hors bonus (capacité de flood, FdF, défense, vie) de la première à la dernière multi-chasse, avec sa variation en %.",

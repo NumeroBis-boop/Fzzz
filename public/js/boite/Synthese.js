@@ -514,6 +514,8 @@ class SyntheseChasse {
             dashStyle: "Dash",
             lineWidth: 2,
             marker: { enabled: false },
+            // vide les jours sans chasse : une seule droite d'un jour chassé à l'autre
+            connectNulls: true,
           },
           ...eux.map((/** @type {any} */ a) => autre(a, a.terrain)),
         ],

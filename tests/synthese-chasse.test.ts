@@ -7,9 +7,9 @@ import { classeurSimule, feuille } from "./sheet-simule";
 /**
  * Onglet « Synthèse » des « Outils pour Chasseur » (boite/Synthese.js) et sa
  * requête au script du Google Sheet (ExportRapports.statistiques) : les
- * chiffres de chasse demandés, puis les graphiques chasse par chasse. Les
- * statistiques affichées sont celles que renvoie le vrai script
- * (google-sheet/export-rapports.gs) sur des données inventées.
+ * chiffres de chasse demandés, puis les graphiques. Les statistiques affichées
+ * sont celles que renvoie le vrai script (google-sheet/export-rapports.gs) sur
+ * des données inventées.
  */
 // unités de l'extension (content.js), recopiées telles quelles : mesures de l'armée
 const CONTENT = readFileSync(join(import.meta.dir, "..", "public", "js", "content.js"), "utf8");
@@ -41,6 +41,7 @@ const CHASSE = [
   "Nourriture",
   "Fourmis perdues",
   "Troupes en attaque",
+  "Troupes en défense",
   "RC",
 ];
 const appris = (ligne: string) =>
@@ -59,6 +60,7 @@ const fichier = () =>
         90000,
         600,
         "10 000 Jeunes Soldates Naines, 2 000 Artilleuses",
+        "1 000 Criquets, 100 Abeilles",
         appris("100 Artilleuses sont devenues des Artilleuses d’élites"),
       ],
       [
@@ -69,16 +71,18 @@ const fichier = () =>
         60000,
         400,
         "9 000 Jeunes Soldates Naines, 2 500 Artilleuses",
+        "700 Criquets, 50 Abeilles",
         "",
       ],
-      ["k5", "Bravo", "2026-11-02 08:00", 5000, 20000, 250, "1 Tank", ""],
-      ["k6", "Alpha", "2026-11-02 09:00", 4000, 30000, 100, "1 Tank", ""],
-      ["k7", "Alpha", "2026-11-04 09:00", 2000, 15000, 100, "1 Tank", ""],
+      ["k5", "Bravo", "2026-11-02 08:00", 5000, 20000, 250, "1 Tank", "300 Criquets", ""],
+      ["k6", "Alpha", "2026-11-02 09:00", 4000, 30000, 100, "1 Tank", "400 Criquets", ""],
+      ["k7", "Alpha", "2026-11-04 09:00", 2000, 15000, 100, "1 Tank", "200 Criquets", ""],
     ]),
   });
 const demande = { statistiques: true, joueur: "DoggyBag", debut: "2026-11-01", fin: "2026-11-07" };
-const STATS = fichier().doPost(demande).statistiques;
-const STATS_AUTRES = fichier().doPost({ ...demande, autres: true }).statistiques;
+// la synthèse demande toujours les autres chasseurs, au format 4
+const STATS = fichier().doPost({ ...demande, autres: true, format: 4 }).statistiques;
+const json = (x: unknown) => JSON.stringify(x);
 
 // requêtes vers le script : relais du background simulé
 let envois: any[] = [];
@@ -88,10 +92,7 @@ beforeEach(() => {
   reponse = { ok: true, statut: 200, donnees: { statistiques: STATS } };
   fenetre.__envoyer = (m: any) => {
     envois.push(m);
-    // le script simulé répond aux courbes des autres si elles sont demandées
-    return m.corps?.autres && reponse.donnees.statistiques == STATS
-      ? { ...reponse, donnees: { statistiques: STATS_AUTRES } }
-      : reponse;
+    return reponse;
   };
   lire(`(() => {
     monProfil.pseudo = "DoggyBag";
@@ -108,31 +109,32 @@ const erreurDe = (p: Promise<unknown>) =>
   );
 
 describe("requête au script (ExportRapports.statistiques)", () => {
-  test("joueur et période envoyés ; statistiques du script rendues telles quelles", async () => {
+  test("joueur, période et format envoyés ; statistiques du script rendues telles quelles", async () => {
     const s = await lire(`ExportRapports.statistiques("2026-11-01", "2026-11-07")`);
     expect(envois).toEqual([
       {
         type: "fzzz_sheet",
         url: URL_SCRIPT,
         methode: "POST",
-        corps: { ...demande, autres: false },
+        corps: { ...demande, autres: false, format: 4 },
       },
     ]);
     expect(s).toEqual(STATS);
     await lire(`ExportRapports.statistiques("2026-11-01", "2026-11-07", true)`);
-    expect(envois[1].corps).toEqual({ ...demande, autres: true });
+    expect(envois[1].corps).toEqual({ ...demande, autres: true, format: 4 });
   });
 
-  test("script d'avant la synthèse, ou d'avant les chasses seules : « pas à jour »", async () => {
+  test("script d'avant ce format : « script pas à jour » ; plus récent : « extension pas à jour »", async () => {
+    const message = () => erreurDe(lire(`ExportRapports.statistiques("2026-11-01", "2026-11-07")`));
     reponse = { ok: true, statut: 200, donnees: { erreur: "requête invalide" } };
-    expect(
-      await erreurDe(lire(`ExportRapports.statistiques("2026-11-01", "2026-11-07")`)),
-    ).toContain("le script du Google Sheet n'est pas à jour");
-    const { format, ...ancien } = STATS;
-    reponse = { ok: true, statut: 200, donnees: { statistiques: ancien } };
-    expect(
-      await erreurDe(lire(`ExportRapports.statistiques("2026-11-01", "2026-11-07")`)),
-    ).toContain("le script du Google Sheet n'est pas à jour");
+    expect(await message()).toContain("le script du Google Sheet n'est pas à jour");
+    const { format, ...sans } = STATS;
+    for (const ancien of [sans, { ...STATS, format: 3 }]) {
+      reponse = { ok: true, statut: 200, donnees: { statistiques: ancien } };
+      expect(await message()).toContain("le script du Google Sheet n'est pas à jour");
+    }
+    reponse = { ok: true, statut: 200, donnees: { statistiques: { ...STATS, format: 5 } } };
+    expect(await message()).toContain("l'extension n'est pas à jour");
   });
 
   test("sans adresse de fichier, réponse inattendue, pseudo inconnu : raison expliquée, sans requête", async () => {
@@ -167,10 +169,10 @@ describe("affichage", () => {
     );
   });
 
-  test("seulement les chiffres de chasse demandés, puis les graphiques", () => {
-    const html = lire<string>(`SyntheseChasse.html(${JSON.stringify(STATS)})`);
+  test("seulement les chiffres de chasse demandés, puis six graphiques", () => {
+    const html = lire<string>(`SyntheseChasse.html(${json(STATS)})`);
     expect(html).toContain("Synthèse de DoggyBag du 01/11/2026 au 07/11/2026");
-    expect(lire(`SyntheseChasse.cartes(${JSON.stringify(STATS)})`)).toEqual([
+    expect(lire(`SyntheseChasse.cartes(${json(STATS)})`)).toEqual([
       { libelle: "Chasses", texte: "2", classe: "" },
       { libelle: "Multi-chasses", texte: "2", classe: "" },
       { libelle: "Terrain chassé", texte: "20 000 cm²", classe: "" },
@@ -182,41 +184,44 @@ describe("affichage", () => {
     // première chasse : 10 000 JSN et 2 000 artilleuses ; puis l'effet en % de
     // chaque chasse (600 JSN mortes et 100 artilleuses devenues d'élite sur
     // 12 000 unités, puis 400 JSN mortes sur 11 500) : les pontes ne comptent pas
-    expect(lire(`SyntheseChasse.cartesArmee(${JSON.stringify(STATS)})`)).toEqual([
+    expect(lire(`SyntheseChasse.cartesArmee(${json(STATS)})`)).toEqual([
       {
         libelle: "FdF",
-        texte: "90\u00a0000 → 87\u00a0656",
+        texte: "90 000 → 87 656",
         detail: "-2,6 %",
         classe: "o_synthesePerte",
       },
       {
         libelle: "Défense",
-        texte: "50\u00a0000 → 48\u00a0392",
+        texte: "50 000 → 48 392",
         detail: "-3,2 %",
         classe: "o_synthesePerte",
       },
       {
         libelle: "Vie",
-        texte: "100\u00a0000 → 92\u00a0253",
+        texte: "100 000 → 92 253",
         detail: "-7,7 %",
         classe: "o_synthesePerte",
       },
       {
         libelle: "Capacité de flood",
-        texte: "12\u00a0000 → 11\u00a0003",
+        texte: "12 000 → 11 003",
         detail: "-8,3 %",
         classe: "o_synthesePerte",
       },
     ]);
-    expect(html).toContain("<span>FdF</span><b>90\u00a0000 → 87\u00a0656</b><small>-2,6 %</small>");
+    expect(html).toContain("<span>FdF</span><b>90 000 → 87 656</b><small>-2,6 %</small>");
     expect(html).toContain("sans les pontes");
     expect(html.match(/class='o_syntheseCarte /g)).toHaveLength(11);
-    expect(html.match(/class='o_syntheseGraphique'/g)).toHaveLength(4);
+    expect(html.match(/class='o_syntheseGraphique'/g)).toHaveLength(6);
+    // boutons des mesures de l'armée : sur le dernier graphique
+    expect(html.lastIndexOf("o_syntheseMesures")).toBeGreaterThan(
+      html.lastIndexOf("o_syntheseGraphique'"),
+    );
     // plus rien d'autre : ni floods internes, attaques, classements, tableaux ou sections
     for (const absent of [
       "Floods internes",
       "Terrain gagné",
-      "Détail",
       "Classements",
       "Cibles",
       "Données des graphiques",
@@ -226,73 +231,206 @@ describe("affichage", () => {
       expect(html).not.toContain(absent);
   });
 
-  test("pseudo et heures venus du fichier échappés", () => {
-    const s = { ...STATS, joueur: "<img src=x onerror=alert(1)>" };
-    expect(lire<string>(`SyntheseChasse.html(${JSON.stringify(s)})`)).toContain(
+  test("pseudo, chasses et heures venus du fichier échappés", () => {
+    const s = JSON.parse(json(STATS));
+    s.joueur = "<img src=x onerror=alert(1)>";
+    s.chasses.lignes[0][0] = "<i>Chasse 1</i>";
+    expect(lire<string>(`SyntheseChasse.html(${json(s)})`)).toContain(
       "Synthèse de &lt;img src=x onerror=alert(1)&gt;",
     );
     const bulle = lire<string>(
-      `SyntheseChasse.graphiques(${JSON.stringify(STATS)})[0].tooltip.pointFormatter.call({ color: "#000", series: { name: "<b>X</b>" }, y: 12000, retour: "<i>01/11</i>" })`,
+      `SyntheseChasse.graphiques(${json(s)})[0].tooltip.formatter.call({ points: [{ point: { index: 0 }, color: "#000", series: { name: "<b>X</b>" }, y: 12000 }] })`,
     );
-    expect(bulle).toContain(
-      "&lt;b&gt;X&lt;/b&gt; : <b>12 000</b> (retour &lt;i&gt;01/11&lt;/i&gt;)",
+    expect(bulle).toBe(
+      '<b>&lt;i&gt;Chasse 1&lt;/i&gt;</b> (retour 01/11 10:00)<br/><span style="color:#000">●</span> &lt;b&gt;X&lt;/b&gt; : <b>12 000</b>',
     );
+    const point = lire<string>(
+      `SyntheseChasse.graphiques(${json(s)})[2].tooltip.formatter.call({ series: { name: "<b>Y</b>" }, point: { name: "<u>p</u>" }, x: 12000, y: 90000 })`,
+    );
+    expect(point).toContain("&lt;b&gt;Y&lt;/b&gt;</b> · &lt;u&gt;p&lt;/u&gt;");
   });
 
-  test("graphiques chasse par chasse (« Chasse 1 », « Chasse 2 »…), mêmes valeurs que l'onglet « Statistiques »", () => {
-    const g = lire<any[]>(`SyntheseChasse.graphiques(${JSON.stringify(STATS)})`);
+  test("terrain, nourriture et pertes de chaque chasse : colonnes, deux courbes, trois axes", () => {
+    const g = lire<any[]>(`SyntheseChasse.graphiques(${json(STATS)})`);
     expect(g.map((x) => [x.chart.type, x.title.text])).toEqual([
-      ["column", "Terrain chassé à chaque chasse (cm²) et tendance"],
-      ["line", "Pertes par M cm² de chaque chasse"],
+      [undefined, "Terrain, nourriture et pertes de chaque chasse"],
+      ["line", "Terrain chassé à chaque chasse : toi, les autres chasseurs et leur moyenne"],
+      ["scatter", "Nourriture selon le terrain chassé (un point par chasse)"],
+      ["scatter", "Terrain chassé selon la difficulté par cm² (un point par chasse)"],
+      ["line", "Pertes par M cm² de chaque chasse dans le temps"],
       ["area", "Armée envoyée à chaque chasse : nombre d'unités"],
-      ["line", "Nourriture rapportée à chaque chasse"],
     ]);
-    const [terrain, pertes, armee, nourriture] = g;
+    const [triple] = g;
+    // abscisse : « Chasse N (jj/mm) »
+    expect(triple.xAxis.categories).toEqual(["Chasse 1 (01/11)", "Chasse 2 (03/11)"]);
+    expect(triple.yAxis.map((a: any) => [a.title.text, !!a.opposite])).toEqual([
+      ["Terrain (cm²)", false],
+      ["Nourriture", true],
+      ["Pertes", true],
+    ]);
+    expect(triple.series.map((x: any) => [x.type, x.name, x.yAxis, x.data])).toEqual([
+      ["column", "Terrain chassé (cm²)", 0, [12000, 8000]],
+      ["line", "Nourriture", 1, [90000, 60000]],
+      ["line", "Pertes", 2, [600, 400]],
+    ]);
     expect(
       lire(
-        `SyntheseChasse.graphiques(${JSON.stringify(STATS)})[0].xAxis.labels.formatter.call({ value: 3 })`,
-      ),
-    ).toBe("Chasse 3");
-    expect(terrain.xAxis.allowDecimals).toBe(false);
-    expect(terrain.series.map((x: any) => [x.name, x.data])).toEqual([
-      [
-        "DoggyBag",
-        [
-          { x: 1, y: 12000, retour: "01/11 10:00" },
-          { x: 2, y: 8000, retour: "03/11 10:00" },
-        ],
-      ],
-      [
-        "Tendance",
-        [
-          [1, 12000],
-          [2, 8000],
-        ],
-      ],
-    ]);
-    expect(terrain.series[1].dashStyle).toBe("Dash");
-    expect(
-      lire(
-        `SyntheseChasse.graphiques(${JSON.stringify(STATS)})[3].yAxis.labels.formatter.call({ value: 300000 })`,
+        `SyntheseChasse.graphiques(${json(STATS)})[0].yAxis[1].labels.formatter.call({ value: 300000 })`,
       ),
     ).toBe("300 000");
-    // pertes par million de cm², moyenne en tirets, sans écart-type
-    expect(pertes.series[0].data.map((p: any) => p.y)).toEqual([50000, 50000]);
-    expect(pertes.yAxis.plotLines).toHaveLength(1);
-    expect(pertes.yAxis.plotLines[0].value).toBe(50000);
-    expect(pertes.yAxis.plotBands).toBeUndefined();
-    expect(pertes.subtitle.text).toBe("Moyenne : 50 000 (tirets)");
+  });
+
+  test("terrain chassé : toi en vert épais, les autres en pointillés, leur moyenne et les tendances", () => {
+    const g = lire<any>(`SyntheseChasse.graphiques(${json(STATS)})[1]`);
+    expect(g.xAxis.categories).toEqual(["Chasse 1 (01/11)", "Chasse 2 (03/11)"]);
+    const series = Object.fromEntries(g.series.map((x: any) => [x.name, x]));
+    expect(g.series.map((x: any) => x.name)).toEqual([
+      "DoggyBag",
+      "Alpha",
+      "Bravo",
+      "Moyenne des chasseurs",
+      "Tendance de la moyenne",
+      "Ta tendance",
+    ]);
+    expect([series.DoggyBag.color, series.DoggyBag.lineWidth, series.DoggyBag.data]).toEqual([
+      "#008300",
+      4,
+      [12000, 8000],
+    ]);
+    // autres chasseurs (même sans « Comparer ») : leurs chasses étirées sur les
+    // deux de DoggyBag (Bravo n'en a qu'une), en pointillés, d'autres couleurs
+    expect(series.Alpha.data).toEqual([4000, 2000]);
+    expect(series.Bravo.data).toEqual([5000, 5000]);
+    for (const nom of ["Alpha", "Bravo"]) {
+      expect(series[nom].dashStyle).toBe("ShortDot");
+      expect(["#008300", "#e34948"]).not.toContain(series[nom].color);
+    }
+    expect(series.Alpha.color).not.toBe(series.Bravo.color);
+    // moyenne des trois, en rouge plein ; sa tendance en rouge, du même trait
+    // que la tendance du joueur, en vert : mêmes valeurs que l'onglet du Sheet
+    const colonne = (t: string) => lire(`SyntheseChasse.colonne(${json(STATS)}, ${json(t)})`);
+    expect(series["Moyenne des chasseurs"].data).toEqual([7000, 5000]);
+    expect(series["Moyenne des chasseurs"].data).toEqual(colonne("Moyenne des chasseurs (cm²)"));
+    expect(series["Tendance de la moyenne"].data).toEqual(colonne("Tendance de la moyenne (cm²)"));
+    expect(series["Ta tendance"].data).toEqual(colonne("Tendance (cm²)"));
+    expect([
+      series["Moyenne des chasseurs"].color,
+      series["Moyenne des chasseurs"].dashStyle,
+    ]).toEqual(["#e34948", undefined]);
+    expect([
+      series["Tendance de la moyenne"].color,
+      series["Tendance de la moyenne"].dashStyle,
+    ]).toEqual(["#e34948", "LongDash"]);
+    expect([series["Ta tendance"].color, series["Ta tendance"].dashStyle]).toEqual([
+      "#008300",
+      "LongDash",
+    ]);
+    // la légende cache ou montre un chasseur : la moyenne et sa tendance suivent
+    expect(g.legend.enabled).toBe(true);
+    expect(typeof g.plotOptions.series.events.hide).toBe("function");
+  });
+
+  test("chasseur caché par la légende : moyenne et tendance recalculées sur ceux qui restent", () => {
+    const recalcul = (visibles: string[]) =>
+      lire(`(() => {
+        let g = SyntheseChasse.graphiques(${json(STATS)})[1], faits = {}, redessine = 0,
+          series = g.series.map((o) => ({ userOptions: o, visible: ${json(visibles)}.includes(o.name) })),
+          graphique = {
+            series,
+            get: (id) => ({ setData: (d) => (faits[id] = d) }),
+            redraw: () => redessine++,
+          };
+        SyntheseChasse.recalculer(graphique);
+        return [faits.o_moyenneChasseurs, faits.o_tendanceMoyenne, redessine];
+      })()`);
+    // Alpha caché : DoggyBag et Bravo, (12 000 + 5 000) / 2 puis (8 000 + 5 000) / 2
+    expect(recalcul(["DoggyBag", "Bravo"])).toEqual([[8500, 6500], [8500, 6500], 1]);
+    // le joueur caché aussi : Bravo seul
+    expect(recalcul(["Bravo"])).toEqual([[5000, 5000], [5000, 5000], 1]);
+    // personne : plus de moyenne
+    expect(recalcul([])).toEqual([[], [], 1]);
+    // moyenne et tendance comme le script (arrondis, jamais négative)
+    expect(lire(`SyntheseChasse.moyenne([[1, 2], [2, null], [4, 5]])`)).toEqual([2, 4]);
+    expect(lire(`SyntheseChasse.tendance([100, 100, 100, 100000])`)).toEqual([
+      0, 10090, 40060, 70030,
+    ]);
+  });
+
+  test("nuages de points : nourriture selon le terrain, terrain selon la difficulté par cm²", () => {
+    const [, , nourriture, difficulte] = lire<any[]>(`SyntheseChasse.graphiques(${json(STATS)})`);
+    // sans « Comparer » : le joueur seul, un point par chasse
+    expect(nourriture.series.map((x: any) => [x.name, x.color, x.data])).toEqual([
+      [
+        "DoggyBag",
+        "#008300",
+        [
+          { x: 12000, y: 90000, name: "Chasse 1 (01/11)" },
+          { x: 8000, y: 60000, name: "Chasse 2 (03/11)" },
+        ],
+      ],
+    ]);
+    expect(nourriture.legend.enabled).toBe(false);
+    expect([nourriture.xAxis.title.text, nourriture.yAxis.title.text]).toEqual([
+      "Terrain chassé (cm²)",
+      "Nourriture",
+    ]);
+    // 1 000 criquets et 100 abeilles (73 360 points) sur 12 000 cm² : 6,11
+    expect(difficulte.series[0].data).toEqual([
+      { x: 6.11, y: 12000, name: "Chasse 1 (01/11)" },
+      { x: 6.06, y: 8000, name: "Chasse 2 (03/11)" },
+    ]);
+    expect(difficulte.xAxis.title.text).toBe("Difficulté par cm² (faune rencontrée)");
+    // axe des difficultés à partir de la plus petite (proches les unes des autres), pas de 0
+    expect(difficulte.xAxis.min).toBeNull();
+    expect(nourriture.xAxis.min).toBe(0);
     expect(
       lire(
-        `SyntheseChasse.graphiques(${JSON.stringify(STATS)})[1].yAxis.labels.formatter.call({ value: 25000 })`,
+        `SyntheseChasse.graphiques(${json(STATS)})[3].xAxis.labels.formatter.call({ value: 6.5 })`,
       ),
-    ).toBe("25 000");
-    expect(JSON.stringify(g)).not.toContain("écart");
-    expect(nourriture.series[0].data.map((p: any) => [p.x, p.y])).toEqual([
-      [1, 90000],
-      [2, 60000],
+    ).toBe("6,5");
+    expect(
+      lire(
+        `SyntheseChasse.graphiques(${json(STATS)})[3].tooltip.formatter.call({ series: { name: "DoggyBag" }, point: { name: "Chasse 1 (01/11)" }, x: 6.11, y: 12000 })`,
+      ),
+    ).toContain("Difficulté par cm² (faune rencontrée) : <b>6,11</b>");
+    // avec : les leurs, à leur couleur, avec la date de leur chasse
+    const avec = lire<any[]>(`SyntheseChasse.graphiques(${json(STATS)}, true)`);
+    expect(avec[2].series.map((x: any) => x.name)).toEqual(["DoggyBag", "Alpha", "Bravo"]);
+    expect(avec[2].series[1].data).toEqual([
+      { x: 4000, y: 30000, name: "Chasse 1 (02/11)" },
+      { x: 2000, y: 15000, name: "Chasse 2 (04/11)" },
     ]);
-    // comme la page Statistiques du jeu : unités empilées, légende « clic pour cacher »
+    expect(avec[3].series[2].data).toEqual([{ x: 3.53, y: 5000, name: "Chasse 1 (02/11)" }]);
+    expect(avec[2].legend.enabled).toBe(true);
+  });
+
+  test("pertes par M cm² dans le temps : heure de retour en abscisse, moyenne en tirets", () => {
+    const g = lire<any>(`SyntheseChasse.graphiques(${json(STATS)})[4]`);
+    expect(g.xAxis.type).toBe("datetime");
+    // heure du fichier, affichée telle quelle (Highcharts en UTC)
+    expect(g.series[0].data).toEqual([
+      [Date.UTC(2026, 10, 1, 10, 0), 50000],
+      [Date.UTC(2026, 10, 3, 10, 0), 50000],
+    ]);
+    expect(g.yAxis.plotLines).toHaveLength(1);
+    expect(g.yAxis.plotLines[0].value).toBe(50000);
+    expect(g.yAxis.plotLines[0].dashStyle).toBe("Dash");
+    expect(g.subtitle.text).toBe("Moyenne : 50 000 (tirets)");
+    expect(
+      lire(
+        `SyntheseChasse.graphiques(${json(STATS)})[4].tooltip.formatter.call({ series: { name: "DoggyBag" }, x: ${Date.UTC(2026, 10, 1, 10, 0)}, y: 50000 })`,
+      ),
+    ).toBe("<b>DoggyBag</b> · 01/11 10:00<br/>Pertes par M cm² : <b>50 000</b>");
+    const avec = lire<any>(`SyntheseChasse.graphiques(${json(STATS)}, true)[4]`);
+    expect(avec.series[1].data).toEqual([
+      [Date.UTC(2026, 10, 2, 9, 0), 25000],
+      [Date.UTC(2026, 10, 4, 9, 0), 50000],
+    ]);
+    expect(JSON.stringify(g)).not.toContain("écart");
+  });
+
+  test("armée : unités empilées comme la page Statistiques du jeu, gardée telle quelle", () => {
+    const armee = lire<any>(`SyntheseChasse.graphiques(${json(STATS)})[5]`);
     expect(armee.plotOptions.area.stacking).toBe("normal");
     expect(armee.legend.title.text).toBe("Armée (clic pour cacher)");
     expect(armee.series.map((x: any) => [x.name, x.data])).toEqual([
@@ -311,11 +449,12 @@ describe("affichage", () => {
         ],
       ],
     ]);
+    // pas de courbes des autres chasseurs dans le graphique de l'armée
+    expect(lire(`SyntheseChasse.graphiques(${json(STATS)}, true)[5].series`)).toEqual(armee.series);
   });
 
   test("armée : vie, dégâts et temps de ponte hors bonus (unités de l'extension)", () => {
-    const mesure = (m: number) =>
-      lire<any>(`SyntheseChasse.graphiqueArmee(${JSON.stringify(STATS)}, ${m})`);
+    const mesure = (m: number) => lire<any>(`SyntheseChasse.graphiqueArmee(${json(STATS)}, ${m})`);
     // JSN : vie 8, attaque 3, défense 2, ponte 300 s ; artilleuse : 10, 30, 15, 1 440 s
     expect(mesure(1).series.map((s: any) => s.data[0][1])).toEqual([80000, 20000]);
     expect(mesure(2).series.map((s: any) => s.data[0][1])).toEqual([30000, 60000]);
@@ -328,15 +467,17 @@ describe("affichage", () => {
   });
 
   test("armée de plus de huit unités : les plus petites regroupées, couleurs inchangées d'une mesure à l'autre", () => {
-    const s = JSON.parse(JSON.stringify(STATS));
+    const s = JSON.parse(json(STATS));
+    const debut = s.chasses.titres.indexOf("Nourriture") + 1;
     // dix unités présentes, de plus en plus nombreuses
     s.chasses.lignes = s.chasses.lignes.map((l: unknown[]) =>
-      l.slice(0, 9).concat([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0]),
+      l.slice(0, debut).concat([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0]),
     );
     const noms = (m: number) =>
-      lire<any>(`SyntheseChasse.graphiqueArmee(${JSON.stringify(s)}, ${m})`).series.map(
-        (x: any) => [x.name, x.color],
-      );
+      lire<any>(`SyntheseChasse.graphiqueArmee(${json(s)}, ${m})`).series.map((x: any) => [
+        x.name,
+        x.color,
+      ]);
     expect(noms(0)).toHaveLength(8);
     expect(noms(0).at(-1)).toEqual(["Autres unités", "#898781"]);
     // sept tracées une à une dans l'ordre du jeu, les trois plus petites (JSN, SN, NE) regroupées
@@ -344,32 +485,25 @@ describe("affichage", () => {
     expect(noms(1)).toEqual(noms(0));
   });
 
-  test("autres chasseurs : leurs courbes chasse par chasse, une couleur chacun, la même partout", () => {
-    const sans = lire<any[]>(`SyntheseChasse.graphiques(${JSON.stringify(STATS_AUTRES)})`);
-    const avec = lire<any[]>(`SyntheseChasse.graphiques(${JSON.stringify(STATS_AUTRES)}, true)`);
-    // ordre du fichier : Alpha, Bravo, DoggyBag
-    expect(STATS_AUTRES.chasseurs).toEqual(["Alpha", "Bravo", "DoggyBag"]);
-    expect(sans[0].series.map((x: any) => x.name)).toEqual(["DoggyBag", "Tendance"]);
-    for (const i of [0, 1, 3])
-      expect(avec[i].series.map((x: any) => [x.name, x.color])).toEqual([
-        ["DoggyBag", "#1baf7a"],
-        ...(i == 0 ? [["Tendance", "#52514e"]] : []),
-        ["Alpha", "#2a78d6"],
-        ["Bravo", "#eb6834"],
+  test("couleurs : le joueur en vert, chaque autre chasseur la sienne, la même partout", () => {
+    // ordre du fichier sans le joueur : Alpha, Bravo
+    expect(STATS.chasseurs).toEqual(["Alpha", "Bravo", "DoggyBag"]);
+    const style = (s: unknown, j: string) => lire(`SyntheseChasse.style(${json(s)}, ${json(j)})`);
+    expect(style(STATS, "doggybag")).toEqual({ color: "#008300", dashStyle: "Solid" });
+    expect(style(STATS, "Alpha")).toEqual({ color: "#2a78d6", dashStyle: "ShortDot" });
+    expect(style(STATS, "Bravo")).toEqual({ color: "#eb6834", dashStyle: "ShortDot" });
+    const avec = lire<any[]>(`SyntheseChasse.graphiques(${json(STATS)}, true)`);
+    for (const g of [avec[1], avec[2], avec[3], avec[4]]) {
+      const couleurs = Object.fromEntries(g.series.map((x: any) => [x.name, x.color]));
+      expect([couleurs.DoggyBag, couleurs.Alpha, couleurs.Bravo]).toEqual([
+        "#008300",
+        "#2a78d6",
+        "#eb6834",
       ]);
-    expect(avec[0].series[2].data).toEqual([4000, 2000]);
-    expect(avec[1].series[1].data).toEqual([25000, 50000]);
-    expect(avec[3].series[1].data).toEqual([30000, 15000]);
-    expect(avec[1].series[1].pointStart).toBe(1);
-    expect(avec[1].legend.enabled).toBe(true);
-    // pas de courbes des autres dans le graphique de l'armée
-    expect(avec[2].series).toEqual(sans[2].series);
-    // au-delà de huit chasseurs : mêmes couleurs, en pointillés
-    const s = { ...STATS_AUTRES, chasseurs: Array.from({ length: 10 }, (_, i) => `J${i}`) };
-    expect(lire(`SyntheseChasse.style(${JSON.stringify(s)}, "j9")`)).toEqual({
-      color: "#eb6834",
-      dashStyle: "ShortDash",
-    });
+    }
+    // au-delà de six autres chasseurs : mêmes couleurs, autre pointillé
+    const s = { ...STATS, chasseurs: Array.from({ length: 10 }, (_, i) => `J${i}`) };
+    expect(style(s, "j9")).toEqual({ color: "#eda100", dashStyle: "ShortDashDot" });
   });
 });
 
@@ -385,7 +519,7 @@ describe("onglet dans la boîte", () => {
     lire(`window.CREES = []; window.DETRUITS = 0;
       window.Highcharts = { chart: (el, o) => { CREES.push([el.className, o.title.text, o.series.map((s) => s.name)]); return { destroy: () => DETRUITS++, reflow: () => {} }; } };`);
 
-  test("30 derniers jours par défaut (horloge du serveur), résultats à la demande", async () => {
+  test("30 derniers jours par défaut (horloge du serveur), résultats à la demande, avec les autres chasseurs", async () => {
     ouvrir();
     expect(lire(`[$("#o_syntheseDebut").val(), $("#o_syntheseFin").val()]`)).toEqual([
       "2026-10-10",
@@ -394,42 +528,42 @@ describe("onglet dans la boîte", () => {
     expect(envois).toEqual([]);
     periode();
     await lire(`SYNTHESE.charger()`);
-    expect(envois[0].corps).toEqual({ ...demande, autres: false });
+    expect(envois[0].corps).toEqual({ ...demande, autres: true, format: 4 });
     expect(lire(`$("#o_syntheseResultat").text()`)).toContain("Synthèse de DoggyBag");
     expect(lire(`$("#o_syntheseAfficher").prop("disabled")`)).toBe(false);
   });
 
-  test("page sans Highcharts : chiffres et lien vers la Messagerie ; avec : quatre graphiques, remplacés au clic suivant", async () => {
+  test("page sans Highcharts : chiffres et lien vers la Messagerie ; avec : six graphiques, remplacés au clic suivant", async () => {
     ouvrir();
     await lire(`SYNTHESE.charger()`);
     expect(lire(`$(".o_syntheseGraphiques a").attr("href")`)).toBe("/messagerie.php");
     expect(lire(`$(".o_syntheseCarte").length`)).toBe(11);
     avecHighcharts();
     await lire(`SYNTHESE.charger()`);
-    expect(lire(`CREES.map((c) => c[0])`)).toEqual(Array(4).fill("o_syntheseTrace"));
-    expect(lire(`$(".o_syntheseGraphique").length`)).toBe(4);
+    expect(lire(`CREES.map((c) => c[0])`)).toEqual(Array(6).fill("o_syntheseTrace"));
+    expect(lire(`$(".o_syntheseGraphique").length`)).toBe(6);
     await lire(`SYNTHESE.charger()`);
-    expect(lire(`DETRUITS`)).toBe(4);
-    expect(lire(`$(".o_syntheseGraphique").length`)).toBe(4);
+    expect(lire(`DETRUITS`)).toBe(6);
+    expect(lire(`$(".o_syntheseGraphique").length`)).toBe(6);
   });
 
-  test("« Comparer aux autres chasseurs » : une requête si leurs courbes manquent, sinon redessiné sans requête ; choix retenu", async () => {
+  test("« Comparer aux autres chasseurs » : leurs points ajoutés sans requête ; choix retenu", async () => {
     ouvrir();
     avecHighcharts();
     periode();
     await lire(`SYNTHESE.charger()`);
     expect(envois).toHaveLength(1);
+    // le graphique du terrain les montre toujours, les nuages et les pertes pas encore
+    expect(lire(`CREES.at(-5)[2]`)).toContain("Alpha");
+    expect(lire(`CREES.at(-4)[2]`)).toEqual(["DoggyBag"]);
     lire(`$("#o_syntheseAutres").prop("checked", true).trigger("change")`);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(envois).toHaveLength(2);
-    expect(envois[1].corps).toEqual({ ...demande, autres: true });
-    expect(lire(`CREES.at(-4)[2]`)).toEqual(["DoggyBag", "Tendance", "Alpha", "Bravo"]);
-    // décochée puis recochée : les courbes sont déjà là
+    expect(envois).toHaveLength(1);
+    expect(lire(`CREES.at(-4)[2]`)).toEqual(["DoggyBag", "Alpha", "Bravo"]);
+    expect(lire(`CREES.at(-2)[2]`)).toEqual(["DoggyBag", "Alpha", "Bravo"]);
     lire(`$("#o_syntheseAutres").prop("checked", false).trigger("change")`);
-    expect(lire(`CREES.at(-4)[2]`)).toEqual(["DoggyBag", "Tendance"]);
+    expect(lire(`CREES.at(-4)[2]`)).toEqual(["DoggyBag"]);
+    expect(envois).toHaveLength(1);
     lire(`$("#o_syntheseAutres").prop("checked", true).trigger("change")`);
-    expect(envois).toHaveLength(2);
-    expect(lire(`CREES.at(-4)[2]`)).toEqual(["DoggyBag", "Tendance", "Alpha", "Bravo"]);
     expect(lire(`localStorage.getItem("fzzz_syntheseAutres")`)).toBe("1");
     ouvrir();
     expect(lire(`$("#o_syntheseAutres").prop("checked")`)).toBe(true);
@@ -441,7 +575,7 @@ describe("onglet dans la boîte", () => {
     await lire(`SYNTHESE.charger()`);
     lire(`$(".o_syntheseMesure[data-mesure='1']").trigger("click")`);
     expect(envois).toHaveLength(1);
-    expect(lire(`CREES.at(-2)[1]`)).toBe("Armée envoyée à chaque chasse : vie");
+    expect(lire(`CREES.at(-1)[1]`)).toBe("Armée envoyée à chaque chasse : vie");
     expect(lire(`$(".o_syntheseMesureActive").text()`)).toBe("Vie");
     expect(lire(`$(".o_syntheseMesure[data-mesure='1']").attr("aria-pressed")`)).toBe("true");
   });

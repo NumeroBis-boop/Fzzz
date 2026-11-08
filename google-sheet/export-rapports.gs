@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.8";
+var VERSION_SCRIPT = "2026-11-08.9";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -290,7 +290,7 @@ function reponseJson(o) {
 
 var ONGLET_STATISTIQUES = "Statistiques";
 // format de la réponse : l'extension dit « script pas à jour » devant un autre
-var FORMAT_STATISTIQUES = 3;
+var FORMAT_STATISTIQUES = 4;
 // colonnes lues dans « BDD chasse » (titres écrits par l'extension)
 var COLONNES_CHASSE = [
   "Exporté par",
@@ -299,6 +299,8 @@ var COLONNES_CHASSE = [
   "Nourriture",
   "Fourmis perdues",
   "Troupes en attaque",
+  // faune rencontrée : difficulté de la chasse
+  "Troupes en défense",
   // expérience gagnée (« Les unités survivantes ont appris de cette bataille »)
   "RC",
 ];
@@ -324,26 +326,64 @@ var UNITES = [
   { nom: "Tueuse", cle: "tueuse", vie: 50, att: 50, def: 50 },
   { nom: "Tueuse d'élite", cle: "tueuse d'elite", vie: 55, att: 55, def: 55 },
 ];
+// faune des chasses et ses points de difficulté (FAUNE de content.js, comparée
+// par tests/statistiques-script.test.ts) : la difficulté d'une chasse est la
+// somme de ceux de la faune rencontrée ; sa nourriture en vaut 0,763 fois, à
+// 0,5 % près sur 52 RC réels
+var FAUNE = [
+  { nom: "Petite araignée", diff: 23.2 },
+  { nom: "Araignée", diff: 34.3 },
+  { nom: "Chenille", diff: 49.8 },
+  { nom: "Criquet", diff: 58.9 },
+  { nom: "Guèpe", diff: 76.05 },
+  { nom: "Cigale", diff: 107.55 },
+  { nom: "Abeille", diff: 144.6 },
+  { nom: "Dionée", diff: 201.25 },
+  { nom: "Hanneton", diff: 228.2 },
+  { nom: "Scarabée", diff: 436 },
+  { nom: "Mante religieuse", diff: 890.7 },
+  { nom: "Lézard", diff: 1700.75 },
+  { nom: "Souris", diff: 2405.25 },
+  { nom: "Mulot", diff: 4453.6 },
+  { nom: "Alouette", diff: 15745.9 },
+  { nom: "Rat", diff: 64282.5 },
+  { nom: "Tamanoir", diff: 2032789 },
+];
 // au-delà, une requête lirait trop longtemps (limite d'exécution d'Apps Script)
 var STATS_JOURS_MAX = 3 * 366;
 // lignes sans RC utile lues quand même entre deux qui en ont besoin : une
 // lecture de moins vaut mieux que quelques textes de trop
 var ECART_LECTURE_RC = 20;
+// couleurs des graphiques, celles de la synthèse de l'extension : le joueur en
+// vert, la moyenne des chasseurs en rouge, les autres chasseurs dans cet ordre
+var COULEUR_JOUEUR = "#008300";
+var COULEUR_MOYENNE = "#e34948";
+var COULEURS_AUTRES_CHASSEURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
+var COULEUR_NOURRITURE = "#eb6834";
+var COULEUR_PERTES = "#6250d6";
+var COULEUR_ENCRE = "#52514e";
 // blocs de l'onglet « Statistiques », côte à côte à partir de la colonne D,
 // séparés par une colonne vide
 var COLONNE_STATISTIQUES = 4;
 // lignes de l'onglet (celles d'un nouvel onglet : une plage plus longue est refusée)
 var LIGNES_STATISTIQUES = 1000;
 // une ligne par chasse : simple, ou multi-chasse aux résultats additionnés ; puis ses unités
+// une extension d'avant le format 4 lit les colonnes par leur titre et les
+// unités après « Nourriture » : les colonnes ajoutées vont avant elle
 var TITRES_CHASSES = [
   "Chasse",
   "Retour",
+  // numéro de série (jours depuis le 30/12/1899, heure du fichier) : une date du tableur
+  "Date",
   "Expéditions",
   "Terrain (cm²)",
   "Tendance (cm²)",
+  "Moyenne des chasseurs (cm²)",
+  "Tendance de la moyenne (cm²)",
   "Pertes",
   "Pertes / M cm²",
   "Moyenne (pertes / M cm²)",
+  "Difficulté / cm²",
   "Nourriture",
 ];
 var BLOCS_STATISTIQUES = [
@@ -351,6 +391,8 @@ var BLOCS_STATISTIQUES = [
   { nom: "armee", titre: "Armée (hors bonus)", largeur: 4 },
   { nom: "chasses", titre: "Chasses", largeur: TITRES_CHASSES.length + UNITES.length },
   { nom: "joueurs", titre: "Chasseurs", largeur: 1 },
+  // une colonne par autre chasseur du fichier : dernier bloc, sa largeur varie
+  { nom: "autres", titre: "Autres chasseurs : terrain étiré sur tes chasses (cm²)", largeur: 0 },
 ];
 
 /**
@@ -391,11 +433,20 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
             1e6,
         )
       : "",
-    tendanceTerrain = tendance(
-      groupes.map(function (g) {
-        return g.terrain;
-      }),
-    );
+    terrains = groupes.map(function (g) {
+      return g.terrain;
+    }),
+    tendanceTerrain = tendance(terrains),
+    eux = autresChasseurs(parJoueur, moi, groupes.length),
+    // moyenne de tous les chasseurs, chasse par chasse : les autres étirés sur les miennes
+    moyenneChasseurs = moyenneDesCourbes(
+      [terrains].concat(
+        eux.map(function (a) {
+          return a.etire;
+        }),
+      ),
+    ),
+    tendanceMoyenne = tendance(moyenneChasseurs);
   return {
     format: FORMAT_STATISTIQUES,
     joueur: String(joueur || "").trim(),
@@ -424,21 +475,25 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
       ),
       lignes: groupes.map(function (g, i) {
         return [
-          "Chasse " + (i + 1),
+          "Chasse " + (i + 1) + " (" + libelleMinute(g.minute).slice(0, 5) + ")",
           libelleMinute(g.minute),
+          dateSerie(g.minute),
           g.nombre,
           g.terrain,
           tendanceTerrain[i],
+          moyenneChasseurs[i],
+          tendanceMoyenne[i],
           g.pertes,
           parMillion(g.pertes, g.terrain),
           moyenne,
+          difficulteParCm2(g),
           g.nourriture,
         ].concat(g.unites);
       }),
     },
     // tous les chasseurs du fichier, toujours dans le même ordre : une couleur chacun
     chasseurs: chasseursDe(tables.chasse),
-    autres: autres ? autresChasseurs(parJoueur, moi) : [],
+    autres: autres ? eux : [],
   };
 }
 
@@ -469,6 +524,7 @@ function chassesParJoueur(lignes) {
       pertes: nombre(l["Fourmis perdues"]),
       unites: unitesDe(l["Troupes en attaque"]),
       variation: variationDe(l["Troupes en attaque"], nombre(l["Fourmis perdues"]), l["RC"]),
+      difficulte: difficulteDe(l["Troupes en défense"]),
     });
   });
   Object.keys(parJoueur).forEach(function (k) {
@@ -492,6 +548,7 @@ function multiChasses(chasses) {
         terrain: 0,
         nourriture: 0,
         pertes: 0,
+        difficulte: 0,
         unites: UNITES.map(function () {
           return 0;
         }),
@@ -506,6 +563,7 @@ function multiChasses(chasses) {
     g.terrain += c.terrain;
     g.nourriture += c.nourriture;
     g.pertes += c.pertes;
+    g.difficulte += c.difficulte;
     c.unites.forEach(function (n, i) {
       g.unites[i] += n;
       g.variation[i] += c.variation[i];
@@ -516,7 +574,15 @@ function multiChasses(chasses) {
 
 // rang d'une unité d'après son nom de RC (singulier ou pluriel), -1 si inconnue
 function rangUnite(nom) {
-  var cle = String(nom || "")
+  return UNITES.map(function (u) {
+    return u.cle;
+  }).indexOf(cleNom(nom));
+}
+
+// nom de RC sans accent, en minuscules, mots au singulier (« Mantes religieuses »
+// → « mante religieuse » ; « souris » donne « souri » au singulier comme au pluriel)
+function cleNom(nom) {
+  return String(nom || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u2019\u2018]/g, "'")
@@ -527,9 +593,28 @@ function rangUnite(nom) {
       return mot.length > 3 && /s$/.test(mot) ? mot.slice(0, -1) : mot;
     })
     .join(" ");
-  return UNITES.map(function (u) {
-    return u.cle;
-  }).indexOf(cle);
+}
+
+// difficulté d'une chasse : points de difficulté de la faune de « Troupes en
+// défense » (« 1 234 Criquets, 56 Abeilles »)
+function difficulteDe(texte) {
+  var cles = FAUNE.map(function (f) {
+      return cleNom(f.nom);
+    }),
+    total = 0;
+  String(texte || "")
+    .split(",")
+    .forEach(function (morceau) {
+      var m = /^\s*(\d[\d\s\u00a0\u202f]*)\s+(.+?)\s*\.?\s*$/.exec(morceau),
+        k = m ? cles.indexOf(cleNom(m[2])) : -1;
+      if (k != -1) total += Number(m[1].replace(/\D/g, "")) * FAUNE[k].diff;
+    });
+  return total;
+}
+
+// difficulté par cm² chassé d'une multi-chasse, au centième
+function difficulteParCm2(g) {
+  return g.terrain > 0 ? arrondi(g.difficulte / g.terrain, 2) : "";
 }
 
 // nombre de chaque unité d'une liste de troupes de RC (« 1 000 Jeunes Soldates Naines, … »)
@@ -649,7 +734,7 @@ function chasseursDe(table) {
 }
 
 // courbes des autres chasseurs de la période, chasse par chasse (la leur)
-function autresChasseurs(parJoueur, moi) {
+function autresChasseurs(parJoueur, moi, n) {
   return Object.keys(parJoueur)
     .sort()
     .filter(function (k) {
@@ -668,8 +753,55 @@ function autresChasseurs(parJoueur, moi) {
         nourriture: groupes.map(function (g) {
           return g.nourriture;
         }),
+        difficulte: groupes.map(difficulteParCm2),
+        dates: groupes.map(function (g) {
+          return dateSerie(g.minute);
+        }),
+        etire: etirer(
+          groupes.map(function (g) {
+            return g.terrain;
+          }),
+          n,
+        ),
       };
     });
+}
+
+// courbe de m valeurs ramenée sur n points (n chasses du joueur) : même début,
+// même fin, valeurs intermédiaires interpolées ; une seule chasse : le milieu
+function etirer(valeurs, n) {
+  var m = valeurs.length,
+    resultat = [];
+  for (var i = 0; m && i < n; i++) {
+    var u = (n == 1 ? 0.5 : i / (n - 1)) * (m - 1),
+      k = Math.floor(u),
+      f = u - k;
+    resultat.push(Math.round(k + 1 < m ? valeurs[k] * (1 - f) + valeurs[k + 1] * f : valeurs[k]));
+  }
+  return resultat;
+}
+
+// moyenne point par point de courbes de même longueur (la première)
+function moyenneDesCourbes(courbes) {
+  return courbes[0].map(function (v, i) {
+    var valeurs = courbes
+      .map(function (c) {
+        return c[i];
+      })
+      .filter(function (x) {
+        return typeof x == "number";
+      });
+    return Math.round(
+      valeurs.reduce(function (a, b) {
+        return a + b;
+      }, 0) / valeurs.length,
+    );
+  });
+}
+
+// numéro de série du tableur d'une minute "AAAA-MM-JJ HH:mm" (heure du fichier)
+function dateSerie(minute) {
+  return (instantDe(minute) - Date.UTC(1899, 11, 30)) / 86400000;
 }
 
 // droite des moindres carrés des chasses dans l'ordre (valeur ajustée de
@@ -800,17 +932,19 @@ function statistiquesValides(d) {
 // requête de l'extension : seules les colonnes utiles de l'onglet sont lues
 function statistiquesDemandees(classeur, d) {
   try {
-    var fuseau = classeur.getSpreadsheetTimeZone();
-    return {
-      statistiques: statistiques(
+    var fuseau = classeur.getSpreadsheetTimeZone(),
+      s = statistiques(
         tablesDuFichier(classeur, d.joueur, d.debut, d.fin, fuseau),
         d.joueur,
         d.debut,
         d.fin,
         fuseau,
         d.autres === true,
-      ),
-    };
+      );
+    // une extension d'avant le format 4 n'en demande pas : la réponse reste
+    // lisible pour elle (mêmes titres, colonnes ajoutées avant « Nourriture »)
+    s.format = Math.min(FORMAT_STATISTIQUES, Number(d.format) || 3);
+    return { statistiques: s };
   } catch (err) {
     return { erreur: "statistiques impossibles : " + (err && err.message ? err.message : err) };
   }
@@ -937,7 +1071,7 @@ function STATS_OUAF(parametres) {
           : joursEntre(jours[0], jours[1]) > STATS_JOURS_MAX
             ? "Période trop longue : trois ans au plus."
             : "",
-    s = message ? null : statistiques(tables, joueur, jours[0], jours[1], fuseau),
+    s = message ? null : statistiques(tables, joueur, jours[0], jours[1], fuseau, true),
     vide = { titres: [], lignes: [] },
     blocs = {
       resume: { titres: ["Indicateur", "Valeur"], lignes: s ? s.resume : [[message, ""]] },
@@ -949,6 +1083,7 @@ function STATS_OUAF(parametres) {
           return [j];
         }),
       },
+      autres: autresDuBloc(tables.chasse, joueur, s),
     },
     titres = {},
     hauteur = 2,
@@ -964,7 +1099,7 @@ function STATS_OUAF(parametres) {
     }
     hauteur = Math.max(hauteur, 2 + blocs[b.nom].lignes.length);
   });
-  var largeur = colonneBloc("joueurs") + 1;
+  var largeur = colonneBloc("autres") + Math.max(1, blocs.autres.titres.length);
   for (var r = 0; r < hauteur; r++) {
     var ligne = [];
     for (var c = 0; c < largeur; c++) ligne.push("");
@@ -984,6 +1119,29 @@ function STATS_OUAF(parametres) {
     });
   });
   return sortie;
+}
+
+// bloc « autres » de l'onglet : une colonne par chasseur du fichier sauf le
+// joueur (les mêmes d'une période à l'autre : celles du graphique), son terrain
+// étiré sur les chasses du joueur, vide s'il n'a pas chassé dans la période
+function autresDuBloc(table, joueur, s) {
+  var moi = nomJoueur(joueur),
+    noms = chasseursDe(table).filter(function (j) {
+      return nomJoueur(j) != moi;
+    }),
+    parNom = {},
+    lignes = [];
+  ((s && s.autres) || []).forEach(function (a) {
+    parNom[nomJoueur(a.joueur)] = a.etire;
+  });
+  for (var i = 0; s && i < s.chasses.lignes.length; i++)
+    lignes.push(
+      noms.map(function (j) {
+        var e = parNom[nomJoueur(j)];
+        return e ? e[i] : "";
+      }),
+    );
+  return { titres: noms, lignes: lignes };
 }
 
 // change dès qu'une ligne est ajoutée, retirée ou modifiée dans « BDD chasse » ;
@@ -1014,11 +1172,18 @@ function creerStatistiques(classeur) {
       return colonne("chasses", TITRES_CHASSES.indexOf(titre));
     },
     cJoueurs = colonne("joueurs"),
+    cAutres = colonne("autres"),
+    // une colonne par autre chasseur du fichier : celles du graphique (onglet à
+    // recréer quand de nouveaux chasseurs exportent)
+    nAutres = Math.max(
+      1,
+      chasseursDe(lireColonnes(classeur, "BDD chasse", ["Exporté par"])).length - 1,
+    ),
     donnees = LIGNES_STATISTIQUES - 2,
     // libellés du résumé (ils ne dépendent pas des données) : graphiques dessous
     resume = statistiques({}, "?", "2000-01-01", "2000-01-01", "UTC").resume;
   // résultat de STATS_OUAF plus large que les 26 colonnes d'un nouvel onglet
-  agrandir(f, LIGNES_STATISTIQUES, cJoueurs);
+  agrandir(f, LIGNES_STATISTIQUES, cAutres + nAutres - 1);
   f.getRange(1, 1).setValue("Statistiques de chasse (Extension OUAF)").setFontWeight("bold");
   f.getRange(3, 1, 3, 1)
     .setValues([["Joueur"], ["Premier jour"], ["Dernier jour"]])
@@ -1044,32 +1209,101 @@ function creerStatistiques(classeur) {
   f.getRange(6, 1).setValue("Contrôle (ne pas effacer)");
   f.getRange(6, 2).setFormula(formuleControle()).setNumberFormat(";;;");
   f.getRange(1, c0).setFormula("=STATS_OUAF(B3:B6)");
-  f.getRange(1, c0, 2, cJoueurs - c0 + 1).setFontWeight("bold");
-  f.getRange(3, c0 + 1, donnees, cJoueurs - c0).setNumberFormat("#,##0");
-  // variation de l'armée en % : une décimale
+  f.getRange(1, c0, 2, cAutres + nAutres - c0).setFontWeight("bold");
+  f.getRange(3, c0 + 1, donnees, cAutres + nAutres - c0 - 1).setNumberFormat("#,##0");
+  // variation de l'armée en % : une décimale ; date de retour ; difficulté au centième
   f.getRange(3, colonne("armee", 3), donnees, 1).setNumberFormat("0.0");
+  f.getRange(3, titreChasses("Date"), donnees, 1).setNumberFormat("dd/mm hh:mm");
+  f.getRange(3, titreChasses("Difficulté / cm²"), donnees, 1).setNumberFormat("0.00");
   f.setColumnWidth(1, 110);
   f.setColumnWidth(2, 110);
   f.setColumnWidth(c0, 200);
   f.hideColumns(cJoueurs);
-  // titres en ligne 2, valeurs dessous ; première plage : l'axe horizontal (« Chasse 1 »…)
+  // titres en ligne 2, valeurs dessous ; première plage : l'axe horizontal
   var plage = function (titre, n) {
       return f.getRange(2, titreChasses(titre), LIGNES_STATISTIQUES - 1, n || 1);
     },
     chasses = plage("Chasse"),
-    premiere = resume.length + 5;
+    premiere = resume.length + 5,
+    // couleurs de la synthèse de l'extension : le joueur en vert, la moyenne en
+    // rouge, les autres chasseurs dans les autres couleurs, en pointillés
+    trait = [10, 5],
+    pointilles = [2, 3],
+    seriesAutres = {};
+  for (var k = 0; k < nAutres; k++)
+    seriesAutres[4 + k] = {
+      color: COULEURS_AUTRES_CHASSEURS[k % COULEURS_AUTRES_CHASSEURS.length],
+      lineWidth: 1.5,
+      lineDashStyle: pointilles,
+    };
+  seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 4 };
+  seriesAutres[1] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: trait };
+  seriesAutres[2] = { color: COULEUR_MOYENNE, lineWidth: 2 };
+  seriesAutres[3] = { color: COULEUR_MOYENNE, lineWidth: 2, lineDashStyle: trait };
   [
     {
-      type: Charts.ChartType.LINE,
-      titre: "Terrain chassé à chaque chasse (cm²) et sa tendance",
-      plages: [chasses, plage("Terrain (cm²)", 2)],
-      options: { series: { 1: { lineDashStyle: [6, 4] } } },
+      // pommes et pertes sur le même axe de droite (Google Sheets n'en a que
+      // deux) : en échelle logarithmique, les pertes ne s'écrasent pas en bas
+      type: Charts.ChartType.COMBO,
+      titre: "Terrain (barres), nourriture et pertes (courbes, échelle log) de chaque chasse",
+      plages: [chasses, plage("Terrain (cm²)"), plage("Nourriture"), plage("Pertes")],
+      options: {
+        seriesType: "bars",
+        series: {
+          0: { color: COULEUR_JOUEUR, targetAxisIndex: 0 },
+          1: { type: "line", color: COULEUR_NOURRITURE, targetAxisIndex: 1, lineWidth: 2 },
+          2: { type: "line", color: COULEUR_PERTES, targetAxisIndex: 1, lineWidth: 2 },
+        },
+        vAxes: {
+          0: { title: "Terrain (cm²)", minValue: 0 },
+          1: { title: "Nourriture et pertes", logScale: true },
+        },
+      },
     },
     {
       type: Charts.ChartType.LINE,
-      titre: "Pertes par M cm² de chaque chasse et leur moyenne",
-      plages: [chasses, plage("Pertes / M cm²", 2)],
-      options: { series: { 1: { lineDashStyle: [6, 4] } } },
+      titre:
+        "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et leur moyenne",
+      plages: [
+        chasses,
+        plage("Terrain (cm²)", 4),
+        f.getRange(2, cAutres, LIGNES_STATISTIQUES - 1, nAutres),
+      ],
+      options: { series: seriesAutres },
+    },
+    {
+      type: Charts.ChartType.SCATTER,
+      titre: "Nourriture selon le terrain chassé (un point par chasse)",
+      plages: [plage("Terrain (cm²)"), plage("Nourriture")],
+      options: {
+        series: { 0: { color: COULEUR_JOUEUR, pointSize: 6 } },
+        hAxis: { title: "Terrain chassé (cm²)" },
+        vAxis: { title: "Nourriture" },
+        legend: { position: "none" },
+      },
+    },
+    {
+      type: Charts.ChartType.SCATTER,
+      titre: "Terrain chassé selon la difficulté par cm² (un point par chasse)",
+      plages: [plage("Difficulté / cm²"), plage("Terrain (cm²)")],
+      options: {
+        series: { 0: { color: COULEUR_JOUEUR, pointSize: 6 } },
+        hAxis: { title: "Difficulté par cm² (faune rencontrée)" },
+        vAxis: { title: "Terrain chassé (cm²)" },
+        legend: { position: "none" },
+      },
+    },
+    {
+      type: Charts.ChartType.LINE,
+      titre: "Pertes par M cm² de chaque chasse dans le temps, et leur moyenne",
+      plages: [plage("Date"), plage("Pertes / M cm²", 2)],
+      options: {
+        series: {
+          0: { color: COULEUR_JOUEUR, lineWidth: 2, pointSize: 5 },
+          1: { color: COULEUR_ENCRE, lineWidth: 1, lineDashStyle: [6, 4] },
+        },
+        hAxis: { format: "dd/MM" },
+      },
     },
     {
       type: Charts.ChartType.AREA,
@@ -1084,12 +1318,6 @@ function creerStatistiques(classeur) {
         ),
       ],
       options: { isStacked: true },
-    },
-    {
-      type: Charts.ChartType.LINE,
-      titre: "Nourriture rapportée à chaque chasse",
-      plages: [chasses, plage("Nourriture")],
-      options: { legend: { position: "none" } },
     },
   ].forEach(function (g, i) {
     var graphique = f

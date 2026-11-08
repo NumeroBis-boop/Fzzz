@@ -30,10 +30,13 @@ const JOURNAL_EXPORT = "Export Google Sheet";
 // dégâts de base sous lesquels l'arrondi du jeu fausse le niveau d'arme
 const EXPORT_DEGATS_MIN = 100;
 // statistiques de chasse attendues du script (un script plus ancien en rend d'autres)
-const FORMAT_STATISTIQUES_SCRIPT = 3;
+const FORMAT_STATISTIQUES_SCRIPT = 4;
 // un script déployé avant une requête la refuse (« requête invalide »)
 const SCRIPT_PAS_A_JOUR =
   "le script du Google Sheet n'est pas à jour (la personne qui gère le fichier doit y recoller le code et déployer une nouvelle version)";
+// script plus récent que l'extension
+const EXTENSION_PAS_A_JOUR =
+  "l'extension n'est pas à jour pour ce script du Google Sheet : installe sa nouvelle version (lien de l'extension)";
 
 // colonnes d'un combat ou d'une prise (onglet « Flood internes »)
 const ENTETES_INTERNES = [
@@ -1037,12 +1040,16 @@ class ExportRapports {
           debut,
           fin,
           autres: !!autres,
+          // un script récent répond dans ce format, un ancien l'ignore
+          format: FORMAT_STATISTIQUES_SCRIPT,
         });
       })
       .then(
         (r) => {
           if (!r || !r.statistiques || !Array.isArray(r.statistiques.resume))
             throw new Error("réponse inattendue du script");
+          if (r.statistiques.format > FORMAT_STATISTIQUES_SCRIPT)
+            throw new Error(EXTENSION_PAS_A_JOUR);
           if (r.statistiques.format !== FORMAT_STATISTIQUES_SCRIPT)
             throw new Error(SCRIPT_PAS_A_JOUR);
           return r.statistiques;

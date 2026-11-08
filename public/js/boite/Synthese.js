@@ -8,8 +8,8 @@
 const SYNTHESE_JOURS = 30;
 // au-delà, le script refuse (limite d'exécution d'Apps Script)
 const SYNTHESE_JOURS_MAX = 3 * 366;
-// une couleur par chasseur, dans cet ordre (voisines distinctes pour les
-// daltonismes) ; au-delà de huit chasseurs, les mêmes en pointillés
+// couleurs des unités du graphique de l'armée, dans cet ordre (voisines
+// distinctes pour les daltonismes)
 const COULEURS_CHASSEURS = [
   "#2a78d6",
   "#eb6834",
@@ -20,7 +20,17 @@ const COULEURS_CHASSEURS = [
   "#6250d6",
   "#e34948",
 ];
-const TRAITS_CHASSEURS = ["Solid", "ShortDash", "ShortDot", "LongDashDot"];
+// le joueur en vert, la moyenne des chasseurs en rouge (choix du mainteneur) ;
+// les autres chasseurs dans les autres couleurs, toujours en pointillés, avec
+// un autre pointillé au-delà de six (mêmes couleurs que l'onglet du Sheet)
+const COULEUR_JOUEUR = "#008300";
+const COULEUR_MOYENNE = "#e34948";
+const COULEURS_AUTRES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
+const TRAITS_AUTRES = ["ShortDot", "ShortDashDot", "LongDashDot"];
+// les deux tendances (joueur et moyenne) : même trait
+const TRAIT_TENDANCE = "LongDash";
+const COULEUR_NOURRITURE = "#eb6834";
+const COULEUR_PERTES = "#6250d6";
 // fond clair des graphiques : sur le beige des boîtes, ces couleurs perdent leur contraste
 const FOND_GRAPHIQUE = "#fffdf7";
 const ENCRE_GRAPHIQUE = "#52514e";
@@ -51,7 +61,9 @@ const MESURES_ARMEE = [
 // case « Comparer aux autres chasseurs », retenue par le navigateur
 const CLE_SYNTHESE_AUTRES = "fzzz_syntheseAutres";
 // rang du graphique de l'armée dans SyntheseChasse.graphiques (boutons des mesures)
-const RANG_ARMEE_SYNTHESE = 2;
+const RANG_ARMEE_SYNTHESE = 5;
+// jours du tableur (depuis le 30/12/1899) au 01/01/1970
+const JOURS_TABLEUR_1970 = 25569;
 
 /**
  * Onglet « Synthèse » des « Outils pour Chasseur » : statistiques de chasse
@@ -73,8 +85,6 @@ class SyntheseChasse {
     this._graphiques = [];
     /** @type {any} dernières statistiques reçues */
     this._s = null;
-    // les courbes des autres chasseurs ont été demandées avec ces statistiques
-    this._avecAutres = false;
     this._mesure = 0;
     /** @type {any} suit la largeur des graphiques (boîte redimensionnée) */
     this._observateur = null;
@@ -93,7 +103,7 @@ class SyntheseChasse {
           <label>Du <input type='date' id='o_syntheseDebut' value='${debut.format("YYYY-MM-DD")}'/></label>
           <label>au <input type='date' id='o_syntheseFin' value='${fin.format("YYYY-MM-DD")}'/></label>
           <button type='button' id='o_syntheseAfficher' class='o_button f_info'>Afficher</button>
-          <label><input type='checkbox' id='o_syntheseAutres'${SyntheseChasse.autresCoches() ? " checked" : ""}/> Comparer aux autres chasseurs</label>
+          <label title='Leurs points dans les nuages de points et les pertes dans le temps (le graphique du terrain les montre toujours)'><input type='checkbox' id='o_syntheseAutres'${SyntheseChasse.autresCoches() ? " checked" : ""}/> Comparer aux autres chasseurs</label>
         </p>
         <div id='o_syntheseResultat'><p><em>Choisis la période, puis « Afficher » : les résultats sont calculés dans le Google Sheet où tu exportes tes rapports, comme son onglet « Statistiques ».</em></p></div>
       </div>`);
@@ -103,10 +113,7 @@ class SyntheseChasse {
       try {
         localStorage.setItem(CLE_SYNTHESE_AUTRES, coche ? "1" : "0");
       } catch (err) {}
-      if (!this._s) return;
-      // courbes pas encore lues : une requête, comme un clic sur « Afficher »
-      if (coche && !this._avecAutres) this.charger();
-      else this.montrer(this._s);
+      if (this._s) this.montrer(this._s);
     });
     return this;
   }
@@ -132,7 +139,6 @@ class SyntheseChasse {
     let $p = this._$panneau,
       debut = String($p.find("#o_syntheseDebut").val() || ""),
       fin = String($p.find("#o_syntheseFin").val() || ""),
-      autres = !!$p.find("#o_syntheseAutres").prop("checked"),
       erreur = SyntheseChasse.erreurPeriode(debut, fin),
       $bouton = $p.find("#o_syntheseAfficher"),
       $resultat = $p.find("#o_syntheseResultat");
@@ -142,11 +148,9 @@ class SyntheseChasse {
     }
     $bouton.prop("disabled", true);
     $resultat.html("<p><em>Lecture du Google Sheet…</em></p>");
-    return ExportRapports.statistiques(debut, fin, autres)
-      .then((s) => {
-        this._avecAutres = autres;
-        this.montrer(s);
-      })
+    // autres chasseurs toujours lus : le graphique du terrain les montre
+    return ExportRapports.statistiques(debut, fin, true)
+      .then((s) => this.montrer(s))
       .catch((e) => {
         // plus de résultats affichés : la case ne doit pas en ramener d'anciens
         this._s = null;
@@ -167,7 +171,7 @@ class SyntheseChasse {
     this._graphiques = [];
     if (this._observateur) this._observateur.disconnect();
     this._s = s;
-    let autres = this._avecAutres && !!this._$panneau.find("#o_syntheseAutres").prop("checked"),
+    let autres = !!this._$panneau.find("#o_syntheseAutres").prop("checked"),
       $resultat = this._$panneau
         .find("#o_syntheseResultat")
         .html(SyntheseChasse.html(s, autres, this._mesure));
@@ -319,8 +323,9 @@ class SyntheseChasse {
     });
   }
   /**
-   * Couleur et trait d'un chasseur : rang dans la liste de tous les chasseurs du
-   * fichier, la même dans chaque graphique et pour chaque joueur.
+   * Couleur et trait d'un chasseur : le joueur en vert, trait plein ; un autre
+   * selon son rang parmi les chasseurs du fichier sans le joueur (la même
+   * couleur dans chaque graphique, cacher un chasseur ne change pas les autres).
    *
    * @static
    * @method style
@@ -329,16 +334,17 @@ class SyntheseChasse {
    * @return {{color: String, dashStyle: String}}
    */
   static style(s, joueur) {
+    let cle = (/** @type {String} */ j) => String(j).toLowerCase();
+    if (cle(joueur) == cle(s.joueur)) return { color: COULEUR_JOUEUR, dashStyle: "Solid" };
     let i = Math.max(
       0,
-      (s.chasseurs || []).findIndex(
-        (/** @type {String} */ c) => c.toLowerCase() == String(joueur).toLowerCase(),
-      ),
+      (s.chasseurs || [])
+        .filter((/** @type {String} */ c) => cle(c) != cle(s.joueur))
+        .findIndex((/** @type {String} */ c) => cle(c) == cle(joueur)),
     );
     return {
-      color: COULEURS_CHASSEURS[i % COULEURS_CHASSEURS.length],
-      dashStyle:
-        TRAITS_CHASSEURS[Math.floor(i / COULEURS_CHASSEURS.length) % TRAITS_CHASSEURS.length],
+      color: COULEURS_AUTRES[i % COULEURS_AUTRES.length],
+      dashStyle: TRAITS_AUTRES[Math.floor(i / COULEURS_AUTRES.length) % TRAITS_AUTRES.length],
     };
   }
   /**
@@ -355,9 +361,85 @@ class SyntheseChasse {
     return s.chasses.lignes.map((/** @type {any[]} */ l) => (l[k] === "" ? null : l[k]));
   }
   /**
-   * Options Highcharts des graphiques de la période, chasse par chasse en
-   * abscisse (mêmes données que l'onglet « Statistiques » du fichier), avec les
-   * courbes des autres chasseurs si demandé.
+   * Instant (ms) d'un numéro de série du tableur : l'heure du fichier lue comme
+   * UTC, que Highcharts (useUTC) affiche telle quelle.
+   *
+   * @static
+   * @method instant
+   * @param {Number} serie
+   * @return {Number}
+   */
+  static instant(serie) {
+    return Math.round((serie - JOURS_TABLEUR_1970) * 86400000);
+  }
+  /**
+   * Moyenne point par point de courbes de même longueur (la première), comme
+   * le script du Sheet (moyenneDesCourbes) ; [] sans courbe.
+   *
+   * @static
+   * @method moyenne
+   * @param {Array<Array<Number|null>>} courbes
+   * @return {Array<Number|null>}
+   */
+  static moyenne(courbes) {
+    if (!courbes.length) return [];
+    return courbes[0].map((v, i) => {
+      let valeurs = courbes.map((c) => c[i]).filter((x) => typeof x == "number");
+      return valeurs.length
+        ? Math.round(
+            valeurs.reduce((/** @type {Number} */ a, b) => a + Number(b), 0) / valeurs.length,
+          )
+        : null;
+    });
+  }
+  /**
+   * Droite des moindres carrés d'une courbe, jamais négative, comme le script
+   * du Sheet (tendance).
+   *
+   * @static
+   * @method tendance
+   * @param {Array<Number|null>} valeurs
+   * @return {Array<Number>}
+   */
+  static tendance(valeurs) {
+    let y = valeurs.map((v) => Number(v) || 0),
+      n = y.length,
+      mx = (n - 1) / 2,
+      my = y.reduce((a, b) => a + b, 0) / (n || 1),
+      sxy = 0,
+      sxx = 0;
+    y.forEach((v, x) => {
+      sxy += (x - mx) * (v - my);
+      sxx += (x - mx) * (x - mx);
+    });
+    return y.map((v, x) => Math.max(0, Math.round(my + (sxx ? sxy / sxx : 0) * (x - mx))));
+  }
+  /**
+   * Moyenne des chasseurs affichés et sa tendance, recalculées quand un chasseur
+   * est caché ou montré par la légende du graphique du terrain.
+   *
+   * @static
+   * @method recalculer
+   * @param {any} graphique graphique Highcharts
+   */
+  static recalculer(graphique) {
+    let courbes = graphique.series
+        .filter((/** @type {any} */ se) => se.userOptions.chasseur && se.visible)
+        .map((/** @type {any} */ se) => se.userOptions.data),
+      moyenne = SyntheseChasse.moyenne(courbes),
+      serieMoyenne = graphique.get("o_moyenneChasseurs"),
+      serieTendance = graphique.get("o_tendanceMoyenne");
+    if (serieMoyenne) serieMoyenne.setData(moyenne, false);
+    if (serieTendance)
+      serieTendance.setData(courbes.length ? SyntheseChasse.tendance(moyenne) : [], false);
+    graphique.redraw();
+  }
+  /**
+   * Options Highcharts des graphiques de la période : terrain, nourriture et
+   * pertes de chaque chasse ; terrain du joueur, des autres chasseurs et leur
+   * moyenne ; nourriture selon le terrain ; terrain selon la difficulté par cm² ;
+   * pertes par M cm² dans le temps ; armée. Les autres chasseurs : toujours au
+   * graphique du terrain, sinon si demandé.
    *
    * @static
    * @method graphiques
@@ -367,159 +449,347 @@ class SyntheseChasse {
    * @return {Array<any>}
    */
   static graphiques(s, autres = false, mesure = 0) {
-    let eux = autres ? s.autres || [] : [],
-      moi = SyntheseChasse.style(s, s.joueur),
+    let tous = s.autres || [],
+      eux = autres ? tous : [],
+      chasses = SyntheseChasse.colonne(s, "Chasse"),
       retours = SyntheseChasse.colonne(s, "Retour"),
-      // points du joueur : la chasse en abscisse, son heure de retour pour l'info-bulle
-      miens = (/** @type {String} */ titre) =>
-        SyntheseChasse.colonne(s, titre).map((y, i) => ({ x: i + 1, y, retour: retours[i] })),
+      terrain = SyntheseChasse.colonne(s, "Terrain (cm²)"),
+      nourriture = SyntheseChasse.colonne(s, "Nourriture"),
       entier = (/** @type {Number} */ v) => numeral(v).format(),
-      // courbe d'un autre chasseur : fine, sans points, sa couleur et son trait
-      autre = (/** @type {any} */ a, /** @type {Array<any>} */ data) => ({
-        type: "line",
-        name: a.joueur,
-        data: data.map((v) => (v === "" ? null : v)),
-        pointStart: 1,
-        ...SyntheseChasse.style(s, a.joueur),
-        lineWidth: 1.5,
-        marker: { enabled: false },
+      centieme = (/** @type {Number} */ v) => Utils.decimal(v, 2),
+      jour = (/** @type {Number} */ serie) =>
+        moment.utc(SyntheseChasse.instant(serie)).format("DD/MM"),
+      echappe = (/** @type {any} */ t) => Utils.echapper(String(t)),
+      cadre = (/** @type {Number} */ hauteur) => ({
+        height: hauteur,
+        backgroundColor: FOND_GRAPHIQUE,
+        borderRadius: 4,
+        spacing: [8, 8, 8, 8],
       }),
-      base = (
-        /** @type {String} */ type,
-        /** @type {String} */ titre,
-        /** @type {Array<any>} */ series,
+      titre = (/** @type {String} */ texte) => ({
+        text: texte,
+        align: "left",
+        style: { fontSize: "13px", fontWeight: "bold" },
+      }),
+      // graduations à la française (« 50 000 », pas « 50k »)
+      axe = (
+        /** @type {String|null} */ nom,
         /** @type {(v: Number) => String} */ format,
         options = {},
       ) => ({
-        chart: {
-          type,
-          height: 260,
-          backgroundColor: FOND_GRAPHIQUE,
-          borderRadius: 4,
-          spacing: [8, 8, 8, 8],
-        },
-        title: { text: titre, align: "left", style: { fontSize: "13px", fontWeight: "bold" } },
-        credits: { enabled: false },
-        // « Chasse 1 », « Chasse 2 »… : une multi-chasse compte pour une chasse
-        xAxis: {
-          allowDecimals: false,
-          min: 1,
-          tickPixelInterval: 90,
-          lineColor: GRILLE_GRAPHIQUE,
-          labels: {
-            style: { fontSize: "10px" },
-            formatter: /** @this {any} */ function () {
-              return "Chasse " + this.value;
-            },
+        title: { text: nom, style: { fontSize: "11px", color: ENCRE_GRAPHIQUE } },
+        min: 0,
+        gridLineColor: GRILLE_GRAPHIQUE,
+        labels: {
+          formatter: /** @this {any} */ function () {
+            return format(this.value);
           },
         },
-        // graduations à la française (« 50 000 », pas « 50k »)
-        yAxis: {
-          title: { text: null },
-          min: 0,
-          gridLineColor: GRILLE_GRAPHIQUE,
-          labels: {
-            formatter: /** @this {any} */ function () {
-              return format(this.value);
-            },
-          },
-        },
-        tooltip: {
-          shared: true,
-          headerFormat: "<b>Chasse {point.key}</b><br/>",
-          pointFormatter: /** @this {any} */ function () {
-            return `<span style="color:${this.color}">●</span> ${Utils.echapper(this.series.name)} : <b>${format(this.y)}</b>${this.retour ? ` (retour ${Utils.echapper(this.retour)})` : ""}<br/>`;
-          },
-        },
-        legend: { enabled: series.length > 1 },
-        plotOptions: { series: { turboThreshold: 0 } },
-        series,
         ...options,
       }),
-      moyenne = SyntheseChasse.colonne(s, "Moyenne (pertes / M cm²)")[0];
+      // abscisse des graphiques par chasse : « Chasse 1 (01/11) »…
+      axeChasses = {
+        categories: chasses,
+        lineColor: GRILLE_GRAPHIQUE,
+        labels: { style: { fontSize: "10px" } },
+      },
+      // info-bulle d'une chasse du joueur : son retour, puis chaque courbe
+      bulleChasse = (/** @type {(p: any) => String} */ format) => ({
+        shared: true,
+        formatter: /** @this {any} */ function () {
+          let i = this.points && this.points.length ? this.points[0].point.index : 0;
+          return (
+            `<b>${echappe(chasses[i] || "")}</b>${retours[i] ? ` (retour ${echappe(retours[i])})` : ""}<br/>` +
+            (this.points || [])
+              .map(
+                (/** @type {any} */ p) =>
+                  `<span style="color:${p.color}">●</span> ${echappe(p.series.name)} : <b>${format(p)}</b>`,
+              )
+              .join("<br/>")
+          );
+        },
+      }),
+      // un point par chasse : celles du joueur, puis celles des autres si demandé
+      nuage = (
+        /** @type {String} */ nomX,
+        /** @type {String} */ nomY,
+        /** @type {(v: Number) => String} */ formatX,
+        /** @type {(v: Number) => String} */ formatY,
+        /** @type {Array<Number|null>} */ xMiens,
+        /** @type {Array<Number|null>} */ yMiens,
+        /** @type {(a: any) => Array<Number|null>} */ xAutre,
+        /** @type {(a: any) => Array<Number|null>} */ yAutre,
+        /** @type {String} */ texte,
+        optionsX = {},
+      ) => ({
+        chart: { type: "scatter", ...cadre(280) },
+        title: titre(texte),
+        credits: { enabled: false },
+        xAxis: axe(nomX, formatX, { lineColor: GRILLE_GRAPHIQUE, gridLineWidth: 0, ...optionsX }),
+        yAxis: axe(nomY, formatY),
+        legend: { enabled: eux.length > 0 },
+        tooltip: {
+          formatter: /** @this {any} */ function () {
+            return `<b>${echappe(this.series.name)}</b> · ${echappe(this.point.name)}<br/>${echappe(nomX)} : <b>${formatX(this.x)}</b><br/>${echappe(nomY)} : <b>${formatY(this.y)}</b>`;
+          },
+        },
+        plotOptions: { scatter: { marker: { symbol: "circle" } }, series: { turboThreshold: 0 } },
+        series: [
+          {
+            name: s.joueur,
+            color: COULEUR_JOUEUR,
+            marker: { radius: 5, lineColor: FOND_GRAPHIQUE, lineWidth: 1 },
+            data: xMiens
+              .map((x, i) => ({ x, y: yMiens[i], name: chasses[i] }))
+              .filter((p) => p.x != null && p.y != null),
+          },
+          ...eux.map((/** @type {any} */ a) => ({
+            name: a.joueur,
+            color: SyntheseChasse.style(s, a.joueur).color,
+            marker: { radius: 4, lineColor: FOND_GRAPHIQUE, lineWidth: 1 },
+            data: xAutre(a)
+              .map((x, k) => ({
+                x,
+                y: yAutre(a)[k],
+                name: `Chasse ${k + 1} (${jour(a.dates[k])})`,
+              }))
+              .filter((p) => typeof p.x == "number" && typeof p.y == "number"),
+          })),
+        ],
+      }),
+      // terrain du joueur et des autres chasseurs (étirés sur ses chasses) :
+      // la moyenne suit les chasseurs affichés
+      chasseurs = [
+        {
+          name: s.joueur,
+          data: terrain,
+          chasseur: true,
+          color: COULEUR_JOUEUR,
+          lineWidth: 4,
+          zIndex: 5,
+          marker: { enabled: terrain.length <= 40, radius: 3 },
+        },
+        ...tous.map((/** @type {any} */ a) => ({
+          name: a.joueur,
+          data: a.etire,
+          chasseur: true,
+          ...SyntheseChasse.style(s, a.joueur),
+          lineWidth: 2,
+          marker: { enabled: false },
+        })),
+      ],
+      moyenneChasseurs = SyntheseChasse.moyenne(chasseurs.map((c) => c.data)),
+      pertes = SyntheseChasse.colonne(s, "Pertes / M cm²"),
+      moyennePertes = SyntheseChasse.colonne(s, "Moyenne (pertes / M cm²)")[0],
+      dates = SyntheseChasse.colonne(s, "Date");
     return [
-      // terrain de chaque chasse et sa tendance (droite calculée par le script)
-      base(
-        "column",
-        "Terrain chassé à chaque chasse (cm²) et tendance",
-        [
-          { name: s.joueur, data: miens("Terrain (cm²)"), color: moi.color, maxPointWidth: 24 },
+      // terrain en colonnes (axe de gauche), nourriture et pertes en courbes,
+      // chacune son axe à droite (les pertes, 100 à 200 fois moins, s'écraseraient)
+      {
+        chart: cadre(300),
+        title: titre("Terrain, nourriture et pertes de chaque chasse"),
+        credits: { enabled: false },
+        xAxis: axeChasses,
+        yAxis: [
+          axe("Terrain (cm²)", entier),
+          axe("Nourriture", entier, { opposite: true, gridLineWidth: 0 }),
+          axe("Pertes", entier, { opposite: true, gridLineWidth: 0 }),
+        ],
+        tooltip: bulleChasse((p) => entier(p.y)),
+        legend: { enabled: true },
+        plotOptions: { series: { turboThreshold: 0 } },
+        series: [
+          {
+            type: "column",
+            name: "Terrain chassé (cm²)",
+            data: terrain,
+            yAxis: 0,
+            color: COULEUR_JOUEUR,
+            maxPointWidth: 24,
+            borderRadius: 2,
+          },
           {
             type: "line",
-            name: "Tendance",
-            data: SyntheseChasse.colonne(s, "Tendance (cm²)").map((y, i) => [i + 1, y]),
-            color: ENCRE_GRAPHIQUE,
-            dashStyle: "Dash",
+            name: "Nourriture",
+            data: nourriture,
+            yAxis: 1,
+            color: COULEUR_NOURRITURE,
             lineWidth: 2,
-            marker: { enabled: false },
+            marker: { radius: 3 },
           },
-          ...eux.map((/** @type {any} */ a) => autre(a, a.terrain)),
-        ],
-        entier,
-      ),
-      // pertes par million de cm² de chaque chasse et leur moyenne (sans écart-type)
-      base(
-        "line",
-        "Pertes par M cm² de chaque chasse",
-        [
           {
-            name: s.joueur,
-            data: miens("Pertes / M cm²"),
-            ...moi,
+            type: "line",
+            name: "Pertes",
+            data: SyntheseChasse.colonne(s, "Pertes"),
+            yAxis: 2,
+            color: COULEUR_PERTES,
             lineWidth: 2,
-            marker: { enabled: true, radius: 4, lineColor: FOND_GRAPHIQUE, lineWidth: 2 },
+            marker: { radius: 3 },
           },
-          ...eux.map((/** @type {any} */ a) => autre(a, a.pertes)),
         ],
-        entier,
-        {
-          subtitle: {
-            text: moyenne == null ? "" : `Moyenne : ${numeral(moyenne).format()} (tirets)`,
-            align: "left",
-            style: { fontSize: "11px", color: ENCRE_GRAPHIQUE },
-          },
-          yAxis: {
-            title: { text: null },
-            min: 0,
-            gridLineColor: GRILLE_GRAPHIQUE,
-            labels: {
-              formatter: /** @this {any} */ function () {
-                return entier(this.value);
+      },
+      // le joueur en vert épais, les autres en pointillés, leur moyenne en rouge,
+      // les deux tendances du même trait ; un clic dans la légende cache ou
+      // montre un chasseur, et la moyenne et sa tendance suivent
+      {
+        chart: { type: "line", ...cadre(320) },
+        title: titre("Terrain chassé à chaque chasse : toi, les autres chasseurs et leur moyenne"),
+        subtitle: {
+          text: "Les autres chasseurs : leurs chasses étirées sur les tiennes, de la première à la dernière. Clic sur un nom de la légende : le cacher ou le montrer.",
+          align: "left",
+          style: { fontSize: "11px", color: ENCRE_GRAPHIQUE },
+        },
+        credits: { enabled: false },
+        xAxis: axeChasses,
+        yAxis: axe(null, entier),
+        tooltip: bulleChasse((p) => entier(p.y)),
+        // symboles assez longs pour montrer les tirets des tendances
+        legend: {
+          enabled: true,
+          symbolWidth: 32,
+          itemStyle: { fontSize: "11px", fontWeight: "normal" },
+        },
+        plotOptions: {
+          series: {
+            turboThreshold: 0,
+            events: {
+              show: /** @this {any} */ function () {
+                SyntheseChasse.recalculer(this.chart);
+              },
+              hide: /** @this {any} */ function () {
+                SyntheseChasse.recalculer(this.chart);
               },
             },
-            plotLines:
-              moyenne == null
-                ? []
-                : [
-                    {
-                      value: moyenne,
-                      color: ENCRE_GRAPHIQUE,
-                      dashStyle: "Dash",
-                      width: 1,
-                      zIndex: 3,
-                    },
-                  ],
           },
-          legend: { enabled: eux.length > 0 },
+        },
+        series: [
+          ...chasseurs,
+          {
+            id: "o_moyenneChasseurs",
+            name: "Moyenne des chasseurs",
+            data: moyenneChasseurs,
+            color: COULEUR_MOYENNE,
+            lineWidth: 2,
+            zIndex: 4,
+            marker: { enabled: false },
+          },
+          {
+            id: "o_tendanceMoyenne",
+            name: "Tendance de la moyenne",
+            data: SyntheseChasse.tendance(moyenneChasseurs),
+            color: COULEUR_MOYENNE,
+            dashStyle: TRAIT_TENDANCE,
+            lineWidth: 2,
+            zIndex: 4,
+            marker: { enabled: false },
+            enableMouseTracking: false,
+          },
+          {
+            name: "Ta tendance",
+            data: SyntheseChasse.colonne(s, "Tendance (cm²)"),
+            color: COULEUR_JOUEUR,
+            dashStyle: TRAIT_TENDANCE,
+            lineWidth: 2,
+            zIndex: 4,
+            marker: { enabled: false },
+            enableMouseTracking: false,
+          },
+        ],
+      },
+      nuage(
+        "Terrain chassé (cm²)",
+        "Nourriture",
+        entier,
+        entier,
+        terrain,
+        nourriture,
+        (a) => a.terrain,
+        (a) => a.nourriture,
+        "Nourriture selon le terrain chassé (un point par chasse)",
+      ),
+      nuage(
+        "Difficulté par cm² (faune rencontrée)",
+        "Terrain chassé (cm²)",
+        centieme,
+        entier,
+        SyntheseChasse.colonne(s, "Difficulté / cm²"),
+        terrain,
+        (a) => a.difficulte,
+        (a) => a.terrain,
+        "Terrain chassé selon la difficulté par cm² (un point par chasse)",
+        // difficultés proches les unes des autres : l'axe part de la plus petite, pas de 0
+        {
+          min: null,
+          labels: {
+            formatter: /** @this {any} */ function () {
+              return Utils.decimal(this.value, 2, true);
+            },
+          },
         },
       ),
-      SyntheseChasse.graphiqueArmee(s, mesure),
-      // nourriture de chaque chasse (multi-chasse : somme de ses expéditions)
-      base(
-        "line",
-        "Nourriture rapportée à chaque chasse",
-        [
+      // pertes par M cm² de chaque chasse à son heure de retour, et leur moyenne
+      {
+        chart: { type: "line", ...cadre(280) },
+        title: titre("Pertes par M cm² de chaque chasse dans le temps"),
+        subtitle: {
+          text: moyennePertes == null ? "" : `Moyenne : ${entier(moyennePertes)} (tirets)`,
+          align: "left",
+          style: { fontSize: "11px", color: ENCRE_GRAPHIQUE },
+        },
+        credits: { enabled: false },
+        xAxis: {
+          type: "datetime",
+          lineColor: GRILLE_GRAPHIQUE,
+          labels: { style: { fontSize: "10px" } },
+          dateTimeLabelFormats: { hour: "%d/%m %Hh", day: "%d/%m", week: "%d/%m", month: "%m/%Y" },
+        },
+        yAxis: axe(null, entier, {
+          plotLines:
+            moyennePertes == null
+              ? []
+              : [
+                  {
+                    value: moyennePertes,
+                    color: ENCRE_GRAPHIQUE,
+                    dashStyle: "Dash",
+                    width: 1,
+                    zIndex: 3,
+                  },
+                ],
+        }),
+        tooltip: {
+          formatter: /** @this {any} */ function () {
+            return `<b>${echappe(this.series.name)}</b> · ${moment.utc(this.x).format("DD/MM HH:mm")}<br/>Pertes par M cm² : <b>${entier(this.y)}</b>`;
+          },
+        },
+        legend: { enabled: eux.length > 0 },
+        plotOptions: { series: { turboThreshold: 0 } },
+        series: [
           {
             name: s.joueur,
-            data: miens("Nourriture"),
-            ...moi,
+            color: COULEUR_JOUEUR,
             lineWidth: 2,
-            marker: { enabled: s.chasses.lignes.length <= 60, radius: 3 },
+            zIndex: 5,
+            marker: { enabled: true, radius: 4, lineColor: FOND_GRAPHIQUE, lineWidth: 1 },
+            data: dates
+              .map((d, i) => [d == null ? null : SyntheseChasse.instant(d), pertes[i]])
+              .filter((p) => p[0] != null && p[1] != null),
           },
-          ...eux.map((/** @type {any} */ a) => autre(a, a.nourriture)),
+          ...eux.map((/** @type {any} */ a) => ({
+            name: a.joueur,
+            ...SyntheseChasse.style(s, a.joueur),
+            lineWidth: 1.5,
+            marker: { enabled: true, radius: 3 },
+            data: (a.dates || [])
+              .map((/** @type {Number} */ d, /** @type {Number} */ k) => [
+                SyntheseChasse.instant(d),
+                a.pertes[k],
+              ])
+              .filter((/** @type {any[]} */ p) => typeof p[1] == "number"),
+          })),
         ],
-        entier,
-      ),
+      },
+      SyntheseChasse.graphiqueArmee(s, mesure),
     ];
   }
   /**

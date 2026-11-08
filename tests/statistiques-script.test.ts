@@ -223,13 +223,13 @@ describe("calcul des statistiques", () => {
       "06/11",
       "07/11",
     ]);
-    // dernière colonne : droite des moindres carrés du terrain chassé
-    // (10 000, 0, 10 000, 0, 0, 0, 0 : 7 143 au premier jour, −1 429 au dernier)
-    expect(s.evolution.lignes[0]).toEqual(["01/11", 10000, 1500, 2000, 0, 80000, 0.05, 7143]);
-    expect(s.evolution.lignes[1]).toEqual(["02/11", 0, 1500, 0, -700, 0, "", 5714]);
-    expect(s.evolution.lignes[2]).toEqual(["03/11", 10000, 500, -800, 0, 80000, 0.05, 4286]);
-    expect(s.evolution.lignes[3]).toEqual(["04/11", 0, 0, 0, 0, 0, "", 2857]);
-    expect(s.evolution.lignes[6]![7]).toBe(-1429);
+    // dernière colonne : tendance du terrain chassé, sur les seuls jours chassés
+    // (10 000 le 01/11 et le 03/11 : droite plate), vide les autres jours
+    expect(s.evolution.lignes[0]).toEqual(["01/11", 10000, 1500, 2000, 0, 80000, 0.05, 10000]);
+    expect(s.evolution.lignes[1]).toEqual(["02/11", 0, 1500, 0, -700, 0, "", ""]);
+    expect(s.evolution.lignes[2]).toEqual(["03/11", 10000, 500, -800, 0, 80000, 0.05, 10000]);
+    expect(s.evolution.lignes[3]).toEqual(["04/11", 0, 0, 0, 0, 0, "", ""]);
+    expect(s.evolution.lignes[6]![7]).toBe("");
   });
 
   test("cibles, attaquants et alliés classés par terrain", () => {
@@ -561,14 +561,19 @@ describe("multi-chasses, armée et autres chasseurs", () => {
     expect(sc.unitesDe(undefined).every((n: number) => n == 0)).toBe(true);
   });
 
-  test("tendance : droite des moindres carrés, sans « -0 »", () => {
+  test("tendance : droite des moindres carrés sur les seuls jours chassés, jamais négative", () => {
     const t = script().tendance;
     expect(t([])).toEqual([]);
+    expect(t([0, 0])).toEqual(["", ""]);
     expect(t([5])).toEqual([5]);
-    expect(t([0, 10, 20])).toEqual([0, 10, 20]);
-    expect(t([30, 20, 10, 0])).toEqual([30, 20, 10, 0]);
-    const r = t([1, 0, 0, 0, 0, 0]);
-    expect(r.some((v: number) => Object.is(v, -0))).toBe(false);
+    // jours sans chasse (ou d'avant les premiers exports) : ni comptés à 0, ni tracés
+    expect(t([0, 0, 0, 10, 20, 0, 40])).toEqual(["", "", "", 10, 20, "", 40]);
+    expect(t([30, 20, 10, 0])).toEqual([30, 20, 10, ""]);
+    // forte hausse au dernier jour : la droite passerait sous 0 au premier
+    // (25 075 − 3 × 11 988), ramenée à 0
+    const r = t([100, 100, 100, 0, 0, 0, 0, 0, 0, 100000]);
+    expect(r).toEqual([0, 1099, 13087, "", "", "", "", "", "", 97003]);
+    expect(r.some((v: unknown) => Object.is(v, -0))).toBe(false);
   });
 });
 
@@ -753,11 +758,14 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     expect(s.formules["4,2"]).toBe("=TODAY()-30");
     expect(s.formules["5,2"]).toBe("=TODAY()");
     expect(s.formules["1,4"]).toBe("=STATS_OUAF(B3:B6)");
-    // contrôle des données : compte et somme de chaque onglet, ligne cachée
+    // contrôle des données : compte et somme de chaque onglet ; ligne visible
+    // (cachée, elle masquait une ligne de chaque tableau), valeur invisible
     expect(s.formules["6,2"]).toBe(
       "=COUNTA('BDD chasse'!A:A)+SUM('BDD chasse'!C:F)+COUNTA('BDD attaques'!A:A)+SUM('BDD attaques'!C:L)+COUNTA('BDD défenses'!A:A)+SUM('BDD défenses'!C:L)+COUNTA('Flood internes'!A:A)+SUM('Flood internes'!C:L)",
     );
-    expect(s.lignesCachees).toEqual([6]);
+    expect(s.lignesCachees).toEqual([]);
+    expect(s.formats["6,2"]).toBe(";;;");
+    expect(s.grille[5][0]).toBe("Contrôle (ne pas effacer)");
     // paramètres régionaux du fichier (fr_FR : « ; » entre arguments, « , » décimale) :
     // aucune formule ne doit dépendre du séparateur
     for (const formule of Object.values(s.formules) as string[])
@@ -843,6 +851,8 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     expect(s.graphiques[2].options.isStacked).toBe(true);
     expect(s.graphiques[4].options.isStacked).toBe(true);
     expect(s.graphiques[3].options.legend).toEqual({ position: "none" });
+    // tendance vide les jours sans chasse : reliée d'un jour chassé à l'autre
+    expect(s.graphiques[0].options.interpolateNulls).toBe(true);
     // sous le résumé, l'un sous l'autre
     expect(s.graphiques.map((g: any) => g.position)).toEqual(
       [0, 1, 2, 3, 4].map((i) => [resume.length + 5 + 18 * i, 1]),
@@ -863,6 +873,22 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     });
     g.doPost({ verifier: true, onglets: ["BDD chasse"], cles: ["x"] });
     expect(Object.keys(g.onglets)).toEqual(["BDD chasse"]);
+  });
+
+  test("onglet de la version du 08/11 (ligne 6 cachée) : ligne remise à l'ouverture de l'adresse", () => {
+    const f = classeurSimule({});
+    f.doGet();
+    const s = f.onglets["Statistiques"];
+    s.hideRows(6);
+    s.formats = {};
+    expect(f.doGet().ok).toBe(true);
+    expect(s.lignesCachees).toEqual([]);
+    expect(s.formats["6,2"]).toBe(";;;");
+    // une seule fois : rien d'autre ne change ensuite
+    s.formats = {};
+    f.doGet();
+    expect(s.formats).toEqual({});
+    expect(s.graphiques).toHaveLength(5);
   });
 
   test("création impossible : l'adresse répond quand même, la raison va au journal", () => {

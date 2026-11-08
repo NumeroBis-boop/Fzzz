@@ -300,9 +300,13 @@ describe("affichage", () => {
     expect(terrain.xAxis.categories).toEqual(STATS.evolution.lignes.map((l: unknown[]) => l[0]));
     expect(terrain.series.map((s: any) => [s.name, s.data.slice(0, 3)])).toEqual([
       ["DoggyBag", [12000, 0, 8000]],
-      ["Tendance", STATS.evolution.lignes.slice(0, 3).map((l: unknown[]) => l[7])],
+      // tendance des seuls jours chassés (12 000 le 01/11, 8 000 le 03/11), rien entre
+      ["Tendance", [12000, null, 8000]],
     ]);
     expect(terrain.series[1].dashStyle).toBe("Dash");
+    // vide les jours sans chasse : une seule droite d'un jour chassé à l'autre
+    expect(STATS.evolution.lignes[1][7]).toBe("");
+    expect(terrain.series[1].connectNulls).toBe(true);
     // une multi-chasse par point (heure du fichier), moyenne et écart-type du script
     expect(pertes.xAxis.type).toBe("datetime");
     expect(pertes.series[0].data).toEqual([

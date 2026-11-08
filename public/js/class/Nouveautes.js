@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.92.0",
+    notes: [
+      "Synthèse : seulement les chasses — les 11 chiffres demandés (chasses, multi-chasses, terrain, pertes, pertes par cm², nourriture, armée de la première à la dernière multi-chasse), puis les graphiques. Plus d'attaques, de défenses ni de floods internes.",
+      "Synthèse : les graphiques suivent tes chasses dans l'ordre (« Chasse 1 », « Chasse 2 »…, une multi-chasse comptant pour une chasse, résultats additionnés), sans écart-type.",
+      "Boîtes « Outils pour Chasseur », « Combat » et Préférences : déplace-les par leur titre et change leur taille en tirant un bord ou un coin, comme une fenêtre ; la taille est retenue (sur téléphone, seule la hauteur se règle).",
+    ],
+  },
+  {
     version: "1.91.1",
     notes: [
       "Synthèse : la tendance du terrain chassé ne tient compte que des jours où tu as chassé (un jour sans chasse, ou d'avant tes premiers exports, ne la tire plus vers le bas) et n'est jamais négative.",

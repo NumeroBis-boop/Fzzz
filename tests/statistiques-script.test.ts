@@ -212,6 +212,15 @@ describe("calcul des statistiques de chasse", () => {
     expect(e.armee.lignes[3]).toEqual(["Capacité de flood (unités)", 1000, 0, -100]);
   });
 
+  test("armée : baisse plus petite que l'arrondi, variation 0 et pas -0", () => {
+    const d = donnees();
+    d.chasse.push(chasse("Echo", "2026-11-01 10:00", 100, 100, 1, "10 000 Jeunes Soldates Naines"));
+    const e = script().statistiques(d, "Echo", "2026-11-01", "2026-11-07", "Europe/Paris");
+    // 9 999 sur 10 000 : -0,01 %, arrondi au dixième
+    expect(e.armee.lignes[3]).toEqual(["Capacité de flood (unités)", 10000, 9999, 0]);
+    expect(Object.is(e.armee.lignes[3][3], -0)).toBe(false);
+  });
+
   test("effet d'une chasse sur l'armée : morts dans l'ordre de l'armée, puis expérience du RC", () => {
     const sc = script();
     const texte = rc("3 000 Jeunes Soldates Naines, 800 Naines d’Elites", 3100, [

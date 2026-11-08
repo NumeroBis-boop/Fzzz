@@ -692,9 +692,10 @@ function tendance(valeurs) {
   });
 }
 
+// baisse plus petite que l'arrondi : 0, pas -0
 function arrondi(v, decimales) {
   var f = Math.pow(10, decimales);
-  return Math.round(v * f) / f;
+  return Math.round(v * f) / f || 0;
 }
 
 // "AAAA-MM-JJ HH:mm" lu comme UTC : écarts exacts entre deux retours

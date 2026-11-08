@@ -120,7 +120,8 @@ describe("lecture des rapports", () => {
       5000,
       "20 000 Jeunes Soldates Naines, 1 000 Soldates",
     ]);
-    expect(r.valeurs).toHaveLength(lire<number>(`EXPORTS_RAPPORTS.attaque.entetes.length`) - 1);
+    // colonnes communes ; les niveaux de l'ennemi sont ajoutés par onglet (lignes)
+    expect(r.valeurs).toHaveLength(lire<number>(`EXPORTS_RAPPORTS.interne.entetes.length`) - 1);
   });
 
   test("combat vu du défenseur : mêmes camps et mêmes pertes", () => {

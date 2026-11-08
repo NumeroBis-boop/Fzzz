@@ -235,7 +235,7 @@ class SyntheseChasse {
         .join("");
     return `<p class='gras o_syntheseTitre'>Synthèse de ${Utils.echapper(s.joueur)} du ${jour(s.debut)} au ${jour(s.fin)}</p>
       <div class='o_syntheseCartes'>${SyntheseChasse.cartes(s).map(carte).join("")}</div>
-      <p class='o_syntheseSousTitre'>Armée hors bonus : de la première à la dernière multi-chasse (chacune supposée emmener toute l'armée)</p>
+      <p class='o_syntheseSousTitre'>Armée hors bonus : la première multi-chasse (supposée emmener toute l'armée), puis l'effet en % de chaque chasse — pertes et expérience — sans les pontes</p>
       <div class='o_syntheseCartes o_syntheseArmee'>${SyntheseChasse.cartesArmee(s).map(carte).join("")}</div>
       <div class='o_syntheseGraphiques'>${graphiques}</div>`;
   }
@@ -277,24 +277,24 @@ class SyntheseChasse {
   static cartes(s) {
     let v = (/** @type {String} */ libelle) => SyntheseChasse.resume(s, libelle),
       nombre = (/** @type {Number|null} */ n, unite = "") =>
-        n == null ? "—" : numeral(n).format() + unite,
-      parCm2 = v("Pertes par cm² chassé");
+        n == null ? "—" : numeral(n).format() + unite;
     return [
       { libelle: "Chasses", texte: nombre(v("Chasses (RC)")), classe: "" },
       { libelle: "Multi-chasses", texte: nombre(v("Multi-chasses")), classe: "" },
       { libelle: "Terrain chassé", texte: nombre(v("Terrain chassé (cm²)"), " cm²"), classe: "" },
       { libelle: "Pertes", texte: nombre(v("Fourmis perdues")), classe: "" },
+      { libelle: "Pertes / M cm² chassé", texte: nombre(v("Pertes par M cm² chassé")), classe: "" },
+      { libelle: "Nourriture rapportée", texte: nombre(v("Nourriture rapportée")), classe: "" },
       {
-        libelle: "Pertes / cm² chassé",
-        texte: parCm2 == null ? "—" : Utils.decimal(parCm2, 4),
+        libelle: "Nourriture / multi-chasse",
+        texte: nombre(v("Nourriture par multi-chasse")),
         classe: "",
       },
-      { libelle: "Nourriture rapportée", texte: nombre(v("Nourriture rapportée")), classe: "" },
-      { libelle: "Nourriture / chasse", texte: nombre(v("Nourriture par chasse")), classe: "" },
     ];
   }
   /**
-   * Armée de la première et de la dernière multi-chasse, et sa variation.
+   * Armée de la première multi-chasse, puis après les chasses (pertes et
+   * expérience, sans les pontes), et sa variation.
    *
    * @static
    * @method cartesArmee
@@ -306,7 +306,7 @@ class SyntheseChasse {
         "Capacité de flood (unités)": "Capacité de flood",
       }),
       // espaces insécables dans les nombres : sur un téléphone, retour à la ligne après la flèche
-      nombre = (/** @type {Number} */ n) => numeral(n).format().replace(/ /g, " ");
+      nombre = (/** @type {Number} */ n) => numeral(n).format().replace(/ /g, "\u00a0");
     return s.armee.lignes.map((/** @type {any[]} */ l) => {
       let variation = typeof l[3] == "number" ? l[3] : null;
       return {
@@ -374,7 +374,6 @@ class SyntheseChasse {
       miens = (/** @type {String} */ titre) =>
         SyntheseChasse.colonne(s, titre).map((y, i) => ({ x: i + 1, y, retour: retours[i] })),
       entier = (/** @type {Number} */ v) => numeral(v).format(),
-      decimales = (/** @type {Number} */ v) => Utils.decimal(v, 4, true),
       // courbe d'un autre chasseur : fine, sans points, sa couleur et son trait
       autre = (/** @type {any} */ a, /** @type {Array<any>} */ data) => ({
         type: "line",
@@ -437,7 +436,7 @@ class SyntheseChasse {
         series,
         ...options,
       }),
-      moyenne = SyntheseChasse.colonne(s, "Moyenne (pertes / cm²)")[0];
+      moyenne = SyntheseChasse.colonne(s, "Moyenne (pertes / M cm²)")[0];
     return [
       // terrain de chaque chasse et sa tendance (droite calculée par le script)
       base(
@@ -458,24 +457,24 @@ class SyntheseChasse {
         ],
         entier,
       ),
-      // pertes par cm² de chaque chasse et leur moyenne (sans écart-type)
+      // pertes par million de cm² de chaque chasse et leur moyenne (sans écart-type)
       base(
         "line",
-        "Pertes par cm² de chaque chasse",
+        "Pertes par M cm² de chaque chasse",
         [
           {
             name: s.joueur,
-            data: miens("Pertes / cm²"),
+            data: miens("Pertes / M cm²"),
             ...moi,
             lineWidth: 2,
             marker: { enabled: true, radius: 4, lineColor: FOND_GRAPHIQUE, lineWidth: 2 },
           },
           ...eux.map((/** @type {any} */ a) => autre(a, a.pertes)),
         ],
-        decimales,
+        entier,
         {
           subtitle: {
-            text: moyenne == null ? "" : `Moyenne : ${Utils.decimal(moyenne, 4)} (tirets)`,
+            text: moyenne == null ? "" : `Moyenne : ${numeral(moyenne).format()} (tirets)`,
             align: "left",
             style: { fontSize: "11px", color: ENCRE_GRAPHIQUE },
           },
@@ -485,7 +484,7 @@ class SyntheseChasse {
             gridLineColor: GRILLE_GRAPHIQUE,
             labels: {
               formatter: /** @this {any} */ function () {
-                return decimales(this.value);
+                return entier(this.value);
               },
             },
             plotLines:

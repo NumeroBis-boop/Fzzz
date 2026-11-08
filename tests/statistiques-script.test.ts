@@ -348,16 +348,14 @@ describe("calcul des statistiques", () => {
 
 describe("onglet « Statistiques » du fichier (STATS_OUAF)", () => {
   const d = donnees();
+  // B3:B6 (joueur, premier et dernier jour, contrôle) ; onglets lus dans le fichier
   const sortie = (joueur: unknown, debut: unknown, fin: unknown) =>
-    script().STATS_OUAF(
-      joueur,
-      debut,
-      fin,
-      d.chasse,
-      d.attaques,
-      d.defenses,
-      d.internes,
-    ) as unknown[][];
+    classeurSimule({
+      "BDD chasse": feuille("BDD chasse", donnees().chasse),
+      "BDD attaques": feuille("BDD attaques", donnees().attaques),
+      "BDD défenses": feuille("BDD défenses", donnees().defenses),
+      "Flood internes": feuille("Flood internes", donnees().internes),
+    }).script.STATS_OUAF([[joueur], [debut], [fin], [123]]) as unknown[][];
   // colonne de départ de chaque bloc (à partir de D : 0)
   const blocs = { resume: 0, evolution: 3, cibles: 11, attaquants: 16, internes: 21, joueurs: 26 };
 
@@ -485,9 +483,16 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     expect(s.grille[2].slice(0, 1)).toEqual(["Joueur"]);
     expect(s.formules["4,2"]).toBe("=TODAY()-30");
     expect(s.formules["5,2"]).toBe("=TODAY()");
-    expect(s.formules["1,4"]).toBe(
-      "=STATS_OUAF(B3,B4,B5,'BDD chasse'!A:F,'BDD attaques'!A:L,'BDD défenses'!A:L,'Flood internes'!A:L)",
+    expect(s.formules["1,4"]).toBe("=STATS_OUAF(B3:B6)");
+    // contrôle des données : compte et somme de chaque onglet, ligne cachée
+    expect(s.formules["6,2"]).toBe(
+      "=COUNTA('BDD chasse'!A:A)+SUM('BDD chasse'!C:F)+COUNTA('BDD attaques'!A:A)+SUM('BDD attaques'!C:L)+COUNTA('BDD défenses'!A:A)+SUM('BDD défenses'!C:L)+COUNTA('Flood internes'!A:A)+SUM('Flood internes'!C:L)",
     );
+    expect(s.lignesCachees).toEqual([6]);
+    // paramètres régionaux du fichier (fr_FR : « ; » entre arguments, « , » décimale) :
+    // aucune formule ne doit dépendre du séparateur
+    for (const formule of Object.values(s.formules) as string[])
+      expect(formule).not.toMatch(/[,;]/);
     // liste de la case B3 : colonne des joueurs du résultat (AD = 30), cachée
     const liste = s.validations.find((v: any) => v.r == 3 && v.c == 2).regle;
     expect(liste.plage).toEqual({ r: 3, c: 30, nl: 998, nc: 1 });

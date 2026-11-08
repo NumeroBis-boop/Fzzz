@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.93.2",
+    notes: [
+      "Armée : « Replacer l'armée » passe par le dôme pour aller de la loge au TdC (le jeu refusait le déplacement direct), et refait une fois un déplacement refusé, d'après la page relue.",
+    ],
+  },
+  {
     version: "1.93.1",
     notes: [
       "Armée : après « Replacer l'armée », quand la réponse du jeu montre encore l'armée d'avant le déplacement, la page est relue avant de conclure (plus de fausse alerte) ; quand un déplacement n'est vraiment pas fait, l'alerte dit ce qui manque (TdC, dôme, unités restées hors de la loge).",

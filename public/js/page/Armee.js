@@ -235,9 +235,10 @@ class PageArmee {
    * ou null si l'armée est déjà bien placée. N'envoie rien.
    *
    * @method placementPrevu
+   * @param {Integer} [passe] 2 pour le nouvel essai après un déplacement refusé
    * @return {Function|null}
    */
-  placementPrevu() {
+  placementPrevu(passe = 1) {
     let iT = this.indiceUnite("uniteAntisondeTerrainType"),
       iD = this.indiceUnite("uniteAntisondeDomeType");
     if (iT == -1) return null;
@@ -272,11 +273,18 @@ class PageArmee {
     // d'autres unités hors de la loge : tout en loge, puis les antisondes
     if (autres)
       return () =>
-        this.replacer(iT, t, iD, d, [
-          { toutEnLoge: true },
-          { i: iT, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.TERRAIN, nb: t },
-          { i: iD, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.DOME, nb: d },
-        ]);
+        this.replacer(
+          iT,
+          t,
+          iD,
+          d,
+          [
+            { toutEnLoge: true },
+            { i: iT, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.TERRAIN, nb: t },
+            { i: iD, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.DOME, nb: d },
+          ],
+          passe,
+        );
     // seules les antisondes sont dehors : on ne déplace que la différence, et
     // rien pour un lieu déjà dans ses bornes (90 % à 100 % du maximum)
     let ecart = (i, lieu, avant, apres) =>
@@ -286,7 +294,7 @@ class PageArmee {
       etapes = [ecart(iT, LIEU_ARMEE.TERRAIN, t0, t), ecart(iD, LIEU_ARMEE.DOME, d0, d)]
         // les retours en loge d'abord : la loge a alors de quoi fournir l'autre lieu
         .sort((x, y) => (y.vers == LIEU_ARMEE.LOGE) - (x.vers == LIEU_ARMEE.LOGE));
-    return () => this.replacer(iT, t, iD, d, etapes);
+    return () => this.replacer(iT, t, iD, d, etapes, passe);
   }
   /**
    * Nombre tiré entre 90 % du maximum et le maximum (antisonde moins prévisible).
@@ -389,7 +397,8 @@ class PageArmee {
    * finir avec `terrain` unités d'indice `iT` en terrain et `dome` unités
    * d'indice `iD` en dôme ; tableau de la garnison remplacé par celui de la
    * dernière réponse, ou de la page relue quand cette réponse ne montre pas
-   * l'armée attendue.
+   * l'armée attendue. Un déplacement refusé par le jeu vaut un seul nouvel
+   * essai, calculé d'après la page relue.
    *
    * @method replacer
    * @param {Integer} iT indice dans Armee.unite de l'antisonde en terrain
@@ -397,20 +406,26 @@ class PageArmee {
    * @param {Integer} iD indice dans Armee.unite de l'antisonde en dôme
    * @param {Integer} dome unités attendues en dôme à la fin
    * @param {Array<Object>} deplacements {toutEnLoge: true} ou {i, de, vers, nb}
+   * @param {Integer} [passe] 2 pour le nouvel essai
    * @return {Promise}
    */
-  replacer(iT, terrain, iD, dome, deplacements) {
+  replacer(iT, terrain, iD, dome, deplacements, passe = 1) {
     let jeton = () => ({ [$("#t").attr("name")]: $("#t").val() }),
-      // le jeu donne un nouveau jeton à chaque page : repris pour la requête
-      // suivante et pour les flèches refaites dans le tableau (attribut)
-      reprendreJeton = (html) => {
-        let nouveau = Utils.parseHtml(html).find("#t").val();
-        if (nouveau) $("#t").val(nouveau).attr("value", nouveau);
-      },
       ecarts = (html) =>
         PageArmee.ecartsPlacement(PageArmee.garnisonDe(html), iT, terrain, iD, dome),
       reponses = [],
-      aFaire = deplacements.filter((e) => e.toutEnLoge || e.nb > 0),
+      aFaire = PageArmee.parVoisins(deplacements.filter((e) => e.toutEnLoge || e.nb > 0)),
+      // pour le journal : chaque déplacement avec ce que le jeu a répondu
+      detail = (page) =>
+        `${passe > 1 ? "nouvel essai, " : ""}attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]}\n` +
+        aFaire
+          .map(
+            (e, k) =>
+              `${k + 1}. ${PageArmee.libelleEtape(e)} → ${PageArmee.etatGarnison(reponses[k], iT, iD)}`,
+          )
+          .join("\n") +
+        (page == null ? "" : `\npage relue → ${PageArmee.etatGarnison(page, iT, iD)}`),
+      source = "Replacement de l'armée",
       etapes = aFaire.map((e) =>
         e.toutEnLoge
           ? () => $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
@@ -431,50 +446,101 @@ class PageArmee {
           suite.then(() =>
             Promise.resolve(etape()).then((html) => {
               reponses.push(html);
-              reprendreJeton(html);
+              PageArmee.reprendreJeton(html);
             }),
           ),
         Promise.resolve(),
       )
       .then(() => {
         let reponse = reponses[reponses.length - 1];
-        if (!ecarts(reponse).length) return this.finReplacement(reponse, iT, terrain, iD, dome, []);
-        // le jeu traite les actions d'un compte une à une : sa réponse peut
-        // montrer l'armée d'avant le dernier déplacement, la page relue fait foi
+        if (!ecarts(reponse).length) {
+          if (passe > 1) Journal.info(source, "Armée placée au nouvel essai", detail(null));
+          return this.finReplacement(reponse, iT, terrain, iD, dome, []);
+        }
+        // une réponse peut montrer l'armée d'avant le dernier déplacement (le jeu
+        // traite les actions d'un compte une à une) : la page relue fait foi
         return Promise.resolve($.get("/Armee.php")).then((page) => {
-          reprendreJeton(page);
-          let restants = ecarts(page),
-            detail =
-              `attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]}\n` +
-              aFaire
-                .map(
-                  (e, k) =>
-                    `${k + 1}. ${PageArmee.libelleEtape(e)} → ${PageArmee.etatGarnison(reponses[k], iT, iD)}`,
-                )
-                .join("\n") +
-              `\npage relue → ${PageArmee.etatGarnison(page, iT, iD)}`;
-          if (restants.length)
-            Journal.erreur("Replacement de l'armée", "Armée pas placée comme prévu", detail);
-          else
+          PageArmee.reprendreJeton(page);
+          let restants = ecarts(page);
+          if (!restants.length) {
             Journal.info(
-              "Replacement de l'armée",
+              source,
               "Réponse du jeu d'avant le déplacement : armée bien placée à la relecture",
-              detail,
+              detail(page),
             );
+            return this.finReplacement(page, iT, terrain, iD, dome, []);
+          }
+          if (passe == 1 && this.remplacerGarnison(page)) {
+            Journal.info(
+              source,
+              "Déplacement refusé par le jeu : nouvel essai d'après la page relue",
+              detail(page),
+            );
+            let suite = this.placementPrevu(2);
+            // page relue dans les bornes des préférences : rien à refaire
+            return suite
+              ? suite()
+              : this.finReplacement(
+                  null,
+                  iT,
+                  this._armeeTdc.unite[iT],
+                  iD,
+                  this._armeeDome.unite[iD],
+                  [],
+                );
+          }
+          Journal.erreur(source, "Armée pas placée comme prévu", detail(page));
           return this.finReplacement(page, iT, terrain, iD, dome, restants);
         });
       })
       .catch(() => this.echecReplacement());
   }
   /**
-   * Tableau de la garnison remplacé par celui de `html`, et message du résultat.
+   * Déplacements entre lieux voisins seulement : le jeu a refusé un
+   * déplacement direct de la loge vers le TdC, et ses flèches ne vont que du
+   * TdC au dôme et du dôme à la loge. La loge et le TdC passent par le dôme.
+   *
+   * @static
+   * @method parVoisins
+   * @param {Array<Object>} etapes {toutEnLoge: true} ou {i, de, vers, nb}
+   * @return {Array<Object>}
+   */
+  static parVoisins(etapes) {
+    return etapes.flatMap((e) =>
+      !e.toutEnLoge && Math.abs(e.de - e.vers) == 2
+        ? [
+            { ...e, vers: LIEU_ARMEE.DOME },
+            { ...e, de: LIEU_ARMEE.DOME },
+          ]
+        : [e],
+    );
+  }
+  /**
+   * Jeton du formulaire d'une page reçue (le jeu en donne un nouveau à chaque
+   * page) : repris pour la requête suivante et pour les flèches refaites dans
+   * le tableau, qui lisent l'attribut.
+   *
+   * @static
+   * @method reprendreJeton
+   * @param {String} html
+   */
+  static reprendreJeton(html) {
+    let nouveau = Utils.parseHtml(html || "")
+      .find("#t")
+      .val();
+    if (nouveau) $("#t").val(nouveau).attr("value", nouveau);
+  }
+  /**
+   * Tableau de la garnison remplacé par celui de `html` (null : déjà fait), et
+   * message du résultat.
    *
    * @private
    * @method finReplacement
+   * @param {String|null} html
    * @param {Array<String>} ecarts écarts restants avec le placement prévu
    */
   finReplacement(html, iT, terrain, iD, dome, ecarts) {
-    if (!this.remplacerGarnison(html)) {
+    if (html != null && !this.remplacerGarnison(html)) {
       location = "/Armee.php";
       return;
     }

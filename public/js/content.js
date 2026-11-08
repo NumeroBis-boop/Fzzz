@@ -500,8 +500,11 @@ const DATEPICKER_OPTION = {
       new Dock(true).afficher();
       return;
     }
-    // notifications, erreurs de console et erreurs JavaScript dans le journal
-    Journal.installer();
+    // notifications, erreurs de console et erreurs JavaScript dans le journal,
+    // pour son seul joueur ; chez les autres, rien n'est gardé (le journal
+    // d'une version précédente est effacé)
+    if (Journal.pourCeJoueur()) Journal.installer();
+    else Journal.vider();
     // Modification du theme jquery humanity
     // Fzzz : thème jQuery UI « humanity » embarqué (paquet npm jquery-ui-themes 1.12.0,
     // MIT) au lieu de code.jquery.com : aucune requête vers un site tiers. Il
@@ -586,7 +589,8 @@ const DATEPICKER_OPTION = {
         // Ajout des outils, sous l'encadré Compte+
         let boite = new Dock();
         boite.afficher();
-        if (!origineGenerale && Utils.affichage("journal")) new BoiteJournal().afficher();
+        if (!origineGenerale && Utils.affichage("journal") && Journal.pourCeJoueur())
+          new BoiteJournal().afficher();
         // Boite radar
         let boiteRadar = new BoiteRadar();
         if (!origineGenerale) boiteRadar.afficher();

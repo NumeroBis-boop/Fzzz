@@ -16,6 +16,8 @@ const page = creerPage(
    $.toast.options = { position: "top-right" };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+// journal actif, comme pour son joueur (content.js)
+lire(`Journal.installer()`);
 const SCRIPT = "https://script.google.com/macros/s/AKfycbVraieAdresse_123-abc/exec";
 
 beforeEach(() => lire(`localStorage.clear(); document.body.innerHTML = ""; AFFICHES.length = 0;`));
@@ -49,6 +51,41 @@ describe("entrées du journal", () => {
     expect(lire<string>(`Journal.entrees()[0].m`).length).toBe(400);
     lire(`Journal.vider()`);
     expect(lire(`Journal.entrees()`)).toEqual([]);
+  });
+});
+
+describe("réservé au mainteneur", () => {
+  test("DoggyBag seulement, casse ignorée ; pseudo lu sur la page par défaut", () => {
+    const pour = (p: string) => lire<boolean>(`Journal.pourCeJoueur(${JSON.stringify(p)})`);
+    expect(pour("DoggyBag")).toBe(true);
+    expect(pour("doggybag ")).toBe(true);
+    expect(pour("Canaille")).toBe(false);
+    expect(pour("Doggy")).toBe(false);
+    expect(pour("")).toBe(false);
+    lire(`document.body.innerHTML = '<span id="pseudo">Missyl</span>'`);
+    expect(lire(`Journal.pourCeJoueur()`)).toBe(false);
+    lire(`document.body.innerHTML = '<span id="pseudo">DoggyBag</span>'`);
+    expect(lire(`Journal.pourCeJoueur()`)).toBe(true);
+  });
+
+  test("journal non installé (autre joueur) : rien n'est noté", () => {
+    const p = creerPage(["js/class/Journal.js"], `var Horloge = { maintenant: () => 1 };`);
+    p.lire(`Journal.erreur("Export", "échec"); Journal.info("Forum", "lu");`);
+    expect(p.lire(`localStorage.getItem("fzzz_journal")`)).toBeNull();
+    expect(p.lire(`Journal.entrees()`)).toEqual([]);
+  });
+
+  test("case de la boîte dans Préférences → Général : seulement pour son joueur", () => {
+    const p = creerPage(
+      ["js/class/Utils.js", "js/boite/Boite.js", "js/boite/Parametres.js"],
+      `var AFFICHAGES_ONGLET = {};`,
+    );
+    const cases = () => p.lire<string>(`BoiteParametre.prototype.cases.call({}, "General")`);
+    p.lire(`document.body.innerHTML = '<span id="pseudo">Missyl</span>'`);
+    expect(cases()).toContain("data-affichage='horloge'");
+    expect(cases()).not.toContain("data-affichage='journal'");
+    p.lire(`document.body.innerHTML = '<span id="pseudo">DoggyBag</span>'`);
+    expect(cases()).toContain("data-affichage='journal'");
   });
 });
 
@@ -90,10 +127,10 @@ describe("notes prises toutes seules", () => {
   test("notifications : niveau d'après l'icône, texte sans balises, notification toujours affichée", () => {
     lire(`Journal.installer();
       $.toast({ heading: "Erreur", icon: "error", text: "Export <b>impossible</b> : panne." });
-      $.toast({ heading: "Extension OUAF mise à jour", icon: "info", text: "<ul><li>Nouveau</li></ul>" });`);
+      $.toast({ heading: "Extension OUAF mise à jour", icon: "info", text: "<p><b>v1.87.0</b></p><ul><li>Nouveau</li></ul>" });`);
     const e = lire<any[]>(`Journal.entrees()`);
     expect(e.map((x) => [x.n, x.s, x.m])).toEqual([
-      ["info", "Extension OUAF mise à jour", "Nouveau"],
+      ["info", "Extension OUAF mise à jour", "v1.87.0 Nouveau"],
       ["erreur", "Notification", "Export impossible : panne."],
     ]);
     expect(lire(`AFFICHES.length`)).toBe(2);

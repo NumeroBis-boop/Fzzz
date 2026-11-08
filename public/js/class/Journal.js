@@ -14,6 +14,10 @@ const JOURNAL_REPETITION = 60000;
 const NIVEAUX_JOURNAL = { erreur: "ERREUR", alerte: "ALERTE", succes: "OK", info: "INFO" };
 // en-têtes génériques des notifications (TOAST_*) : la source devient « Notification »
 const TITRES_NOTIFICATION = ["Erreur", "Succès", "Attention", "Information"];
+// journal réservé au mainteneur (règle du mainteneur) : pour les autres joueurs,
+// rien n'est noté ni affiché ; casse ignorée
+const JOURNAL_JOUEURS = ["DoggyBag"];
+// installé (joueur de JOURNAL_JOUEURS) : sinon les notes sont ignorées
 let journalInstalle = false;
 
 /**
@@ -36,6 +40,7 @@ class Journal {
    * @param {any} [detail] texte, erreur ou objet
    */
   static noter(niveau, source, message, detail = "") {
+    if (!journalInstalle) return;
     try {
       let entree = {
           t: Journal._maintenant(),
@@ -191,8 +196,23 @@ class Journal {
     return Journal.masquer(lignes.join("\n"));
   }
   /**
-   * Note les notifications affichées, les erreurs écrites dans la console et
-   * les erreurs JavaScript non rattrapées. Une seule fois par page.
+   * Le joueur de la page a-t-il le journal ?
+   *
+   * @static
+   * @method pourCeJoueur
+   * @param {String} [pseudo] celui de la page par défaut
+   * @return {Boolean}
+   */
+  static pourCeJoueur(pseudo = $("#pseudo").text()) {
+    let p = String(pseudo || "")
+      .trim()
+      .toLowerCase();
+    return !!p && JOURNAL_JOUEURS.some((j) => j.toLowerCase() == p);
+  }
+  /**
+   * Active le journal et y note les notifications affichées, les erreurs
+   * écrites dans la console et les erreurs JavaScript non rattrapées. Une
+   * seule fois par page.
    *
    * @static
    * @method installer
@@ -272,6 +292,8 @@ class Journal {
     if (!html) return "";
     // DOMParser : rien n'est exécuté
     let doc = new DOMParser().parseFromString(String(html), "text/html");
+    // un blanc après chaque élément : « <b>v1.87.0</b><ul><li>Nouvelle… » ne colle pas
+    doc.body.querySelectorAll("*").forEach((e) => e.append(" "));
     return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
   }
   /**

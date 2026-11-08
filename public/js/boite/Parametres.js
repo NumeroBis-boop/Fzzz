@@ -18,7 +18,7 @@ const ONGLETS_PARAMETRE = [
     titre: "Général",
     affichages: ["horloge", "journal"],
     origine:
-      "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts, boîte Journal ; l'encadré Extension OUAF reste, pour revenir ici",
+      "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts ; l'encadré Extension OUAF reste, pour revenir ici",
   },
   {
     id: "Ressources",
@@ -255,6 +255,7 @@ class BoiteParametre extends Boite {
     return `<label class='o_affichageFzzz o_origine'><input type='checkbox' data-origine='${id}' ${origine ? "checked" : ""}/> <b>Rétablir l'affichage d'origine</b> <span class='o_aideParam'>(${onglet.origine} : tels que le jeu les affiche, au prochain chargement)</span></label>
       <p class='o_titreParam'>Affichages <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
       ${onglet.affichages
+        .filter((cle) => cle != "journal" || Journal.pourCeJoueur())
         .map(
           (cle) =>
             `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${localStorage.getItem("fzzz_affichage_" + cle) != "0" ? "checked" : ""}/> ${libelles[cle]}</label>`,

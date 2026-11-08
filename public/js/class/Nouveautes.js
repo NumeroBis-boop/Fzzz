@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.93.1",
+    notes: [
+      "Armée : après « Replacer l'armée », quand la réponse du jeu montre encore l'armée d'avant le déplacement, la page est relue avant de conclure (plus de fausse alerte) ; quand un déplacement n'est vraiment pas fait, l'alerte dit ce qui manque (TdC, dôme, unités restées hors de la loge).",
+    ],
+  },
+  {
     version: "1.93.0",
     notes: [
       "Synthèse : pertes par million de cm² chassés (carte et graphique), nourriture par multi-chasse (une chasse seule compte pour une multi-chasse).",

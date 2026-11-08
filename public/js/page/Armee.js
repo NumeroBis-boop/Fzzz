@@ -60,9 +60,7 @@ class PageArmee {
    *
    */
   executer() {
-    this.recupereArmeeTdc();
-    this.recupereArmeeDome();
-    this.recupereArmeeLoge();
+    this.recupererArmee();
     // Fzzz : floods partagés en cours sur le joueur
     PartageChasses.afficherArmee();
     // Affichage du nombre d'attaque restante
@@ -130,54 +128,78 @@ class PageArmee {
     return this;
   }
   /**
-   * Initialise l'armée en terrain de chasse.
+   * Armée en terrain, en dôme et en loge, lue dans le tableau de la garnison affiché.
    *
    * @private
-   * @method getArmeeTdc
+   * @method recupererArmee
    */
-  recupereArmeeTdc() {
-    let unites = {};
-    $(".simulateur tr[align=center]:lt(14)").each((i, elt) => {
-      let unite = $(elt).find(".pas_sur_telephone").text(),
-        nbr = numeral($(elt).find("td:nth-child(3) span").text()).value();
-      if (unite && nbr) unites[unite] = nbr;
-    });
-    this._armeeTdc = new Armee({ unite: unites });
+  recupererArmee() {
+    let lieux = PageArmee.lieuxDe(PageArmee.tableauGarnison($(document)));
+    this._armeeTdc = lieux.tdc;
+    this._armeeDome = lieux.dome;
+    this._armeeLoge = lieux.loge;
   }
   /**
-   * Initialise l'armée en dome.
+   * Tableau « Troupes en Garnison » d'une page Armée, affichée ou reçue.
    *
-   * @private
-   * @method getArmeeDome
+   * @static
+   * @method tableauGarnison
+   * @param {JQuery} $racine
+   * @return {JQuery} vide s'il manque
    */
-  recupereArmeeDome() {
-    let unites = {};
-    $(".simulateur tr[align=center]:lt(14)").each((i, elt) => {
-      let unite = $(elt).find(".pas_sur_telephone").text();
-      $(elt)
-        .find("td")
-        .slice(3, $(elt).find("td").length - 2)
-        .each((i2, elt2) => {
-          let nbr = numeral($(elt2).text()).value();
-          if (unite && nbr) unites[unite] = nbr;
+  static tableauGarnison($racine) {
+    return $racine
+      .find("table.simulateur")
+      .filter((k, t) => /Troupes en Garnison/.test(t.textContent))
+      .first();
+  }
+  /**
+   * Unités du tableau de la garnison, par lieu. Dans une ligne du jeu, un lieu
+   * vide est une case et un lieu occupé trois (flèche, nombre, flèche) : le
+   * nombre du terrain est en 3e case, celui de la loge en avant-dernière,
+   * celui du dôme entre les deux.
+   *
+   * @static
+   * @method lieuxDe
+   * @param {JQuery} $tableau
+   * @return {{tdc: Armee, dome: Armee, loge: Armee}}
+   */
+  static lieuxDe($tableau) {
+    let lieux = { tdc: {}, dome: {}, loge: {} },
+      nombre = (e) => numeral($(e).text()).value();
+    $tableau
+      .find("tr[align=center]")
+      .slice(0, 14)
+      .each((i, ligne) => {
+        let unite = $(ligne).find(".pas_sur_telephone").text(),
+          $cases = $(ligne).find("td");
+        if (!unite) return;
+        let tdc = nombre($(ligne).find("td:nth-child(3) span")),
+          loge = nombre($(ligne).find("td:nth-last-child(2)"));
+        if (tdc) lieux.tdc[unite] = tdc;
+        $cases.slice(3, $cases.length - 2).each((k, c) => {
+          let n = nombre(c);
+          if (n) lieux.dome[unite] = n;
         });
-    });
-    this._armeeDome = new Armee({ unite: unites });
+        if (loge) lieux.loge[unite] = loge;
+      });
+    return {
+      tdc: new Armee({ unite: lieux.tdc }),
+      dome: new Armee({ unite: lieux.dome }),
+      loge: new Armee({ unite: lieux.loge }),
+    };
   }
   /**
-   * Initialise l'armée en loge.
+   * Garnison d'une page Armée reçue, ou null si elle n'en a pas.
    *
-   * @private
-   * @method getArmeeLoge
+   * @static
+   * @method garnisonDe
+   * @param {String} html
+   * @return {{tdc: Armee, dome: Armee, loge: Armee}|null}
    */
-  recupereArmeeLoge() {
-    let unites = {};
-    $(".simulateur tr[align=center]:lt(14)").each((i, elt) => {
-      let unite = $(elt).find(".pas_sur_telephone").text(),
-        nbr = numeral($(elt).find("td:nth-last-child(2)").text()).value();
-      if (unite && nbr) unites[unite] = nbr;
-    });
-    this._armeeLoge = new Armee({ unite: unites });
+  static garnisonDe(html) {
+    let $tableau = PageArmee.tableauGarnison(Utils.parseHtml(html || ""));
+    return $tableau.length ? PageArmee.lieuxDe($tableau) : null;
   }
   /**
    * Replace l'armée : tout en loge (flèche « Tout déplacer ici » de la loge),
@@ -366,7 +388,8 @@ class PageArmee {
    * Déplacements du formulaire « Déplacer » du jeu, l'un après l'autre, pour
    * finir avec `terrain` unités d'indice `iT` en terrain et `dome` unités
    * d'indice `iD` en dôme ; tableau de la garnison remplacé par celui de la
-   * dernière réponse.
+   * dernière réponse, ou de la page relue quand cette réponse ne montre pas
+   * l'armée attendue.
    *
    * @method replacer
    * @param {Integer} iT indice dans Armee.unite de l'antisonde en terrain
@@ -378,58 +401,172 @@ class PageArmee {
    */
   replacer(iT, terrain, iD, dome, deplacements) {
     let jeton = () => ({ [$("#t").attr("name")]: $("#t").val() }),
-      reponse = null,
-      etapes = deplacements
-        .filter((e) => e.toutEnLoge || e.nb > 0)
-        .map((e) =>
-          e.toutEnLoge
-            ? () => $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
-            : () =>
-                $.post("/Armee.php", {
-                  ...jeton(),
-                  nbTroupes: e.nb,
-                  ChoixUnite: PageArmee.valeurUnite(e.i),
-                  LieuOrigine: e.de,
-                  LieuDestination: e.vers,
-                  Transferer: "Envoyer",
-                }),
-        );
+      // le jeu donne un nouveau jeton à chaque page : repris pour la requête
+      // suivante et pour les flèches refaites dans le tableau (attribut)
+      reprendreJeton = (html) => {
+        let nouveau = Utils.parseHtml(html).find("#t").val();
+        if (nouveau) $("#t").val(nouveau).attr("value", nouveau);
+      },
+      ecarts = (html) =>
+        PageArmee.ecartsPlacement(PageArmee.garnisonDe(html), iT, terrain, iD, dome),
+      reponses = [],
+      aFaire = deplacements.filter((e) => e.toutEnLoge || e.nb > 0),
+      etapes = aFaire.map((e) =>
+        e.toutEnLoge
+          ? () => $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
+          : () =>
+              $.post("/Armee.php", {
+                ...jeton(),
+                nbTroupes: e.nb,
+                ChoixUnite: PageArmee.valeurUnite(e.i),
+                LieuOrigine: e.de,
+                LieuDestination: e.vers,
+                Transferer: "Envoyer",
+              }),
+      );
     if (!etapes.length) return Promise.resolve();
     return etapes
       .reduce(
         (suite, etape) =>
           suite.then(() =>
             Promise.resolve(etape()).then((html) => {
-              reponse = html;
-              // jeton du formulaire renouvelé par le jeu : repris pour la suite
-              let nouveau = Utils.parseHtml(html).find("#t").val();
-              if (nouveau) $("#t").val(nouveau);
+              reponses.push(html);
+              reprendreJeton(html);
             }),
           ),
         Promise.resolve(),
       )
       .then(() => {
-        if (!this.remplacerGarnison(reponse)) {
-          location = "/Armee.php";
-          return;
-        }
-        let place =
-          this._armeeTdc.unite[iT] == terrain &&
-          this._armeeDome.unite[iD] == dome &&
-          this.uniteTransferables() == this._armeeLoge.getSommeUnite() + terrain + dome;
-        $.toast(
-          place
-            ? {
-                ...TOAST_SUCCESS,
-                text: `Armée replacée : ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]} en TdC, ${numeral(dome).format()} ${NOM_UNITE[iD + 1]} en dôme, le reste en loge.`,
-              }
-            : {
-                ...TOAST_WARNING,
-                text: "Le jeu n'a pas déplacé l'armée comme prévu : vérifie le tableau.",
-              },
-        );
+        let reponse = reponses[reponses.length - 1];
+        if (!ecarts(reponse).length) return this.finReplacement(reponse, iT, terrain, iD, dome, []);
+        // le jeu traite les actions d'un compte une à une : sa réponse peut
+        // montrer l'armée d'avant le dernier déplacement, la page relue fait foi
+        return Promise.resolve($.get("/Armee.php")).then((page) => {
+          reprendreJeton(page);
+          let restants = ecarts(page),
+            detail =
+              `attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]}\n` +
+              aFaire
+                .map(
+                  (e, k) =>
+                    `${k + 1}. ${PageArmee.libelleEtape(e)} → ${PageArmee.etatGarnison(reponses[k], iT, iD)}`,
+                )
+                .join("\n") +
+              `\npage relue → ${PageArmee.etatGarnison(page, iT, iD)}`;
+          if (restants.length)
+            Journal.erreur("Replacement de l'armée", "Armée pas placée comme prévu", detail);
+          else
+            Journal.info(
+              "Replacement de l'armée",
+              "Réponse du jeu d'avant le déplacement : armée bien placée à la relecture",
+              detail,
+            );
+          return this.finReplacement(page, iT, terrain, iD, dome, restants);
+        });
       })
       .catch(() => this.echecReplacement());
+  }
+  /**
+   * Tableau de la garnison remplacé par celui de `html`, et message du résultat.
+   *
+   * @private
+   * @method finReplacement
+   * @param {Array<String>} ecarts écarts restants avec le placement prévu
+   */
+  finReplacement(html, iT, terrain, iD, dome, ecarts) {
+    if (!this.remplacerGarnison(html)) {
+      location = "/Armee.php";
+      return;
+    }
+    $.toast(
+      ecarts.length
+        ? {
+            ...TOAST_WARNING,
+            text: `Le jeu n'a pas déplacé l'armée comme prévu (${ecarts.join(" ; ")}) : vérifie le tableau.`,
+          }
+        : {
+            ...TOAST_SUCCESS,
+            text: `Armée replacée : ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]} en TdC, ${numeral(dome).format()} ${NOM_UNITE[iD + 1]} en dôme, le reste en loge.`,
+          },
+    );
+  }
+  /**
+   * Différences entre une garnison et le placement prévu : antisonde du
+   * terrain, du dôme, et autres unités hors de la loge.
+   *
+   * @static
+   * @method ecartsPlacement
+   * @param {{tdc: Armee, dome: Armee, loge: Armee}|null} lieux
+   * @return {Array<String>} vide si l'armée est placée comme prévu
+   */
+  static ecartsPlacement(lieux, iT, terrain, iD, dome) {
+    if (!lieux) return ["pas de tableau de la garnison dans la réponse du jeu"];
+    let t = lieux.tdc.unite[iT],
+      d = lieux.dome.unite[iD],
+      autres = lieux.tdc.getSommeUnite() + lieux.dome.getSommeUnite() - t - d,
+      liste = [];
+    if (t != terrain)
+      liste.push(
+        `TdC : ${numeral(t).format()} ${NOM_UNITE[iT + 1]} au lieu de ${numeral(terrain).format()}`,
+      );
+    if (d != dome)
+      liste.push(
+        `dôme : ${numeral(d).format()} ${NOM_UNITE[iD + 1]} au lieu de ${numeral(dome).format()}`,
+      );
+    if (autres) liste.push(`${numeral(autres).format()} autre(s) unité(s) hors de la loge`);
+    return liste;
+  }
+  /**
+   * Déplacement en une ligne, pour le journal.
+   *
+   * @static
+   * @method libelleEtape
+   * @param {Object} e {toutEnLoge: true} ou {i, de, vers, nb}
+   * @return {String}
+   */
+  static libelleEtape(e) {
+    let lieu = {
+      [LIEU_ARMEE.TERRAIN]: "TdC",
+      [LIEU_ARMEE.DOME]: "dôme",
+      [LIEU_ARMEE.LOGE]: "loge",
+    };
+    return e.toutEnLoge
+      ? "tout en loge"
+      : `${numeral(e.nb).format()} ${NOM_UNITE[e.i + 1]} ${lieu[e.de]} → ${lieu[e.vers]}`;
+  }
+  /**
+   * Antisondes et autres unités hors de la loge dans une page Armée reçue,
+   * avec le message du jeu s'il en affiche un, pour le journal.
+   *
+   * @static
+   * @method etatGarnison
+   * @param {String} html
+   * @return {String}
+   */
+  static etatGarnison(html, iT, iD) {
+    let lieux = PageArmee.garnisonDe(html),
+      message = Utils.parseHtml(html || "")
+        .find("#centre")
+        .find("p, div, span, font, strong, b")
+        .filter(
+          (k, e) =>
+            e.textContent.trim().length < 200 &&
+            /impossible|erreur|pas assez|insuffisant|invalide|ne pouvez|interdit/i.test(
+              e.textContent,
+            ),
+        )
+        .first()
+        .text()
+        .trim();
+    if (!lieux)
+      return `pas de tableau de la garnison${message ? ` (message du jeu : « ${message} »)` : ""}`;
+    let t = lieux.tdc.unite[iT],
+      d = lieux.dome.unite[iD],
+      autres = lieux.tdc.getSommeUnite() + lieux.dome.getSommeUnite() - t - d;
+    return (
+      `TdC ${numeral(t).format()}, dôme ${numeral(d).format()}, autres hors loge ${numeral(autres).format()}` +
+      (message ? ` (message du jeu : « ${message} »)` : "")
+    );
   }
   /**
    * Remplace le tableau de la garnison par celui d'une page Armée reçue, et
@@ -441,10 +578,7 @@ class PageArmee {
    * @return {Boolean} false si la réponse n'a pas de tableau de garnison
    */
   remplacerGarnison(html) {
-    let $nouvelle = Utils.parseHtml(html || "")
-        .find("table.simulateur")
-        .filter((k, t) => /Troupes en Garnison/.test(t.textContent))
-        .first(),
+    let $nouvelle = PageArmee.tableauGarnison(Utils.parseHtml(html || "")),
       $actuelle = $(".simulateur:not(.o_blocAttaques):first");
     if (!$nouvelle.length || !$actuelle.length) return false;
     let $bouton = $("#o_replaceArmee").closest("tr").detach(),
@@ -454,9 +588,7 @@ class PageArmee {
     $actuelle.replaceWith($nouvelle);
     $nouvelle.find("tr:eq(0)").after($bouton);
     $nouvelle.append($hof, $stat);
-    this.recupereArmeeTdc();
-    this.recupereArmeeDome();
-    this.recupereArmeeLoge();
+    this.recupererArmee();
     $nouvelle.find("h3:first").append(` (${numeral(this.uniteTransferables()).format()})`);
     if (!Utils.comptePlus) this.flechesEtLignes();
     this.libellesCourts((n) => $nouvelle[0].contains(n));

@@ -2913,6 +2913,10 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   max-width: 100%;
   margin: 0 auto;
 }
+/* boîte redimensionnée par le joueur : la synthèse en prend la largeur */
+.o_boiteRedimensionnee .o_synthese {
+  width: auto;
+}
 .o_syntheseTitre {
   margin: 10px 0 6px;
 }
@@ -2960,36 +2964,7 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_synthesePerte small {
   color: #b03a2e;
 }
-.o_synthese .o_spoilerTitre {
-  text-align: left;
-  margin-top: 8px;
-}
-.o_syntheseGrille {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-  gap: 8px 16px;
-  align-items: start;
-  margin: 6px 0;
-}
-.o_syntheseGrille table {
-  width: 100%;
-}
-.o_syntheseClassement {
-  min-width: 0;
-  overflow-x: auto;
-}
-/* chasseurs de la période : six colonnes, une ligne de la grille à lui seul */
-.o_syntheseLarge {
-  grid-column: 1 / -1;
-}
-.o_syntheseTableau td {
-  padding: 2px 6px;
-}
-/* nombres jamais coupés (« 731 715 » sur deux lignes) : le tableau défile plutôt */
-.o_syntheseTableau tr:not(.gras) td.right {
-  white-space: nowrap;
-}
-/* graphiques l'un sous l'autre, sur toute la largeur (axes de dates lisibles) */
+/* graphiques l'un sous l'autre, sur toute la largeur */
 .o_syntheseGraphiques {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -3016,9 +2991,4 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_syntheseMesureActive {
   font-weight: bold;
   text-decoration: underline;
-}
-/* tableaux des valeurs des graphiques : défilent en largeur sur un téléphone */
-.o_syntheseDonnees {
-  overflow-x: auto;
-  margin: 6px 0;
 }

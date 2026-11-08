@@ -848,19 +848,19 @@ html:not(.o_origineGenerale) #recherche {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
-/* bords des boîtes : poignées pour les déplacer, comme le titre (celui-ci peut
- * sortir de l'écran sur un petit écran) */
+/* bords et coins des boîtes : poignées pour les redimensionner, comme une
+ * fenêtre (le titre les déplace) */
 .o_bord {
   position: absolute;
   z-index: 2;
-  cursor: move;
   touch-action: none;
 }
 .o_bordHaut,
 .o_bordBas {
-  left: 0;
-  right: 0;
+  left: 12px;
+  right: 12px;
   height: 10px;
+  cursor: ns-resize;
 }
 .o_bordHaut {
   top: -3px;
@@ -870,15 +870,67 @@ html:not(.o_origineGenerale) #recherche {
 }
 .o_bordGauche,
 .o_bordDroite {
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
   width: 10px;
+  cursor: ew-resize;
 }
 .o_bordGauche {
   left: -3px;
 }
 .o_bordDroite {
   right: -3px;
+}
+.o_bordHautGauche,
+.o_bordHautDroite,
+.o_bordBasGauche,
+.o_bordBasDroite {
+  width: 16px;
+  height: 16px;
+  z-index: 3;
+}
+.o_bordHautGauche {
+  top: -3px;
+  left: -3px;
+  cursor: nwse-resize;
+}
+.o_bordBasDroite {
+  bottom: -3px;
+  right: -3px;
+  cursor: nwse-resize;
+}
+.o_bordHautDroite {
+  top: -3px;
+  right: -3px;
+  cursor: nesw-resize;
+}
+.o_bordBasGauche {
+  bottom: -3px;
+  left: -3px;
+  cursor: nesw-resize;
+}
+/* coin bas droit : poignée visible, comme sur une fenêtre */
+.o_bordBasDroite::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(
+    135deg,
+    transparent 45%,
+    rgba(0, 0, 0, 0.35) 45% 55%,
+    transparent 55% 70%,
+    rgba(0, 0, 0, 0.35) 70% 80%,
+    transparent 80%
+  );
+  pointer-events: none;
+}
+/* taille choisie par le joueur : plus de largeur imposée */
+.o_content.o_boiteRedimensionnee {
+  min-width: 0;
+  max-width: none;
 }
 .o_content table {
   border-collapse: collapse;
@@ -1113,6 +1165,18 @@ form > .o_titreParam:first-child {
     max-width: none;
     left: 10px !important;
     right: 10px !important;
+  }
+  /* toute la largeur : seule la hauteur se règle (bords haut et bas) */
+  .o_content.o_boiteRedimensionnee {
+    width: auto !important;
+  }
+  .o_bordGauche,
+  .o_bordDroite,
+  .o_bordHautGauche,
+  .o_bordHautDroite,
+  .o_bordBasGauche,
+  .o_bordBasDroite {
+    display: none;
   }
   #o_boiteGuerre,
   .o_content[id^="o_boiteRang"],
@@ -2913,6 +2977,10 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   max-width: 100%;
   margin: 0 auto;
 }
+/* boîte redimensionnée par le joueur : la synthèse en prend la largeur */
+.o_boiteRedimensionnee .o_synthese {
+  width: auto;
+}
 .o_syntheseTitre {
   margin: 10px 0 6px;
 }
@@ -2960,36 +3028,7 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_synthesePerte small {
   color: #b03a2e;
 }
-.o_synthese .o_spoilerTitre {
-  text-align: left;
-  margin-top: 8px;
-}
-.o_syntheseGrille {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-  gap: 8px 16px;
-  align-items: start;
-  margin: 6px 0;
-}
-.o_syntheseGrille table {
-  width: 100%;
-}
-.o_syntheseClassement {
-  min-width: 0;
-  overflow-x: auto;
-}
-/* chasseurs de la période : six colonnes, une ligne de la grille à lui seul */
-.o_syntheseLarge {
-  grid-column: 1 / -1;
-}
-.o_syntheseTableau td {
-  padding: 2px 6px;
-}
-/* nombres jamais coupés (« 731 715 » sur deux lignes) : le tableau défile plutôt */
-.o_syntheseTableau tr:not(.gras) td.right {
-  white-space: nowrap;
-}
-/* graphiques l'un sous l'autre, sur toute la largeur (axes de dates lisibles) */
+/* graphiques l'un sous l'autre, sur toute la largeur */
 .o_syntheseGraphiques {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -3016,9 +3055,4 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_syntheseMesureActive {
   font-weight: bold;
   text-decoration: underline;
-}
-/* tableaux des valeurs des graphiques : défilent en largeur sur un téléphone */
-.o_syntheseDonnees {
-  overflow-x: auto;
-  margin: 6px 0;
 }

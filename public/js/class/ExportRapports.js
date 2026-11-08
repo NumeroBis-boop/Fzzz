@@ -29,6 +29,8 @@ let exportEnCours = false;
 const JOURNAL_EXPORT = "Export Google Sheet";
 // dégâts de base sous lesquels l'arrondi du jeu fausse le niveau d'arme
 const EXPORT_DEGATS_MIN = 100;
+// statistiques de chasse attendues du script (un script plus ancien en rend d'autres)
+const FORMAT_STATISTIQUES_SCRIPT = 2;
 // un script déployé avant une requête la refuse (« requête invalide »)
 const SCRIPT_PAS_A_JOUR =
   "le script du Google Sheet n'est pas à jour (la personne qui gère le fichier doit y recoller le code et déployer une nouvelle version)";
@@ -1041,12 +1043,7 @@ class ExportRapports {
         (r) => {
           if (!r || !r.statistiques || !Array.isArray(r.statistiques.resume))
             throw new Error("réponse inattendue du script");
-          // script déployé avant les multi-chasses et l'armée
-          if (
-            !["armee", "comparaison", "multiChasses", "chasses"].every(
-              (b) => r.statistiques[b] && Array.isArray(r.statistiques[b].lignes),
-            )
-          )
+          if (r.statistiques.format !== FORMAT_STATISTIQUES_SCRIPT)
             throw new Error(SCRIPT_PAS_A_JOUR);
           return r.statistiques;
         },

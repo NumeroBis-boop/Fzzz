@@ -86,7 +86,7 @@ describe("replacement de l'armée", () => {
       prevu({ loge: { "Jeune Soldate Naine": 1 } }, { terrain: 100, dome: 20, unite: 0 }),
     ).toEqual([0, [0, 1, 0]]);
   });
-  test("seules les antisondes dehors : seulement la différence, retours en loge d'abord", () => {
+  test("seules les antisondes dehors : seulement la différence, entre lieux voisins", () => {
     const parametres = { terrain: 100, dome: 50, unite: 0 },
       etapes = () => page.lire(`window.etapes`);
     // terrain déjà dans ses bornes : seul le dôme est complété
@@ -103,13 +103,20 @@ describe("replacement de l'armée", () => {
     expect([e[0].de, e[0].vers]).toEqual([3, 2]);
     expect(e[0].nb).toBeGreaterThanOrEqual(35);
     expect(e[0].nb).toBeLessThanOrEqual(40);
-    // trop en terrain, rien en dôme : terrain → loge, puis loge → dôme
-    prevu({ tdc: { "Jeune Soldate Naine": 150 }, loge: { "Jeune Soldate Naine": 10 } }, parametres);
+    // trop en terrain, rien en dôme : le surplus du TdC passe au dôme, et ce
+    // que le dôme a de trop va en loge (rien si terrain + dôme = 150 tout juste)
+    const [, appel] = prevu(
+      { tdc: { "Jeune Soldate Naine": 150 }, loge: { "Jeune Soldate Naine": 10 } },
+      parametres,
+    ) as [number, number[]];
     e = etapes();
-    expect(e.map((x: { de: number; vers: number }) => [x.de, x.vers])).toEqual([
-      [1, 3],
-      [3, 2],
-    ]);
+    const [, t, d] = appel as [number, number, number];
+    expect(e).toEqual(
+      [
+        { i: 0, de: 1, vers: 2, nb: 150 - t },
+        { i: 0, de: 2, vers: 3, nb: 150 - t - d },
+      ].filter((x) => x.nb > 0),
+    );
   });
   test("d'autres unités hors de la loge : tout en loge d'abord", () => {
     prevu(
@@ -121,9 +128,10 @@ describe("replacement de l'armée", () => {
     );
     const e = page.lire(`window.etapes`);
     expect(e[0]).toEqual({ toutEnLoge: true });
+    // même unité : les deux antisondes ensemble de la loge au dôme, puis celle du TdC
     expect(e.slice(1).map((x: { de: number; vers: number }) => [x.de, x.vers])).toEqual([
-      [3, 1],
       [3, 2],
+      [2, 1],
     ]);
   });
   test("unités différentes en terrain et en dôme", () => {
@@ -138,9 +146,11 @@ describe("replacement de l'armée", () => {
     // 30 Naines d'Elite seulement : toutes en dôme
     expect(appel[2]).toBe(30);
     const e = page.lire(`window.etapes`);
-    expect(e.map((x: { i: number; vers: number }) => [x.i, x.vers])).toEqual([
-      [0, 1],
-      [2, 2],
+    // d'abord tout ce qui entre au dôme, puis ce qui en sort vers le TdC
+    expect(e.map((x: { i: number; de: number; vers: number }) => [x.i, x.de, x.vers])).toEqual([
+      [0, 3, 2],
+      [2, 3, 2],
+      [0, 2, 1],
     ]);
   });
   test("ancien réglage unique repris pour le terrain et le dôme", () => {

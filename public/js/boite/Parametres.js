@@ -16,9 +16,9 @@ const ONGLETS_PARAMETRE = [
   {
     id: "General",
     titre: "Général",
-    affichages: ["horloge"],
+    affichages: ["horloge", "journal"],
     origine:
-      "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts ; l'encadré Extension OUAF reste, pour revenir ici",
+      "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts, boîte Journal ; l'encadré Extension OUAF reste, pour revenir ici",
   },
   {
     id: "Ressources",

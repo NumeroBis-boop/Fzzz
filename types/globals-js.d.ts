@@ -12,8 +12,9 @@ declare const Globalize: any;
 declare const ClipboardJS: any;
 declare const Clipboard: any;
 declare const chrome: any;
-// script utilisateur seulement (userscript/shim.js)
+// script utilisateur seulement (userscript/shim.js, gestionnaire de scripts)
 declare var FZZZ_NOM_EXTENSION: string | null | undefined;
+declare var GM_info: any;
 /** Profil du joueur connecté, créé par content.js au démarrage. */
 declare var monProfil: any;
 /** Noms de types utilisés dans les commentaires JSDoc hérités d'Outiiil. */

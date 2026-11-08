@@ -18,6 +18,9 @@ const BIBLIOTHEQUES = [
   "js/lib/numeral-locale-fr.js",
 ];
 
+// journal de l'extension : les modules y notent leurs erreurs
+const JOURNAL = "js/class/Journal.js";
+
 export interface Page {
   window: Window;
   /** Évalue une expression dans la page (classes globales comprises). */
@@ -43,6 +46,8 @@ export function creerPage(fichiers: string[], avant = ""): Page {
   for (const f of BIBLIOTHEQUES) executer(readFileSync(join(PUBLIC, f), "utf8"));
   executer(`moment.locale("fr"); numeral.locale("fr");`);
   if (avant) executer(avant);
-  for (const f of fichiers) executer(readFileSync(join(PUBLIC, f), "utf8"));
+  // chargé en premier des scripts de l'extension, comme dans le manifeste
+  for (const f of fichiers.includes(JOURNAL) ? fichiers : [JOURNAL, ...fichiers])
+    executer(readFileSync(join(PUBLIC, f), "utf8"));
   return { window, lire: (expression) => executer(expression) };
 }

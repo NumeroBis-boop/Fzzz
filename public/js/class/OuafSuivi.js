@@ -124,6 +124,12 @@ class OuafSuivi {
         new Promise((r) => setTimeout(() => r({ erreur: "delai" }), delai)),
       ]);
     return envoi.then((r) => {
+      if (!r || r.erreur || !r.ok)
+        Journal.erreur(
+          "Suivi des convois OUAF",
+          `${methode} ${chemin} : ${!r ? "pas de réponse du script d'arrière-plan" : r.erreur || `erreur ${r.statut}`}`,
+          r && r.donnees,
+        );
       if (!r) throw new Error("le script d'arrière-plan n'a pas répondu");
       if (r.erreur == "permission") {
         let e = new Error("accès à ouafchaine.fr non autorisé");

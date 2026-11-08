@@ -14,10 +14,25 @@ const CODE = readFileSync(
 
 type Grille = unknown[][];
 
-export function feuille(nom: string, grille: Grille = []) {
+/**
+ * Onglet simulé. Comme Google Sheets : grille de `lignesMax` × 26 au départ,
+ * écriture hors de la grille refusée, suppression de toutes les lignes non
+ * figées refusée.
+ */
+export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
+  let colonnesMax = 26,
+    figees = 0;
   const f: any = {
     nom,
     grille,
+    getMaxRows: () => lignesMax,
+    getMaxColumns: () => colonnesMax,
+    insertRowsAfter: (r: number, n: number) => {
+      lignesMax += n;
+    },
+    insertColumnsAfter: (c: number, n: number) => {
+      colonnesMax += n;
+    },
     // mise en forme demandée par le script : hauteur forcée et alignement par ligne
     hauteurs: {} as Record<number, number>,
     alignements: {} as Record<number, string>,
@@ -34,14 +49,21 @@ export function feuille(nom: string, grille: Grille = []) {
           return 0;
         }),
       ),
-    setFrozenRows: () => {},
+    setFrozenRows: (n: number) => {
+      figees = n;
+    },
     deleteRows: (r: number, n: number) => {
+      if (lignesMax - n <= figees)
+        throw new Error("Sorry, it is not possible to delete all non-frozen rows.");
       grille.splice(r - 1, n);
+      lignesMax -= n;
     },
     setRowHeightsForced: (r: number, n: number, h: number) => {
       for (let i = 0; i < n; i++) f.hauteurs[r + i] = h;
     },
     getRange: (r: number, c: number, nl = 1, nc = 1) => {
+      if (r + nl - 1 > lignesMax || c + nc - 1 > colonnesMax)
+        throw new Error("The coordinates of the range are outside the dimensions of the sheet.");
       const plage: any = {
         getValues: () =>
           Array.from({ length: nl }, (_, i) =>

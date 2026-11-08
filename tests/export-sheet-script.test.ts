@@ -195,6 +195,51 @@ describe("floods internes : une seule ligne, jamais dans les onglets des camps",
   });
 });
 
+describe("grille de l'onglet", () => {
+  test("onglet plein (grille de 1 000 lignes atteinte) : agrandi, lignes ajoutées", () => {
+    onglets["BDD chasse"] = feuille("BDD chasse", [ENTETES, ["k0", "Alpha", "d", 1, "a"]], 2);
+    const ctx = charger();
+    expect(
+      poster(ctx, {
+        onglet: "BDD chasse",
+        entetes: [...ENTETES, "Nouvelle colonne"],
+        lignes: [
+          ["k1", "Alpha", "d", 1, "a", "x"],
+          ["k2", "Alpha", "d", 1, "b", "y"],
+        ],
+      }),
+    ).toEqual({ ajoutees: 2, deja: 0 });
+    expect(onglets["BDD chasse"].grille.map((l: unknown[]) => l[0])).toEqual([
+      "Clé",
+      "k0",
+      "k1",
+      "k2",
+    ]);
+  });
+
+  test("toutes les lignes d'un onglet de camp retirées, grille juste à la taille : sans erreur", () => {
+    const COMBAT = ["Clé", "Exporté par"];
+    onglets["BDD attaques"] = feuille(
+      "BDD attaques",
+      [COMBAT, ["k1", "Alpha"], ["k2", "Alpha"]],
+      3,
+    );
+    onglets["BDD attaques"].setFrozenRows(1);
+    const ctx = charger();
+    expect(
+      poster(ctx, {
+        onglet: "Flood internes",
+        entetes: COMBAT,
+        lignes: [
+          ["k1", "Alpha"],
+          ["k2", "Alpha"],
+        ],
+      }),
+    ).toEqual({ ajoutees: 2, deja: 0 });
+    expect(onglets["BDD attaques"].grille).toEqual([COMBAT]);
+  });
+});
+
 describe("lignes compactes", () => {
   test("toutes les lignes de l'onglet : hauteur d'une ligne, texte en haut ; titres intacts", () => {
     onglets["BDD chasse"] = feuille("BDD chasse", [

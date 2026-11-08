@@ -96,6 +96,7 @@ function ajouterLignes(classeur, nom, entetes, lignes, exclues) {
     var vide = titres.indexOf("");
     if (vide == -1) titres.push(t);
     else titres[vide] = t;
+    agrandir(feuille, 1, titres.length);
     feuille
       .getRange(1, titres.indexOf(t) + 1)
       .setValue(t)
@@ -120,10 +121,21 @@ function ajouterLignes(classeur, nom, entetes, lignes, exclues) {
     });
     nouvelles.push(ligne);
   });
-  if (nouvelles.length)
+  if (nouvelles.length) {
+    agrandir(feuille, derniere + nouvelles.length, titres.length);
     feuille.getRange(derniere + 1, 1, nouvelles.length, titres.length).setValues(nouvelles);
+  }
   compacter(feuille);
   return { ajoutees: nouvelles.length, deja: lignes.length - nouvelles.length };
+}
+
+// la grille de l'onglet (1 000 lignes et 26 colonnes à sa création) doit
+// contenir la plage écrite : le tableur refuse d'écrire au-delà
+function agrandir(feuille, lignes, colonnes) {
+  var l = lignes - feuille.getMaxRows(),
+    c = colonnes - feuille.getMaxColumns();
+  if (l > 0) feuille.insertRowsAfter(feuille.getMaxRows(), l);
+  if (c > 0) feuille.insertColumnsAfter(feuille.getMaxColumns(), c);
 }
 
 // clés de l'onglet (colonne « Clé »), de la ligne 2 à la dernière
@@ -156,6 +168,16 @@ function retirerCles(classeur, noms, cles) {
     var feuille = classeur.getSheetByName(nom);
     if (!feuille) return;
     var valeurs = lireCles(feuille);
+    if (
+      !valeurs.some(function (v) {
+        return v && cles[v];
+      })
+    )
+      return;
+    // une ligne vide sous les données : le tableur refuse de supprimer toutes
+    // les lignes non figées
+    if (feuille.getMaxRows() <= valeurs.length + 1)
+      feuille.insertRowsAfter(feuille.getMaxRows(), 1);
     // de bas en haut, par blocs contigus : une suppression ne décale pas les lignes restant à voir
     for (var i = valeurs.length - 1; i >= 0; i--) {
       if (!valeurs[i] || !cles[valeurs[i]]) continue;

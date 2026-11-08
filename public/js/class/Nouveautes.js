@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.93.3",
+    notes: [
+      "Armée : « Replacer l'armée » vérifie chaque déplacement dans la réponse du jeu, qui en ignore parfois un envoyé juste après un autre : la page est relue et ce qui manque est renvoyé (trois fois au plus). Et moins de déplacements : deux au plus par unité.",
+    ],
+  },
+  {
     version: "1.93.2",
     notes: [
       "Armée : « Replacer l'armée » passe par le dôme pour aller de la loge au TdC (le jeu refusait le déplacement direct), et refait une fois un déplacement refusé, d'après la page relue.",

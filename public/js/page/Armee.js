@@ -13,6 +13,8 @@
 const LIEU_ARMEE = { TERRAIN: 1, DOME: 2, LOGE: 3 };
 // numéro du jeu (uniteN) de chaque unité, dans l'ordre d'Armee.unite
 const CHOIX_UNITE_JEU = [1, 2, 3, 4, 5, 6, 14, 7, 8, 9, 10, 13, 11, 12];
+// envois d'un même déplacement que le jeu n'a pas fait, relecture de la page entre deux
+const ESSAIS_DEPLACEMENT = 3;
 
 class PageArmee {
   constructor(boiteComptePlus) {
@@ -235,10 +237,9 @@ class PageArmee {
    * ou null si l'armée est déjà bien placée. N'envoie rien.
    *
    * @method placementPrevu
-   * @param {Integer} [passe] 2 pour le nouvel essai après un déplacement refusé
    * @return {Function|null}
    */
-  placementPrevu(passe = 1) {
+  placementPrevu() {
     let iT = this.indiceUnite("uniteAntisondeTerrainType"),
       iD = this.indiceUnite("uniteAntisondeDomeType");
     if (iT == -1) return null;
@@ -268,33 +269,53 @@ class PageArmee {
       autres =
         this._armeeTdc.unite.some((n, k) => n > 0 && k != iT) ||
         this._armeeDome.unite.some((n, k) => n > 0 && k != iD),
+      // seules les antisondes dehors : un lieu déjà dans ses bornes (90 % à
+      // 100 % du maximum) garde son nombre
       t = !autres && dans(t0, terrain) ? t0 : tirerT ? PageArmee.tirer(terrain) : terrain,
-      d = !autres && dans(d0, dome) ? d0 : tirerD ? PageArmee.tirer(dome) : dome;
-    // d'autres unités hors de la loge : tout en loge, puis les antisondes
-    if (autres)
-      return () =>
-        this.replacer(
-          iT,
-          t,
-          iD,
-          d,
-          [
-            { toutEnLoge: true },
-            { i: iT, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.TERRAIN, nb: t },
-            { i: iD, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.DOME, nb: d },
-          ],
-          passe,
-        );
-    // seules les antisondes sont dehors : on ne déplace que la différence, et
-    // rien pour un lieu déjà dans ses bornes (90 % à 100 % du maximum)
-    let ecart = (i, lieu, avant, apres) =>
-        apres < avant
-          ? { i, de: lieu, vers: LIEU_ARMEE.LOGE, nb: avant - apres }
-          : { i, de: LIEU_ARMEE.LOGE, vers: lieu, nb: apres - avant },
-      etapes = [ecart(iT, LIEU_ARMEE.TERRAIN, t0, t), ecart(iD, LIEU_ARMEE.DOME, d0, d)]
-        // les retours en loge d'abord : la loge a alors de quoi fournir l'autre lieu
-        .sort((x, y) => (y.vers == LIEU_ARMEE.LOGE) - (x.vers == LIEU_ARMEE.LOGE));
-    return () => this.replacer(iT, t, iD, d, etapes, passe);
+      d = !autres && dans(d0, dome) ? d0 : tirerD ? PageArmee.tirer(dome) : dome,
+      cibleTdc = new Array(14).fill(0),
+      cibleDome = new Array(14).fill(0),
+      vide = new Array(14).fill(0);
+    cibleTdc[iT] = t;
+    cibleDome[iD] = d;
+    // d'autres unités hors de la loge : tout en loge (une requête), puis les antisondes
+    let etapes = autres
+      ? [{ toutEnLoge: true }, ...PageArmee.mouvements(vide, vide, cibleTdc, cibleDome)]
+      : PageArmee.mouvements(this._armeeTdc.unite, this._armeeDome.unite, cibleTdc, cibleDome);
+    return () => this.replacer(iT, t, iD, d, etapes);
+  }
+  /**
+   * Déplacements pour passer de `tdc` et `dome` (unités par indice, le reste
+   * en loge) aux nombres voulus. Seulement entre lieux voisins, comme les
+   * flèches du jeu (TdC ↔ dôme ↔ loge) ; au plus deux par unité : d'abord
+   * ceux qui remplissent le dôme, puis ceux qui en partent.
+   *
+   * @static
+   * @method mouvements
+   * @param {Array<Number>} tdc
+   * @param {Array<Number>} dome
+   * @param {Array<Number>} cibleTdc
+   * @param {Array<Number>} cibleDome
+   * @return {Array<Object>} {i, de, vers, nb}
+   */
+  static mouvements(tdc, dome, cibleTdc, cibleDome) {
+    let entrees = [],
+      sorties = [];
+    tdc.forEach((a, i) => {
+      // > 0 : du TdC vers le dôme ; < 0 : du dôme vers le TdC
+      let versDome = a - cibleTdc[i],
+        // > 0 : du dôme vers la loge ; < 0 : de la loge vers le dôme
+        versLoge = a + dome[i] - cibleTdc[i] - cibleDome[i];
+      if (versDome > 0)
+        entrees.push({ i, de: LIEU_ARMEE.TERRAIN, vers: LIEU_ARMEE.DOME, nb: versDome });
+      if (versLoge < 0)
+        entrees.push({ i, de: LIEU_ARMEE.LOGE, vers: LIEU_ARMEE.DOME, nb: -versLoge });
+      if (versDome < 0)
+        sorties.push({ i, de: LIEU_ARMEE.DOME, vers: LIEU_ARMEE.TERRAIN, nb: -versDome });
+      if (versLoge > 0)
+        sorties.push({ i, de: LIEU_ARMEE.DOME, vers: LIEU_ARMEE.LOGE, nb: versLoge });
+    });
+    return entrees.concat(sorties);
   }
   /**
    * Nombre tiré entre 90 % du maximum et le maximum (antisonde moins prévisible).
@@ -396,9 +417,8 @@ class PageArmee {
    * Déplacements du formulaire « Déplacer » du jeu, l'un après l'autre, pour
    * finir avec `terrain` unités d'indice `iT` en terrain et `dome` unités
    * d'indice `iD` en dôme ; tableau de la garnison remplacé par celui de la
-   * dernière réponse, ou de la page relue quand cette réponse ne montre pas
-   * l'armée attendue. Un déplacement refusé par le jeu vaut un seul nouvel
-   * essai, calculé d'après la page relue.
+   * dernière page reçue. Chaque déplacement est vérifié dans la réponse du jeu
+   * (deplacer) ; un déplacement qui ne se fait pas arrête la suite.
    *
    * @method replacer
    * @param {Integer} iT indice dans Armee.unite de l'antisonde en terrain
@@ -406,114 +426,97 @@ class PageArmee {
    * @param {Integer} iD indice dans Armee.unite de l'antisonde en dôme
    * @param {Integer} dome unités attendues en dôme à la fin
    * @param {Array<Object>} deplacements {toutEnLoge: true} ou {i, de, vers, nb}
-   * @param {Integer} [passe] 2 pour le nouvel essai
    * @return {Promise}
    */
-  replacer(iT, terrain, iD, dome, deplacements, passe = 1) {
-    let jeton = () => ({ [$("#t").attr("name")]: $("#t").val() }),
-      ecarts = (html) =>
-        PageArmee.ecartsPlacement(PageArmee.garnisonDe(html), iT, terrain, iD, dome),
-      reponses = [],
-      aFaire = PageArmee.parVoisins(deplacements.filter((e) => e.toutEnLoge || e.nb > 0)),
-      // pour le journal : chaque déplacement avec ce que le jeu a répondu
-      detail = (page) =>
-        `${passe > 1 ? "nouvel essai, " : ""}attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]}\n` +
-        aFaire
-          .map(
-            (e, k) =>
-              `${k + 1}. ${PageArmee.libelleEtape(e)} → ${PageArmee.etatGarnison(reponses[k], iT, iD)}`,
-          )
-          .join("\n") +
-        (page == null ? "" : `\npage relue → ${PageArmee.etatGarnison(page, iT, iD)}`),
-      source = "Replacement de l'armée",
-      etapes = aFaire.map((e) =>
-        e.toutEnLoge
-          ? () => $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
-          : () =>
-              $.post("/Armee.php", {
-                ...jeton(),
-                nbTroupes: e.nb,
-                ChoixUnite: PageArmee.valeurUnite(e.i),
-                LieuOrigine: e.de,
-                LieuDestination: e.vers,
-                Transferer: "Envoyer",
-              }),
-      );
+  replacer(iT, terrain, iD, dome, deplacements) {
+    let etapes = deplacements.filter((e) => e.toutEnLoge || e.nb > 0),
+      suivi = [],
+      depart = {
+        lieux: { tdc: this._armeeTdc, dome: this._armeeDome, loge: this._armeeLoge },
+        relu: false,
+      };
     if (!etapes.length) return Promise.resolve();
     return etapes
       .reduce(
-        (suite, etape) =>
-          suite.then(() =>
-            Promise.resolve(etape()).then((html) => {
-              reponses.push(html);
-              PageArmee.reprendreJeton(html);
-            }),
-          ),
-        Promise.resolve(),
+        (suite, e) =>
+          suite.then((r) => (r.echec ? r : this.deplacer(e, r.lieux, iT, iD, suivi, 1, r.relu))),
+        Promise.resolve(depart),
       )
-      .then(() => {
-        let reponse = reponses[reponses.length - 1];
-        if (!ecarts(reponse).length) {
-          if (passe > 1) Journal.info(source, "Armée placée au nouvel essai", detail(null));
-          return this.finReplacement(reponse, iT, terrain, iD, dome, []);
-        }
-        // une réponse peut montrer l'armée d'avant le dernier déplacement (le jeu
-        // traite les actions d'un compte une à une) : la page relue fait foi
-        return Promise.resolve($.get("/Armee.php")).then((page) => {
-          PageArmee.reprendreJeton(page);
-          let restants = ecarts(page);
-          if (!restants.length) {
-            Journal.info(
-              source,
-              "Réponse du jeu d'avant le déplacement : armée bien placée à la relecture",
-              detail(page),
-            );
-            return this.finReplacement(page, iT, terrain, iD, dome, []);
-          }
-          if (passe == 1 && this.remplacerGarnison(page)) {
-            Journal.info(
-              source,
-              "Déplacement refusé par le jeu : nouvel essai d'après la page relue",
-              detail(page),
-            );
-            let suite = this.placementPrevu(2);
-            // page relue dans les bornes des préférences : rien à refaire
-            return suite
-              ? suite()
-              : this.finReplacement(
-                  null,
-                  iT,
-                  this._armeeTdc.unite[iT],
-                  iD,
-                  this._armeeDome.unite[iD],
-                  [],
-                );
-          }
-          Journal.erreur(source, "Armée pas placée comme prévu", detail(page));
-          return this.finReplacement(page, iT, terrain, iD, dome, restants);
-        });
+      .then((r) => {
+        let ecarts = PageArmee.ecartsPlacement(r.lieux, iT, terrain, iD, dome),
+          detail =
+            `attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]}\n` +
+            suivi.join("\n");
+        if (ecarts.length)
+          Journal.erreur("Replacement de l'armée", "Armée pas placée comme prévu", detail);
+        else if (r.relu)
+          Journal.info("Replacement de l'armée", "Armée placée après relecture de la page", detail);
+        return this.finReplacement(r.html, iT, terrain, iD, dome, ecarts);
       })
       .catch(() => this.echecReplacement());
   }
   /**
-   * Déplacements entre lieux voisins seulement : le jeu a refusé un
-   * déplacement direct de la loge vers le TdC, et ses flèches ne vont que du
-   * TdC au dôme et du dôme à la loge. La loge et le TdC passent par le dôme.
+   * Un déplacement, vérifié dans la réponse du jeu. Le jeu ignore parfois une
+   * action envoyée juste après une autre (journal du 08/11/2026 : la première
+   * d'une suite passe toujours, les suivantes pas toujours) : quand la réponse
+   * ne la montre pas, la page est relue (après la pause des lectures, voir
+   * Requetes.js) et ce qui manque est renvoyé, ESSAIS_DEPLACEMENT fois en tout.
    *
-   * @static
-   * @method parVoisins
-   * @param {Array<Object>} etapes {toutEnLoge: true} ou {i, de, vers, nb}
-   * @return {Array<Object>}
+   * @method deplacer
+   * @param {Object} e {toutEnLoge: true} ou {i, de, vers, nb}
+   * @param {{tdc: Armee, dome: Armee, loge: Armee}} avant garnison avant le déplacement
+   * @param {Integer} iT
+   * @param {Integer} iD
+   * @param {Array<String>} suivi lignes du journal, complétées
+   * @param {Integer} [essai]
+   * @param {Boolean} [relu] page déjà relue pendant ce replacement
+   * @return {Promise<{html: String, lieux: Object|null, relu: Boolean, echec: Boolean}>}
    */
-  static parVoisins(etapes) {
-    return etapes.flatMap((e) =>
-      !e.toutEnLoge && Math.abs(e.de - e.vers) == 2
-        ? [
-            { ...e, vers: LIEU_ARMEE.DOME },
-            { ...e, de: LIEU_ARMEE.DOME },
-          ]
-        : [e],
-    );
+  deplacer(e, avant, iT, iD, suivi, essai = 1, relu = false) {
+    let jeton = () => ({ [$("#t").attr("name")]: $("#t").val() }),
+      lieu = { [LIEU_ARMEE.TERRAIN]: "tdc", [LIEU_ARMEE.DOME]: "dome", [LIEU_ARMEE.LOGE]: "loge" },
+      // nombre de l'unité attendu à destination ; pour « tout en loge », TdC et dôme vides
+      cible = e.toutEnLoge ? 0 : avant[lieu[e.vers]].unite[e.i] + e.nb,
+      fait = (l) =>
+        !!l &&
+        (e.toutEnLoge
+          ? l.tdc.getSommeUnite() + l.dome.getSommeUnite() == 0
+          : l[lieu[e.vers]].unite[e.i] == cible),
+      envoi = e.toutEnLoge
+        ? $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
+        : $.post("/Armee.php", {
+            ...jeton(),
+            nbTroupes: e.nb,
+            ChoixUnite: PageArmee.valeurUnite(e.i),
+            LieuOrigine: e.de,
+            LieuDestination: e.vers,
+            Transferer: "Envoyer",
+          });
+    return Promise.resolve(envoi).then((html) => {
+      PageArmee.reprendreJeton(html);
+      let lieux = PageArmee.garnisonDe(html);
+      suivi.push(`${PageArmee.libelleEtape(e)} → ${PageArmee.etatGarnison(html, iT, iD)}`);
+      if (fait(lieux)) return { html, lieux, relu, echec: false };
+      return Promise.resolve($.get("/Armee.php")).then((page) => {
+        PageArmee.reprendreJeton(page);
+        let relus = PageArmee.garnisonDe(page);
+        suivi.push(`  page relue → ${PageArmee.etatGarnison(page, iT, iD)}`);
+        if (fait(relus)) return { html: page, lieux: relus, relu: true, echec: false };
+        // déjà fait en partie : seulement ce qui manque
+        let reste = !relus
+          ? null
+          : e.toutEnLoge
+            ? e
+            : { ...e, nb: cible - relus[lieu[e.vers]].unite[e.i] };
+        if (
+          !reste ||
+          essai >= ESSAIS_DEPLACEMENT ||
+          (!reste.toutEnLoge && !(reste.nb > 0 && relus[lieu[e.de]].unite[e.i] >= reste.nb))
+        )
+          return { html: page, lieux: relus || avant, relu: true, echec: true };
+        return this.deplacer(reste, relus, iT, iD, suivi, essai + 1, true);
+      });
+    });
   }
   /**
    * Jeton du formulaire d'une page reçue (le jeu en donne un nouveau à chaque
@@ -531,16 +534,15 @@ class PageArmee {
     if (nouveau) $("#t").val(nouveau).attr("value", nouveau);
   }
   /**
-   * Tableau de la garnison remplacé par celui de `html` (null : déjà fait), et
-   * message du résultat.
+   * Tableau de la garnison remplacé par celui de `html`, et message du résultat.
    *
    * @private
    * @method finReplacement
-   * @param {String|null} html
+   * @param {String} html dernière page Armée reçue
    * @param {Array<String>} ecarts écarts restants avec le placement prévu
    */
   finReplacement(html, iT, terrain, iD, dome, ecarts) {
-    if (html != null && !this.remplacerGarnison(html)) {
+    if (!this.remplacerGarnison(html)) {
       location = "/Armee.php";
       return;
     }
@@ -617,7 +619,7 @@ class PageArmee {
         .filter(
           (k, e) =>
             e.textContent.trim().length < 200 &&
-            /impossible|erreur|pas assez|insuffisant|invalide|ne pouvez|interdit/i.test(
+            /impossible|erreur|pas assez|insuffisant|invalide|ne pouvez|interdit|action est en cours|réessayez|patientez|trop vite/i.test(
               e.textContent,
             ),
         )

@@ -2858,3 +2858,25 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_priseLieu {
   font-style: italic;
 }
+
+/* onglet « Synthèse » des « Outils pour Chasseur » (boite/Synthese.js) */
+.o_syntheseDates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+}
+.o_syntheseDates input[type="date"] {
+  max-width: 100%;
+}
+.o_syntheseResume td,
+.o_syntheseTableau td {
+  padding: 2px 6px;
+}
+.o_syntheseSection td {
+  padding-top: 8px;
+}
+.o_syntheseGraphique {
+  width: 100%;
+  min-height: 260px;
+}

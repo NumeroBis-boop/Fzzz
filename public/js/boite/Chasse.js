@@ -15,7 +15,7 @@ class BoiteChasse extends Boite {
     super(
       "o_boiteChasse",
       "Outils pour Chasseur",
-      `<div id='o_tabsChasse' class='o_tabs'><ul><li><a href='#o_tabsChasse1'>Analyser</a></li><li><a href='#o_tabsChasse4'>Lancer</a></li><li><a href='#o_tabsChasse2'>Bestiaire</a></li></ul><div id='o_tabsChasse1'/><div id='o_tabsChasse4'/><div id='o_tabsChasse2'/></div>`,
+      `<div id='o_tabsChasse' class='o_tabs'><ul><li><a href='#o_tabsChasse1'>Analyser</a></li><li><a href='#o_tabsChasse4'>Lancer</a></li><li><a href='#o_tabsChasse2'>Bestiaire</a></li><li><a href='#o_tabsChasse5'>Synthèse</a></li></ul><div id='o_tabsChasse1'/><div id='o_tabsChasse4'/><div id='o_tabsChasse2'/><div id='o_tabsChasse5'/></div>`,
     );
     /**
      * Armée et places de chasse libres du joueur, lues à la première ouverture
@@ -26,6 +26,10 @@ class BoiteChasse extends Boite {
      * Lanceur de l'onglet « Lancer », construit à sa première ouverture
      */
     this._lanceur = null;
+    /**
+     * Onglet « Synthèse » (boite/Synthese.js), construit à sa première ouverture
+     */
+    this._synthese = null;
   }
   /**
    * Affiche la boite.
@@ -40,6 +44,8 @@ class BoiteChasse extends Boite {
           activate: (event, ui) => {
             this.css();
             if (ui.newPanel.attr("id") == "o_tabsChasse4") this.ouvrirLanceur();
+            if (ui.newPanel.attr("id") == "o_tabsChasse5" && !this._synthese)
+              this._synthese = new SyntheseChasse($("#o_tabsChasse5")).afficher();
           },
         })
         .removeClass("ui-widget");

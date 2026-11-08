@@ -4,8 +4,9 @@ import vm from "node:vm";
 
 /**
  * Google Sheet simulé en mémoire, piloté par le vrai script du fichier
- * (google-sheet/export-rapports.gs) : SpreadsheetApp, LockService et
- * ContentService réduits à ce que le script utilise.
+ * (google-sheet/export-rapports.gs) : SpreadsheetApp, LockService,
+ * ContentService, Utilities et Charts réduits à ce que le script utilise. Les
+ * formules, formats, validations et graphiques sont notés, pas calculés.
  */
 const CODE = readFileSync(
   join(import.meta.dir, "..", "google-sheet", "export-rapports.gs"),
@@ -36,6 +37,34 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     // mise en forme demandée par le script : hauteur forcée et alignement par ligne
     hauteurs: {} as Record<number, number>,
     alignements: {} as Record<number, string>,
+    // onglet « Statistiques » : formules et formats par case « ligne,colonne »
+    formules: {} as Record<string, string>,
+    formats: {} as Record<string, string>,
+    validations: [] as { r: number; c: number; nl: number; nc: number; regle: any }[],
+    graphiques: [] as any[],
+    largeurs: {} as Record<number, number>,
+    cachees: [] as number[],
+    setColumnWidth: (c: number, l: number) => {
+      f.largeurs[c] = l;
+    },
+    hideColumns: (c: number) => {
+      f.cachees.push(c);
+    },
+    newChart: () => {
+      const g: any = { plages: [], options: {} },
+        b: any = {
+          setChartType: (t: string) => ((g.type = t), b),
+          addRange: (p: any) => (g.plages.push(p.adresse), b),
+          setNumHeaders: (n: number) => ((g.titres = n), b),
+          setPosition: (r: number, c: number) => ((g.position = [r, c]), b),
+          setOption: (k: string, v: unknown) => ((g.options[k] = v), b),
+          build: () => g,
+        };
+      return b;
+    },
+    insertChart: (g: any) => {
+      f.graphiques.push(g);
+    },
     getLastRow: () => {
       for (let r = grille.length; r > 0; r--)
         if (grille[r - 1]!.some((v) => v !== "" && v != null)) return r;
@@ -65,6 +94,7 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
       if (r + nl - 1 > lignesMax || c + nc - 1 > colonnesMax)
         throw new Error("The coordinates of the range are outside the dimensions of the sheet.");
       const plage: any = {
+        adresse: { r, c, nl, nc },
         getValues: () =>
           Array.from({ length: nl }, (_, i) =>
             Array.from({ length: nc }, (_, j) => grille[r - 1 + i]?.[c - 1 + j] ?? ""),
@@ -80,6 +110,9 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
         },
         setValue: (x: unknown) => plage.setValues([[x]]),
         setFontWeight: () => plage,
+        setFormula: (x: string) => ((f.formules[`${r},${c}`] = x), plage),
+        setNumberFormat: (x: string) => ((f.formats[`${r},${c}`] = x), plage),
+        setDataValidation: (regle: any) => (f.validations.push({ r, c, nl, nc, regle }), plage),
         setVerticalAlignment: (a: string) => {
           for (let i = 0; i < nl; i++) f.alignements[r + i] = a;
           return plage;
@@ -92,16 +125,49 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
 }
 
 /** Fichier simulé : onglets {nom: feuille}, doGet / doPost du script. */
-export function classeurSimule(onglets: Record<string, any> = {}) {
+export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Europe/Paris") {
+  // ordre des onglets : insertSheet(nom, 0) le met en premier
+  const ordre = Object.keys(onglets);
   const classeur = {
     getName: () => "Extension OUAF",
+    getSpreadsheetTimeZone: () => fuseau,
     getSheetByName: (n: string) => onglets[n] || null,
-    insertSheet: (n: string) => (onglets[n] = feuille(n)),
+    insertSheet: (n: string, position?: number) => {
+      ordre.splice(position ?? ordre.length, 0, n);
+      return (onglets[n] = feuille(n));
+    },
   };
   const avertissements: string[] = [];
+  const regle = (): any => {
+    const v: any = { regle: {} },
+      b: any = {
+        requireDate: () => ((v.regle.date = true), b),
+        requireValueInRange: (p: any, liste: boolean) => (
+          (v.regle.plage = p.adresse),
+          (v.regle.liste = liste),
+          b
+        ),
+        setAllowInvalid: (x: boolean) => ((v.regle.invalideAcceptee = x), b),
+        build: () => v.regle,
+      };
+    return b;
+  };
   const ctx: any = {
     console: { warn: (m: string) => avertissements.push(m) },
-    SpreadsheetApp: { getActiveSpreadsheet: () => classeur },
+    SpreadsheetApp: { getActiveSpreadsheet: () => classeur, newDataValidation: regle },
+    // seul format utilisé par le script : jour d'une date dans le fuseau du fichier
+    Utilities: {
+      formatDate: (d: Date, tz: string, format: string) => {
+        if (format != "yyyy-MM-dd") throw new Error("format non simulé : " + format);
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(d);
+      },
+    },
+    Charts: { ChartType: { COLUMN: "COLUMN", LINE: "LINE" } },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     ContentService: {
       MimeType: { JSON: "json" },
@@ -112,6 +178,9 @@ export function classeurSimule(onglets: Record<string, any> = {}) {
   vm.runInContext(CODE, ctx);
   return {
     onglets,
+    ordre,
+    /** Fonctions du script, pour les appeler directement (STATS_OUAF, statistiques…). */
+    script: ctx,
     /** Messages du journal d'Apps Script (console.warn). */
     avertissements,
     doGet: () => ctx.doGet(),

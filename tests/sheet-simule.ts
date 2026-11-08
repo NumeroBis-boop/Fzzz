@@ -181,7 +181,15 @@ export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Euro
         return format == "yyyy-MM-dd" ? jour : `${jour} ${p.hour}:${p.minute}`;
       },
     },
-    Charts: { ChartType: { AREA: "AREA", COLUMN: "COLUMN", LINE: "LINE" } },
+    Charts: {
+      ChartType: {
+        AREA: "AREA",
+        COLUMN: "COLUMN",
+        COMBO: "COMBO",
+        LINE: "LINE",
+        SCATTER: "SCATTER",
+      },
+    },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     ContentService: {
       MimeType: { JSON: "json" },

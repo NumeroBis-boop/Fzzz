@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.90.1",
+    notes: [
+      "Boîtes « Outils pour Chasseur », « Combat » et Préférences : elles restent dans l'écran ; un contenu plus haut défile à l'intérieur de la boîte, et on la déplace par son titre ou par n'importe quel bord.",
+      "Synthèse : chiffres clés en tête, puis « Détail », « Évolution » et « Classements » à déplier ou replier (le choix est retenu) ; mise en page plus compacte.",
+    ],
+  },
+  {
     version: "1.90.0",
     notes: [
       "« Outils pour Chasseur » : nouvel onglet « Synthèse ». Choisis une période : tes chasses (terrain, nourriture, pertes par million de cm²), tes attaques et défenses hors alliance, tes floods internes et le terrain gagné, avec leurs graphiques. Les résultats viennent du Google Sheet où tu exportes tes rapports.",

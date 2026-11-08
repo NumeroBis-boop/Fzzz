@@ -25,7 +25,8 @@
  * dans le navigateur (jamais pendant un export). Joueur et période se
  * choisissent dans ses cases B3 à B5 ; la fonction STATS_OUAF y calcule les
  * mêmes résultats que l'onglet « Synthèse » des « Outils pour Chasseur » de
- * l'extension (requête statistiques). Supprimé, il est recréé de la même façon.
+ * l'extension (requête statistiques). Supprimé, il est recréé de la même façon
+ * (à faire aussi pour avoir la disposition d'une nouvelle version du script).
  *
  * Le fichier doit rester réservé à l'alliance : publier des RC est interdit
  * par le règlement du s5.
@@ -39,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.2";
+var VERSION_SCRIPT = "2026-11-08.3";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -668,15 +669,9 @@ function statistiquesValides(d) {
 // requête de l'extension : seules les colonnes utiles des onglets sont lues
 function statistiquesDemandees(classeur, d) {
   try {
-    var tables = {
-      chasse: lireColonnes(classeur, "BDD chasse", COLONNES_CHASSE),
-      attaques: lireColonnes(classeur, "BDD attaques", COLONNES_COMBATS),
-      defenses: lireColonnes(classeur, "BDD défenses", COLONNES_COMBATS),
-      internes: lireColonnes(classeur, ONGLET_INTERNE, COLONNES_COMBATS),
-    };
     return {
       statistiques: statistiques(
-        tables,
+        tablesDuFichier(classeur),
         d.joueur,
         d.debut,
         d.fin,
@@ -686,6 +681,16 @@ function statistiquesDemandees(classeur, d) {
   } catch (err) {
     return { erreur: "statistiques impossibles : " + (err && err.message ? err.message : err) };
   }
+}
+
+// les quatre onglets de données, lus de la même façon pour les deux vues
+function tablesDuFichier(classeur) {
+  return {
+    chasse: lireColonnes(classeur, "BDD chasse", COLONNES_CHASSE),
+    attaques: lireColonnes(classeur, "BDD attaques", COLONNES_COMBATS),
+    defenses: lireColonnes(classeur, "BDD défenses", COLONNES_COMBATS),
+    internes: lireColonnes(classeur, ONGLET_INTERNE, COLONNES_COMBATS),
+  };
 }
 
 // valeurs de l'onglet jusqu'à sa dernière colonne utile (pas les RC)
@@ -749,22 +754,25 @@ function joueursDesTables(tables) {
 
 /**
  * Statistiques d'un joueur sur une période, pour l'onglet « Statistiques » :
- * résumé, évolution, cibles, attaquants et floods internes côte à côte.
+ * résumé, évolution, cibles, attaquants et floods internes côte à côte. Un
+ * seul argument, B3:B6 (joueur, premier et dernier jour, contrôle des
+ * données) : une formule sans séparateur d'arguments se lit pareil dans tous
+ * les paramètres régionaux (« , » ou « ; »). La case de contrôle change avec
+ * les onglets de données : la fonction est recalculée quand ils changent.
  *
- * @param {string} joueur pseudo (case « Joueur »)
- * @param {Date} debut premier jour compris
- * @param {Date} fin dernier jour compris
- * @param {Array<Array>} chasse 'BDD chasse'!A:F
- * @param {Array<Array>} attaques 'BDD attaques'!A:L
- * @param {Array<Array>} defenses 'BDD défenses'!A:L
- * @param {Array<Array>} internes 'Flood internes'!A:L
+ * @param {Array<Array>} parametres B3:B6
  * @return {Array<Array>}
  * @customfunction
  */
-function STATS_OUAF(joueur, debut, fin, chasse, attaques, defenses, internes) {
-  var fuseau = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    tables = { chasse: chasse, attaques: attaques, defenses: defenses, internes: internes },
-    jours = [jourDe(debut, fuseau), jourDe(fin, fuseau)],
+function STATS_OUAF(parametres) {
+  var classeur = SpreadsheetApp.getActiveSpreadsheet(),
+    fuseau = classeur.getSpreadsheetTimeZone(),
+    p = (parametres || []).map(function (l) {
+      return l[0];
+    }),
+    joueur = p[0],
+    tables = tablesDuFichier(classeur),
+    jours = [jourDe(p[1], fuseau), jourDe(p[2], fuseau)],
     message = !String(joueur || "").trim()
       ? "Choisis un joueur (case B3)."
       : !jours[0] || !jours[1]
@@ -817,6 +825,18 @@ function STATS_OUAF(joueur, debut, fin, chasse, attaques, defenses, internes) {
   return sortie;
 }
 
+// change dès qu'une ligne est ajoutée, retirée ou modifiée dans un onglet de
+// données ; « + » et fonctions à un argument : aucun séparateur d'arguments
+function formuleControle() {
+  return (
+    "=" +
+    ONGLETS_EXPORT.map(function (nom) {
+      var fin = nom == "BDD chasse" ? "F" : "L";
+      return "COUNTA('" + nom + "'!A:A)+SUM('" + nom + "'!C:" + fin + ")";
+    }).join("+")
+  );
+}
+
 // onglet « Statistiques » manquant : créé (doGet) ; une erreur n'empêche pas la réponse
 function preparerStatistiques(classeur) {
   try {
@@ -857,9 +877,11 @@ function creerStatistiques(classeur) {
   f.getRange(7, 1).setValue(
     "Choisis un joueur et une période : tableaux et graphiques se mettent à jour seuls.",
   );
-  f.getRange(1, c0).setFormula(
-    "=STATS_OUAF(B3,B4,B5,'BDD chasse'!A:F,'BDD attaques'!A:L,'BDD défenses'!A:L,'Flood internes'!A:L)",
-  );
+  // contrôle des données (ligne cachée), lu avec les paramètres
+  f.getRange(6, 1).setValue("Contrôle");
+  f.getRange(6, 2).setFormula(formuleControle());
+  f.hideRows(6);
+  f.getRange(1, c0).setFormula("=STATS_OUAF(B3:B6)");
   f.getRange(1, c0, 2, cJoueurs - c0 + 1).setFontWeight("bold");
   f.getRange(3, c0 + 1, LIGNES_STATISTIQUES - 2, cJoueurs - c0).setNumberFormat("#,##0");
   f.setColumnWidth(1, 110);

@@ -50,6 +50,10 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     hideColumns: (c: number) => {
       f.cachees.push(c);
     },
+    lignesCachees: [] as number[],
+    hideRows: (r: number) => {
+      f.lignesCachees.push(r);
+    },
     newChart: () => {
       const g: any = { plages: [], options: {} },
         b: any = {

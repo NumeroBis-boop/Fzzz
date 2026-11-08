@@ -27,9 +27,11 @@ const EXPORT_NOMBRE = "(\\d[\\d \\u00a0\\u202f]*)";
 let exportEnCours = false;
 // source des entrées du journal de l'extension
 const JOURNAL_EXPORT = "Export Google Sheet";
+// dégâts de base sous lesquels l'arrondi du jeu fausse le niveau d'arme
+const EXPORT_DEGATS_MIN = 100;
 
-// colonnes des onglets d'attaques et de défenses
-const ENTETES_COMBATS = [
+// colonnes d'un combat ou d'une prise (onglet « Flood internes »)
+const ENTETES_INTERNES = [
   "Clé",
   "Exporté par",
   "Date",
@@ -45,6 +47,14 @@ const ENTETES_COMBATS = [
   "Troupes en attaque",
   "Troupes en défense",
   "RC",
+];
+// niveaux de l'ennemi tirés du RC (ExportRapports.ennemi)
+const ENTETES_ENNEMI = ["Arme", "Bouclier", "Dôme", "Loge"];
+// onglets d'attaques et de défenses : niveaux de l'ennemi après les pertes
+const ENTETES_COMBATS = [
+  ...ENTETES_INTERNES.slice(0, ENTETES_INTERNES.indexOf("Troupes en attaque")),
+  ...ENTETES_ENNEMI,
+  ...ENTETES_INTERNES.slice(ENTETES_INTERNES.indexOf("Troupes en attaque")),
 ];
 
 /**
@@ -72,7 +82,7 @@ const EXPORTS_RAPPORTS = {
   },
   attaque: { onglet: "BDD attaques", entetes: ENTETES_COMBATS },
   defense: { onglet: "BDD défenses", entetes: ENTETES_COMBATS },
-  interne: { onglet: "Flood internes", entetes: ENTETES_COMBATS },
+  interne: { onglet: "Flood internes", entetes: ENTETES_INTERNES },
 };
 
 /**
@@ -257,7 +267,7 @@ class ExportRapports {
    * @param {String} texte
    * @param {String} date
    * @param {String} pseudo
-   * @return {{signature: String, date: String, camp: String, adversaire: String, valeurs: Array}|null}
+   * @return {{signature: String, date: String, camp: String, adversaire: String, ennemi: Object<String, Number|String>, valeurs: Array}|null}
    */
   static combat(texte, date, pseudo) {
     texte = ExportRapports.espaces(texte);
@@ -289,19 +299,22 @@ class ExportRapports {
       siennes = ExportRapports.somme(texte, `et tuez ${N}`),
       jAttaque = attaquant.toLowerCase() == pseudo.toLowerCase(),
       // camp inconnu (tournure de RC non reconnue) : pertes non attribuées
-      connu = !!(attaquant || defenseur);
+      connu = !!(attaquant || defenseur),
+      camp = !connu ? "" : jAttaque ? "attaque" : "defense";
+    lieu = ExportRapports.lieu(lieu);
     return {
       signature: ["combat", date, attaque, defense].map(ExportRapports.comparable).join("|"),
       date,
-      camp: !connu ? "" : jAttaque ? "attaque" : "defense",
+      camp,
       adversaire: !connu ? "" : jAttaque ? defenseur : attaquant,
+      ennemi: ExportRapports.ennemi(texte, camp, lieu),
       valeurs: [
         pseudo,
         date,
         "Combat",
         attaquant,
         defenseur,
-        ExportRapports.lieu(lieu),
+        lieu,
         "",
         "",
         "",
@@ -324,6 +337,105 @@ class ExportRapports {
     if (/fourmili/i.test(lieu)) return "Fourmilière";
     if (/colonie/i.test(lieu)) return "Colonie";
     return String(lieu || "").trim();
+  }
+  /**
+   * Niveaux de l'ennemi tirés du premier tour d'un combat vu du joueur : son
+   * arme d'après le bonus de ses dégâts ; son bouclier d'après la vie qu'il
+   * perd sous les dégâts du joueur, quand il n'a pas de bonus de lieu (il
+   * attaque, ou défend son terrain de chasse). Dans sa fourmilière ou sa loge,
+   * le RC ne donne que le bonus de vie total (bouclier + lieu) : niveaux du
+   * dôme ou de la loge possibles pour un bouclier de son arme − 3 à son arme
+   * + 2, comme l'analyse sous le RC. Une valeur reste vide quand le RC ne
+   * permet pas de la connaître sûrement (aucune perte ou armée entière tuée au
+   * premier tour, dégâts trop faibles, nombres qui ne collent pas).
+   *
+   * @static
+   * @method ennemi
+   * @param {String} texte RC, espaces ramenés (espaces())
+   * @param {String} camp camp du joueur : "attaque", "defense" ou "" (inconnu)
+   * @param {String} lieu lieu du combat, d'après lieu()
+   * @return {Object<String, Number|String>} valeur par colonne de ENTETES_ENNEMI
+   */
+  static ennemi(texte, camp, lieu) {
+    /** @type {Object<String, Number|String>} */
+    let niveaux = Object.fromEntries(ENTETES_ENNEMI.map((t) => [t, ""]));
+    // armée d'occupation : l'armée combattue n'est pas celle du joueur nommé
+    if (!camp || /armée d['’]occupation/.test(texte)) return niveaux;
+    try {
+      let N = EXPORT_NOMBRE,
+        siens = new RegExp(`ennemie inflige\\s+${N}\\(\\s*\\+\\s*${N}\\)\\s*dégâts`).exec(texte),
+        arme = -1;
+      if (siens) {
+        let base = ExportRapports.nombre(siens[1]),
+          a = (10 * ExportRapports.nombre(siens[2])) / base;
+        if (base >= EXPORT_DEGATS_MIN && Math.abs(a - Math.round(a)) <= 0.2) arme = Math.round(a);
+      }
+      if (arme >= 0) niveaux.Arme = arme;
+      // l'attaquant n'a jamais de bonus de lieu ; colonie ou lieu inconnu : pas de calcul
+      let bonusLieu =
+        camp == "defense"
+          ? "aucun"
+          : { "Terrain de chasse": "aucun", Fourmilière: "Dôme", Loge: "Loge" }[lieu];
+      if (!bonusLieu) return niveaux;
+      let miens = new RegExp(
+          `Vous infligez\\s+${N}\\(\\s*\\+\\s*${N}\\)\\s*dégâts et tuez\\s+${N}`,
+        ).exec(texte),
+        troupes = ExportRapports.troupes(texte, camp == "attaque" ? "défense" : "attaque");
+      if (!miens || !troupes) return niveaux;
+      let avant = new Armee(),
+        apres = new Armee(),
+        tuees = ExportRapports.nombre(miens[3]);
+      avant.parseArmee(troupes);
+      if (tuees <= 0 || tuees >= avant.getSommeUnite()) return niveaux;
+      apres.unite = avant.unite.slice(0);
+      apres.retirerPerte(tuees);
+      // les dégâts de trop entament l'unité suivante sans la tuer : à une unité près
+      let vie = avant.getBaseVie() - apres.getBaseVie(),
+        unite = VIE_UNITE[apres.unite.findIndex((n) => n > 0) + 1],
+        multiplicateur = (ExportRapports.nombre(miens[1]) + ExportRapports.nombre(miens[2])) / vie;
+      if (!(vie > unite)) return niveaux;
+      let bas = (multiplicateur * vie) / (vie + unite),
+        haut = (multiplicateur * vie) / (vie - unite),
+        // a × multiplicateur − b, s'il n'a qu'une valeur entière possible (sinon -1)
+        entier = (/** @type {Number} */ a, /** @type {Number} */ b) =>
+          ExportRapports._entierUnique(a * bas - b, a * haut - b);
+      // vie : bouclier +10 % par niveau ; dôme 10 % puis 5 % par niveau ; loge 30 %
+      // puis 15 % par niveau (descriptions du jeu)
+      if (bonusLieu == "aucun") {
+        let bouclier = entier(10, 10);
+        if (bouclier >= 0) niveaux.Bouclier = bouclier;
+        return niveaux;
+      }
+      // 2 × bouclier + dôme, ou 2 × bouclier + 3 × loge
+      let somme = bonusLieu == "Dôme" ? entier(20, 22) : entier(20, 26),
+        possibles = [];
+      if (somme < 0 || arme < 0) return niveaux;
+      for (let bouclier = Math.max(0, arme - 3); bouclier <= arme + 2; bouclier++) {
+        let reste = somme - 2 * bouclier,
+          niveau = bonusLieu == "Dôme" ? reste : reste / 3;
+        if (reste >= 0 && Number.isInteger(niveau))
+          possibles.push(`${niveau} (bouclier ${bouclier})`);
+      }
+      niveaux[bonusLieu] = possibles.join(" · ");
+    } catch (e) {
+      // un RC inattendu n'empêche pas son export
+      Journal.erreur(JOURNAL_EXPORT, "niveaux de l'ennemi non calculés", String(e));
+    }
+    return niveaux;
+  }
+  /**
+   * Seul entier de [bas, haut] (à 0,1 près, nombres arrondis du RC), sinon -1.
+   *
+   * @private
+   * @static
+   * @param {Number} bas
+   * @param {Number} haut
+   * @return {Number}
+   */
+  static _entierUnique(bas, haut) {
+    let min = Math.ceil(bas - 0.1),
+      max = Math.floor(haut + 0.1);
+    return min == max && min >= 0 ? min : -1;
   }
   /**
    * Terrain ou ressources pris (« X vous a pris N cm² », « Vos fourmis ont
@@ -456,8 +568,26 @@ class ExportRapports {
           rang = (rangs.get(cleRang) || 0) + 1;
         rangs.set(cleRang, rang);
         let cle = `${rc.date}|${ExportRapports.empreinte(rc.signature)}${rang > 1 ? "|" + rang : ""}`;
-        return { onglet, conversation, ligne: [cle, ...rc.valeurs] };
+        return { onglet, conversation, ligne: ExportRapports._ligne(onglet, cle, rc) };
       });
+  }
+  /**
+   * Valeurs dans l'ordre des colonnes de l'onglet : celles d'un combat ou d'une
+   * prise (ENTETES_INTERNES), et les niveaux de l'ennemi dans les onglets des
+   * attaques et des défenses.
+   *
+   * @private
+   * @static
+   * @param {String} onglet clé de EXPORTS_RAPPORTS
+   * @param {String} cle
+   * @param {{valeurs: Array, ennemi?: Object<String, Number|String>}} rc
+   * @return {Array}
+   */
+  static _ligne(onglet, cle, rc) {
+    if (onglet == "chasse" || onglet == "interne") return [cle, ...rc.valeurs];
+    let valeurs = new Map(ENTETES_INTERNES.slice(1).map((t, i) => [t, rc.valeurs[i]]));
+    ENTETES_ENNEMI.forEach((t) => valeurs.set(t, (rc.ennemi || {})[t] ?? ""));
+    return [cle, ...ENTETES_COMBATS.slice(1).map((t) => valeurs.get(t))];
   }
   /**
    * Colonne « RC » (la dernière) : texte affiché du message, images comprises,

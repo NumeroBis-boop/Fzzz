@@ -218,9 +218,9 @@ class Armee {
   /**
    * Convertie une armée sous forme de chaine de caractére en l'objet Armee.
    *
-   * @private
-   * @method toString
-   * @param {String} armee au format string.
+   * @method parseArmee
+   * @param {String} texte armée au format texte (« 1 000 Jeunes Soldates Naines, … »)
+   * @return {Armee}
    */
   parseArmee(texte) {
     let RegExpToutSaufChiffre = new RegExp("[^0-9]", "g"); //Capture tout sauf les chiffres
@@ -355,9 +355,8 @@ class Armee {
   /**
    * calcul le nombre de point de vie de base.
    *
-   * @private
    * @method getBaseVie
-   * @return {Integer} Points de vie hors bonus.
+   * @return {Number} Points de vie hors bonus.
    */
   getBaseVie() {
     return this._unite.reduce((acc, val, i) => {

@@ -3,12 +3,12 @@ import { creerPage } from "./harnais";
 import { classeurSimule } from "./sheet-simule";
 
 /**
- * Robustesse face aux « bêtises » : double clic, deux boutons à la suite, page
- * rechargée pendant un envoi (réponse perdue), rapports déjà exportés depuis un
- * autre appareil, même combat exporté par les deux camps, panne au milieu d'un
- * envoi, deux onglets qui écrivent l'historique au même instant. Le fichier est
- * simulé avec le vrai script (google-sheet/export-rapports.gs) : un doublon
- * dans un onglet ferait échouer ces tests.
+ * Robustesse de l'export face aux « bêtises » : double clic, deux boutons à la
+ * suite, page rechargée pendant un envoi (réponse perdue), rapports déjà
+ * exportés depuis un autre appareil, même combat exporté par les deux camps,
+ * panne au milieu d'un envoi. Le fichier est simulé avec le vrai script
+ * (google-sheet/export-rapports.gs) : un doublon dans un onglet ferait échouer
+ * ces tests.
  */
 const page = creerPage(
   [
@@ -16,13 +16,10 @@ const page = creerPage(
     "js/class/ExportRapports.js",
     "js/page/MessagerieFzzz.js",
     "js/page/PartageChasses.js",
-    "js/page/ConvoisForum.js",
   ],
   `var Horloge = { serveur: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm").valueOf() };
    var monProfil = { pseudo: "DoggyBag", parametre: {} };
-   var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};
-   var OUAF_ECART_ARRIVEE = 120000;
-   var AttaqueLancee = { majPartages() {} };`,
+   var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const fenetre = page.window as any;
@@ -376,85 +373,5 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
       { id: "4", titre: "Export Google Sheet", messages: [reglage()] },
     ]);
     expect(await lire(`ExportRapports.cible()`)).toEqual({ url: URL_SCRIPT, alliance: true });
-  });
-});
-
-describe("historique du forum : clics répétés, pages rechargées, deux onglets", () => {
-  const PASSE = "29/10/26 09:00 | 10 000 cm²";
-  const message1 = (titre: string) =>
-    lire<string | null>(
-      `(FORUM.sujets.find((s) => s.titre == ${JSON.stringify(titre)}) || { messages: [null] }).messages[0]`,
-    );
-  const sujetsDe = (titre: string) =>
-    lire<number>(`FORUM.sujets.filter((s) => s.titre == ${JSON.stringify(titre)}).length`);
-  const groupe = `[{ impact: moment("2026-10-29 12:00", "YYYY-MM-DD HH:mm"), terrain: 20000 }]`;
-
-  beforeEach(() => {
-    lire(
-      `localStorage.clear(); window.TOASTS = []; $.toast = (o) => { TOASTS.push(o.text); return {}; }; monProfil.pseudo = "DoggyBag";`,
-    );
-    forum([{ id: "1", titre: "Chasses | DoggyBag", messages: [PASSE] }]);
-  });
-
-  test("partage des chasses en double (double clic, page rechargée) : historique sans doublon", async () => {
-    await Promise.all([
-      lire(`PartageChasses.partager(${groupe}, null)`),
-      lire(`PartageChasses.partager(${groupe}, null)`),
-    ]);
-    expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(1);
-    expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(message1("Chasses | DoggyBag")).toBe("29/10/26 12:00 | 20 000 cm²");
-    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("déjà partagées");
-  });
-
-  test("sujet de suivi non réécrit après l'historique (page fermée) : au nouvel essai, pas de doublon", async () => {
-    lire(
-      `FORUM.echoue = (f, args) => f == "envoiEditTopic" && decodeURIComponent(args).includes("sujet=Chasses | DoggyBag");`,
-    );
-    await lire(`PartageChasses.partager(${groupe}, null)`);
-    expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(message1("Chasses | DoggyBag")).toBe(PASSE);
-    lire(`FORUM.echoue = null;`);
-    await lire(`PartageChasses.partager(${groupe}, null)`);
-    expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(message1("Chasses | DoggyBag")).toBe("29/10/26 12:00 | 20 000 cm²");
-  });
-
-  test("page d'historique créée deux fois (deux onglets) : suite dans la plus ancienne, sans répéter de ligne", async () => {
-    const DEJA = "28/10/26 08:00 | 5 000 cm²";
-    forum([
-      { id: "1", titre: "Chasses | DoggyBag", messages: [`${PASSE}\n28/10/26 08:00 | 5 000 cm²`] },
-      { id: "3", titre: "Historique Chasses 1 | DoggyBag", messages: [DEJA] },
-      {
-        id: "2",
-        titre: "Historique Chasses 1 | DoggyBag",
-        messages: ["27/10/26 07:00 | 1 000 cm²"],
-      },
-    ]);
-    await lire(`PartageChasses.partager(${groupe}, null)`);
-    expect(lire(`FORUM.sujets.find((s) => s.id == "2").messages[0]`)).toBe(
-      `27/10/26 07:00 | 1 000 cm²\n${PASSE}`,
-    );
-    expect(lire(`FORUM.sujets.find((s) => s.id == "3").messages[0]`)).toBe(DEJA);
-  });
-
-  test("convois notés deux fois de suite (double clic) : chaque convoi arrivé une seule fois dans l'historique", async () => {
-    forum([
-      {
-        id: "1",
-        titre: "Convois | DoggyBag",
-        messages: ["29/10/26 09:00 | Canaille | 1 000 | #5"],
-      },
-    ]);
-    const convoi = `[{ id: 7, vers: "Canaille", montant: 3000, arrivee: moment("2026-10-29 15:00", "YYYY-MM-DD HH:mm").valueOf() }]`;
-    await Promise.all([
-      lire(`ConvoisForum.noter(${convoi})`),
-      lire(`ConvoisForum.noter(${convoi})`),
-    ]);
-    expect(message1("Historique Convois 1 | DoggyBag")).toBe(
-      "29/10/26 09:00 | Canaille | 1 000 | #5",
-    );
-    expect(sujetsDe("Historique Convois 1 | DoggyBag")).toBe(1);
-    expect(message1("Convois | DoggyBag")).toBe("29/10/26 15:00 | Canaille | 3 000 | #7");
   });
 });

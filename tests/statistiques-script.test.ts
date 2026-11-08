@@ -212,6 +212,15 @@ describe("calcul des statistiques de chasse", () => {
     expect(e.armee.lignes[3]).toEqual(["Capacité de flood (unités)", 1000, 0, -100]);
   });
 
+  test("armée : baisse plus petite que l'arrondi, variation 0 et pas -0", () => {
+    const d = donnees();
+    d.chasse.push(chasse("Echo", "2026-11-01 10:00", 100, 100, 1, "10 000 Jeunes Soldates Naines"));
+    const e = script().statistiques(d, "Echo", "2026-11-01", "2026-11-07", "Europe/Paris");
+    // 9 999 sur 10 000 : -0,01 %, arrondi au dixième
+    expect(e.armee.lignes[3]).toEqual(["Capacité de flood (unités)", 10000, 9999, 0]);
+    expect(Object.is(e.armee.lignes[3][3], -0)).toBe(false);
+  });
+
   test("effet d'une chasse sur l'armée : morts dans l'ordre de l'armée, puis expérience du RC", () => {
     const sc = script();
     const texte = rc("3 000 Jeunes Soldates Naines, 800 Naines d’Elites", 3100, [
@@ -431,14 +440,94 @@ describe("requête « statistiques » de l'extension", () => {
     expect(Object.keys(f.onglets)).toEqual(["BDD chasse"]);
   });
 
-  test("onglet lu jusqu'à sa dernière colonne utile : les RC (expérience gagnée)", () => {
+  test("RC lus seulement pour les chasses du joueur dans la période, d'un seul bloc", () => {
     const f = fichier();
-    const lues = f.script.lireColonnes(
+    const onglet = f.onglets["BDD chasse"],
+      getRange = onglet.getRange;
+    const lectures: number[][] = [];
+    onglet.getRange = (r: number, c: number, nl = 1, nc = 1) => {
+      lectures.push([r, c, nl, nc]);
+      return getRange(r, c, nl, nc);
+    };
+    expect(f.doPost(corps).statistiques).toEqual(calcul());
+    // colonne RC (I = 9) : les lignes 4 à 10 (chasses d'Alpha du 01/11 au
+    // 07/11), d'une lecture ; pas celles de la veille (3), du lendemain (11),
+    // ni celles des autres chasseurs
+    expect(lectures.filter((l) => l[1] == 9)).toEqual([[4, 9, 7, 1]]);
+    // les autres lectures s'arrêtent aux troupes (G), sauf la ligne des titres
+    expect(lectures.filter(([r, c, , nc]) => c != 9 && c! + nc! - 1 >= 9 && r != 1)).toEqual([]);
+  });
+
+  test("onglet lu jusqu'aux troupes, le texte des RC seulement là où il sert", () => {
+    const f = fichier();
+    const t = f.script.tablesDuFichier(
       f.script.SpreadsheetApp.getActiveSpreadsheet(),
-      "BDD chasse",
-      f.script.COLONNES_CHASSE,
+      "alpha",
+      "2026-11-01",
+      "2026-11-07",
+      "Europe/Paris",
+    ).chasse;
+    expect(t[0]).toEqual(CHASSE.slice(0, 7).concat("RC"));
+    expect(t.map((l: unknown[]) => (l[7] ? 1 : 0))).toEqual([
+      1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+    ]);
+    expect(t[4][7]).toBe(donnees().chasse[4]![8]);
+    // lignes séparées d'au plus 20 autres lues d'un coup, plus éloignées à part
+    expect(f.script.blocsDeLignes([4, 5, 6, 28, 29, 60], 20)).toEqual([
+      [4, 6],
+      [28, 29],
+      [60, 60],
+    ]);
+    expect(f.script.blocsDeLignes([6, 27], 20)).toEqual([[6, 27]]);
+    expect(f.script.blocsDeLignes([], 20)).toEqual([]);
+  });
+
+  test("chasses du joueur entre celles des autres : chaque RC à sa ligne, en un ou plusieurs blocs", () => {
+    const d = donnees().chasse,
+      bravo = Array.from({ length: 25 }, () => [...d[11]!]),
+      // Alpha en lignes 2, 28 et 30 : 25 chasses de Bravo après la première,
+      // une de Charlie entre les deux dernières
+      lignes = [CHASSE, d[3]!, ...bravo, d[6]!, d[14]!, d[7]!];
+    const f = classeurSimule({ "BDD chasse": feuille("BDD chasse", lignes) });
+    const lues: number[][] = [],
+      onglet = f.onglets["BDD chasse"],
+      getRange = onglet.getRange;
+    onglet.getRange = (r: number, c: number, nl = 1, nc = 1) => {
+      if (c == 9) lues.push([r, nl]);
+      return getRange(r, c, nl, nc);
+    };
+    const t = f.script.tablesDuFichier(
+      f.script.SpreadsheetApp.getActiveSpreadsheet(),
+      "Alpha",
+      "2026-11-01",
+      "2026-11-07",
+      "Europe/Paris",
+    ).chasse;
+    // 25 lignes d'écart : lue à part ; une seule : lue avec la suivante
+    expect(lues).toEqual([
+      [2, 1],
+      [28, 3],
+    ]);
+    expect(t.slice(1).map((l: unknown[]) => l[7])).toEqual(
+      lignes.slice(1).map((l, i) => ([0, 26, 28].includes(i) ? l[8] : "")),
     );
-    expect(lues[0]).toEqual(CHASSE);
+  });
+
+  test("joueur absent ou sans chasse, période illisible ou trop longue : aucun RC lu", () => {
+    const f = fichier();
+    const onglet = f.onglets["BDD chasse"],
+      getRange = onglet.getRange;
+    const colonnes: number[] = [];
+    onglet.getRange = (r: number, c: number, nl = 1, nc = 1) => {
+      colonnes.push(c);
+      return getRange(r, c, nl, nc);
+    };
+    f.doPost({ ...corps, joueur: "Zoulou" });
+    f.script.STATS_OUAF([["Alpha"], [""], ["2026-11-07"], [1]]);
+    f.script.STATS_OUAF([[""], ["2026-11-01"], ["2026-11-07"], [1]]);
+    const long = f.script.STATS_OUAF([["Alpha"], ["2020-01-01"], ["2026-11-07"], [1]]);
+    expect(long[2][0]).toBe("Période trop longue : trois ans au plus.");
+    expect(colonnes).not.toContain(9);
   });
 
   test("onglet absent : zéros ; colonne renommée : erreur expliquée", () => {

@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.7";
+var VERSION_SCRIPT = "2026-11-08.8";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -326,6 +326,9 @@ var UNITES = [
 ];
 // au-delà, une requête lirait trop longtemps (limite d'exécution d'Apps Script)
 var STATS_JOURS_MAX = 3 * 366;
+// lignes sans RC utile lues quand même entre deux qui en ont besoin : une
+// lecture de moins vaut mieux que quelques textes de trop
+var ECART_LECTURE_RC = 20;
 // blocs de l'onglet « Statistiques », côte à côte à partir de la colonne D,
 // séparés par une colonne vide
 var COLONNE_STATISTIQUES = 4;
@@ -689,9 +692,10 @@ function tendance(valeurs) {
   });
 }
 
+// baisse plus petite que l'arrondi : 0, pas -0
 function arrondi(v, decimales) {
   var f = Math.pow(10, decimales);
-  return Math.round(v * f) / f;
+  return Math.round(v * f) / f || 0;
 }
 
 // "AAAA-MM-JJ HH:mm" lu comme UTC : écarts exacts entre deux retours
@@ -796,13 +800,14 @@ function statistiquesValides(d) {
 // requête de l'extension : seules les colonnes utiles de l'onglet sont lues
 function statistiquesDemandees(classeur, d) {
   try {
+    var fuseau = classeur.getSpreadsheetTimeZone();
     return {
       statistiques: statistiques(
-        tablesDuFichier(classeur),
+        tablesDuFichier(classeur, d.joueur, d.debut, d.fin, fuseau),
         d.joueur,
         d.debut,
         d.fin,
-        classeur.getSpreadsheetTimeZone(),
+        fuseau,
         d.autres === true,
       ),
     };
@@ -811,12 +816,69 @@ function statistiquesDemandees(classeur, d) {
   }
 }
 
-// l'onglet des chasses, lu de la même façon pour les deux vues
-function tablesDuFichier(classeur) {
-  return { chasse: lireColonnes(classeur, "BDD chasse", COLONNES_CHASSE) };
+// l'onglet des chasses, lu de la même façon pour les deux vues : toutes ses
+// lignes jusqu'aux troupes, et le texte de leur RC (long, l'onglet grossit
+// sans fin) seulement pour les chasses du joueur dans la période, les seules
+// dont l'expérience gagnée compte
+function tablesDuFichier(classeur, joueur, debut, fin, fuseau) {
+  var nom = "BDD chasse",
+    table = lireColonnes(
+      classeur,
+      nom,
+      COLONNES_CHASSE.filter(function (c) {
+        return c != "RC";
+      }),
+    );
+  if (table.length < 2) return { chasse: table };
+  var feuille = classeur.getSheetByName(nom),
+    titres = function (ligne) {
+      return ligne.map(function (t) {
+        return String(t).trim();
+      });
+    },
+    kRc = titres(feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0]).indexOf("RC");
+  // colonne des RC absente : l'erreur « colonne introuvable » le dira
+  if (kRc == -1) return { chasse: table };
+  var kPar = titres(table[0]).indexOf("Exporté par"),
+    kDate = titres(table[0]).indexOf("Date"),
+    moi = nomJoueur(joueur),
+    // joueur ou période refusés (onglet « Statistiques ») : rien à lire, son message le dit
+    demande = moi && debut && fin && debut <= fin && joursEntre(debut, fin) <= STATS_JOURS_MAX,
+    lignes = [],
+    // ligne de l'onglet → texte de son RC, pour les seules lignes utiles
+    rc = {},
+    k = 0;
+  for (var i = 1; demande && kPar != -1 && kDate != -1 && i < table.length; i++) {
+    var jour = minuteDe(table[i][kDate], fuseau).slice(0, 10);
+    if (nomJoueur(table[i][kPar]) == moi && jour && jour >= debut && jour <= fin)
+      lignes.push(i + 1);
+  }
+  // blocs et lignes croissants : chaque ligne est dans le premier bloc qui va jusqu'à elle
+  blocsDeLignes(lignes, ECART_LECTURE_RC).forEach(function (b) {
+    var valeurs = feuille.getRange(b[0], kRc + 1, b[1] - b[0] + 1, 1).getValues();
+    for (; k < lignes.length && lignes[k] <= b[1]; k++)
+      rc[lignes[k]] = valeurs[lignes[k] - b[0]][0];
+  });
+  return {
+    chasse: table.map(function (l, i) {
+      return l.concat(i == 0 ? "RC" : i + 1 in rc ? rc[i + 1] : "");
+    }),
+  };
 }
 
-// valeurs de l'onglet jusqu'à sa dernière colonne utile (pas les RC)
+// lignes de l'onglet (croissantes) regroupées en blocs [première, dernière] :
+// deux lignes séparées d'au plus `ecart` autres sont lues d'un coup
+function blocsDeLignes(lignes, ecart) {
+  var blocs = [];
+  lignes.forEach(function (r) {
+    var b = blocs[blocs.length - 1];
+    if (b && r - b[1] <= ecart + 1) b[1] = r;
+    else blocs.push([r, r]);
+  });
+  return blocs;
+}
+
+// valeurs de l'onglet jusqu'à la dernière des colonnes demandées
 function lireColonnes(classeur, nom, colonnes) {
   var feuille = classeur.getSheetByName(nom);
   if (!feuille || feuille.getLastRow() < 2) return [];
@@ -864,8 +926,8 @@ function STATS_OUAF(parametres) {
       return l[0];
     }),
     joueur = p[0],
-    tables = tablesDuFichier(classeur),
     jours = [jourDe(p[1], fuseau), jourDe(p[2], fuseau)],
+    tables = tablesDuFichier(classeur, joueur, jours[0], jours[1], fuseau),
     message = !String(joueur || "").trim()
       ? "Choisis un joueur (case B3)."
       : !jours[0] || !jours[1]

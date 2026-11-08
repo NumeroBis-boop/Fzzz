@@ -422,9 +422,47 @@ describe("calcul des statistiques de chasse", () => {
     expect({ ...a, autres: [] }).toEqual(s);
   });
 
+  test("chasseurs de la période : leurs chiffres et la moyenne entre eux (chacun compte autant)", () => {
+    expect(s.comparaison.titres).toEqual([
+      "Chasseur",
+      "Chasses (RC)",
+      "Multi-chasses",
+      "Terrain chassé (cm²)",
+      "Terrain par multi-chasse (cm²)",
+      "Fourmis perdues",
+      "Pertes par M cm² chassé",
+      "Nourriture rapportée",
+      "Nourriture par multi-chasse",
+    ]);
+    // Delta n'a pas chassé dans la période ; Bravo : 10:00 et 10:03 font une multi-chasse
+    expect(s.comparaison.lignes).toEqual([
+      ["Alpha", 7, 3, 45000, 15000, 2100, 46667, 354000, 118000],
+      ["Bravo", 3, 2, 12000, 6000, 1100, 91667, 80000, 40000],
+      ["Charlie", 1, 1, 1000, 1000, 10, 10000, 5000, 5000],
+    ]);
+    // au dixième : (7 + 3 + 1) / 3 = 3,7 ; (46 667 + 91 667 + 10 000) / 3 = 49 444,7
+    expect(s.comparaison.moyenne).toEqual([
+      "Moyenne des chasseurs",
+      3.7,
+      2,
+      19333.3,
+      7333.3,
+      1070,
+      49444.7,
+      146333.3,
+      54333.3,
+    ]);
+    // aucun chasseur dans la période : pas de moyenne
+    expect(calcul(donnees(), "2026-12-01", "2026-12-07").comparaison).toEqual({
+      titres: s.comparaison.titres,
+      lignes: [],
+      moyenne: ["Moyenne des chasseurs", "", "", "", "", "", "", "", ""],
+    });
+  });
+
   test("chasseurs du fichier, période ou pas, toujours dans le même ordre : une couleur chacun", () => {
     expect(s.chasseurs).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
-    expect(s.format).toBe(4);
+    expect(s.format).toBe(5);
   });
 
   test("faune du script : celle de l'extension (noms, points de difficulté)", () => {
@@ -560,11 +598,17 @@ describe("requête « statistiques » de l'extension", () => {
 
   test("résultats identiques au calcul direct, courbes des autres sur demande, sans écriture", () => {
     const f = fichier();
-    expect(f.doPost({ ...corps, format: 4 }).statistiques).toEqual(calcul());
-    expect(f.doPost({ ...corps, format: 4, autres: true }).statistiques).toEqual(
+    expect(f.doPost({ ...corps, format: 5 }).statistiques).toEqual(calcul());
+    expect(f.doPost({ ...corps, format: 5, autres: true }).statistiques).toEqual(
       calcul(donnees(), "2026-11-01", "2026-11-07", true),
     );
     expect(Object.keys(f.onglets)).toEqual(["BDD chasse"]);
+  });
+
+  test("extension 1.94 : réponse au format 4 qu'elle demande, le tableau des chasseurs en plus", () => {
+    const r = fichier().doPost({ ...corps, autres: true, format: 4 }).statistiques;
+    expect(r.format).toBe(4);
+    expect({ ...r, format: 5 }).toEqual(calcul(donnees(), "2026-11-01", "2026-11-07", true));
   });
 
   test("extension d'avant le format 4 : réponse au format 3, qu'elle lit toujours", () => {
@@ -599,7 +643,7 @@ describe("requête « statistiques » de l'extension", () => {
       lectures.push([r, c, nl, nc]);
       return getRange(r, c, nl, nc);
     };
-    expect(f.doPost({ ...corps, format: 4 }).statistiques).toEqual(calcul());
+    expect(f.doPost({ ...corps, format: 5 }).statistiques).toEqual(calcul());
     // colonne RC (I = 9) : les lignes 4 à 10 (chasses d'Alpha du 01/11 au
     // 07/11), d'une lecture ; pas celles de la veille (3), du lendemain (11),
     // ni celles des autres chasseurs
@@ -817,7 +861,8 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     // le joueur en vert épais, sa tendance en vert, la moyenne et sa tendance en
     // rouge, les tendances du même trait ; les autres en pointillés, d'autres couleurs
     const lignes = s.graphiques[1].options.series;
-    expect(lignes[0]).toEqual({ color: "#008300", lineWidth: 4 });
+    // plus aucune courbe épaisse (illisible, demande du mainteneur)
+    expect(lignes[0]).toEqual({ color: "#008300", lineWidth: 2 });
     expect(lignes[1]).toEqual({ color: "#008300", lineWidth: 2, lineDashStyle: [10, 5] });
     expect(lignes[2]).toEqual({ color: "#e34948", lineWidth: 2 });
     expect(lignes[3]).toEqual({ color: "#e34948", lineWidth: 2, lineDashStyle: [10, 5] });

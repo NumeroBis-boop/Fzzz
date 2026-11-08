@@ -2976,6 +2976,7 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   width: min(880px, calc(100vw - 60px));
   max-width: 100%;
   margin: 0 auto;
+  container-type: inline-size;
 }
 /* boîte redimensionnée par le joueur : la synthèse en prend la largeur */
 .o_boiteRedimensionnee .o_synthese {
@@ -2984,13 +2985,31 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_syntheseTitre {
   margin: 10px 0 6px;
 }
+/* rangées égales selon la largeur de la synthèse (pas de l'écran) : 2 par
+   ligne sur un téléphone, 4 (puis 3 centrées) en largeur moyenne, les 7
+   chiffres sur une ligne quand la boîte est large */
 .o_syntheseCartes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  --colonnes: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 10px;
 }
+@container (min-width: 520px) {
+  .o_syntheseCartes {
+    --colonnes: 4;
+  }
+}
+@container (min-width: 1100px) {
+  .o_syntheseChiffres {
+    --colonnes: 7;
+  }
+}
 .o_syntheseCarte {
+  flex: 0 0 calc((100% - (var(--colonnes) - 1) * 8px) / var(--colonnes));
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 5px;
   padding: 6px 4px;
@@ -3002,7 +3021,7 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 }
 .o_syntheseCarte b {
   display: block;
-  font-size: 1.25em;
+  font-size: 1.15em;
   margin-top: 2px;
   white-space: nowrap;
 }
@@ -3027,6 +3046,45 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_synthesePerte b,
 .o_synthesePerte small {
   color: #b03a2e;
+}
+/* écart d'un chiffre à la moyenne des chasseurs : au-dessus en vert, en dessous en rouge */
+.o_syntheseEcartPlus {
+  color: #2e7d32;
+}
+.o_syntheseEcartMoins {
+  color: #b03a2e;
+}
+/* tableau des chasseurs : défile dans sa largeur sur un téléphone */
+.o_syntheseTableau {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 6px 0 10px;
+}
+.o_syntheseComparaison {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.o_syntheseComparaison th,
+.o_syntheseComparaison td {
+  padding: 3px 6px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+.o_syntheseComparaison th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+.o_syntheseComparaison th:first-child,
+.o_syntheseComparaison td:first-child {
+  text-align: left;
+}
+.o_syntheseMoi td {
+  font-weight: bold;
+}
+.o_syntheseComparaison tfoot td {
+  font-style: italic;
 }
 /* graphiques l'un sous l'autre, sur toute la largeur */
 .o_syntheseGraphiques {

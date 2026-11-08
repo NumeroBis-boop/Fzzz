@@ -15,8 +15,10 @@ let fileConvoisForum = Promise.resolve();
  *
  * Une ligne par convoi : « 27/10/26 21:37 | Kwhwwymwn | 250 000 | #123456 »
  * (arrivée, destinataire, montant, numéro ; #0 : numéro inconnu, lien Annuler
- * disparu). Les convois arrivés sont retirés à chaque écriture. Requêtes :
- * lecture à l'ouverture de la page Convois, écriture après un envoi au suivi.
+ * disparu). À chaque écriture, les convois arrivés passent dans « Historique
+ * Convois N | pseudo » (PartageChasses.archiver). Requêtes : lecture à
+ * l'ouverture de la page Convois, écriture après un envoi au suivi (et,
+ * quand des convois sont arrivés, une lecture et une écriture de l'historique).
  *
  * @class ConvoisForum
  */
@@ -66,14 +68,24 @@ class ConvoisForum {
       .filter((c) => c.arrivee >= maintenant && (!c.id || (!vus.has(c.id) && vus.add(c.id))))
       .sort((a, b) => (a.arrivee < b.arrivee ? 1 : a.arrivee > b.arrivee ? -1 : b.id - a.id))
       .slice(0, PARTAGE_MAX_ENTREES)
-      .map(
-        (c) =>
-          `${moment(c.arrivee, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm")} | ${c.vers} | ${numeral(c.montant).format()} | #${c.id}` +
-          (c.prevu != null
-            ? ` | prévu ${numeral(c.prevu).format()} | avance ${numeral(c.avance || 0).format()}`
-            : ""),
-      )
+      .map(ConvoisForum.ligne)
       .join("\n");
+  }
+  /**
+   * Ligne d'un convoi dans le sujet (et dans son historique).
+   *
+   * @static
+   * @method ligne
+   * @param {Object} c {arrivee "AAAA-MM-JJ HH:mm", vers, montant, id, prevu?, avance?}
+   * @return {String}
+   */
+  static ligne(c) {
+    return (
+      `${moment(c.arrivee, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm")} | ${c.vers} | ${numeral(c.montant).format()} | #${c.id}` +
+      (c.prevu != null
+        ? ` | prévu ${numeral(c.prevu).format()} | avance ${numeral(c.avance || 0).format()}`
+        : "")
+    );
   }
   /**
    * @private
@@ -84,6 +96,7 @@ class ConvoisForum {
     return PartageChasses.sujets().then((sujets) => ({
       titre,
       id: sujets[titre.replace(/\| (.+)$/, (t, p) => `| ${p.toLowerCase()}`)] || null,
+      sujets,
     }));
   }
   /**
@@ -92,11 +105,9 @@ class ConvoisForum {
    */
   static _contenu(idSujet) {
     if (!idSujet) return Promise.resolve([]);
-    return PartageChasses._xajax("callGetTopic", idSujet).then((data) => {
-      let $div = Utils.parseHtml(PartageChasses._html(data));
-      $div.find("br").replaceWith("\n");
-      return ConvoisForum.lire($div.text());
-    });
+    return PartageChasses._xajax("callGetTopic", idSujet).then((data) =>
+      ConvoisForum.lire(PartageChasses.premierMessage(data)),
+    );
   }
   /**
    * Convois notés dans le sujet du joueur ; vide si le sujet n'existe pas
@@ -217,17 +228,33 @@ class ConvoisForum {
         ConvoisForum._contenu(s.id).then((anciens) => {
           let lignes = changer(anciens);
           if (!lignes) return;
-          let message = ConvoisForum.ecrire(lignes, Horloge.serveur().format("YYYY-MM-DD HH:mm")),
-            q = `sujet=${encodeURIComponent(s.titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
-          return s.id
-            ? PartageChasses._xajax(
-                "envoiEditTopic",
-                `<xjxquery><q>IDTopic=${s.id}&${q}</q></xjxquery>`,
-              )
-            : PartageChasses._xajax(
-                "envoiNouveauSujet",
-                `<xjxquery><q>cat=${PartageChasses.idSection}&${q}&type=normal&question=&reponse[]=&reponse[]=&reponse[]=</q></xjxquery>`,
-              );
+          // convois arrivés : vers l'historique du joueur (un convoi annulé a
+          // déjà été retiré par `changer`), une ligne par numéro
+          let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+            vus = new Set(),
+            arrives = lignes.filter(
+              (c) => c.arrivee < maintenant && (!c.id || (!vus.has(c.id) && vus.add(c.id))),
+            );
+          return PartageChasses.archiverPassees(
+            "Convois",
+            arrives,
+            s.sujets,
+            ConvoisForum.ligne,
+            (c) => c.arrivee,
+          ).then((archives) => {
+            // historique non écrit : les convois arrivés restent dans le sujet
+            let message = ConvoisForum.ecrire(lignes, archives ? maintenant : ""),
+              q = `sujet=${encodeURIComponent(s.titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
+            return s.id
+              ? PartageChasses._xajax(
+                  "envoiEditTopic",
+                  `<xjxquery><q>IDTopic=${s.id}&${q}</q></xjxquery>`,
+                )
+              : PartageChasses._xajax(
+                  "envoiNouveauSujet",
+                  `<xjxquery><q>cat=${PartageChasses.idSection}&${q}&type=normal&question=&reponse[]=&reponse[]=&reponse[]=</q></xjxquery>`,
+                );
+          });
         }),
       );
     fileConvoisForum = ecriture.catch((e) =>

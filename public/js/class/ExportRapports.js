@@ -82,8 +82,9 @@ const EXPORTS_RAPPORTS = {
  * d'une chasse sont tirés au hasard) : le script du fichier n'ajoute jamais une
  * clé déjà présente dans l'onglet.
  *
- * Requêtes : au clic seulement, lecture une à une des conversations listées
- * pas encore exportées (comme leur ouverture dans le jeu), puis envoi au script.
+ * Requêtes : au clic seulement, vérification auprès du script des RC déjà
+ * exportés, lecture une à une des conversations dont un RC manque au fichier
+ * (comme leur ouverture dans le jeu), puis envoi au script.
  *
  * @class ExportRapports
  */
@@ -410,17 +411,17 @@ class ExportRapports {
    * @param {Array} conversations [{id, titre, camp?, messages: [{id, date, texte}]}]
    * @param {String} pseudo
    * @param {Set<String>} [membres] pseudos des membres de l'alliance, en minuscules
-   * @return {Array<{onglet: String, ligne: Array}>} ligne : [clé, ...valeurs]
+   * @return {Array<{onglet: String, conversation: Number, ligne: Array}>} ligne : [clé, ...valeurs]
    */
   static lignes(type, conversations, pseudo, membres = new Set()) {
-    /** @type {Array<{id: Number, onglet: String, rc: {signature: String, date: String, valeurs: Array}}>} */
+    /** @type {Array<{id: Number, conversation: Number, onglet: String, rc: {signature: String, date: String, valeurs: Array}}>} */
     let rcs = [];
     conversations.forEach((c) => {
       let titreUtilise = false;
       c.messages.forEach((/** @type {{id: Number, date: String, texte: String}} */ m) => {
         if (type == "chasse") {
           let rc = ExportRapports.chasse(m.texte, m.date, pseudo);
-          if (rc) rcs.push({ id: m.id, onglet: "chasse", rc });
+          if (rc) rcs.push({ id: m.id, conversation: c.id, onglet: "chasse", rc });
           return;
         }
         let rc =
@@ -429,18 +430,23 @@ class ExportRapports {
         if (!rc) return;
         if (rc.valeurs[2] == "Prise") titreUtilise = true;
         let interne = !!rc.adversaire && membres.has(rc.adversaire.toLowerCase());
-        rcs.push({ id: m.id, onglet: interne ? "interne" : rc.camp || c.camp || "attaque", rc });
+        rcs.push({
+          id: m.id,
+          conversation: c.id,
+          onglet: interne ? "interne" : rc.camp || c.camp || "attaque",
+          rc,
+        });
       });
     });
     let rangs = new Map();
     return rcs
       .sort((a, b) => a.id - b.id)
-      .map(({ onglet, rc }) => {
+      .map(({ onglet, conversation, rc }) => {
         let cleRang = onglet + "|" + rc.signature,
           rang = (rangs.get(cleRang) || 0) + 1;
         rangs.set(cleRang, rang);
         let cle = `${rc.date}|${ExportRapports.empreinte(rc.signature)}${rang > 1 ? "|" + rang : ""}`;
-        return { onglet, ligne: [cle, ...rc.valeurs] };
+        return { onglet, conversation, ligne: [cle, ...rc.valeurs] };
       });
   }
   /**
@@ -512,38 +518,40 @@ class ExportRapports {
    * @static
    * @param {String} type
    */
-  static _cleExportees(type) {
-    // « combat2 » : marques distinctes de celles posées avant l'onglet « Flood
-    // internes », pour que ces RC soient relus une fois et rangés à part
-    let nom = type == "combat" ? "combat2" : type;
-    return `fzzz_exportees_${nom}_${Utils.serveur}_${String(monProfil.pseudo || "").toLowerCase()}`;
+  static _cleMemoire(type) {
+    return `fzzz_exportCles_${type}_${Utils.serveur}_${String(monProfil.pseudo || "").toLowerCase()}`;
   }
   /**
-   * Numéros des conversations déjà exportées depuis ce navigateur.
+   * Clés des RC déjà exportés depuis ce navigateur, par numéro de conversation.
+   * Elles évitent de relire une conversation dont tous les RC sont dans le
+   * fichier ; le fichier fait foi (voir absentes).
    *
    * @static
-   * @method exportees
+   * @method memoire
    * @param {String} type
-   * @return {Array<Number>}
+   * @return {Object<string, Array<String>>}
    */
-  static exportees(type) {
-    let liste = Utils.lireStockage(ExportRapports._cleExportees(type), []);
-    return Array.isArray(liste) ? liste : [];
+  static memoire(type) {
+    let m = Utils.lireStockage(ExportRapports._cleMemoire(type), {});
+    return m && typeof m == "object" && !Array.isArray(m) ? m : {};
   }
   /**
    * @static
-   * @method marquer
+   * @method memoriser
    * @param {String} type
-   * @param {Array<Number>} ids
+   * @param {Object<string, Array<String>>} parConversation clés envoyées, par conversation
    */
-  static marquer(type, ids) {
-    let liste = ExportRapports.exportees(type).filter((id) => !ids.includes(id));
-    liste.push(...ids);
+  static memoriser(type, parConversation) {
+    let m = Object.assign(ExportRapports.memoire(type), parConversation),
+      gardees = Object.keys(m)
+        .map(Number)
+        .sort((a, b) => b - a)
+        .slice(0, EXPORT_MAX_CONVERSATIONS),
+      /** @type {Object<string, Array<String>>} */
+      reste = {};
+    gardees.forEach((id) => (reste[id] = m[id]));
     try {
-      localStorage.setItem(
-        ExportRapports._cleExportees(type),
-        JSON.stringify(liste.slice(-EXPORT_MAX_CONVERSATIONS)),
-      );
+      localStorage.setItem(ExportRapports._cleMemoire(type), JSON.stringify(reste));
     } catch (e) {}
   }
   /**
@@ -786,6 +794,38 @@ class ExportRapports {
       });
   }
   /**
+   * Parmi les clés de RC déjà exportés, celles que le fichier n'a plus (ligne
+   * effacée, onglet vidé) : leurs conversations sont relues. Le script remet
+   * aussi ces onglets en lignes compactes.
+   *
+   * @static
+   * @method absentes
+   * @param {String} type "chasse" ou "combat"
+   * @param {Array<String>} cles
+   * @param {String} url
+   * @return {Promise<Set<String>>}
+   */
+  static absentes(type, cles, url) {
+    if (!cles.length) return Promise.resolve(new Set());
+    let onglets = (type == "chasse" ? ["chasse"] : ["attaque", "defense", "interne"]).map(
+      (o) => EXPORTS_RAPPORTS[o].onglet,
+    );
+    return ExportRapports.requete(url, "POST", { verifier: true, onglets, cles }).then(
+      (r) => {
+        if (!Array.isArray(r.absentes)) throw new Error("réponse inattendue du script");
+        return new Set(r.absentes.map(String));
+      },
+      (e) => {
+        // script d'avant cette vérification : il refuse la requête
+        if (/requête invalide/.test(e.message))
+          throw new Error(
+            "le script du Google Sheet n'est pas à jour (la personne qui gère le fichier doit y recoller le code et déployer une nouvelle version)",
+          );
+        throw e;
+      },
+    );
+  }
+  /**
    * Envoie les lignes d'un onglet au fichier, par paquets.
    *
    * @static
@@ -818,9 +858,10 @@ class ExportRapports {
   }
   /**
    * Bouton « Exporter mes chasses » / « Exporter mes RC » : conversations de
-   * ce type listées dans la messagerie et pas encore exportées, lues une à une,
-   * puis envoyées au fichier, onglet par onglet. Une conversation n'est retenue
-   * comme exportée qu'une fois ses RC acceptés par le fichier.
+   * ce type listées dans la messagerie dont un RC manque au fichier (jamais
+   * exportée, ou ligne effacée depuis), lues une à une, puis envoyées au
+   * fichier, onglet par onglet. Les clés d'une conversation ne sont retenues
+   * qu'une fois ses RC acceptés par le fichier.
    *
    * @static
    * @method exporter
@@ -857,8 +898,8 @@ class ExportRapports {
           });
           return;
         }
-        let faites = ExportRapports.exportees(type),
-          aLire = $("tr.en_tete_message[id^='conversation_']")
+        let memoire = ExportRapports.memoire(type),
+          listees = $("tr.en_tete_message[id^='conversation_']")
             .get()
             .filter((elt) => {
               let c = MessagerieFzzz.categorie($(elt));
@@ -870,87 +911,18 @@ class ExportRapports {
               // camp d'après le titre, pour un RC dont la tournure n'est pas reconnue
               camp: MessagerieFzzz.typeCouleur($(elt)) == "defense" ? "defense" : "attaque",
             }))
-            .filter((c) => c.id && !faites.includes(c.id));
-        if (!aLire.length) {
-          $.toast({
-            ...TOAST_INFO,
-            text: `Aucun nouveau ${type == "chasse" ? "rapport de chasse" : "RC"} à exporter dans la liste de la messagerie.`,
-          });
-          return;
-        }
-        let lues = [],
-          echecs = 0,
-          membres = new Set();
-        // membres lus avant les conversations : sans eux, pas de lecture
-        return (type == "combat" ? ExportRapports.membres() : Promise.resolve(new Set()))
-          .then((m) => {
-            membres = m;
-            $.toast({
-              ...TOAST_INFO,
-              hideAfter: false,
-              text: `Export des ${quoi} : lecture des conversations, une à une (le jeu n'en sert qu'une à la fois) <strong id='o_exportProgres'>0/${aLire.length}</strong>`,
-            });
-            return aLire.reduce(
-              (suite, c, k) =>
-                suite.then(() =>
-                  ExportRapports.messages(c.id)
-                    .then(
-                      (messages) => lues.push({ ...c, messages }),
-                      () => echecs++,
-                    )
-                    .then(() => $("#o_exportProgres").text(`${k + 1}/${aLire.length}`)),
-                ),
-              Promise.resolve(),
-            );
-          })
-          .then(() => {
-            let lignes = ExportRapports.lignes(type, lues, pseudo, membres),
-              // conversations sans RC reconnu : relues au prochain export
-              avecRC = lues
-                .filter((c) => ExportRapports.lignes(type, [c], pseudo, membres).length)
-                .map((c) => c.id),
-              onglets = [...new Set(lignes.map((l) => l.onglet))],
-              bilans = /** @type {Array<{onglet: String, ajoutees: Number, deja: Number}>} */ ([]);
-            if (lignes.length) $("#o_exportProgres").text("envoi au Google Sheet…");
-            return onglets
-              .reduce(
-                (suite, onglet) =>
-                  suite.then(() =>
-                    ExportRapports.envoyer(
-                      onglet,
-                      lignes.filter((l) => l.onglet == onglet).map((l) => l.ligne),
-                      url,
-                    ).then((r) => bilans.push({ onglet, ...r })),
-                  ),
-                Promise.resolve(),
-              )
-              .then(() => {
-                ExportRapports.marquer(type, avecRC);
-                let sansRC = lues.length - avecRC.length,
-                  pluriel = (/** @type {Number} */ n) => (n > 1 ? "s" : ""),
-                  deja = bilans.reduce((t, b) => t + b.deja, 0);
-                $.toast({
-                  ...TOAST_SUCCESS,
-                  hideAfter: 10000,
-                  text:
-                    `Export des ${quoi} : ` +
-                    (bilans.length
-                      ? bilans
-                          .map(
-                            (b) =>
-                              `${b.ajoutees} ligne${pluriel(b.ajoutees)} ajoutée${pluriel(b.ajoutees)} dans « ${EXPORTS_RAPPORTS[b.onglet].onglet} »`,
-                          )
-                          .join(", ")
-                      : "rien à ajouter") +
-                    (deja ? ` (${deja} déjà présente${pluriel(deja)})` : "") +
-                    "." +
-                    (sansRC ? ` ${sansRC} conversation(s) sans RC reconnu.` : "") +
-                    (echecs
-                      ? ` ${echecs} conversation(s) n'ont pas pu être lues : réessaie plus tard.`
-                      : ""),
-                });
-              });
-          });
+            .filter((c) => c.id);
+        return ExportRapports.absentes(
+          type,
+          listees.flatMap((c) => memoire[c.id] || []),
+          url,
+        ).then((absentes) =>
+          ExportRapports._exporterListees(
+            type,
+            listees.filter((c) => !memoire[c.id] || memoire[c.id].some((cle) => absentes.has(cle))),
+            url,
+          ),
+        );
       })
       .catch((e) =>
         $.toast({
@@ -960,5 +932,103 @@ class ExportRapports {
         }),
       )
       .finally(fin);
+  }
+  /**
+   * Lit les conversations à exporter, puis envoie leurs RC au fichier.
+   *
+   * @private
+   * @static
+   * @param {String} type
+   * @param {Array<{id: Number, titre: String, camp: String}>} aLire
+   * @param {String} url
+   * @return {Promise}
+   */
+  static _exporterListees(type, aLire, url) {
+    let pseudo = monProfil.pseudo,
+      quoi = type == "chasse" ? "chasses" : "RC";
+    if (!aLire.length) {
+      $.toast({
+        ...TOAST_INFO,
+        text: `Aucun nouveau ${type == "chasse" ? "rapport de chasse" : "RC"} à exporter dans la liste de la messagerie.`,
+      });
+      return Promise.resolve();
+    }
+    let lues = [],
+      echecs = 0,
+      membres = new Set();
+    // membres lus avant les conversations : sans eux, pas de lecture
+    return (type == "combat" ? ExportRapports.membres() : Promise.resolve(new Set()))
+      .then((m) => {
+        membres = m;
+        $.toast({
+          ...TOAST_INFO,
+          hideAfter: false,
+          text: `Export des ${quoi} : lecture des conversations, une à une (le jeu n'en sert qu'une à la fois) <strong id='o_exportProgres'>0/${aLire.length}</strong>`,
+        });
+        return aLire.reduce(
+          (suite, c, k) =>
+            suite.then(() =>
+              ExportRapports.messages(c.id)
+                .then(
+                  (messages) => lues.push({ ...c, messages }),
+                  () => echecs++,
+                )
+                .then(() => $("#o_exportProgres").text(`${k + 1}/${aLire.length}`)),
+            ),
+          Promise.resolve(),
+        );
+      })
+      .then(() => {
+        let lignes = ExportRapports.lignes(type, lues, pseudo, membres),
+          // conversations sans RC reconnu : pas retenues, relues au prochain export
+          /** @type {Object<string, Array<String>>} */
+          parConversation = {},
+          onglets = [...new Set(lignes.map((l) => l.onglet))],
+          bilans = /** @type {Array<{onglet: String, ajoutees: Number, deja: Number}>} */ ([]);
+        lignes.forEach((l) =>
+          (parConversation[l.conversation] = parConversation[l.conversation] || []).push(
+            l.ligne[0],
+          ),
+        );
+        if (lignes.length) $("#o_exportProgres").text("envoi au Google Sheet…");
+        return onglets
+          .reduce(
+            (suite, onglet) =>
+              suite.then(() =>
+                ExportRapports.envoyer(
+                  onglet,
+                  lignes.filter((l) => l.onglet == onglet).map((l) => l.ligne),
+                  url,
+                ).then((r) => bilans.push({ onglet, ...r })),
+              ),
+            Promise.resolve(),
+          )
+          .then(() => {
+            ExportRapports.memoriser(type, parConversation);
+            let sansRC = lues.length - Object.keys(parConversation).length,
+              pluriel = (/** @type {Number} */ n) => (n > 1 ? "s" : ""),
+              deja = bilans.reduce((t, b) => t + b.deja, 0);
+            $.toast({
+              ...TOAST_SUCCESS,
+              hideAfter: 10000,
+              text:
+                `Export des ${quoi} : ` +
+                (bilans.length
+                  ? bilans
+                      .map(
+                        (b) =>
+                          `${b.ajoutees} ligne${pluriel(b.ajoutees)} ajoutée${pluriel(b.ajoutees)} dans « ${EXPORTS_RAPPORTS[b.onglet].onglet} »`,
+                      )
+                      .join(", ")
+                  : "rien à ajouter") +
+                (deja ? ` (${deja} déjà présente${pluriel(deja)})` : "") +
+                "." +
+                (sansRC ? ` ${sansRC} conversation(s) sans RC reconnu.` : "") +
+                (echecs
+                  ? ` ${echecs} conversation(s) n'ont pas pu être lues : réessaie plus tard.`
+                  : ""),
+            });
+          });
+      });
   }
 }

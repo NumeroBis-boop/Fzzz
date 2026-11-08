@@ -46,8 +46,9 @@ let fichier: ReturnType<typeof classeurSimule>;
 // mode du script : normal, réponse perdue (page rechargée), panne, panne au lot n
 let mode: { perdue?: boolean; panne?: boolean; panneAuLot?: number } = {};
 let lots = 0;
-// adresses où le script a été appelé
+// adresses où le script a été appelé ; vérifications des clés déjà exportées
 let urls: string[] = [];
+let verifications = 0;
 
 /** Messagerie listée, conversations servies par le « jeu », fichier vide. */
 function messagerie(conversations: Record<number, { titre: string; html: string }>) {
@@ -55,12 +56,20 @@ function messagerie(conversations: Record<number, { titre: string; html: string 
   mode = {};
   lots = 0;
   urls = [];
+  verifications = 0;
   fenetre.__envoyer = (m: any) => {
     urls.push(m.url);
     if (m.methode == "GET") return { ok: true, statut: 200, donnees: fichier.doGet() };
+    if (mode.panne) return { erreur: "reseau" };
+    const corps = JSON.parse(JSON.stringify(m.corps));
+    // vérification des clés déjà exportées : pas un lot de lignes
+    if (corps.verifier) {
+      verifications++;
+      return { ok: true, statut: 200, donnees: fichier.doPost(corps) };
+    }
     lots++;
-    if (mode.panne || lots === mode.panneAuLot) return { erreur: "reseau" };
-    const r = fichier.doPost(JSON.parse(JSON.stringify(m.corps)));
+    if (lots === mode.panneAuLot) return { erreur: "reseau" };
+    const r = fichier.doPost(corps);
     return mode.perdue ? { erreur: "reseau" } : { ok: true, statut: 200, donnees: r };
   };
   fenetre.__conversations = conversations;
@@ -179,7 +188,32 @@ describe("export : clics répétés et pages rechargées", () => {
     await exporter("chasse");
     expect(lire(`LECTURES`)).toEqual([]);
     expect(lots).toBe(avant);
+    expect(verifications).toBe(2);
     expect(dernierMessage()).toContain("Aucun nouveau rapport de chasse");
+  });
+
+  test("onglet vidé à la main : le clic suivant renvoie tout, le suivant plus rien", async () => {
+    await exporter("chasse");
+    fichier.onglets["BDD chasse"].grille.length = 1;
+    lire(`LECTURES.length = 0`);
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([11, 12]);
+    expect(fichier.cles("BDD chasse")).toHaveLength(4);
+    lire(`LECTURES.length = 0`);
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([]);
+    sansDoublon(fichier.cles("BDD chasse"));
+  });
+
+  test("une ligne effacée à la main : seule sa conversation est relue, la ligne revient", async () => {
+    await exporter("chasse");
+    const grille = fichier.onglets["BDD chasse"].grille,
+      effacee = grille.splice(grille.length - 1, 1)[0][0];
+    lire(`LECTURES.length = 0`);
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([12]);
+    expect(fichier.cles("BDD chasse")).toContain(effacee);
+    expect(fichier.cles("BDD chasse")).toHaveLength(4);
   });
 
   test("conversation illisible : signalée, les autres exportées, elle seule relue au clic suivant", async () => {
@@ -270,10 +304,10 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
     // rangés sans alliance connue (version précédente)
     await exporter("combat");
     expect(fichier.cles("BDD attaques")).toHaveLength(2);
-    // marques de la version précédente (« combat ») : conversations relues une fois
+    // mémoire de la version précédente (numéros seuls) : conversations relues une fois
     lire(`(() => {
-      const k = Object.keys(localStorage).find((k) => k.startsWith("fzzz_exportees_combat2_"));
-      localStorage.setItem(k.replace("combat2", "combat"), localStorage.getItem(k));
+      const k = Object.keys(localStorage).find((k) => k.startsWith("fzzz_exportCles_combat_"));
+      localStorage.setItem(k.replace("fzzz_exportCles_combat_", "fzzz_exportees_combat2_"), JSON.stringify(Object.keys(JSON.parse(localStorage.getItem(k))).map(Number)));
       localStorage.removeItem(k);
     })()`);
     allianceOuaf();

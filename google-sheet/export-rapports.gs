@@ -41,34 +41,73 @@ function doPost(e) {
   } catch (err) {
     return reponseJson({ erreur: "requête illisible" });
   }
-  if (
-    !d ||
-    ONGLETS_EXPORT.indexOf(d.onglet) == -1 ||
-    !Array.isArray(d.entetes) ||
-    d.entetes[0] != "Clé" ||
-    !Array.isArray(d.lignes)
-  )
+  if (!d || !(d.verifier ? verificationValide(d) : ajoutValide(d)))
     return reponseJson({ erreur: "requête invalide" });
   // deux joueurs qui exportent en même temps : l'un après l'autre
   var verrou = LockService.getScriptLock();
   verrou.waitLock(30000);
   try {
     var classeur = SpreadsheetApp.getActiveSpreadsheet(),
-      cles = {},
-      exclues = {};
-    d.lignes.forEach(function (l) {
-      var cle = String((l && l[0]) || "");
-      if (cle) cles[cle] = true;
-    });
-    // combat entre membres : retiré des onglets des camps (exporté avant d'être
-    // reconnu comme interne), et jamais rajouté à l'un d'eux ensuite
-    if (d.onglet == ONGLET_INTERNE) retirerCles(classeur, ONGLETS_CAMPS, cles);
-    else if (ONGLETS_CAMPS.indexOf(d.onglet) != -1) exclues = clesDe(classeur, ONGLET_INTERNE);
-    var bilan = ajouterLignes(classeur, d.onglet, d.entetes, d.lignes, exclues);
-    return reponseJson(bilan);
+      reponse = d.verifier ? clesAbsentes(classeur, d.onglets, d.cles) : ajouter(classeur, d);
+    return reponseJson(reponse);
   } finally {
     verrou.releaseLock();
   }
+}
+
+function ajoutValide(d) {
+  return (
+    ONGLETS_EXPORT.indexOf(d.onglet) != -1 &&
+    Array.isArray(d.entetes) &&
+    d.entetes[0] == "Clé" &&
+    Array.isArray(d.lignes)
+  );
+}
+
+function verificationValide(d) {
+  return (
+    Array.isArray(d.onglets) &&
+    d.onglets.every(function (o) {
+      return ONGLETS_EXPORT.indexOf(o) != -1;
+    }) &&
+    Array.isArray(d.cles)
+  );
+}
+
+function ajouter(classeur, d) {
+  var cles = {},
+    exclues = {};
+  d.lignes.forEach(function (l) {
+    var cle = String((l && l[0]) || "");
+    if (cle) cles[cle] = true;
+  });
+  // combat entre membres : retiré des onglets des camps (exporté avant d'être
+  // reconnu comme interne), et jamais rajouté à l'un d'eux ensuite
+  if (d.onglet == ONGLET_INTERNE) retirerCles(classeur, ONGLETS_CAMPS, cles);
+  else if (ONGLETS_CAMPS.indexOf(d.onglet) != -1) exclues = clesDe(classeur, ONGLET_INTERNE);
+  return ajouterLignes(classeur, d.onglet, d.entetes, d.lignes, exclues);
+}
+
+/**
+ * Clés de `cles` absentes de tous les onglets `noms` : l'extension relit les
+ * conversations de ces RC (ligne effacée, onglet vidé). Les onglets sont remis
+ * en lignes compactes au passage, à chaque clic d'export.
+ */
+function clesAbsentes(classeur, noms, cles) {
+  var presentes = {};
+  noms.forEach(function (nom) {
+    var feuille = classeur.getSheetByName(nom);
+    if (!feuille) return;
+    lireCles(feuille).forEach(function (c) {
+      presentes[c] = true;
+    });
+    compacter(feuille);
+  });
+  return {
+    absentes: cles.filter(function (c) {
+      return !presentes[String(c)];
+    }),
+  };
 }
 
 /**

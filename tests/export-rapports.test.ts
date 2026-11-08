@@ -513,8 +513,15 @@ describe("export complet depuis la messagerie", () => {
       )} + '</table>';
       $.toast = (o) => { TOASTS.push(o.text); return {}; };
       $.post = (url, d) => { POSTS.push(d.conversation); return Promise.resolve(${JSON.stringify(CONVERSATIONS)}[d.conversation] || ""); };
+      // fichier simulé : clés reçues ; VERIFICATION remplace sa réponse à la vérification
+      window.RECUES = new Set(); window.VERIFICATIONS = []; window.VERIFICATION = null;
       chrome.runtime = { sendMessage: (m) => {
+        if (m.corps && m.corps.verifier) {
+          VERIFICATIONS.push(m.corps);
+          return Promise.resolve(VERIFICATION || { ok: true, statut: 200, donnees: { absentes: m.corps.cles.filter((k) => !RECUES.has(k)) } });
+        }
         ENVOIS.push(m);
+        if (!REPONSE) m.corps.lignes.forEach((l) => RECUES.add(l[0]));
         return Promise.resolve(REPONSE || { ok: true, statut: 200, donnees: { ajoutees: m.corps.lignes.length, deja: 0 } });
       } };`);
   });
@@ -532,12 +539,59 @@ describe("export complet depuis la messagerie", () => {
     expect(envois[0].corps.lignes).toHaveLength(4);
     for (const l of envois[0].corps.lignes) expect(l[1]).toBe("DoggyBag");
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain("4 lignes ajoutées dans « BDD chasse »");
-    // second clic : tout est déjà exporté, rien n'est relu ni envoyé
+    // second clic : tout est dans le fichier, rien n'est relu ni envoyé (une vérification)
     lire(`POSTS.length = 0; ENVOIS.length = 0;`);
     await lire(`ExportRapports.exporter("chasse")`);
     expect(lire(`POSTS`)).toEqual([]);
     expect(lire(`ENVOIS`)).toEqual([]);
+    expect(lire<any[]>(`VERIFICATIONS`)).toHaveLength(1);
+    expect(lire<any[]>(`VERIFICATIONS`)[0].onglets).toEqual(["BDD chasse"]);
+    expect(lire<any[]>(`VERIFICATIONS`)[0].cles).toHaveLength(4);
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain("Aucun nouveau rapport de chasse");
+  });
+
+  test("onglet vidé à la main : le clic suivant relit et renvoie tout", async () => {
+    await lire(`ExportRapports.exporter("chasse")`);
+    lire(`RECUES.clear(); POSTS.length = 0; ENVOIS.length = 0;`);
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`POSTS`)).toEqual([11, 12]);
+    expect(lire<any[]>(`ENVOIS`)[0].corps.lignes).toHaveLength(4);
+  });
+
+  test("une ligne effacée : seule sa conversation est relue", async () => {
+    await lire(`ExportRapports.exporter("chasse")`);
+    lire(
+      `RECUES.delete([...RECUES].find((k) => ENVOIS[0].corps.lignes.at(-1)[0] == k)); POSTS.length = 0; ENVOIS.length = 0;`,
+    );
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`POSTS`)).toEqual([12]);
+  });
+
+  test("RC : vérification sur les trois onglets des combats", async () => {
+    await lire(`ExportRapports.exporter("combat")`);
+    await lire(`ExportRapports.exporter("combat")`);
+    expect(lire<any[]>(`VERIFICATIONS`)[0].onglets).toEqual([
+      "BDD attaques",
+      "BDD défenses",
+      "Flood internes",
+    ]);
+  });
+
+  test("script du fichier pas à jour (vérification refusée) : message clair, rien relu", async () => {
+    await lire(`ExportRapports.exporter("chasse")`);
+    lire(
+      `VERIFICATION = { ok: true, statut: 200, donnees: { erreur: "requête invalide" } }; POSTS.length = 0;`,
+    );
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`POSTS`)).toEqual([]);
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("le script du Google Sheet n'est pas à jour");
+  });
+
+  test("mémoire d'une version précédente (numéros sans clés) : ignorée, conversations relues", async () => {
+    lire(`localStorage.setItem("fzzz_exportees_chasse_" + Utils.serveur + "_doggybag", "[11, 12]");
+      localStorage.setItem("fzzz_exportees_combat2_" + Utils.serveur + "_doggybag", "[21, 22]");`);
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lire(`POSTS`)).toEqual([11, 12]);
   });
 
   test("RC : défenses et attaques dans leur onglet, lignes déjà présentes comptées à part", async () => {

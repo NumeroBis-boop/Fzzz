@@ -195,6 +195,45 @@ describe("floods internes : une seule ligne, jamais dans les onglets des camps",
   });
 });
 
+describe("vérification : clés que le fichier n'a plus", () => {
+  const COMBAT = ["Clé", "Exporté par"];
+
+  test("absentes de tous les onglets demandés ; onglet inexistant ignoré ; onglets compactés", () => {
+    onglets["BDD défenses"] = feuille("BDD défenses", [COMBAT, ["k1", "Alpha"]]);
+    onglets["Flood internes"] = feuille("Flood internes", [COMBAT, ["k2", "Alpha"]]);
+    const ctx = charger();
+    expect(
+      poster(ctx, {
+        verifier: true,
+        onglets: ["BDD attaques", "BDD défenses", "Flood internes"],
+        cles: ["k1", "k2", "k3"],
+      }),
+    ).toEqual({ absentes: ["k3"] });
+    expect(Object.keys(onglets)).toEqual(["BDD défenses", "Flood internes"]);
+    expect(onglets["BDD défenses"].hauteurs).toEqual({ 2: 21 });
+    expect(onglets["Flood internes"].alignements).toEqual({ 2: "top" });
+  });
+
+  test("onglet vidé à la main : toutes ses clés sont absentes", () => {
+    onglets["BDD chasse"] = feuille("BDD chasse", [ENTETES]);
+    const ctx = charger();
+    expect(poster(ctx, { verifier: true, onglets: ["BDD chasse"], cles: ["k1", "k2"] })).toEqual({
+      absentes: ["k1", "k2"],
+    });
+  });
+
+  test("requêtes refusées : onglet inconnu, clés manquantes", () => {
+    const ctx = charger();
+    expect(poster(ctx, { verifier: true, onglets: ["Feuille 1"], cles: [] })).toEqual({
+      erreur: "requête invalide",
+    });
+    expect(poster(ctx, { verifier: true, onglets: ["BDD chasse"] })).toEqual({
+      erreur: "requête invalide",
+    });
+    expect(Object.keys(onglets)).toEqual([]);
+  });
+});
+
 describe("grille de l'onglet", () => {
   test("onglet plein (grille de 1 000 lignes atteinte) : agrandi, lignes ajoutées", () => {
     onglets["BDD chasse"] = feuille("BDD chasse", [ENTETES, ["k0", "Alpha", "d", 1, "a"]], 2);

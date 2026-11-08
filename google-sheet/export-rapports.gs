@@ -16,8 +16,10 @@
  *     RC : » et de leurs pseudos : l'extension de ces joueurs lit l'adresse
  *     toute seule. Pas de réponse dans ce sujet : elle empêcherait de modifier
  *     le message (ajouter ou retirer un joueur).
- * Après une modification de ce code : Déployer → Gérer les déploiements →
- * modifier → Nouvelle version (l'adresse ne change pas).
+ * Après une modification de ce code : Enregistrer, puis Déployer → Gérer les
+ * déploiements → modifier → Version : Nouvelle version (l'adresse ne change
+ * pas). L'adresse ouverte dans le navigateur montre alors la nouvelle
+ * « version ».
  *
  * Le fichier doit rester réservé à l'alliance : publier des RC est interdit
  * par le règlement du s5.
@@ -30,8 +32,12 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 // hauteur d'une ligne de texte : un RC (plusieurs lignes) n'y montre que la première
 var HAUTEUR_LIGNE = 21;
 
+// rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
+var VERSION_SCRIPT = "2026-11-08";
+
 function doGet() {
-  return reponseJson({ ok: true, fichier: SpreadsheetApp.getActiveSpreadsheet().getName() });
+  var fichier = SpreadsheetApp.getActiveSpreadsheet().getName();
+  return reponseJson({ ok: true, fichier: fichier, version: VERSION_SCRIPT });
 }
 
 function doPost(e) {

@@ -15,8 +15,12 @@ beforeEach(() => {
 });
 
 describe("script du Google Sheet", () => {
-  test("doGet : script joignable et nom du fichier", () => {
-    expect(charger().doGet()).toEqual({ ok: true, fichier: "Extension OUAF" });
+  test("doGet : script joignable, nom du fichier et version du code déployé", () => {
+    expect(charger().doGet()).toEqual({
+      ok: true,
+      fichier: "Extension OUAF",
+      version: expect.stringMatching(/^\d{4}-\d{2}-\d{2}/),
+    });
   });
 
   test("premier export : onglet créé avec ses titres, lignes ajoutées", () => {

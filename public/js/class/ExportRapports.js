@@ -532,8 +532,8 @@ class ExportRapports {
         $message.find("br").replaceWith("\n");
         // ajouts de l'extension (analyses, boutons) : pas dans le RC
         $message.find("div[id^='o_analyse'], .o_optionMessage").remove();
-        // colonne « RC » : texte des images comme à la copie (la pomme = « de
-        // nourriture ») ; la lecture du RC, elle, se fait sans
+        // colonne « RC » : texte des icônes, comme à la copie (« 62 572 de
+        // nourriture ») ; la lecture du RC se fait sans
         let $affiche = $message.clone();
         $affiche
           .find("img")
@@ -544,7 +544,13 @@ class ExportRapports {
           id: parseInt((tr.id.match(/\d+/) || ["0"])[0]),
           date: ExportRapports.date($(tr).find(".expe").first().text()),
           texte: $message.text(),
-          rc: $affiche.text(),
+          rc: $affiche
+            .text()
+            .replace(
+              /(\d)\s+(?:de\s+)?(nourriture|mat[ée]riaux)\b/gi,
+              (/** @type {String} */ t, /** @type {String} */ chiffre, /** @type {String} */ mot) =>
+                `${chiffre} de ${mot.toLowerCase().replace("materiaux", "matériaux")}`,
+            ),
         };
       })
       .filter((m) => m.id && m.texte.trim());

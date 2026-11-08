@@ -307,6 +307,18 @@ describe("lecture d'une conversation", () => {
     `<tr id="message_${id}"><td class="expe">07/11/26 à 21h07</td><td class="message">${chasse(id).replace(/\n/g, "<br/>")}</td></tr>`;
   const precedent = `<tr><td><a href="#" class="lien_voir_precedent">Voir les messages précédents</a></td></tr>`;
 
+  test("icône dont le texte n'est que « nourriture » : « de nourriture » après le nombre", async () => {
+    for (const alt of ["nourriture", "Nourriture", "de nourriture"]) {
+      lire(
+        `$.post = () => Promise.resolve(${JSON.stringify(`<tr id="message_1"><td class="expe">07/11/26 à 21h07</td><td class="message">les carcasses des prédateurs vous rapportent <strong>62 572</strong> <img alt="${alt}"/></td></tr>`)});`,
+      );
+      const messages = await lire<Promise<any[]>>(`ExportRapports.messages(5)`);
+      expect(messages[0].rc).toBe(
+        "les carcasses des prédateurs vous rapportent 62 572 de nourriture",
+      );
+    }
+  });
+
   test("icône du jeu (pomme) : son texte dans la colonne RC, clé et valeurs inchangées", async () => {
     const avecIcone = chasse(1)
       .replace(/de nourriture$/, "<img src='images/icone/icone_pomme.png' alt='de nourriture'/>")

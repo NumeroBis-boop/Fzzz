@@ -15,6 +15,7 @@ const LECTURES_PC: Record<string, number> = {
   "class/AttaqueLancee.js": 5, // réception de la page (convertie par Horloge.serveurA), décompte d'annulation
   "class/ExportJoueurs.js": 2, // âge de la base des joueurs
   "class/Horloge.js": 1, // heure du serveur = heure du PC + décalage mesuré
+  "class/Journal.js": 1, // heure d'une erreur survenue avant le chargement de l'horloge du serveur
   "class/MiseAJour.js": 1, // cadence de la lecture de la version publiée (une par heure)
   "class/OuafSuivi.js": 2, // pause des requêtes au site de suivi après une panne
   "class/LanceurChasse.js": 1, // délai de partage après l'envoi des chasses, posé (relu dans Ressource.js)

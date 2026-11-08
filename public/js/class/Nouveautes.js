@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.87.0",
+    notes: [
+      "Nouvelle boîte « Journal » sous « Extension OUAF » : elle garde ce que fait l'extension et ses erreurs. En cas de problème, « Copier » prend tout le texte (versions, page, erreurs) à coller dans un message ; les adresses et les codes y sont masqués. Masquable dans Préférences → Général.",
+    ],
+  },
+  {
     version: "1.86.4",
     notes: [
       "Bouton « CSV » des tableaux : le fichier s'ouvre correctement dans Excel en français (une colonne par donnée, accents corrects).",

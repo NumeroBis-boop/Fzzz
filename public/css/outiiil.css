@@ -681,6 +681,78 @@ html:not(.o_origineGenerale) #recherche {
   opacity: 0.75;
   white-space: nowrap;
 }
+/* Fzzz : boîte « Journal » sous « Extension OUAF » */
+/* fond sombre de l'encadré : teintes claires */
+.o_journalCompte {
+  font-size: 0.7em;
+  font-weight: bold;
+  color: #ff8a80;
+  white-space: nowrap;
+}
+.o_journalListe {
+  list-style: none;
+  margin: 2px 0;
+  padding: 0;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: left;
+}
+.o_journalListe li {
+  padding: 1px 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#o_boiteJournal.o_journalOuvert .o_journalListe {
+  overflow-y: auto;
+}
+#o_boiteJournal.o_journalOuvert .o_journalListe li {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  border-bottom: 1px dotted currentColor;
+}
+.o_journalDetail {
+  font-size: 10px;
+  opacity: 0.8;
+  white-space: pre-wrap;
+}
+.o_journalVide {
+  text-align: center;
+  opacity: 0.75;
+}
+.o_journal_erreur {
+  color: #ff8a80;
+  font-weight: bold;
+}
+.o_journal_alerte {
+  color: #ffcc80;
+}
+.o_journalBoutons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 0 4px;
+}
+.o_journalBoutons .o_button {
+  font-size: 11px;
+  padding: 2px 6px;
+}
+.o_journalCopie {
+  display: block;
+  width: 100%;
+  height: 8em;
+  box-sizing: border-box;
+  font-size: 10px;
+}
+.o_journalEtat {
+  margin: 0;
+  font-size: 10px;
+  text-align: center;
+}
+.o_journalEtat:empty {
+  display: none;
+}
 /* icônes en ligne, remontées pour loger leur nom dessous */
 #o_toolbarOutiiil {
   display: flex;

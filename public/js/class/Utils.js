@@ -96,6 +96,7 @@ if (typeof $ != "undefined" && $.fn && $.fn.dataTable) {
 // Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres (onglets : ONGLETS_PARAMETRE)
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",
+  journal: "Boîte « Journal » sous « Extension OUAF » (étapes et erreurs à copier)",
   rentabilite:
     "Bandeaux « rentabilité du niveau supérieur » (et Étable à pucerons dans Construction)",
   messagerieCouleurs: "Couleurs des titres par type de message",
@@ -136,7 +137,7 @@ const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800, 43200, 5760
 // « Rétablir l'affichage d'origine » d'un onglet des préférences (+ id de l'onglet)
 const CLE_ORIGINE = "fzzz_origine_";
 // affichages qui ne dépendent pas de la page courante : coupés avec leur onglet
-const AFFICHAGES_ONGLET = { horloge: "General" };
+const AFFICHAGES_ONGLET = { horloge: "General", journal: "General" };
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
 // fin de la file de ponte lue sur la page Reine : {fin (ms, horloge du PC), lu (ms)}

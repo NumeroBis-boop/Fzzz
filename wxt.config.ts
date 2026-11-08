@@ -121,6 +121,7 @@ export default defineConfig({
       {
         matches: ["*://s5.fourmizzz.fr/*"],
         js: [
+          "js/class/Journal.js",
           "js/class/Fuseau.js",
           "js/class/Requetes.js",
           "js/data/couts.js",
@@ -146,6 +147,7 @@ export default defineConfig({
           "js/boite/ComptePlus.js",
           "js/boite/Radar.js",
           "js/boite/Dock.js",
+          "js/boite/Journal.js",
           "js/boite/Boite.js",
           "js/boite/ImportArmee.js",
           "js/boite/Chasse.js",

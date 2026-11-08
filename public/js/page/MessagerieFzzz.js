@@ -49,8 +49,8 @@ const CATEGORIES_MESSAGES = [
  */
 class MessagerieFzzz {
   /**
-   * Bouton « Partager mes RC » avec l'alliance sous le titre « Messagerie ».
-   * Pas encore branchés : un message l'indique.
+   * Boutons « Exporter mes chasses » et « Exporter mes RC » sous le titre
+   * « Messagerie » : RC envoyés au Google Sheet de l'alliance (ExportRapports).
    *
    * @static
    * @method boutonsPartage
@@ -58,15 +58,15 @@ class MessagerieFzzz {
   static boutonsPartage() {
     let $titre = $("#messagerie > h2").first();
     if (!$titre.length || $("#o_partageAlliance").length) return;
-    let tag = Utils.alliance || "l'alliance";
     $(`<div id='o_partageAlliance'>
-        <button type='button' class='o_button f_info' data-quoi='rc'>Partager mes RC avec la ${tag}</button>
+        <button type='button' class='o_button f_info' data-quoi='chasse' title="Ajoute au Google Sheet de l'alliance (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») les chasses de la messagerie pas encore exportées">Exporter mes chasses</button>
+        <button type='button' class='o_button f_info' data-quoi='combat' title="Ajoute au Google Sheet de l'alliance tes attaques (onglet « ${EXPORTS_RAPPORTS.attaque.onglet} »), tes défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») et tes floods avec les membres de l'alliance (« ${EXPORTS_RAPPORTS.interne.onglet} ») pas encore exportés">Exporter mes RC</button>
       </div>`)
       .insertAfter($titre)
       .find("button")
       .on("click", (e) => {
         e.preventDefault();
-        $.toast({ ...TOAST_INFO, text: "En cours de dev" });
+        ExportRapports.exporter($(e.currentTarget).data("quoi"), $(e.currentTarget));
       });
   }
   /**

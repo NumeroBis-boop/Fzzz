@@ -196,6 +196,99 @@ describe("Userscripts (Safari iOS) : ni @resource ni GM_* synchrones", () => {
   });
 });
 
+describe("export des RC : script du Google Sheet de l'alliance", () => {
+  function charger(gm: Record<string, unknown>) {
+    const contexte = vm.createContext({
+      location: { hostname: "s5.fourmizzz.fr" },
+      GM_info: { script: { version: "9.9.9" }, scriptMetaStr: "" },
+      GM_getValue: () => undefined,
+      GM_setValue: () => {},
+      GM_deleteValue: () => {},
+      GM_listValues: () => [],
+      ...gm,
+    });
+    vm.runInContext(readFileSync(join(RACINE, "userscript/shim.js"), "utf8"), contexte);
+    return vm.runInContext("chrome", contexte);
+  }
+  const URL_SCRIPT = "https://script.google.com/macros/s/AKfy_1-a/exec";
+
+  test("en-tête : accès à script.google.com et à ses réponses", () => {
+    const connect = entete("abc123", "9.9.9", config)
+      .split("\n")
+      .filter((l) => l.startsWith("// @connect"))
+      .map((l) => l.split(/\s+/).at(-1));
+    expect(connect).toEqual(["ouafchaine.fr", "script.google.com", "script.googleusercontent.com"]);
+    expect(entete("abc123", "9.9.9", config)).toMatch(/@grant +GM\.xmlHttpRequest\n/);
+  });
+
+  test("seulement une adresse de script Google, en GET ou POST", async () => {
+    const chrome = charger({ GM_xmlhttpRequest: () => {} });
+    for (const [url, methode] of [
+      ["https://evil.example/macros/s/AKfy/exec", "POST"],
+      ["https://script.google.com/macros/s/AKfy/exec?x=1", "POST"],
+      [URL_SCRIPT, "DELETE"],
+    ])
+      expect(await chrome.runtime.sendMessage({ type: "fzzz_sheet", url, methode })).toEqual({
+        erreur: "requete",
+      });
+  });
+
+  test("POST : JSON en texte brut, réponse du script relue", async () => {
+    const requetes: any[] = [];
+    const chrome = charger({
+      GM_xmlhttpRequest: (d: any) => {
+        requetes.push(d);
+        d.onload({ status: 200, responseText: '{"ajoutees":2,"deja":1}' });
+      },
+    });
+    expect(
+      await chrome.runtime.sendMessage({
+        type: "fzzz_sheet",
+        url: URL_SCRIPT,
+        methode: "POST",
+        corps: { onglet: "BDD RC", lignes: [] },
+      }),
+    ).toEqual({ ok: true, statut: 200, donnees: { ajoutees: 2, deja: 1 } });
+    expect(requetes[0].url).toBe(URL_SCRIPT);
+    expect(requetes[0].headers["Content-Type"]).toBe("text/plain;charset=utf-8");
+    expect(JSON.parse(requetes[0].data)).toEqual({ onglet: "BDD RC", lignes: [] });
+  });
+
+  test("page d'erreur de Google au lieu de JSON : son texte gardé pour le journal", async () => {
+    const chrome = charger({
+      GM_xmlhttpRequest: (d: any) =>
+        d.onload({
+          status: 500,
+          responseText:
+            "<html><head><style>body{color:red}</style><title>Erreur</title></head><body><div>Exception: Cannot read properties of null (reading 'getRange') (ligne 120, fichier « Code »)</div></body></html>",
+        }),
+    });
+    expect(
+      await chrome.runtime.sendMessage({
+        type: "fzzz_sheet",
+        url: URL_SCRIPT,
+        methode: "POST",
+        corps: {},
+      }),
+    ).toEqual({
+      ok: false,
+      statut: 500,
+      donnees: {},
+      extrait:
+        "Erreur Exception: Cannot read properties of null (reading 'getRange') (ligne 120, fichier « Code »)",
+    });
+  });
+
+  test("Userscripts (Safari iOS) : GM.xmlHttpRequest ; script injoignable : erreur réseau", async () => {
+    const chrome = charger({
+      GM: { xmlHttpRequest: (d: any) => d.onerror() },
+    });
+    expect(
+      await chrome.runtime.sendMessage({ type: "fzzz_sheet", url: URL_SCRIPT, methode: "GET" }),
+    ).toEqual({ erreur: "reseau" });
+  });
+});
+
 describe("version d'essai « Extension OUAF - TEST »", () => {
   test("script séparé qui suit la branche test", () => {
     const texte = entete("abc123", "1.79.3.202611051200", config, () => "", TEST);

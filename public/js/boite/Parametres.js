@@ -374,7 +374,9 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Couleurs des titres <span class='o_aideParam'>(case décochée : couleur du jeu)</span>
           <button type='button' id='o_couleursMessagesDefaut' class='o_button'>Par défaut</button></p>
         <div class='o_grilleParam'>${couleurs}</div>
+        <div id='o_exportSheetReglage'></div>
       </form>`);
+    this.reglageExport();
     let enregistrer = (type) => {
       let active = $onglet.find(`input[data-couleur-active='${type}']`).prop("checked"),
         couleur = $onglet.find(`input[data-couleur='${type}']`).val();
@@ -398,6 +400,97 @@ class BoiteParametre extends Boite {
         $onglet.find(`input[data-couleur='${type}']`).val(COULEURS_MESSAGES[type].defaut);
         $onglet.find(`input[data-couleur-active='${type}']`).prop("checked", true);
       }
+    });
+    return this;
+  }
+  /**
+   * Adresse du script du Google Sheet de l'export des RC, pour un joueur hors
+   * de la liste du forum caché seulement (son propre fichier, adresse gardée
+   * dans son navigateur) : pour ceux de la liste, rien à régler ni à afficher.
+   *
+   * @method reglageExport
+   */
+  reglageExport() {
+    ExportRapports.reglageAlliance().then((r) => {
+      if (!r.autorise) this.reglageExportPersonnel();
+    });
+    return this;
+  }
+  /**
+   * @method reglageExportPersonnel
+   */
+  reglageExportPersonnel() {
+    let $zone = $("#o_exportSheetReglage").html(`
+        <p class='o_titreParam'>Export vers le Google Sheet</p>
+        <p id='o_exportSheetEtat' class='left small'></p>
+        <p class='left small'><em>Pour exporter tes rapports (boutons « Exporter mes chasses » et « Exporter mes RC » de la messagerie), renseigne l'adresse du script de ton propre Google Sheet. Elle reste dans ton navigateur. Les joueurs de la liste du forum caché (sujet « ${TITRE_EXPORT_SHEET} ») n'ont rien à régler.</em></p>
+        <p class='left small'><label for='o_exportSheet'>Adresse du script :</label>
+          <input type='password' id='o_exportSheet' autocomplete='new-password' spellcheck='false' placeholder='https://script.google.com/macros/s/…/exec' style='width:16em; max-width:100%'/>
+          <button type='button' id='o_exportSheetVoir' class='o_button' title="Afficher l'adresse enregistrée">👁 Afficher</button>
+          <button type='button' id='o_exportSheetEnregistrer' class='o_button f_success'>Enregistrer</button>
+          <button type='button' id='o_exportSheetTester' class='o_button'>Tester</button>
+          <button type='button' id='o_exportSheetEffacer' class='o_button f_error'>Effacer</button></p>`),
+      etat = (/** @type {String} */ url, message = "") =>
+        $zone
+          .find("#o_exportSheetEtat")
+          .html(
+            message ||
+              (url
+                ? "<span class='green'>Adresse de ton fichier enregistrée.</span>"
+                : "<span class='red'>Aucune adresse : l'export est impossible jusque-là.</span>"),
+          ),
+      masquer = () => {
+        $zone.find("#o_exportSheet").attr("type", "password").val("");
+        $zone
+          .find("#o_exportSheetVoir")
+          .text("👁 Afficher")
+          .attr("title", "Afficher l'adresse enregistrée");
+      };
+    // section ajoutée après la lecture du forum : onglet peut-être déjà affiché
+    this.ajusterTaille();
+    ExportRapports.adressePersonnelle().then((url) => etat(url));
+    $zone.find("#o_exportSheetEnregistrer").on("click", () => {
+      let url = String($zone.find("#o_exportSheet").val() || "").trim();
+      if (!url) return;
+      if (!ExportRapports.adresseValide(url))
+        return etat(
+          url,
+          "<span class='red'>Adresse refusée : elle commence par https://script.google.com/ et finit par /exec.</span>",
+        );
+      ExportRapports.enregistrerAdresse(url).then(() => {
+        masquer();
+        etat(url);
+      });
+    });
+    $zone.find("#o_exportSheetEffacer").on("click", () =>
+      ExportRapports.enregistrerAdresse("").then(() => {
+        masquer();
+        etat("");
+      }),
+    );
+    $zone.find("#o_exportSheetVoir").on("click", () => {
+      if ($zone.find("#o_exportSheet").attr("type") == "text") return masquer();
+      ExportRapports.adressePersonnelle().then((url) => {
+        if (!url) return etat("");
+        $zone.find("#o_exportSheet").attr("type", "text").val(url);
+        $zone.find("#o_exportSheetVoir").text("🙈 Masquer").attr("title", "Masquer l'adresse");
+      });
+    });
+    $zone.find("#o_exportSheetTester").on("click", () => {
+      let saisie = String($zone.find("#o_exportSheet").val() || "").trim();
+      (saisie ? Promise.resolve(saisie) : ExportRapports.adressePersonnelle()).then((url) => {
+        if (!ExportRapports.adresseValide(url))
+          return etat(url, "<span class='red'>Aucune adresse valide à tester.</span>");
+        etat(url, "Test en cours…");
+        ExportRapports.requete(url, "GET").then(
+          (r) =>
+            etat(
+              url,
+              `<span class='green'>Script joignable${r.fichier ? ` : fichier « ${Utils.echapper(String(r.fichier))} »` : ""}.</span>`,
+            ),
+          (e) => etat(url, `<span class='red'>Échec : ${Utils.echapper(e.message)}.</span>`),
+        );
+      });
     });
     return this;
   }

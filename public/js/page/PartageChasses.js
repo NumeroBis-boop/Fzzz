@@ -9,6 +9,10 @@
 const FORUM_SECTIONS_CHASSES = ["BDD partagée cachée", "Fzzz-Chasses", "Fzzz_Chasses"];
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
+// sujet où la personne qui gère le Google Sheet de l'alliance poste, à la main,
+// l'adresse du script qui reçoit les rapports exportés et la liste des joueurs
+// qui l'utilisent (ExportRapports.lireReglage)
+const TITRE_EXPORT_SHEET = "Export Google Sheet";
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
@@ -214,7 +218,8 @@ class PartageChasses {
         PartageChasses.idSection = null;
         throw new Error("section inaccessible");
       }
-      // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse
+      // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse ;
+      // sujets.exportSheet : sujet de l'adresse du Google Sheet
       let sujets = { liste: [] };
       Utils.parseHtml(reponse)
         .find("#form_cat tr")
@@ -230,6 +235,13 @@ class PartageChasses {
             sujets[`${m[1]} | ${pseudo.toLowerCase()}`] = idSujet;
             sujets.liste.push({ type: m[1], pseudo: pseudo, id: idSujet });
           }
+          // créé deux fois (deux enregistrements au même instant) : le plus ancien fait foi
+          if (
+            titre == TITRE_EXPORT_SHEET &&
+            idSujet &&
+            (!sujets.exportSheet || Number(idSujet) < Number(sujets.exportSheet))
+          )
+            sujets.exportSheet = idSujet;
         });
       return sujets;
     });

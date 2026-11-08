@@ -123,10 +123,64 @@ async function requeteOuaf(m: RequeteOuaf): Promise<{
   }
 }
 
+/** Script Google (Apps Script) du fichier de l'alliance, et l'hôte de ses réponses. */
+const SHEET_ORIGINES = ["https://script.google.com/*", "https://script.googleusercontent.com/*"];
+const ADRESSE_SHEET =
+  /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/\s]+|macros)\/s\/[\w-]+\/exec$/;
+
+interface RequeteSheet {
+  type: "fzzz_sheet";
+  url: string;
+  methode: string;
+  corps?: unknown;
+}
+
+/**
+ * Requête au script du Google Sheet de l'alliance (export des RC de la
+ * messagerie) : seulement une adresse de script Google, et seulement si le
+ * joueur a accordé l'accès. JSON envoyé en texte brut, comme l'attend Apps Script.
+ */
+async function requeteSheet(m: RequeteSheet): Promise<{
+  ok?: boolean;
+  statut?: number;
+  donnees?: unknown;
+  extrait?: string;
+  erreur?: "permission" | "requete" | "reseau";
+}> {
+  if (!ADRESSE_SHEET.test(String(m.url)) || !["GET", "POST"].includes(m.methode))
+    return { erreur: "requete" };
+  if (!(await browser.permissions.contains({ origins: SHEET_ORIGINES })))
+    return { erreur: "permission" };
+  try {
+    const r = await fetch(m.url, {
+      method: m.methode,
+      redirect: "follow",
+      headers: m.corps === undefined ? {} : { "Content-Type": "text/plain;charset=utf-8" },
+      body: m.corps === undefined ? undefined : JSON.stringify(m.corps),
+    });
+    const texte = await r.text();
+    try {
+      return { ok: r.ok, statut: r.status, donnees: JSON.parse(texte) };
+    } catch {
+      // page d'erreur de Google (exception du script…) : son texte, pour le journal
+      const extrait = texte
+        .replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 300);
+      return { ok: r.ok, statut: r.status, donnees: {}, ...(extrait ? { extrait } : {}) };
+    }
+  } catch (e) {
+    return { erreur: "reseau" };
+  }
+}
+
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: unknown) => {
     const type = (message as { type?: string })?.type;
     if (type === "fzzz_ouaf") return requeteOuaf(message as RequeteOuaf);
+    if (type === "fzzz_sheet") return requeteSheet(message as RequeteSheet);
     if (type !== "fzzz_majVerifier") return undefined;
     return verifierMiseAJour();
   });

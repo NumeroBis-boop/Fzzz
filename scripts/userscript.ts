@@ -148,8 +148,13 @@ export function entete(
       "GM.setValue",
       "GM.deleteValue",
       "GM.listValues",
+      "GM.xmlHttpRequest",
     ].map((g) => ["@grant", g]),
     ["@connect", "ouafchaine.fr"],
+    // export des RC vers le Google Sheet de l'alliance (le script répond par une
+    // redirection vers script.googleusercontent.com)
+    ["@connect", "script.google.com"],
+    ["@connect", "script.googleusercontent.com"],
     // adresse de base des images et feuilles de style (voir userscript/shim.js)
     ["@resource", `fzzzBase ${cdn}/public/ouaf-autorisation.html`],
     ...css.map((f, i) => ["@resource", `fzzzCss${i} ${cdn}/public/${f}`]),

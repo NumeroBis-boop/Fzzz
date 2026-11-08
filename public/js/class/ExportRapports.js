@@ -29,6 +29,9 @@ let exportEnCours = false;
 const JOURNAL_EXPORT = "Export Google Sheet";
 // dégâts de base sous lesquels l'arrondi du jeu fausse le niveau d'arme
 const EXPORT_DEGATS_MIN = 100;
+// un script déployé avant une requête la refuse (« requête invalide »)
+const SCRIPT_PAS_A_JOUR =
+  "le script du Google Sheet n'est pas à jour (la personne qui gère le fichier doit y recoller le code et déployer une nouvelle version)";
 
 // colonnes d'un combat ou d'une prise (onglet « Flood internes »)
 const ENTETES_INTERNES = [
@@ -962,11 +965,13 @@ class ExportRapports {
    */
   static requete(url, methode, corps) {
     let quoi =
-        corps && corps.verifier
-          ? "vérification des RC déjà exportés"
-          : corps && corps.onglet
-            ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
-            : "test du script",
+        corps && corps.statistiques
+          ? "statistiques de la synthèse"
+          : corps && corps.verifier
+            ? "vérification des RC déjà exportés"
+            : corps && corps.onglet
+              ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
+              : "test du script",
       echec = (/** @type {String} */ message, /** @type {any} */ r) => {
         // statut, réponse du script, ou texte de la page d'erreur de Google
         Journal.erreur(
@@ -989,6 +994,58 @@ class ExportRapports {
           return echec(`réponse inattendue du script (erreur ${r.statut || "?"})`, r);
         return r.donnees;
       });
+  }
+  /**
+   * Pourquoi aucun fichier n'est utilisable (export, synthèse).
+   *
+   * @static
+   * @method sansAdresse
+   * @param {Boolean} alliance joueur de la liste du forum caché
+   * @param {Boolean} [illisible] forum caché pas lu
+   * @return {String}
+   */
+  static sansAdresse(alliance, illisible) {
+    return alliance
+      ? `l'adresse du Google Sheet de l'alliance n'est pas encore postée dans le forum caché (sujet « ${TITRE_EXPORT_SHEET} »)`
+      : illisible
+        ? `le forum de l'alliance n'a pas pu être lu (liste des joueurs autorisés à partager des RC, sujet « ${TITRE_EXPORT_SHEET} »). Réessaie dans un instant`
+        : `ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC (forum caché, sujet « ${TITRE_EXPORT_SHEET} ») et aucune adresse de Google Sheet n'est renseignée dans Préférences → Messagerie`;
+  }
+  /**
+   * Statistiques du joueur sur une période, calculées par le script du fichier
+   * (les mêmes que son onglet « Statistiques ») : onglet « Synthèse » des
+   * « Outils pour Chasseur ».
+   *
+   * @static
+   * @method statistiques
+   * @param {String} debut premier jour compris, "AAAA-MM-JJ"
+   * @param {String} fin dernier jour compris, "AAAA-MM-JJ"
+   * @return {Promise<any>} voir statistiques() dans google-sheet/export-rapports.gs
+   */
+  static statistiques(debut, fin) {
+    if (!monProfil.pseudo) return Promise.reject(new Error("pseudo du joueur introuvable"));
+    return ExportRapports.cible()
+      .then(({ url, alliance, illisible }) => {
+        if (!ExportRapports.adresseValide(url))
+          throw new Error(ExportRapports.sansAdresse(alliance, !!illisible));
+        return ExportRapports.requete(url, "POST", {
+          statistiques: true,
+          joueur: monProfil.pseudo,
+          debut,
+          fin,
+        });
+      })
+      .then(
+        (r) => {
+          if (!r || !r.statistiques || !Array.isArray(r.statistiques.resume))
+            throw new Error("réponse inattendue du script");
+          return r.statistiques;
+        },
+        (e) => {
+          if (/requête invalide/.test(e && e.message)) throw new Error(SCRIPT_PAS_A_JOUR);
+          throw e;
+        },
+      );
   }
   /**
    * Parmi les clés de RC déjà exportés, celles que le fichier n'a plus (ligne
@@ -1014,10 +1071,7 @@ class ExportRapports {
       },
       (e) => {
         // script d'avant cette vérification : il refuse la requête
-        if (/requête invalide/.test(e.message))
-          throw new Error(
-            "le script du Google Sheet n'est pas à jour (la personne qui gère le fichier doit y recoller le code et déployer une nouvelle version)",
-          );
+        if (/requête invalide/.test(e.message)) throw new Error(SCRIPT_PAS_A_JOUR);
         throw e;
       },
     );
@@ -1087,11 +1141,7 @@ class ExportRapports {
           $.toast({
             ...TOAST_ERROR,
             hideAfter: 10000,
-            text: alliance
-              ? `Export impossible : l'adresse du Google Sheet de l'alliance n'est pas encore postée dans le forum caché (sujet « ${TITRE_EXPORT_SHEET} »).`
-              : illisible
-                ? `Export impossible : le forum de l'alliance n'a pas pu être lu (liste des joueurs autorisés à partager des RC, sujet « ${TITRE_EXPORT_SHEET} »). Réessaie dans un instant.`
-                : `Export impossible : ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC (forum caché, sujet « ${TITRE_EXPORT_SHEET} ») et aucune adresse de Google Sheet n'est renseignée dans Préférences → Messagerie.`,
+            text: `Export impossible : ${ExportRapports.sansAdresse(alliance, illisible)}.`,
           });
           return;
         }

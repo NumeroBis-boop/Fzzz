@@ -157,6 +157,7 @@ export default defineConfig({
           "js/boite/Journal.js",
           "js/boite/Boite.js",
           "js/boite/ImportArmee.js",
+          "js/boite/Synthese.js",
           "js/boite/Chasse.js",
           "js/boite/Combat.js",
           "js/boite/Parametres.js",

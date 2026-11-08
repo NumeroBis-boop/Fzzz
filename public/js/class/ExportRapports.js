@@ -1020,9 +1020,10 @@ class ExportRapports {
    * @method statistiques
    * @param {String} debut premier jour compris, "AAAA-MM-JJ"
    * @param {String} fin dernier jour compris, "AAAA-MM-JJ"
+   * @param {Boolean} [autres] avec les courbes des autres chasseurs
    * @return {Promise<any>} voir statistiques() dans google-sheet/export-rapports.gs
    */
-  static statistiques(debut, fin) {
+  static statistiques(debut, fin, autres = false) {
     if (!monProfil.pseudo) return Promise.reject(new Error("pseudo du joueur introuvable"));
     return ExportRapports.cible()
       .then(({ url, alliance, illisible }) => {
@@ -1033,12 +1034,20 @@ class ExportRapports {
           joueur: monProfil.pseudo,
           debut,
           fin,
+          autres: !!autres,
         });
       })
       .then(
         (r) => {
           if (!r || !r.statistiques || !Array.isArray(r.statistiques.resume))
             throw new Error("réponse inattendue du script");
+          // script déployé avant les multi-chasses et l'armée
+          if (
+            !["armee", "comparaison", "multiChasses", "chasses"].every(
+              (b) => r.statistiques[b] && Array.isArray(r.statistiques[b].lignes),
+            )
+          )
+            throw new Error(SCRIPT_PAS_A_JOUR);
           return r.statistiques;
         },
         (e) => {

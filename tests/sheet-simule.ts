@@ -159,19 +159,29 @@ export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Euro
   const ctx: any = {
     console: { warn: (m: string) => avertissements.push(m) },
     SpreadsheetApp: { getActiveSpreadsheet: () => classeur, newDataValidation: regle },
-    // seul format utilisé par le script : jour d'une date dans le fuseau du fichier
+    // formats utilisés par le script : jour ou minute d'une date dans le fuseau du fichier
     Utilities: {
       formatDate: (d: Date, tz: string, format: string) => {
-        if (format != "yyyy-MM-dd") throw new Error("format non simulé : " + format);
-        return new Intl.DateTimeFormat("en-CA", {
-          timeZone: tz,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(d);
+        if (format != "yyyy-MM-dd" && format != "yyyy-MM-dd HH:mm")
+          throw new Error("format non simulé : " + format);
+        const p = Object.fromEntries(
+          new Intl.DateTimeFormat("en-CA", {
+            timeZone: tz,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+          })
+            .formatToParts(d)
+            .map((x) => [x.type, x.value]),
+        );
+        const jour = `${p.year}-${p.month}-${p.day}`;
+        return format == "yyyy-MM-dd" ? jour : `${jour} ${p.hour}:${p.minute}`;
       },
     },
-    Charts: { ChartType: { COLUMN: "COLUMN", LINE: "LINE" } },
+    Charts: { ChartType: { AREA: "AREA", COLUMN: "COLUMN", LINE: "LINE" } },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     ContentService: {
       MimeType: { JSON: "json" },

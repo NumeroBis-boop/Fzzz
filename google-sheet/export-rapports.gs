@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.3";
+var VERSION_SCRIPT = "2026-11-08.4";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -296,6 +296,29 @@ var COLONNES_CHASSE = [
   "Terrain conquis (cm²)",
   "Nourriture",
   "Fourmis perdues",
+  "Troupes en attaque",
+];
+// chasses rentrées à moins de 5 minutes l'une de l'autre : une même multi-chasse
+// (les expéditions d'un même lancement rentrent à une ou deux minutes d'écart)
+var MULTICHASSE_MINUTES = 5;
+// unités dans l'ordre de l'extension (Armee.unite), noms des RC au singulier
+// sans accent, vie, attaque et défense hors bonus (VIE_UNITE, ATT_UNITE et
+// DEF_UNITE de content.js, comparés par tests/statistiques-script.test.ts)
+var UNITES = [
+  { nom: "Jeune Soldate Naine", cle: "jeune soldate naine", vie: 8, att: 3, def: 2 },
+  { nom: "Soldate Naine", cle: "soldate naine", vie: 10, att: 5, def: 4 },
+  { nom: "Naine d'Elite", cle: "naine d'elite", vie: 13, att: 7, def: 6 },
+  { nom: "Jeune Soldate", cle: "jeune soldate", vie: 16, att: 10, def: 9 },
+  { nom: "Soldate", cle: "soldate", vie: 20, att: 15, def: 14 },
+  { nom: "Concierge", cle: "concierge", vie: 30, att: 1, def: 25 },
+  { nom: "Concierge d'élite", cle: "concierge d'elite", vie: 40, att: 1, def: 35 },
+  { nom: "Artilleuse", cle: "artilleuse", vie: 10, att: 30, def: 15 },
+  { nom: "Artilleuse d'élite", cle: "artilleuse d'elite", vie: 12, att: 35, def: 18 },
+  { nom: "Soldate d'élite", cle: "soldate d'elite", vie: 27, att: 24, def: 23 },
+  { nom: "Tank", cle: "tank", vie: 35, att: 55, def: 1 },
+  { nom: "Tank d'élite", cle: "tank d'elite", vie: 50, att: 80, def: 1 },
+  { nom: "Tueuse", cle: "tueuse", vie: 50, att: 50, def: 50 },
+  { nom: "Tueuse d'élite", cle: "tueuse d'elite", vie: 55, att: 55, def: 55 },
 ];
 var COLONNES_COMBATS = [
   "Exporté par",
@@ -338,10 +361,14 @@ var COLONNE_STATISTIQUES = 4;
 var LIGNES_STATISTIQUES = 1000;
 var BLOCS_STATISTIQUES = [
   { nom: "resume", titre: "Résumé", largeur: 2 },
-  { nom: "evolution", titre: "Évolution", largeur: 7 },
+  { nom: "evolution", titre: "Évolution", largeur: 8 },
   { nom: "cibles", titre: "Cibles hors alliance", largeur: 4 },
   { nom: "attaquants", titre: "Attaquants hors alliance", largeur: 4 },
   { nom: "internes", titre: "Floods internes", largeur: 4 },
+  { nom: "armee", titre: "Armée (hors bonus)", largeur: 4 },
+  { nom: "comparaison", titre: "Chasseurs de la période", largeur: 6 },
+  { nom: "multiChasses", titre: "Multi-chasses", largeur: 8 + UNITES.length },
+  { nom: "chasses", titre: "Chasses", largeur: 4 },
   { nom: "joueurs", titre: "Joueurs", largeur: 1 },
 ];
 
@@ -350,11 +377,14 @@ var BLOCS_STATISTIQUES = [
  *
  * tables : {chasse, attaques, defenses, internes}, valeurs des onglets avec
  * leurs titres en première ligne (vides si l'onglet manque) ; debut, fin :
- * "AAAA-MM-JJ" ; fuseau : celui du fichier (jour d'une date).
+ * "AAAA-MM-JJ" ; fuseau : celui du fichier (jour d'une date) ; autres : avec
+ * les courbes des autres chasseurs (synthèse de l'extension, sur demande).
  * Chasses, attaques et défenses : lignes exportées par le joueur ; floods
  * internes : lignes où il est attaquant (terrain reçu) ou défenseur (donné).
+ * Multi-chasse : chasses rentrées à moins de MULTICHASSE_MINUTES de la
+ * précédente ; son armée est la somme des troupes de ses chasses.
  */
-function statistiques(tables, joueur, debut, fin, fuseau) {
+function statistiques(tables, joueur, debut, fin, fuseau, autres) {
   var moi = nomJoueur(joueur),
     pas = pasEvolution(debut, fin),
     periodes = periodesEntre(debut, fin, pas),
@@ -385,19 +415,40 @@ function statistiques(tables, joueur, debut, fin, fuseau) {
       liste[cle] = liste[cle] || { nom: cle, a: 0, b: 0, c: 0 };
       liste[cle][champ] += valeur;
     };
-  lignesDePeriode(tables.chasse, COLONNES_CHASSE, debut, fin, fuseau).forEach(function (l) {
-    if (nomJoueur(l["Exporté par"]) != moi) return;
-    var terrain = nombre(l["Terrain conquis (cm²)"]),
-      nourriture = nombre(l["Nourriture"]),
-      pertes = nombre(l["Fourmis perdues"]),
-      p = periode(l);
+  var parJoueur = chassesParJoueur(
+      lignesDePeriode(tables.chasse, COLONNES_CHASSE, debut, fin, fuseau),
+    ),
+    miennes = parJoueur[moi] ? parJoueur[moi].chasses : [],
+    groupes = multiChasses(miennes),
+    ratios = groupes
+      .filter(function (g) {
+        return g.terrain > 0;
+      })
+      .map(function (g) {
+        return g.pertes / g.terrain;
+      }),
+    moyenne = ratios.length
+      ? ratios.reduce(function (a, b) {
+          return a + b;
+        }, 0) / ratios.length
+      : null,
+    ecart =
+      moyenne == null
+        ? null
+        : Math.sqrt(
+            ratios.reduce(function (a, r) {
+              return a + (r - moyenne) * (r - moyenne);
+            }, 0) / ratios.length,
+          );
+  miennes.forEach(function (c) {
+    var p = periode(c);
     chasses.nombre++;
-    chasses.terrain += terrain;
-    chasses.nourriture += nourriture;
-    chasses.pertes += pertes;
-    p.chasse += terrain;
-    p.nourriture += nourriture;
-    p.pertes += pertes;
+    chasses.terrain += c.terrain;
+    chasses.nourriture += c.nourriture;
+    chasses.pertes += c.pertes;
+    p.chasse += c.terrain;
+    p.nourriture += c.nourriture;
+    p.pertes += c.pertes;
   });
   lignesDePeriode(tables.attaques, COLONNES_COMBATS, debut, fin, fuseau).forEach(function (l) {
     if (nomJoueur(l["Exporté par"]) != moi) return;
@@ -446,9 +497,14 @@ function statistiques(tables, joueur, debut, fin, fuseau) {
       compter(allies, l["Attaquant"], "b", terrain);
     }
   });
-  var ratio = function (pertes, terrain) {
-      return terrain > 0 ? Math.round((pertes * 1e6) / terrain) : "";
+  var parCm2 = function (pertes, terrain) {
+      return terrain > 0 ? arrondi(pertes / terrain, 4) : "";
     },
+    tendanceChasses = tendance(
+      periodes.map(function (p) {
+        return parPeriode[p.cle].chasse;
+      }),
+    ),
     // du plus grand au plus petit, champ après champ, puis par nom
     tri = function (liste, champs) {
       return Object.keys(liste)
@@ -470,10 +526,17 @@ function statistiques(tables, joueur, debut, fin, fuseau) {
     resume: [
       ["Chasses", ""],
       ["Chasses (RC)", chasses.nombre],
+      ["Multi-chasses", groupes.length],
       ["Terrain conquis (cm²)", chasses.terrain],
-      ["Nourriture rapportée", chasses.nourriture],
       ["Fourmis perdues", chasses.pertes],
-      ["Pertes par million de cm²", ratio(chasses.pertes, chasses.terrain)],
+      ["Pertes par cm² chassé", parCm2(chasses.pertes, chasses.terrain)],
+      ["Pertes par cm², moyenne des multi-chasses", moyenne == null ? "" : arrondi(moyenne, 4)],
+      ["Pertes par cm², écart-type", ecart == null ? "" : arrondi(ecart, 4)],
+      ["Nourriture rapportée", chasses.nourriture],
+      [
+        "Nourriture par chasse",
+        chasses.nombre ? Math.round(chasses.nourriture / chasses.nombre) : "",
+      ],
       [
         "Terrain moyen par chasse (cm²)",
         chasses.nombre ? Math.round(chasses.terrain / chasses.nombre) : "",
@@ -513,9 +576,10 @@ function statistiques(tables, joueur, debut, fin, fuseau) {
         "Floods internes (cm²)",
         "Perdu (cm²)",
         "Nourriture",
-        "Pertes / M cm²",
+        "Pertes / cm²",
+        "Tendance des chasses (cm²)",
       ],
-      lignes: periodes.map(function (p) {
+      lignes: periodes.map(function (p, i) {
         var v = parPeriode[p.cle];
         // perte en négatif, sans « -0 » les jours sans perte
         return [
@@ -525,7 +589,8 @@ function statistiques(tables, joueur, debut, fin, fuseau) {
           v.internes,
           v.perdu ? -v.perdu : 0,
           v.nourriture,
-          ratio(v.pertes, v.chasse),
+          parCm2(v.pertes, v.chasse),
+          tendanceChasses[i],
         ];
       }),
     },
@@ -547,7 +612,282 @@ function statistiques(tables, joueur, debut, fin, fuseau) {
         return [c.nom, c.a, c.b, c.a - c.b];
       }),
     },
+    // chaque multi-chasse est supposée emmener toute l'armée
+    armee: blocArmee(groupes),
+    comparaison: {
+      titres: [
+        "Chasseur",
+        "Chasses (RC)",
+        "Multi-chasses",
+        "Terrain (cm²)",
+        "Pertes / cm²",
+        "Nourriture par chasse",
+      ],
+      lignes: comparaisonChasseurs(parJoueur),
+    },
+    multiChasses: {
+      titres: [
+        "Retour",
+        "Expéditions",
+        "Terrain (cm²)",
+        "Pertes",
+        "Pertes / cm²",
+        "Moyenne",
+        "Moyenne + écart-type",
+        "Moyenne − écart-type",
+      ].concat(
+        UNITES.map(function (u) {
+          return u.nom;
+        }),
+      ),
+      instants: groupes.map(function (g) {
+        return g.instant;
+      }),
+      lignes: groupes.map(function (g) {
+        return [
+          libelleMinute(g.minute),
+          g.nombre,
+          g.terrain,
+          g.pertes,
+          parCm2(g.pertes, g.terrain),
+          moyenne == null ? "" : arrondi(moyenne, 4),
+          moyenne == null ? "" : arrondi(moyenne + ecart, 4),
+          moyenne == null ? "" : arrondi(moyenne - ecart, 4),
+        ].concat(g.unites);
+      }),
+    },
+    chasses: {
+      titres: ["Chasse", "Retour", "Terrain (cm²)", "Nourriture"],
+      lignes: miennes.map(function (c, i) {
+        return [i + 1, libelleMinute(c.minute), c.terrain, c.nourriture];
+      }),
+    },
+    // tous les chasseurs du fichier, toujours dans le même ordre : une couleur chacun
+    chasseurs: chasseursDe(tables.chasse),
+    autres: autres ? autresChasseurs(parJoueur, moi, periodes, pas) : [],
   };
+}
+
+// chasses de chaque chasseur (pseudo en minuscules), dans l'ordre de leur retour
+function chassesParJoueur(lignes) {
+  var parJoueur = {};
+  lignes.forEach(function (l) {
+    var nom = String(l["Exporté par"] || "").trim(),
+      cle = nomJoueur(nom);
+    if (!cle) return;
+    parJoueur[cle] = parJoueur[cle] || { joueur: nom, chasses: [] };
+    parJoueur[cle].chasses.push({
+      jour: l.jour,
+      minute: l.minute,
+      instant: instantDe(l.minute),
+      terrain: nombre(l["Terrain conquis (cm²)"]),
+      nourriture: nombre(l["Nourriture"]),
+      pertes: nombre(l["Fourmis perdues"]),
+      unites: unitesDe(l["Troupes en attaque"]),
+    });
+  });
+  Object.keys(parJoueur).forEach(function (k) {
+    parJoueur[k].chasses.sort(function (a, b) {
+      return a.minute < b.minute ? -1 : a.minute > b.minute ? 1 : 0;
+    });
+  });
+  return parJoueur;
+}
+
+// chasses rentrées à moins de MULTICHASSE_MINUTES de la précédente : un groupe
+function multiChasses(chasses) {
+  var groupes = [];
+  chasses.forEach(function (c) {
+    var g = groupes[groupes.length - 1];
+    if (!g || c.instant - g.dernier > MULTICHASSE_MINUTES * 60000) {
+      g = {
+        minute: c.minute,
+        instant: c.instant,
+        dernier: c.instant,
+        nombre: 0,
+        terrain: 0,
+        nourriture: 0,
+        pertes: 0,
+        unites: UNITES.map(function () {
+          return 0;
+        }),
+      };
+      groupes.push(g);
+    }
+    g.dernier = c.instant;
+    g.nombre++;
+    g.terrain += c.terrain;
+    g.nourriture += c.nourriture;
+    g.pertes += c.pertes;
+    c.unites.forEach(function (n, i) {
+      g.unites[i] += n;
+    });
+  });
+  return groupes;
+}
+
+// nombre de chaque unité d'une liste de troupes de RC (« 1 000 Jeunes Soldates Naines, … »)
+function unitesDe(texte) {
+  var unites = UNITES.map(function () {
+    return 0;
+  });
+  String(texte || "")
+    .split(",")
+    .forEach(function (morceau) {
+      var m = /^\s*(\d[\d\s\u00a0\u202f]*)\s+(.+?)\s*\.?\s*$/.exec(morceau);
+      if (!m) return;
+      var cle = m[2]
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[’‘]/g, "'")
+          .toLowerCase()
+          .split(/\s+/)
+          .map(function (mot) {
+            return mot.length > 3 && /s$/.test(mot) ? mot.slice(0, -1) : mot;
+          })
+          .join(" "),
+        i = UNITES.map(function (u) {
+          return u.cle;
+        }).indexOf(cle);
+      if (i != -1) unites[i] += Number(m[1].replace(/\D/g, ""));
+    });
+  return unites;
+}
+
+// unités, attaque, défense et vie hors bonus d'une armée
+function forcesDe(unites) {
+  var f = { unites: 0, att: 0, def: 0, vie: 0 };
+  unites.forEach(function (n, i) {
+    f.unites += n;
+    f.att += n * UNITES[i].att;
+    f.def += n * UNITES[i].def;
+    f.vie += n * UNITES[i].vie;
+  });
+  return f;
+}
+
+// armée de la première et de la dernière multi-chasse de la période
+function blocArmee(groupes) {
+  var debut = groupes.length ? forcesDe(groupes[0].unites) : null,
+    fin = groupes.length ? forcesDe(groupes[groupes.length - 1].unites) : null,
+    ligne = function (libelle, cle) {
+      var a = debut ? debut[cle] : "",
+        b = fin ? fin[cle] : "";
+      return [libelle, a, b, debut && a > 0 ? arrondi(((b - a) / a) * 100, 1) : ""];
+    };
+  return {
+    titres: [
+      "Armée (hors bonus)",
+      "Première multi-chasse",
+      "Dernière multi-chasse",
+      "Variation (%)",
+    ],
+    lignes: [
+      ligne("Unités (capacité de flood)", "unites"),
+      ligne("FdF", "att"),
+      ligne("Défense", "def"),
+      ligne("Vie", "vie"),
+    ],
+  };
+}
+
+// chasseurs du fichier (colonne « Exporté par » de « BDD chasse »), triés
+function chasseursDe(table) {
+  return joueursDesTables({ chasse: table });
+}
+
+// chiffres de chaque chasseur de la période, du plus grand terrain chassé au plus petit
+function comparaisonChasseurs(parJoueur) {
+  return Object.keys(parJoueur)
+    .map(function (k) {
+      var c = parJoueur[k].chasses,
+        somme = function (champ) {
+          return c.reduce(function (a, x) {
+            return a + x[champ];
+          }, 0);
+        },
+        terrain = somme("terrain");
+      return [
+        parJoueur[k].joueur,
+        c.length,
+        multiChasses(c).length,
+        terrain,
+        terrain > 0 ? arrondi(somme("pertes") / terrain, 4) : "",
+        c.length ? Math.round(somme("nourriture") / c.length) : "",
+      ];
+    })
+    .sort(function (a, b) {
+      return b[3] - a[3] || (a[0].toLowerCase() < b[0].toLowerCase() ? -1 : 1);
+    });
+}
+
+// courbes des autres chasseurs de la période : pertes par cm² de chaque
+// multi-chasse, terrain chassé par période, nourriture de chaque chasse
+function autresChasseurs(parJoueur, moi, periodes, pas) {
+  return Object.keys(parJoueur)
+    .sort()
+    .filter(function (k) {
+      return k != moi;
+    })
+    .map(function (k) {
+      var chasses = parJoueur[k].chasses,
+        terrain = {};
+      chasses.forEach(function (c) {
+        var cle = clePeriode(c.jour, pas);
+        terrain[cle] = (terrain[cle] || 0) + c.terrain;
+      });
+      return {
+        joueur: parJoueur[k].joueur,
+        multiChasses: multiChasses(chasses)
+          .filter(function (g) {
+            return g.terrain > 0;
+          })
+          .map(function (g) {
+            return [g.instant, arrondi(g.pertes / g.terrain, 4)];
+          }),
+        terrain: periodes.map(function (p) {
+          return terrain[p.cle] || 0;
+        }),
+        nourriture: chasses.map(function (c) {
+          return c.nourriture;
+        }),
+      };
+    });
+}
+
+// droite des moindres carrés : valeur ajustée de chaque période, arrondie
+function tendance(valeurs) {
+  var n = valeurs.length,
+    mx = (n - 1) / 2,
+    my =
+      valeurs.reduce(function (a, b) {
+        return a + b;
+      }, 0) / (n || 1),
+    sxy = 0,
+    sxx = 0;
+  valeurs.forEach(function (y, x) {
+    sxy += (x - mx) * (y - my);
+    sxx += (x - mx) * (x - mx);
+  });
+  return valeurs.map(function (y, x) {
+    // « || 0 » : pas de « -0 »
+    return Math.round(my + (sxx ? sxy / sxx : 0) * (x - mx)) || 0;
+  });
+}
+
+function arrondi(v, decimales) {
+  var f = Math.pow(10, decimales);
+  return Math.round(v * f) / f;
+}
+
+// "AAAA-MM-JJ HH:mm" lu comme UTC : écarts exacts et heure du fichier sur un axe de dates
+function instantDe(minute) {
+  var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(minute) || [];
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+}
+
+function libelleMinute(minute) {
+  return minute.slice(8, 10) + "/" + minute.slice(5, 7) + " " + minute.slice(11, 16);
 }
 
 // lignes d'un onglet datées de la période, en objets {titre: valeur, jour}
@@ -572,15 +912,29 @@ function lignesDePeriode(table, colonnes, debut, fin, fuseau) {
     return [];
   if (manquante) throw new Error("colonne « " + manquante + " » introuvable");
   for (var i = 1; i < table.length; i++) {
-    var jour = jourDe(table[i][index[colonnes.indexOf("Date")]], fuseau);
+    var minute = minuteDe(table[i][index[colonnes.indexOf("Date")]], fuseau),
+      jour = minute.slice(0, 10);
     if (!jour || jour < debut || jour > fin) continue;
-    var l = { jour: jour };
+    var l = { jour: jour, minute: minute };
     colonnes.forEach(function (c, k) {
       l[c] = table[i][index[k]];
     });
     lignes.push(l);
   }
   return lignes;
+}
+
+// minute "AAAA-MM-JJ HH:mm" d'une date du fichier ("" si ce n'en est pas une)
+function minuteDe(v, fuseau) {
+  if (Object.prototype.toString.call(v) == "[object Date]")
+    return isNaN(v.getTime()) ? "" : Utilities.formatDate(v, fuseau, "yyyy-MM-dd HH:mm");
+  if (typeof v == "number" && v > 0)
+    return new Date(Date.UTC(1899, 11, 30) + Math.round(v * 86400000))
+      .toISOString()
+      .slice(0, 16)
+      .replace("T", " ");
+  var m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec(String(v || "").trim());
+  return m ? m[1] + " " + (m[2] || "00") + ":" + (m[3] || "00") : "";
 }
 
 // jour "AAAA-MM-JJ" d'une date du fichier : date, numéro de série ou texte
@@ -676,6 +1030,7 @@ function statistiquesDemandees(classeur, d) {
         d.debut,
         d.fin,
         classeur.getSpreadsheetTimeZone(),
+        d.autres === true,
       ),
     };
   } catch (err) {
@@ -754,7 +1109,8 @@ function joueursDesTables(tables) {
 
 /**
  * Statistiques d'un joueur sur une période, pour l'onglet « Statistiques » :
- * résumé, évolution, cibles, attaquants et floods internes côte à côte. Un
+ * résumé, évolution, classements, armée, chasseurs, multi-chasses et chasses
+ * côte à côte. Un
  * seul argument, B3:B6 (joueur, premier et dernier jour, contrôle des
  * données) : une formule sans séparateur d'arguments se lit pareil dans tous
  * les paramètres régionaux (« , » ou « ; »). La case de contrôle change avec
@@ -783,14 +1139,9 @@ function STATS_OUAF(parametres) {
             ? "Période trop longue : trois ans au plus."
             : "",
     s = message ? null : statistiques(tables, joueur, jours[0], jours[1], fuseau),
+    vide = { titres: [], lignes: [] },
     blocs = {
-      resume: s
-        ? { titres: ["Indicateur", "Valeur"], lignes: s.resume }
-        : { titres: ["Indicateur", "Valeur"], lignes: [[message, ""]] },
-      evolution: s ? s.evolution : { titres: [], lignes: [] },
-      cibles: s ? s.cibles : { titres: [], lignes: [] },
-      attaquants: s ? s.attaquants : { titres: [], lignes: [] },
-      internes: s ? s.internes : { titres: [], lignes: [] },
+      resume: { titres: ["Indicateur", "Valeur"], lignes: s ? s.resume : [[message, ""]] },
       joueurs: {
         titres: ["Pseudo"],
         lignes: joueursDesTables(tables).map(function (j) {
@@ -798,8 +1149,31 @@ function STATS_OUAF(parametres) {
         }),
       },
     },
+    titres = {},
     hauteur = 2,
     sortie = [];
+  [
+    "evolution",
+    "cibles",
+    "attaquants",
+    "internes",
+    "armee",
+    "comparaison",
+    "multiChasses",
+    "chasses",
+  ].forEach(function (nom) {
+    blocs[nom] = s ? s[nom] : vide;
+  });
+  // listes plus longues que l'onglet : les plus récentes, titre complété
+  BLOCS_STATISTIQUES.forEach(function (b) {
+    var lignes = blocs[b.nom].lignes,
+      place = LIGNES_STATISTIQUES - 2;
+    titres[b.nom] = b.titre;
+    if (lignes.length > place) {
+      blocs[b.nom] = { titres: blocs[b.nom].titres, lignes: lignes.slice(-place) };
+      titres[b.nom] = b.titre + " (les " + place + " dernières lignes)";
+    }
+  });
   BLOCS_STATISTIQUES.forEach(function (b) {
     hauteur = Math.max(hauteur, 2 + blocs[b.nom].lignes.length);
   });
@@ -812,7 +1186,7 @@ function STATS_OUAF(parametres) {
   BLOCS_STATISTIQUES.forEach(function (b) {
     var c0 = colonneBloc(b.nom),
       bloc = blocs[b.nom];
-    sortie[0][c0] = b.titre;
+    sortie[0][c0] = titres[b.nom];
     bloc.titres.forEach(function (t, k) {
       sortie[1][c0 + k] = t;
     });
@@ -853,8 +1227,14 @@ function creerStatistiques(classeur) {
   });
   var f = classeur.insertSheet(ONGLET_STATISTIQUES, 0),
     c0 = COLONNE_STATISTIQUES,
-    cJoueurs = c0 + colonneBloc("joueurs"),
-    cEvolution = c0 + colonneBloc("evolution");
+    // colonne (à partir de 1) de la k-ième colonne d'un bloc
+    colonne = function (bloc, k) {
+      return c0 + colonneBloc(bloc) + (k || 0);
+    },
+    cJoueurs = colonne("joueurs"),
+    donnees = LIGNES_STATISTIQUES - 2,
+    // libellés du résumé (ils ne dépendent pas des données) : graphiques dessous
+    resume = statistiques({}, "?", "2000-01-01", "2000-01-01", "UTC").resume;
   // résultat de STATS_OUAF plus large que les 26 colonnes d'un nouvel onglet
   agrandir(f, LIGNES_STATISTIQUES, cJoueurs);
   f.getRange(1, 1).setValue("Statistiques d'un joueur (Extension OUAF)").setFontWeight("bold");
@@ -870,7 +1250,7 @@ function creerStatistiques(classeur) {
     );
   f.getRange(3, 2).setDataValidation(
     SpreadsheetApp.newDataValidation()
-      .requireValueInRange(f.getRange(3, cJoueurs, LIGNES_STATISTIQUES - 2, 1), true)
+      .requireValueInRange(f.getRange(3, cJoueurs, donnees, 1), true)
       .setAllowInvalid(true)
       .build(),
   );
@@ -883,41 +1263,79 @@ function creerStatistiques(classeur) {
   f.hideRows(6);
   f.getRange(1, c0).setFormula("=STATS_OUAF(B3:B6)");
   f.getRange(1, c0, 2, cJoueurs - c0 + 1).setFontWeight("bold");
-  f.getRange(3, c0 + 1, LIGNES_STATISTIQUES - 2, cJoueurs - c0).setNumberFormat("#,##0");
+  f.getRange(3, c0 + 1, donnees, cJoueurs - c0).setNumberFormat("#,##0");
+  // pertes par cm² : quatre décimales ; variation de l'armée en % : une
+  resume.forEach(function (l, i) {
+    if (/par cm²/.test(l[0])) f.getRange(3 + i, c0 + 1).setNumberFormat("0.0000");
+  });
+  [
+    [colonne("evolution", 6), 1],
+    [colonne("comparaison", 4), 1],
+    [colonne("multiChasses", 4), 4],
+  ].forEach(function (c) {
+    f.getRange(3, c[0], donnees, c[1]).setNumberFormat("0.0000");
+  });
+  f.getRange(3, colonne("armee", 3), donnees, 1).setNumberFormat("0.0");
   f.setColumnWidth(1, 110);
   f.setColumnWidth(2, 110);
-  f.setColumnWidth(c0, 230);
+  f.setColumnWidth(c0, 260);
   f.hideColumns(cJoueurs);
-  // évolution : périodes (colonne 1), puis les séries ; titres en ligne 2
-  var plage = function (colonne, n) {
-    return f.getRange(2, colonne, STATS_JOURS_PAR_JOUR + 2, n || 1);
-  };
+  // titres en ligne 2, valeurs dessous ; première plage : l'axe horizontal
+  var plage = function (bloc, k, n) {
+      return f.getRange(
+        2,
+        colonne(bloc, k),
+        bloc == "evolution" ? STATS_JOURS_PAR_JOUR + 2 : LIGNES_STATISTIQUES - 1,
+        n || 1,
+      );
+    },
+    premiere = resume.length + 5;
   [
     {
-      type: Charts.ChartType.COLUMN,
-      series: [1, 4],
-      titre: "Terrain gagné ou perdu (cm²)",
-      empile: true,
+      type: Charts.ChartType.LINE,
+      titre: "Terrain chassé (cm²) et sa tendance",
+      plages: [plage("evolution", 0), plage("evolution", 1), plage("evolution", 7)],
+      options: { series: { 1: { lineDashStyle: [6, 4] } } },
+    },
+    {
+      type: Charts.ChartType.LINE,
+      titre: "Pertes par cm² de chaque multi-chasse (moyenne ± écart-type)",
+      plages: [plage("multiChasses", 0), plage("multiChasses", 4, 4)],
+    },
+    {
+      type: Charts.ChartType.AREA,
+      titre: "Armée envoyée en multi-chasse (unités, hors bonus)",
+      plages: [plage("multiChasses", 0), plage("multiChasses", 8, UNITES.length)],
+      options: { isStacked: true },
+    },
+    {
+      type: Charts.ChartType.LINE,
+      titre: "Nourriture rapportée par chasse",
+      plages: [plage("chasses", 1), plage("chasses", 3)],
+      options: { legend: { position: "none" } },
     },
     {
       type: Charts.ChartType.COLUMN,
-      series: [5, 1],
-      titre: "Nourriture rapportée par les chasses",
+      titre: "Terrain gagné ou perdu (cm²)",
+      plages: [plage("evolution", 0), plage("evolution", 1, 4)],
+      options: { isStacked: true },
     },
-    { type: Charts.ChartType.LINE, series: [6, 1], titre: "Pertes par million de cm² chassés" },
   ].forEach(function (g, i) {
     var graphique = f
       .newChart()
       .setChartType(g.type)
-      .addRange(plage(cEvolution))
-      .addRange(plage(cEvolution + g.series[0], g.series[1]))
       .setNumHeaders(1)
-      .setPosition(30 + 18 * i, 1, 0, 0)
+      .setPosition(premiere + 18 * i, 1, 0, 0)
       .setOption("title", g.titre)
       .setOption("legend", { position: "bottom" })
       .setOption("width", 640)
       .setOption("height", 340);
-    if (g.empile) graphique.setOption("isStacked", true);
+    g.plages.forEach(function (p) {
+      graphique.addRange(p);
+    });
+    Object.keys(g.options || {}).forEach(function (k) {
+      graphique.setOption(k, g.options[k]);
+    });
     f.insertChart(graphique.build());
   });
 }

@@ -230,7 +230,8 @@ class SyntheseChasse {
   static html(s, autres = false, mesure = 0) {
     let jour = (/** @type {String} */ j) => moment(j, "YYYY-MM-DD").format("DD/MM/YYYY"),
       carte = (/** @type {any} */ c) =>
-        `<div class='o_syntheseCarte ${c.classe}'><span>${c.libelle}</span><b>${c.texte}</b>${c.detail ? `<small>${c.detail}</small>` : ""}</div>`,
+        `<div class='o_syntheseCarte ${c.classe}'><span>${c.libelle}</span><b>${c.texte}</b>${c.detail ? `<small${c.classeDetail ? ` class='${c.classeDetail}'` : ""}>${c.detail}</small>` : ""}</div>`,
+      cartes = SyntheseChasse.cartes(s),
       graphiques = SyntheseChasse.graphiques(s, autres, mesure)
         .map(
           (g, i) =>
@@ -238,10 +239,12 @@ class SyntheseChasse {
         )
         .join("");
     return `<p class='gras o_syntheseTitre'>Synthèse de ${Utils.echapper(s.joueur)} du ${jour(s.debut)} au ${jour(s.fin)}</p>
-      <div class='o_syntheseCartes'>${SyntheseChasse.cartes(s).map(carte).join("")}</div>
+      ${cartes.some((c) => c.detail) ? `<p class='o_syntheseSousTitre'>Sous chaque chiffre : l'écart avec la moyenne des ${s.comparaison.lignes.length} chasseurs de la période</p>` : ""}
+      <div class='o_syntheseCartes o_syntheseChiffres'>${cartes.map(carte).join("")}</div>
       <p class='o_syntheseSousTitre'>Armée hors bonus : la première multi-chasse (supposée emmener toute l'armée), puis l'effet en % de chaque chasse — pertes et expérience — sans les pontes</p>
       <div class='o_syntheseCartes o_syntheseArmee'>${SyntheseChasse.cartesArmee(s).map(carte).join("")}</div>
-      <div class='o_syntheseGraphiques'>${graphiques}</div>`;
+      <div class='o_syntheseGraphiques'>${graphiques}</div>
+      ${SyntheseChasse.tableau(s)}`;
   }
   /**
    * Boutons des mesures du graphique de l'armée.
@@ -271,30 +274,99 @@ class SyntheseChasse {
     return l && typeof l[1] == "number" ? l[1] : null;
   }
   /**
-   * Chiffres clés de chasse de la période, lus dans le résumé du script.
+   * Chiffres clés de chasse de la période, lus dans le résumé du script, avec
+   * l'écart à la moyenne des chasseurs de la période (chacun compte autant ;
+   * au-dessus en vert, en dessous en rouge, demande du mainteneur), quand ils
+   * sont au moins deux.
    *
    * @static
    * @method cartes
    * @param {any} s statistiques renvoyées par le script
-   * @return {Array<{libelle: String, texte: String, classe: String}>}
+   * @return {Array<{libelle: String, texte: String, classe: String, detail: String, classeDetail: String}>}
    */
   static cartes(s) {
     let v = (/** @type {String} */ libelle) => SyntheseChasse.resume(s, libelle),
       nombre = (/** @type {Number|null} */ n, unite = "") =>
-        n == null ? "—" : numeral(n).format() + unite;
-    return [
-      { libelle: "Chasses", texte: nombre(v("Chasses (RC)")), classe: "" },
-      { libelle: "Multi-chasses", texte: nombre(v("Multi-chasses")), classe: "" },
-      { libelle: "Terrain chassé", texte: nombre(v("Terrain chassé (cm²)"), " cm²"), classe: "" },
-      { libelle: "Pertes", texte: nombre(v("Fourmis perdues")), classe: "" },
-      { libelle: "Pertes / M cm² chassé", texte: nombre(v("Pertes par M cm² chassé")), classe: "" },
-      { libelle: "Nourriture rapportée", texte: nombre(v("Nourriture rapportée")), classe: "" },
-      {
-        libelle: "Nourriture / multi-chasse",
-        texte: nombre(v("Nourriture par multi-chasse")),
-        classe: "",
+        n == null ? "—" : numeral(n).format() + unite,
+      c = s.comparaison,
+      moyenne = (/** @type {String} */ titre) => {
+        if (!c || c.lignes.length < 2) return null;
+        let m = c.moyenne[c.titres.indexOf(titre)];
+        return typeof m == "number" && m > 0 ? m : null;
       },
+      carte = (/** @type {String} */ libelle, /** @type {String} */ titre, unite = "") => {
+        let valeur = v(titre),
+          m = moyenne(titre),
+          ecart = valeur == null || m == null ? null : ((valeur - m) / m) * 100,
+          arrondi = ecart == null ? 0 : Number(ecart.toFixed(1));
+        return {
+          libelle,
+          texte: nombre(valeur, unite),
+          classe: "",
+          detail: ecart == null ? "" : `${arrondi > 0 ? "+" : ""}${Utils.decimal(arrondi, 1)} %`,
+          classeDetail: !arrondi
+            ? ""
+            : arrondi > 0
+              ? "o_syntheseEcartPlus"
+              : "o_syntheseEcartMoins",
+        };
+      };
+    return [
+      carte("Chasses", "Chasses (RC)"),
+      carte("Multi-chasses", "Multi-chasses"),
+      carte("Terrain chassé", "Terrain chassé (cm²)", " cm²"),
+      carte("Pertes", "Fourmis perdues"),
+      carte("Pertes / M cm² chassé", "Pertes par M cm² chassé"),
+      carte("Nourriture rapportée", "Nourriture rapportée"),
+      carte("Nourriture / multi-chasse", "Nourriture par multi-chasse"),
     ];
+  }
+  /**
+   * Tableau des chasseurs de la période (le joueur compris), du plus grand
+   * terrain chassé au plus petit, puis leur moyenne ; vide si le script ne
+   * le donne pas (format 4).
+   *
+   * @static
+   * @method tableau
+   * @param {any} s statistiques renvoyées par le script
+   * @return {String}
+   */
+  static tableau(s) {
+    let c = s.comparaison;
+    if (!c)
+      return "<p class='o_syntheseSousTitre'>Tableau des chasseurs : le script du Google Sheet n'est pas à jour.</p>";
+    let k = (/** @type {String} */ titre) => c.titres.indexOf(titre),
+      colonnes = [
+        ["Terrain chassé (cm²)", "Terrain chassé (cm²)"],
+        ["Terrain / multi-chasse", "Terrain par multi-chasse (cm²)"],
+        ["Pertes", "Fourmis perdues"],
+        ["Pertes / M cm² chassé", "Pertes par M cm² chassé"],
+        ["Nourriture rapportée", "Nourriture rapportée"],
+        ["Nourriture / multi-chasse", "Nourriture par multi-chasse"],
+      ],
+      cellules = (/** @type {any[]} */ l) =>
+        colonnes
+          .map(
+            ([, t]) => `<td>${typeof l[k(t)] == "number" ? numeral(l[k(t)]).format() : "—"}</td>`,
+          )
+          .join(""),
+      moi = String(s.joueur).toLowerCase(),
+      lignes = c.lignes
+        .slice()
+        .sort(
+          (/** @type {any[]} */ a, /** @type {any[]} */ b) =>
+            (Number(b[k("Terrain chassé (cm²)")]) || 0) -
+            (Number(a[k("Terrain chassé (cm²)")]) || 0),
+        )
+        .map(
+          (/** @type {any[]} */ l) =>
+            `<tr${String(l[0]).toLowerCase() == moi ? " class='o_syntheseMoi'" : ""}><td><span style="color:${SyntheseChasse.style(s, l[0]).color}">●</span> ${Utils.echapper(String(l[0]))}</td>${cellules(l)}</tr>`,
+        )
+        .join("");
+    return `<div class='o_syntheseTableau'><p class='gras o_syntheseTitre'>Chasseurs de la période</p>
+      <table class='o_syntheseComparaison'><thead><tr><th>Chasseur</th>${colonnes.map(([nom]) => `<th>${nom}</th>`).join("")}</tr></thead>
+      <tbody>${lignes}</tbody>
+      <tfoot><tr class='o_syntheseTotal'><td>Moyenne des chasseurs</td>${cellules(c.moyenne)}</tr></tfoot></table></div>`;
   }
   /**
    * Armée de la première multi-chasse, puis après les chasses (pertes et
@@ -565,7 +637,7 @@ class SyntheseChasse {
           data: terrain,
           chasseur: true,
           color: COULEUR_JOUEUR,
-          lineWidth: 4,
+          lineWidth: 2,
           zIndex: 5,
           marker: { enabled: terrain.length <= 40, radius: 3 },
         },
@@ -628,7 +700,7 @@ class SyntheseChasse {
           },
         ],
       },
-      // le joueur en vert épais, les autres en pointillés, leur moyenne en rouge,
+      // le joueur en vert, les autres en pointillés, leur moyenne en rouge,
       // les deux tendances du même trait ; un clic dans la légende cache ou
       // montre un chasseur, et la moyenne et sa tendance suivent
       {

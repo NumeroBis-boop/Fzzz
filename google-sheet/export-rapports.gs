@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.9";
+var VERSION_SCRIPT = "2026-11-09.1";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -290,7 +290,7 @@ function reponseJson(o) {
 
 var ONGLET_STATISTIQUES = "Statistiques";
 // format de la réponse : l'extension dit « script pas à jour » devant un autre
-var FORMAT_STATISTIQUES = 4;
+var FORMAT_STATISTIQUES = 5;
 // colonnes lues dans « BDD chasse » (titres écrits par l'extension)
 var COLONNES_CHASSE = [
   "Exporté par",
@@ -362,6 +362,18 @@ var COULEURS_AUTRES_CHASSEURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e
 var COULEUR_NOURRITURE = "#eb6834";
 var COULEUR_PERTES = "#6250d6";
 var COULEUR_ENCRE = "#52514e";
+// chiffres de chaque chasseur de la période (tableau de la synthèse, écarts à leur moyenne)
+var TITRES_COMPARAISON = [
+  "Chasseur",
+  "Chasses (RC)",
+  "Multi-chasses",
+  "Terrain chassé (cm²)",
+  "Terrain par multi-chasse (cm²)",
+  "Fourmis perdues",
+  "Pertes par M cm² chassé",
+  "Nourriture rapportée",
+  "Nourriture par multi-chasse",
+];
 // blocs de l'onglet « Statistiques », côte à côte à partir de la colonne D,
 // séparés par une colonne vide
 var COLONNE_STATISTIQUES = 4;
@@ -493,6 +505,7 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
     },
     // tous les chasseurs du fichier, toujours dans le même ordre : une couleur chacun
     chasseurs: chasseursDe(tables.chasse),
+    comparaison: comparaisonChasseurs(parJoueur),
     autres: autres ? eux : [],
   };
 }
@@ -765,6 +778,53 @@ function autresChasseurs(parJoueur, moi, n) {
         ),
       };
     });
+}
+
+// chasseurs de la période, le joueur compris (ordre du fichier), et la moyenne de
+// chaque colonne entre eux (chacun compte autant), au dixième
+function comparaisonChasseurs(parJoueur) {
+  var lignes = Object.keys(parJoueur)
+      .sort()
+      .map(function (k) {
+        var chasses = parJoueur[k].chasses,
+          n = multiChasses(chasses).length,
+          terrain = somme(chasses, "terrain"),
+          pertes = somme(chasses, "pertes"),
+          nourriture = somme(chasses, "nourriture");
+        return [
+          parJoueur[k].joueur,
+          chasses.length,
+          n,
+          terrain,
+          n ? Math.round(terrain / n) : "",
+          pertes,
+          parMillion(pertes, terrain),
+          nourriture,
+          n ? Math.round(nourriture / n) : "",
+        ];
+      }),
+    moyenne = TITRES_COMPARAISON.slice(1).map(function (t, k) {
+      var valeurs = lignes
+        .map(function (l) {
+          return l[k + 1];
+        })
+        .filter(function (v) {
+          return typeof v == "number";
+        });
+      return valeurs.length
+        ? arrondi(
+            valeurs.reduce(function (a, b) {
+              return a + b;
+            }, 0) / valeurs.length,
+            1,
+          )
+        : "";
+    });
+  return {
+    titres: TITRES_COMPARAISON,
+    lignes: lignes,
+    moyenne: ["Moyenne des chasseurs"].concat(moyenne),
+  };
 }
 
 // courbe de m valeurs ramenée sur n points (n chasses du joueur) : même début,
@@ -1236,7 +1296,7 @@ function creerStatistiques(classeur) {
       lineWidth: 1.5,
       lineDashStyle: pointilles,
     };
-  seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 4 };
+  seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 2 };
   seriesAutres[1] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: trait };
   seriesAutres[2] = { color: COULEUR_MOYENNE, lineWidth: 2 };
   seriesAutres[3] = { color: COULEUR_MOYENNE, lineWidth: 2, lineDashStyle: trait };

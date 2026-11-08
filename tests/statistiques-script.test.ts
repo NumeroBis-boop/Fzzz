@@ -30,7 +30,29 @@ const chasse = (
   nourriture: number,
   pertes: number,
   troupes: string,
-) => [cle(), par, date, terrain, nourriture, pertes, troupes, "10 Criquets", "RC (jamais lu)"];
+  experience: string[] = [],
+) => [
+  cle(),
+  par,
+  date,
+  terrain,
+  nourriture,
+  pertes,
+  troupes,
+  "10 Criquets",
+  rc(troupes, pertes, experience),
+];
+// texte d'un RC de chasse, avec l'expérience gagnée par les survivantes
+function rc(troupes: string, morts: number, experience: string[]) {
+  return (
+    `Troupes en attaque : ${troupes}.\nTroupes en défense : 10 Criquets.\n\n` +
+    `L’ennemie inflige 1 (+ 0) dégâts à vos fourmis et en tue ${morts}.\n\nVous avez gagné cette bataille !\n\n` +
+    (experience.length
+      ? `Les unités survivantes ont appris de cette bataille :\n${experience.map((e) => `- ${e}`).join("\n")}\n\n`
+      : "") +
+    "Vos chasseuses ont conquis 1 cm²"
+  );
+}
 
 // trois chasses d'Alpha (une multi-chasse de trois expéditions, une chasse
 // seule, une multi-chasse en chaîne), deux de Bravo, une de Charlie
@@ -48,6 +70,7 @@ function donnees() {
         60000,
         400,
         "3 000 Jeunes Soldates Naines, 800 Naines d’Elites",
+        ["60 Jeunes Soldates Naines sont devenues des Soldates Naines"],
       ),
       chasse(
         "Alpha",
@@ -56,14 +79,23 @@ function donnees() {
         62000,
         400,
         "2 000 Soldates Naines, 1 Naine d’Elite, 6 000 Jeunes Soldates",
+        [
+          "33 Soldates Naines sont devenues des Naines d’Elites",
+          "49 Jeunes Soldates sont devenues des Soldates",
+        ],
       ),
       chasse("Alpha", "2026-11-01 12:46", 8000, 64000, 400, "10 000 Artilleuses d’élites"),
       // six minutes après la précédente : une autre chasse, seule
-      chasse("Alpha", "2026-11-01 12:52", 6000, 45000, 600, "1 000 Tanks d’élites, 500 Tueuses"),
+      chasse("Alpha", "2026-11-01 12:52", 6000, 45000, 600, "1 000 Tanks d’élites, 500 Tueuses", [
+        "1 Tueuse est devenue une Tueuse d’élite",
+      ]),
       // 20:00, 20:04, 20:08 : chacune à moins de cinq minutes de la précédente
       // (« alpha » : même joueur, casse ignorée)
-      chasse("alpha", "2026-11-02 20:00", 5000, 40000, 100, "4 000 Jeunes Soldates Naines"),
+      chasse("alpha", "2026-11-02 20:00", 5000, 40000, 100, "4 000 Jeunes Soldates Naines", [
+        "2 Jeunes Soldates Naines sont devenues des Soldates Naines",
+      ]),
       chasse("Alpha", "2026-11-02 20:04", 5000, 41000, 100, "100 Concierges"),
+      // 100 morts pour 10 Soldates envoyées : 10 comptées
       chasse("Alpha", "2026-11-02 20:08", 5000, 42000, 100, "10 Soldates, 10 Criquets"),
       chasse("Alpha", "2026-11-08 08:00", 5000, 40000, 0, "1 Tank"), // après la période
       chasse("Bravo", "2026-11-01 10:00", 7000, 50000, 700, "1 Tueuse"),
@@ -93,10 +125,11 @@ describe("calcul des statistiques de chasse", () => {
       ["Multi-chasses", 3],
       ["Terrain chassé (cm²)", 45000],
       ["Fourmis perdues", 2100],
-      // 2 100 pertes pour 45 000 cm²
-      ["Pertes par cm² chassé", 0.0467],
+      // 2 100 pertes pour 45 000 cm² : 46 667 par million de cm²
+      ["Pertes par M cm² chassé", 46667],
       ["Nourriture rapportée", 354000],
-      ["Nourriture par chasse", 50571],
+      // trois multi-chasses (une chasse seule en est une)
+      ["Nourriture par multi-chasse", 118000],
     ]);
   });
 
@@ -108,16 +141,16 @@ describe("calcul des statistiques de chasse", () => {
       "Terrain (cm²)",
       "Tendance (cm²)",
       "Pertes",
-      "Pertes / cm²",
-      "Moyenne (pertes / cm²)",
+      "Pertes / M cm²",
+      "Moyenne (pertes / M cm²)",
       "Nourriture",
     ]);
-    // pertes par cm² 0,05, 0,1 et 0,02 : moyenne 0,0567 ; tendance du terrain
-    // (24 000, 6 000, 15 000) : 19 500, 15 000, 10 500
+    // pertes par million de cm² 50 000, 100 000 et 20 000 : moyenne 56 667 ;
+    // tendance du terrain (24 000, 6 000, 15 000) : 19 500, 15 000, 10 500
     expect(s.chasses.lignes.map((l: unknown[]) => l.slice(0, 9))).toEqual([
-      ["Chasse 1", "01/11 12:44", 3, 24000, 19500, 1200, 0.05, 0.0567, 186000],
-      ["Chasse 2", "01/11 12:52", 1, 6000, 15000, 600, 0.1, 0.0567, 45000],
-      ["Chasse 3", "02/11 20:00", 3, 15000, 10500, 300, 0.02, 0.0567, 123000],
+      ["Chasse 1", "01/11 12:44", 3, 24000, 19500, 1200, 50000, 56667, 186000],
+      ["Chasse 2", "01/11 12:52", 1, 6000, 15000, 600, 100000, 56667, 45000],
+      ["Chasse 3", "02/11 20:00", 3, 15000, 10500, 300, 20000, 56667, 123000],
     ]);
   });
 
@@ -142,14 +175,61 @@ describe("calcul des statistiques de chasse", () => {
     expect(armee(2)).toEqual({ "Jeune Soldate Naine": 4000, Soldate: 10, Concierge: 100 });
   });
 
-  test("armée hors bonus de la première et de la dernière multi-chasse, variation en %", () => {
+  test("armée : la première multi-chasse, puis ses pertes et son expérience aux chasses, sans les pontes", () => {
+    expect(s.armee.titres.slice(1, 3)).toEqual([
+      "Première multi-chasse",
+      "Après les chasses, sans les pontes",
+    ]);
+    // morts (dans l'ordre de l'armée) et expérience de chaque chasse, rapportées
+    // à ses troupes, puis appliquées à la suite : unités 1 − 1 200 / 21 801,
+    // 1 − 600 / 1 500, 1 − 210 / 4 110 ; FdF 1 − 16 769 / 434 607,
+    // 1 − 47 995 / 105 000, 1 − 546 / 12 250
     expect(s.armee.lignes).toEqual([
       // 3 000 × 3 + 2 000 × 5 + 801 × 7 + 6 000 × 10 + 10 000 × 35
-      ["FdF", 434607, 12250, -97.2],
-      ["Défense", 252806, 10640, -95.8],
-      ["Vie", 270413, 35200, -87],
-      ["Capacité de flood (unités)", 21801, 4110, -81.1],
+      ["FdF", 434607, 216735, -50.1],
+      ["Défense", 252806, 174608, -30.9],
+      ["Vie", 270413, 137682, -49.1],
+      ["Capacité de flood (unités)", 21801, 11729, -46.2],
     ]);
+  });
+
+  test("armée : plus de morts dans la période que d'unités au départ (pontes entre-temps), jamais négative", () => {
+    const d = donnees();
+    // dix chasses de 1 000 JSN qui en perdent chacune 900
+    for (let i = 0; i < 10; i++)
+      d.chasse.push(
+        chasse(
+          "Echo",
+          `2026-11-0${1 + (i % 6)} 1${i}:00`,
+          100,
+          100,
+          900,
+          "1 000 Jeunes Soldates Naines",
+        ),
+      );
+    const e = script().statistiques(d, "Echo", "2026-11-01", "2026-11-07", "Europe/Paris");
+    // 1 000 × 0,1¹⁰ : il ne reste rien, sans passer sous zéro
+    expect(e.armee.lignes[3]).toEqual(["Capacité de flood (unités)", 1000, 0, -100]);
+  });
+
+  test("effet d'une chasse sur l'armée : morts dans l'ordre de l'armée, puis expérience du RC", () => {
+    const sc = script();
+    const texte = rc("3 000 Jeunes Soldates Naines, 800 Naines d’Elites", 3100, [
+      "60 Naines d’Elites sont devenues des Soldates",
+      "1 Naine d’Elite est devenue une Jeune Soldate",
+      "5 Criquets sont devenus des Lézards",
+    ]);
+    expect(sc.experienceDe(texte)).toEqual([
+      { nombre: 60, de: 2, vers: 4 },
+      { nombre: 1, de: 2, vers: 3 },
+    ]);
+    // 3 100 morts : les 3 000 JSN, puis 100 NE ; ensuite l'expérience
+    const v = sc.variationDe("3 000 Jeunes Soldates Naines, 800 Naines d’Elites", 3100, texte);
+    expect(v.slice(0, 5)).toEqual([-3000, 0, -161, 1, 60]);
+    expect(sc.experienceDe("")).toEqual([]);
+    expect(sc.experienceDe(undefined)).toEqual([]);
+    expect(sc.rangUnite("Artilleuses d’élites")).toBe(8);
+    expect(sc.rangUnite("Fourmi volante")).toBe(-1);
   });
 
   test("tendance : droite des moindres carrés des chasses dans l'ordre, jamais négative", () => {
@@ -195,7 +275,8 @@ describe("calcul des statistiques de chasse", () => {
     ]) {
       const vide = calcul({ chasse: chasses as unknown[][] });
       expect(valeur(vide.resume, "Chasses (RC)")).toBe(0);
-      expect(valeur(vide.resume, "Pertes par cm² chassé")).toBe("");
+      expect(valeur(vide.resume, "Pertes par M cm² chassé")).toBe("");
+      expect(valeur(vide.resume, "Nourriture par multi-chasse")).toBe("");
       expect(vide.armee.lignes.map((l: unknown[]) => l.slice(1))).toEqual([
         ["", "", ""],
         ["", "", ""],
@@ -217,8 +298,13 @@ describe("calcul des statistiques de chasse", () => {
     const a = calcul(donnees(), "2026-11-01", "2026-11-07", true);
     // « bravo » : même chasseur ; 10:00 et 10:03 : une multi-chasse
     expect(a.autres).toEqual([
-      { joueur: "Bravo", terrain: [10000, 2000], pertes: [0.1, 0.05], nourriture: [70000, 10000] },
-      { joueur: "Charlie", terrain: [1000], pertes: [0.01], nourriture: [5000] },
+      {
+        joueur: "Bravo",
+        terrain: [10000, 2000],
+        pertes: [100000, 50000],
+        nourriture: [70000, 10000],
+      },
+      { joueur: "Charlie", terrain: [1000], pertes: [10000], nourriture: [5000] },
     ]);
     // le reste ne change pas
     expect({ ...a, autres: [] }).toEqual(s);
@@ -226,7 +312,7 @@ describe("calcul des statistiques de chasse", () => {
 
   test("chasseurs du fichier, période ou pas, toujours dans le même ordre : une couleur chacun", () => {
     expect(s.chasseurs).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
-    expect(s.format).toBe(2);
+    expect(s.format).toBe(3);
   });
 
   test("unités du script : celles de l'extension (noms, vie, attaque, défense)", () => {
@@ -345,14 +431,14 @@ describe("requête « statistiques » de l'extension", () => {
     expect(Object.keys(f.onglets)).toEqual(["BDD chasse"]);
   });
 
-  test("onglet lu jusqu'à sa dernière colonne utile : pas les RC", () => {
+  test("onglet lu jusqu'à sa dernière colonne utile : les RC (expérience gagnée)", () => {
     const f = fichier();
     const lues = f.script.lireColonnes(
       f.script.SpreadsheetApp.getActiveSpreadsheet(),
       "BDD chasse",
       f.script.COLONNES_CHASSE,
     );
-    expect(lues[0]).toEqual(CHASSE.slice(0, 7));
+    expect(lues[0]).toEqual(CHASSE);
   });
 
   test("onglet absent : zéros ; colonne renommée : erreur expliquée", () => {
@@ -407,11 +493,10 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     expect(s.cachees).toEqual([36]);
     expect(s.getMaxColumns()).toBeGreaterThanOrEqual(36);
     expect(s.validations.find((v: any) => v.r == 4 && v.c == 2).regle.date).toBe(true);
-    // entiers, sauf les pertes par cm² (quatre décimales) et la variation de l'armée (une)
+    // entiers, sauf la variation de l'armée en % (une décimale)
     expect(s.formats["3,5"]).toBe("#,##0");
-    expect(s.formats["7,5"]).toBe("0.0000");
-    expect(s.formats["3,18"]).toBe("0.0000");
     expect(s.formats["3,10"]).toBe("0.0");
+    expect(Object.values(s.formats)).not.toContain("0.0000");
     // graphiques : « Chasse 1 »… (L = 12) en abscisse, titres en ligne 2
     expect(
       s.graphiques.map((g: any) => [
@@ -430,7 +515,7 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
       ],
       [
         "LINE",
-        "Pertes par cm² de chaque chasse et leur moyenne",
+        "Pertes par M cm² de chaque chasse et leur moyenne",
         [
           [12, 1],
           [18, 2],

@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.93.0",
+    notes: [
+      "Synthèse : pertes par million de cm² chassés (carte et graphique), nourriture par multi-chasse (une chasse seule compte pour une multi-chasse).",
+      "Synthèse : l'armée (FdF, défense, vie, capacité de flood) ne compte plus tes pontes : on part de ta première multi-chasse et chaque chasse y applique ses pertes et l'expérience gagnée, lues dans ses RC.",
+      "Google Sheet : l'onglet « Statistiques » suit, une fois le script mis à jour par la personne qui gère le fichier.",
+    ],
+  },
+  {
     version: "1.92.0",
     notes: [
       "Synthèse : seulement les chasses — les 11 chiffres demandés (chasses, multi-chasses, terrain, pertes, pertes par cm², nourriture, armée de la première à la dernière multi-chasse), puis les graphiques. Plus d'attaques, de défenses ni de floods internes.",

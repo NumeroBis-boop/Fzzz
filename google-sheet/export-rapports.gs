@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-08.6";
+var VERSION_SCRIPT = "2026-11-08.7";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -290,7 +290,7 @@ function reponseJson(o) {
 
 var ONGLET_STATISTIQUES = "Statistiques";
 // format de la réponse : l'extension dit « script pas à jour » devant un autre
-var FORMAT_STATISTIQUES = 2;
+var FORMAT_STATISTIQUES = 3;
 // colonnes lues dans « BDD chasse » (titres écrits par l'extension)
 var COLONNES_CHASSE = [
   "Exporté par",
@@ -299,6 +299,8 @@ var COLONNES_CHASSE = [
   "Nourriture",
   "Fourmis perdues",
   "Troupes en attaque",
+  // expérience gagnée (« Les unités survivantes ont appris de cette bataille »)
+  "RC",
 ];
 // chasses rentrées à moins de 5 minutes l'une de l'autre : une même multi-chasse
 // (les expéditions d'un même lancement rentrent à une ou deux minutes d'écart)
@@ -337,8 +339,8 @@ var TITRES_CHASSES = [
   "Terrain (cm²)",
   "Tendance (cm²)",
   "Pertes",
-  "Pertes / cm²",
-  "Moyenne (pertes / cm²)",
+  "Pertes / M cm²",
+  "Moyenne (pertes / M cm²)",
   "Nourriture",
 ];
 var BLOCS_STATISTIQUES = [
@@ -369,7 +371,7 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
     terrain = somme(miennes, "terrain"),
     pertes = somme(miennes, "pertes"),
     nourriture = somme(miennes, "nourriture"),
-    // moyenne des pertes par cm² des chasses (chacune compte autant)
+    // moyenne des pertes par million de cm² des chasses (chacune compte autant)
     ratios = groupes
       .filter(function (g) {
         return g.terrain > 0;
@@ -378,11 +380,12 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
         return g.pertes / g.terrain;
       }),
     moyenne = ratios.length
-      ? arrondi(
-          ratios.reduce(function (a, b) {
+      ? Math.round(
+          (ratios.reduce(function (a, b) {
             return a + b;
-          }, 0) / ratios.length,
-          4,
+          }, 0) /
+            ratios.length) *
+            1e6,
         )
       : "",
     tendanceTerrain = tendance(
@@ -400,11 +403,15 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
       ["Multi-chasses", groupes.length],
       ["Terrain chassé (cm²)", terrain],
       ["Fourmis perdues", pertes],
-      ["Pertes par cm² chassé", parCm2(pertes, terrain)],
+      ["Pertes par M cm² chassé", parMillion(pertes, terrain)],
       ["Nourriture rapportée", nourriture],
-      ["Nourriture par chasse", miennes.length ? Math.round(nourriture / miennes.length) : ""],
+      // une chasse seule est une multi-chasse d'une expédition
+      [
+        "Nourriture par multi-chasse",
+        groupes.length ? Math.round(nourriture / groupes.length) : "",
+      ],
     ],
-    // chaque multi-chasse est supposée emmener toute l'armée
+    // la première multi-chasse est supposée emmener toute l'armée
     armee: blocArmee(groupes),
     chasses: {
       titres: TITRES_CHASSES.concat(
@@ -420,7 +427,7 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
           g.terrain,
           tendanceTerrain[i],
           g.pertes,
-          parCm2(g.pertes, g.terrain),
+          parMillion(g.pertes, g.terrain),
           moyenne,
           g.nourriture,
         ].concat(g.unites);
@@ -438,8 +445,9 @@ function somme(liste, champ) {
   }, 0);
 }
 
-function parCm2(pertes, terrain) {
-  return terrain > 0 ? arrondi(pertes / terrain, 4) : "";
+// pertes par million de cm² chassés
+function parMillion(pertes, terrain) {
+  return terrain > 0 ? Math.round((pertes * 1e6) / terrain) : "";
 }
 
 // chasses de chaque chasseur (pseudo en minuscules), dans l'ordre de leur retour
@@ -457,6 +465,7 @@ function chassesParJoueur(lignes) {
       nourriture: nombre(l["Nourriture"]),
       pertes: nombre(l["Fourmis perdues"]),
       unites: unitesDe(l["Troupes en attaque"]),
+      variation: variationDe(l["Troupes en attaque"], nombre(l["Fourmis perdues"]), l["RC"]),
     });
   });
   Object.keys(parJoueur).forEach(function (k) {
@@ -483,6 +492,9 @@ function multiChasses(chasses) {
         unites: UNITES.map(function () {
           return 0;
         }),
+        variation: UNITES.map(function () {
+          return 0;
+        }),
       };
       groupes.push(g);
     }
@@ -493,9 +505,28 @@ function multiChasses(chasses) {
     g.pertes += c.pertes;
     c.unites.forEach(function (n, i) {
       g.unites[i] += n;
+      g.variation[i] += c.variation[i];
     });
   });
   return groupes;
+}
+
+// rang d'une unité d'après son nom de RC (singulier ou pluriel), -1 si inconnue
+function rangUnite(nom) {
+  var cle = String(nom || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2019\u2018]/g, "'")
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .map(function (mot) {
+      return mot.length > 3 && /s$/.test(mot) ? mot.slice(0, -1) : mot;
+    })
+    .join(" ");
+  return UNITES.map(function (u) {
+    return u.cle;
+  }).indexOf(cle);
 }
 
 // nombre de chaque unité d'une liste de troupes de RC (« 1 000 Jeunes Soldates Naines, … »)
@@ -506,24 +537,45 @@ function unitesDe(texte) {
   String(texte || "")
     .split(",")
     .forEach(function (morceau) {
-      var m = /^\s*(\d[\d\s  ]*)\s+(.+?)\s*\.?\s*$/.exec(morceau);
-      if (!m) return;
-      var cle = m[2]
-          .normalize("NFD")
-          .replace(/[̀-ͯ]/g, "")
-          .replace(/[’‘]/g, "'")
-          .toLowerCase()
-          .split(/\s+/)
-          .map(function (mot) {
-            return mot.length > 3 && /s$/.test(mot) ? mot.slice(0, -1) : mot;
-          })
-          .join(" "),
-        i = UNITES.map(function (u) {
-          return u.cle;
-        }).indexOf(cle);
+      var m = /^\s*(\d[\d\s\u00a0\u202f]*)\s+(.+?)\s*\.?\s*$/.exec(morceau),
+        i = m ? rangUnite(m[2]) : -1;
       if (i != -1) unites[i] += Number(m[1].replace(/\D/g, ""));
     });
   return unites;
+}
+
+// expérience d'un RC : « - 60 Jeunes Soldates Naines sont devenues des Soldates Naines »
+function experienceDe(rc) {
+  var liste = [],
+    re =
+      /^\s*-\s*(\d[\d \u00a0\u202f]*)\s+(.+?)\s+(?:sont devenues|est devenue)\s+(?:des|une|un)\s+(.+?)\s*\.?\s*$/gm,
+    m;
+  while ((m = re.exec(String(rc || "")))) {
+    var de = rangUnite(m[2]),
+      vers = rangUnite(m[3]);
+    if (de != -1 && vers != -1)
+      liste.push({ nombre: Number(m[1].replace(/\D/g, "")), de: de, vers: vers });
+  }
+  return liste;
+}
+
+// ce qu'une chasse change à l'armée, par unité : ses morts, dans l'ordre de
+// l'armée (le jeu tue d'abord les premières unités : dans un RC, les dégâts
+// reçus divisés par les morts donnent la vie de la première unité envoyée),
+// puis l'expérience gagnée par les survivantes
+function variationDe(troupes, morts, rc) {
+  var reste = morts,
+    v = unitesDe(troupes).map(function (n) {
+      var k = Math.min(n, reste);
+      reste -= k;
+      // pas de « -0 » pour une unité sans mort
+      return k ? -k : 0;
+    });
+  experienceDe(rc).forEach(function (e) {
+    v[e.de] -= e.nombre;
+    v[e.vers] += e.nombre;
+  });
+  return v;
 }
 
 // unités, attaque, défense et vie hors bonus d'une armée
@@ -538,20 +590,29 @@ function forcesDe(unites) {
   return f;
 }
 
-// armée de la première et de la dernière multi-chasse de la période
+// armée de la première multi-chasse, puis après les chasses de la période sans
+// les unités pondues entre-temps : chaque chasse lui applique son effet en %
+// (pertes et expérience rapportées aux troupes qu'elle a emmenées), à la suite ;
+// soustraire toutes les pertes de la période la rendrait négative sur une longue
+// période, les pontes remplaçant les mortes
 function blocArmee(groupes) {
   var debut = groupes.length ? forcesDe(groupes[0].unites) : null,
-    fin = groupes.length ? forcesDe(groupes[groupes.length - 1].unites) : null,
+    apres = function (cle) {
+      return groupes.reduce(function (v, g) {
+        var envoye = forcesDe(g.unites)[cle];
+        return envoye > 0 ? Math.max(0, v * (1 + forcesDe(g.variation)[cle] / envoye)) : v;
+      }, debut[cle]);
+    },
     ligne = function (libelle, cle) {
       var a = debut ? debut[cle] : "",
-        b = fin ? fin[cle] : "";
+        b = debut ? Math.round(apres(cle)) : "";
       return [libelle, a, b, debut && a > 0 ? arrondi(((b - a) / a) * 100, 1) : ""];
     };
   return {
     titres: [
       "Armée (hors bonus)",
       "Première multi-chasse",
-      "Dernière multi-chasse",
+      "Après les chasses, sans les pontes",
       "Variation (%)",
     ],
     lignes: [
@@ -599,7 +660,7 @@ function autresChasseurs(parJoueur, moi) {
           return g.terrain;
         }),
         pertes: groupes.map(function (g) {
-          return parCm2(g.pertes, g.terrain);
+          return parMillion(g.pertes, g.terrain);
         }),
         nourriture: groupes.map(function (g) {
           return g.nourriture;
@@ -923,11 +984,7 @@ function creerStatistiques(classeur) {
   f.getRange(1, c0).setFormula("=STATS_OUAF(B3:B6)");
   f.getRange(1, c0, 2, cJoueurs - c0 + 1).setFontWeight("bold");
   f.getRange(3, c0 + 1, donnees, cJoueurs - c0).setNumberFormat("#,##0");
-  // pertes par cm² : quatre décimales ; variation de l'armée en % : une
-  resume.forEach(function (l, i) {
-    if (/par cm²/.test(l[0])) f.getRange(3 + i, c0 + 1).setNumberFormat("0.0000");
-  });
-  f.getRange(3, titreChasses("Pertes / cm²"), donnees, 2).setNumberFormat("0.0000");
+  // variation de l'armée en % : une décimale
   f.getRange(3, colonne("armee", 3), donnees, 1).setNumberFormat("0.0");
   f.setColumnWidth(1, 110);
   f.setColumnWidth(2, 110);
@@ -948,8 +1005,8 @@ function creerStatistiques(classeur) {
     },
     {
       type: Charts.ChartType.LINE,
-      titre: "Pertes par cm² de chaque chasse et leur moyenne",
-      plages: [chasses, plage("Pertes / cm²", 2)],
+      titre: "Pertes par M cm² de chaque chasse et leur moyenne",
+      plages: [chasses, plage("Pertes / M cm²", 2)],
       options: { series: { 1: { lineDashStyle: [6, 4] } } },
     },
     {

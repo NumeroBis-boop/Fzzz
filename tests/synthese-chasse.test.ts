@@ -41,7 +41,10 @@ const CHASSE = [
   "Nourriture",
   "Fourmis perdues",
   "Troupes en attaque",
+  "RC",
 ];
+const appris = (ligne: string) =>
+  `Troupes en attaque : …\n\nLes unités survivantes ont appris de cette bataille :\n- ${ligne}\n\nVos chasseuses ont conquis …`;
 // statistiques telles que le script les renvoie : deux chasses de DoggyBag,
 // d'autres chasseurs (« Alpha » avant DoggyBag dans la liste du fichier)
 const fichier = () =>
@@ -56,6 +59,7 @@ const fichier = () =>
         90000,
         600,
         "10 000 Jeunes Soldates Naines, 2 000 Artilleuses",
+        appris("100 Artilleuses sont devenues des Artilleuses d’élites"),
       ],
       [
         "k2",
@@ -65,10 +69,11 @@ const fichier = () =>
         60000,
         400,
         "9 000 Jeunes Soldates Naines, 2 500 Artilleuses",
+        "",
       ],
-      ["k5", "Bravo", "2026-11-02 08:00", 5000, 20000, 250, "1 Tank"],
-      ["k6", "Alpha", "2026-11-02 09:00", 4000, 30000, 100, "1 Tank"],
-      ["k7", "Alpha", "2026-11-04 09:00", 2000, 15000, 100, "1 Tank"],
+      ["k5", "Bravo", "2026-11-02 08:00", 5000, 20000, 250, "1 Tank", ""],
+      ["k6", "Alpha", "2026-11-02 09:00", 4000, 30000, 100, "1 Tank", ""],
+      ["k7", "Alpha", "2026-11-04 09:00", 2000, 15000, 100, "1 Tank", ""],
     ]),
   });
 const demande = { statistiques: true, joueur: "DoggyBag", debut: "2026-11-01", fin: "2026-11-07" };
@@ -170,23 +175,41 @@ describe("affichage", () => {
       { libelle: "Multi-chasses", texte: "2", classe: "" },
       { libelle: "Terrain chassé", texte: "20 000 cm²", classe: "" },
       { libelle: "Pertes", texte: "1 000", classe: "" },
-      { libelle: "Pertes / cm² chassé", texte: "0,0500", classe: "" },
+      { libelle: "Pertes / M cm² chassé", texte: "50 000", classe: "" },
       { libelle: "Nourriture rapportée", texte: "150 000", classe: "" },
-      { libelle: "Nourriture / chasse", texte: "75 000", classe: "" },
+      { libelle: "Nourriture / multi-chasse", texte: "75 000", classe: "" },
     ]);
-    // première chasse : 10 000 JSN et 2 000 artilleuses ; dernière : 9 000 et 2 500
+    // première chasse : 10 000 JSN et 2 000 artilleuses ; puis l'effet en % de
+    // chaque chasse (600 JSN mortes et 100 artilleuses devenues d'élite sur
+    // 12 000 unités, puis 400 JSN mortes sur 11 500) : les pontes ne comptent pas
     expect(lire(`SyntheseChasse.cartesArmee(${JSON.stringify(STATS)})`)).toEqual([
-      { libelle: "FdF", texte: "90 000 → 102 000", detail: "+13,3 %", classe: "o_syntheseGain" },
-      { libelle: "Défense", texte: "50 000 → 55 500", detail: "+11,0 %", classe: "o_syntheseGain" },
-      { libelle: "Vie", texte: "100 000 → 97 000", detail: "-3,0 %", classe: "o_synthesePerte" },
+      {
+        libelle: "FdF",
+        texte: "90\u00a0000 → 87\u00a0656",
+        detail: "-2,6 %",
+        classe: "o_synthesePerte",
+      },
+      {
+        libelle: "Défense",
+        texte: "50\u00a0000 → 48\u00a0392",
+        detail: "-3,2 %",
+        classe: "o_synthesePerte",
+      },
+      {
+        libelle: "Vie",
+        texte: "100\u00a0000 → 92\u00a0253",
+        detail: "-7,7 %",
+        classe: "o_synthesePerte",
+      },
       {
         libelle: "Capacité de flood",
-        texte: "12 000 → 11 500",
-        detail: "-4,2 %",
+        texte: "12\u00a0000 → 11\u00a0003",
+        detail: "-8,3 %",
         classe: "o_synthesePerte",
       },
     ]);
-    expect(html).toContain("<span>FdF</span><b>90 000 → 102 000</b><small>+13,3 %</small>");
+    expect(html).toContain("<span>FdF</span><b>90\u00a0000 → 87\u00a0656</b><small>-2,6 %</small>");
+    expect(html).toContain("sans les pontes");
     expect(html.match(/class='o_syntheseCarte /g)).toHaveLength(11);
     expect(html.match(/class='o_syntheseGraphique'/g)).toHaveLength(4);
     // plus rien d'autre : ni floods internes, attaques, classements, tableaux ou sections
@@ -220,7 +243,7 @@ describe("affichage", () => {
     const g = lire<any[]>(`SyntheseChasse.graphiques(${JSON.stringify(STATS)})`);
     expect(g.map((x) => [x.chart.type, x.title.text])).toEqual([
       ["column", "Terrain chassé à chaque chasse (cm²) et tendance"],
-      ["line", "Pertes par cm² de chaque chasse"],
+      ["line", "Pertes par M cm² de chaque chasse"],
       ["area", "Armée envoyée à chaque chasse : nombre d'unités"],
       ["line", "Nourriture rapportée à chaque chasse"],
     ]);
@@ -253,12 +276,17 @@ describe("affichage", () => {
         `SyntheseChasse.graphiques(${JSON.stringify(STATS)})[3].yAxis.labels.formatter.call({ value: 300000 })`,
       ),
     ).toBe("300 000");
-    // moyenne en tirets, sans écart-type
-    expect(pertes.series[0].data.map((p: any) => p.y)).toEqual([0.05, 0.05]);
+    // pertes par million de cm², moyenne en tirets, sans écart-type
+    expect(pertes.series[0].data.map((p: any) => p.y)).toEqual([50000, 50000]);
     expect(pertes.yAxis.plotLines).toHaveLength(1);
-    expect(pertes.yAxis.plotLines[0].value).toBe(0.05);
+    expect(pertes.yAxis.plotLines[0].value).toBe(50000);
     expect(pertes.yAxis.plotBands).toBeUndefined();
-    expect(pertes.subtitle.text).toBe("Moyenne : 0,0500 (tirets)");
+    expect(pertes.subtitle.text).toBe("Moyenne : 50 000 (tirets)");
+    expect(
+      lire(
+        `SyntheseChasse.graphiques(${JSON.stringify(STATS)})[1].yAxis.labels.formatter.call({ value: 25000 })`,
+      ),
+    ).toBe("25 000");
     expect(JSON.stringify(g)).not.toContain("écart");
     expect(nourriture.series[0].data.map((p: any) => [p.x, p.y])).toEqual([
       [1, 90000],
@@ -330,7 +358,7 @@ describe("affichage", () => {
         ["Bravo", "#eb6834"],
       ]);
     expect(avec[0].series[2].data).toEqual([4000, 2000]);
-    expect(avec[1].series[1].data).toEqual([0.025, 0.05]);
+    expect(avec[1].series[1].data).toEqual([25000, 50000]);
     expect(avec[3].series[1].data).toEqual([30000, 15000]);
     expect(avec[1].series[1].pointStart).toBe(1);
     expect(avec[1].legend.enabled).toBe(true);

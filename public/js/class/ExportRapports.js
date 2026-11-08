@@ -30,7 +30,7 @@ const JOURNAL_EXPORT = "Export Google Sheet";
 // dégâts de base sous lesquels l'arrondi du jeu fausse le niveau d'arme
 const EXPORT_DEGATS_MIN = 100;
 // statistiques de chasse attendues du script (un script plus ancien en rend d'autres)
-const FORMAT_STATISTIQUES_SCRIPT = 2;
+const FORMAT_STATISTIQUES_SCRIPT = 3;
 // un script déployé avant une requête la refuse (« requête invalide »)
 const SCRIPT_PAS_A_JOUR =
   "le script du Google Sheet n'est pas à jour (la personne qui gère le fichier doit y recoller le code et déployer une nouvelle version)";

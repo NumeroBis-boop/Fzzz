@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.90.0",
+    notes: [
+      "« Outils pour Chasseur » : nouvel onglet « Synthèse ». Choisis une période : tes chasses (terrain, nourriture, pertes par million de cm²), tes attaques et défenses hors alliance, tes floods internes et le terrain gagné, avec leurs graphiques. Les résultats viennent du Google Sheet où tu exportes tes rapports.",
+      "Google Sheet : onglet « Statistiques » avec les mêmes résultats pour le joueur et la période choisis (après mise à jour du script par la personne qui gère le fichier).",
+    ],
+  },
+  {
     version: "1.89.0",
     notes: [
       "Forum caché : les chasses, floods et convois passés ne sont plus effacés de tes sujets « Chasses | pseudo », « Floods | pseudo » et « Convois | pseudo ». Ils sont rangés dans « Historique Chasses 1 | pseudo » (de même pour Floods et Convois), puis dans la page 2, 3… quand une page est pleine. Les sujets de suivi ne gardent que ce qui est en cours.",

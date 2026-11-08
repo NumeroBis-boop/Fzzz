@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.91.0",
+    notes: [
+      "Synthèse : nombre de multi-chasses (chasses rentrées à moins de 5 minutes l'une de l'autre), pertes par cm² chassé, nourriture par chasse, et ton armée hors bonus (capacité de flood, FdF, défense, vie) de la première à la dernière multi-chasse, avec sa variation en %.",
+      "Synthèse : nouveaux graphiques — terrain chassé par jour et sa tendance, pertes par cm² de chaque multi-chasse avec la moyenne et l'écart-type, armée envoyée en multi-chasse (comme la page Statistiques du jeu : unités, vie, dégâts, temps de ponte), nourriture de chaque chasse.",
+      "Synthèse : case « Comparer aux autres chasseurs » pour ajouter leurs courbes (une couleur par chasseur) et un tableau comparatif.",
+      "Google Sheet : l'onglet « Statistiques » montre les mêmes chiffres et graphiques, une fois le script mis à jour par la personne qui gère le fichier.",
+    ],
+  },
+  {
     version: "1.90.1",
     notes: [
       "Boîtes « Outils pour Chasseur », « Combat » et Préférences : elles restent dans l'écran ; un contenu plus haut défile à l'intérieur de la boîte, et on la déplace par son titre ou par n'importe quel bord.",

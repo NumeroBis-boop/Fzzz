@@ -46,7 +46,7 @@ function doPost(e) {
   verrou.waitLock(30000);
   try {
     return reponseJson(
-      ajouterLignes(SpreadsheetApp.getActiveSpreadsheet(), d.onglet, d.entetes, d.lignes),
+      ajouterLignes(SpreadsheetApp.getActiveSpreadsheet(), d.onglet, d.entetes, d.lignes)
     );
   } finally {
     verrou.releaseLock();
@@ -119,6 +119,6 @@ function valeurCellule(v) {
 
 function reponseJson(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(
-    ContentService.MimeType.JSON,
+    ContentService.MimeType.JSON
   );
 }

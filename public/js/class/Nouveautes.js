@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.94.0",
+    notes: [
+      "Synthèse : terrain (colonnes), nourriture et pertes de chaque chasse, chacune son axe ; « Chasse 1 (01/11) »… en abscisse.",
+      "Synthèse : ton terrain chassé (vert) face aux autres chasseurs (pointillés, leurs chasses étirées sur les tiennes) et à leur moyenne (rouge), avec les deux tendances ; un clic sur un nom de la légende le cache ou le montre, et la moyenne suit.",
+      "Synthèse : nourriture selon le terrain, terrain selon la difficulté par cm² (faune rencontrée), pertes par M cm² dans le temps ; « Comparer aux autres chasseurs » y ajoute leurs points.",
+      "Google Sheet : l'onglet « Statistiques » a les mêmes graphiques, une fois le script mis à jour par la personne qui gère le fichier et l'onglet recréé.",
+    ],
+  },
+  {
     version: "1.93.3",
     notes: [
       "Armée : « Replacer l'armée » vérifie chaque déplacement dans la réponse du jeu, qui en ignore parfois un envoyé juste après un autre : la page est relue et ce qui manque est renvoyé (trois fois au plus). Et moins de déplacements : deux au plus par unité.",

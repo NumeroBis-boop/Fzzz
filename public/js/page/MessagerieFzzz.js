@@ -60,7 +60,7 @@ class MessagerieFzzz {
     if (!$titre.length || $("#o_partageAlliance").length) return;
     $(`<div id='o_partageAlliance'>
         <button type='button' class='o_button f_info' data-quoi='chasse' title="Ajoute au Google Sheet de l'alliance (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») les chasses de la messagerie pas encore exportées">Exporter mes chasses</button>
-        <button type='button' class='o_button f_info' data-quoi='combat' title="Ajoute au Google Sheet de l'alliance (onglet « ${EXPORTS_RAPPORTS.combat.onglet} ») les combats de la messagerie pas encore exportés">Exporter mes RC</button>
+        <button type='button' class='o_button f_info' data-quoi='combat' title="Ajoute au Google Sheet de l'alliance tes attaques (onglet « ${EXPORTS_RAPPORTS.attaque.onglet} ») et tes défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») pas encore exportées">Exporter mes RC</button>
       </div>`)
       .insertAfter($titre)
       .find("button")

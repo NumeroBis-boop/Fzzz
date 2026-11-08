@@ -13,6 +13,9 @@ const PARTAGE_MAX_ENTREES = 300;
 // un seul message chacun, car une réponse empêche de modifier le premier
 // message ; page suivante quand ce message dépasserait cette taille
 const HISTORIQUE_MAX_CARACTERES = 15000;
+// sujet où est réglée, pour toute l'alliance, l'adresse du script du Google
+// Sheet qui reçoit les rapports exportés (ExportRapports)
+const TITRE_EXPORT_SHEET = "Export Google Sheet";
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
@@ -237,7 +240,8 @@ class PartageChasses {
         throw new Error("section inaccessible");
       }
       // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse ;
-      // sujets.historiques : pages d'historique {type, page, pseudo, id}
+      // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
+      // sujets.exportSheet : sujet de l'adresse du Google Sheet
       let sujets = { liste: [], historiques: [] };
       Utils.parseHtml(reponse)
         .find("#form_cat tr")
@@ -254,6 +258,13 @@ class PartageChasses {
             sujets[`${m[1]} | ${pseudo.toLowerCase()}`] = idSujet;
             sujets.liste.push({ type: m[1], pseudo: pseudo, id: idSujet });
           }
+          // créé deux fois (deux enregistrements au même instant) : le plus ancien fait foi
+          if (
+            titre == TITRE_EXPORT_SHEET &&
+            idSujet &&
+            (!sujets.exportSheet || Number(idSujet) < Number(sujets.exportSheet))
+          )
+            sujets.exportSheet = idSujet;
           if (h && idSujet)
             sujets.historiques.push({
               type: h[1],
@@ -374,6 +385,9 @@ class PartageChasses {
         )
         .sort((/** @type {any} */ a, /** @type {any} */ b) => a.page - b.page),
       derniere = pages[pages.length - 1],
+      // même page créée deux fois (deux onglets au même instant) : la plus
+      // ancienne reçoit la suite, les lignes des deux comptent comme présentes
+      doubles = derniere ? pages.filter((h) => h.page == derniere.page) : [],
       ecrire = (
         /** @type {Number} */ page,
         /** @type {any} */ idSujet,
@@ -391,12 +405,21 @@ class PartageChasses {
             );
       };
     if (!derniere) return ecrire(1, null, lignes.join("\n"));
-    return PartageChasses._xajax("callGetTopic", derniere.id).then((data) => {
-      let anciennes = PartageChasses.premierMessage(data)
-          .split("\n")
-          .map((l) => l.trim())
-          .filter(Boolean),
-        restantes = anciennes.slice(),
+    derniere = doubles.reduce((a, h) => (Number(h.id) < Number(a.id) ? h : a), derniere);
+    let lue = /** @type {any} */ (derniere);
+    return Promise.all(
+      doubles.map((/** @type {any} */ h) =>
+        PartageChasses._xajax("callGetTopic", h.id).then((data) => ({
+          canonique: h.id == lue.id,
+          lignes: PartageChasses.premierMessage(data)
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean),
+        })),
+      ),
+    ).then((lus) => {
+      let anciennes = lus.filter((l) => l.canonique).flatMap((l) => l.lignes),
+        restantes = lus.flatMap((l) => l.lignes),
         nouvelles = lignes.filter((l) => {
           let k = restantes.indexOf(l);
           if (k == -1) return true;
@@ -406,8 +429,8 @@ class PartageChasses {
       if (!nouvelles.length) return;
       let contenu = anciennes.concat(nouvelles).join("\n");
       if (anciennes.length && contenu.length > HISTORIQUE_MAX_CARACTERES)
-        return ecrire(derniere.page + 1, null, nouvelles.join("\n"));
-      return ecrire(derniere.page, derniere.id, contenu);
+        return ecrire(lue.page + 1, null, nouvelles.join("\n"));
+      return ecrire(lue.page, lue.id, contenu);
     });
   }
   /**
@@ -870,13 +893,16 @@ class PartageChasses {
    * @param {Array} groupes [{impact (moment), terrain, unites (texte)}]
    */
   static partager(groupes, $bouton) {
-    return PartageChasses._avecBouton(
-      $bouton,
-      "Chasses",
-      groupes.map((g) => ({
-        date: g.impact.format("YYYY-MM-DD HH:mm"),
-        terrain: g.terrain,
-      })),
+    // en file : un second partage (clic répété, page rechargée) relit le sujet écrit par le premier
+    return PartageChasses.enFile(() =>
+      PartageChasses._avecBouton(
+        $bouton,
+        "Chasses",
+        groupes.map((g) => ({
+          date: g.impact.format("YYYY-MM-DD HH:mm"),
+          terrain: g.terrain,
+        })),
+      ),
     );
   }
   /**

@@ -1,80 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import vm from "node:vm";
-
-/**
- * Script Apps Script du Google Sheet (google-sheet/export-rapports.gs), exécuté
- * contre un classeur simulé en mémoire : création de l'onglet, ajout sans
- * doublon, colonnes retrouvées par leur titre, texte jamais pris pour une formule.
- */
-const CODE = readFileSync(
-  join(import.meta.dir, "..", "google-sheet", "export-rapports.gs"),
-  "utf8",
-);
-
-type Grille = unknown[][];
-
-function feuille(nom: string, grille: Grille = []) {
-  const f: any = {
-    nom,
-    grille,
-    getLastRow: () => {
-      for (let r = grille.length; r > 0; r--)
-        if (grille[r - 1]!.some((v) => v !== "" && v != null)) return r;
-      return 0;
-    },
-    getLastColumn: () =>
-      Math.max(
-        0,
-        ...grille.map((l) => {
-          for (let c = l.length; c > 0; c--) if (l[c - 1] !== "" && l[c - 1] != null) return c;
-          return 0;
-        }),
-      ),
-    setFrozenRows: () => {},
-    getRange: (r: number, c: number, nl = 1, nc = 1) => {
-      const plage: any = {
-        getValues: () =>
-          Array.from({ length: nl }, (_, i) =>
-            Array.from({ length: nc }, (_, j) => grille[r - 1 + i]?.[c - 1 + j] ?? ""),
-          ),
-        setValues: (v: Grille) => {
-          v.forEach((l, i) =>
-            l.forEach((x, j) => {
-              while (grille.length < r + i) grille.push([]);
-              grille[r - 1 + i]![c - 1 + j] = x;
-            }),
-          );
-          return plage;
-        },
-        setValue: (x: unknown) => plage.setValues([[x]]),
-        setFontWeight: () => plage,
-      };
-      return plage;
-    },
-  };
-  return f;
-}
+import { classeurSimule, feuille } from "./sheet-simule";
 
 let onglets: Record<string, any>;
 function charger() {
-  const classeur = {
-    getName: () => "Extension OUAF",
-    getSheetByName: (n: string) => onglets[n] || null,
-    insertSheet: (n: string) => (onglets[n] = feuille(n)),
-  };
-  const ctx: any = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => classeur },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
-    ContentService: {
-      MimeType: { JSON: "json" },
-      createTextOutput: (t: string) => ({ setMimeType: () => JSON.parse(t) }),
-    },
-  };
-  vm.createContext(ctx);
-  vm.runInContext(CODE, ctx);
-  return ctx;
+  const c = classeurSimule(onglets);
+  return { doGet: c.doGet, doPost: (e: any) => c.doPost(JSON.parse(e.postData.contents)) };
 }
 const ENTETES = ["Clé", "Exporté par", "Date", "Terrain conquis (cm²)", "RC"];
 const poster = (ctx: any, corps: object) =>
@@ -126,14 +56,14 @@ describe("script du Google Sheet", () => {
   });
 
   test("colonnes déplacées ou ajoutées à la main : valeurs sous le bon titre", () => {
-    onglets["BDD RC"] = feuille("BDD RC", [["Note", "Date", "Clé", "Exporté par"]]);
+    onglets["BDD attaques"] = feuille("BDD attaques", [["Note", "Date", "Clé", "Exporté par"]]);
     const ctx = charger();
     poster(ctx, {
-      onglet: "BDD RC",
+      onglet: "BDD attaques",
       entetes: ["Clé", "Exporté par", "Date", "Type"],
       lignes: [["k1", "Alpha", "2026-11-07 21:07", "Combat"]],
     });
-    expect(onglets["BDD RC"].grille).toEqual([
+    expect(onglets["BDD attaques"].grille).toEqual([
       ["Note", "Date", "Clé", "Exporté par", "Type"],
       ["", "2026-11-07 21:07", "k1", "Alpha", "Combat"],
     ]);
@@ -155,6 +85,21 @@ describe("script du Google Sheet", () => {
     ]);
   });
 
+  test("onglets acceptés : chasses, attaques, défenses", () => {
+    const ctx = charger();
+    for (const onglet of ["BDD chasse", "BDD attaques", "BDD défenses"])
+      expect(
+        poster(ctx, { onglet, entetes: ENTETES, lignes: [["k1", "Alpha", "d", 1, "a"]] }),
+      ).toEqual({
+        ajoutees: 1,
+        deja: 0,
+      });
+    expect(Object.keys(onglets)).toEqual(["BDD chasse", "BDD attaques", "BDD défenses"]);
+    expect(poster(ctx, { onglet: "BDD RC", entetes: ENTETES, lignes: [] }).erreur).toBe(
+      "requête invalide",
+    );
+  });
+
   test("requêtes refusées : autre onglet, sans clé, illisible", () => {
     const ctx = charger();
     expect(poster(ctx, { onglet: "Feuille 1", entetes: ENTETES, lignes: [] })).toEqual({
@@ -163,7 +108,7 @@ describe("script du Google Sheet", () => {
     expect(poster(ctx, { onglet: "BDD chasse", entetes: ["Date", "Clé"], lignes: [] }).erreur).toBe(
       "requête invalide",
     );
-    expect(ctx.doPost({ postData: { contents: "pas du JSON" } })).toEqual({
+    expect(classeurSimule(onglets).doPostBrut("pas du JSON")).toEqual({
       erreur: "requête illisible",
     });
     expect(Object.keys(onglets)).toEqual([]);

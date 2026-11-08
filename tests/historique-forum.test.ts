@@ -88,7 +88,9 @@ describe("suivi : premier message seulement", () => {
     sujet("1", "Floods | DoggyBag", A_VENIR);
     sujet("2", "Historique Floods 1 | DoggyBag", PASSE);
     sujet("3", "Historique Convois 2 | DoggyBag", "x");
+    sujet("4", "Export Google Sheet", "https://script.google.com/macros/s/x/exec");
     const s = await lire<Promise<any>>(`PartageChasses.sujets()`);
+    expect(s.exportSheet).toBe("4");
     expect(s["Floods | doggybag"]).toBe("1");
     expect(s.liste.map((t: any) => t.id)).toEqual(["1"]);
     expect(s.historiques).toEqual([

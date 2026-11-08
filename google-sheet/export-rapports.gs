@@ -8,8 +8,10 @@
  *  1. Extensions → Apps Script ; remplacer le contenu de Code.gs par ce fichier.
  *  2. Déployer → Nouveau déploiement → type « Application Web » ;
  *     « Exécuter en tant que : moi », « Qui a accès : Tout le monde ».
- *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et la
- *     donner aux joueurs : Préférences → Messagerie de l'extension.
+ *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et la coller
+ *     une fois dans l'extension (Préférences → Messagerie → « Enregistrer pour
+ *     l'alliance ») : elle est rangée dans le forum caché et l'extension de
+ *     chaque membre la lit toute seule.
  * Après une modification de ce code : Déployer → Gérer les déploiements →
  * modifier → Nouvelle version (l'adresse ne change pas).
  *
@@ -18,7 +20,7 @@
  */
 
 // onglets que l'extension peut remplir
-var ONGLETS_EXPORT = ["BDD chasse", "BDD RC"];
+var ONGLETS_EXPORT = ["BDD chasse", "BDD attaques", "BDD défenses"];
 
 function doGet() {
   return reponseJson({ ok: true, fichier: SpreadsheetApp.getActiveSpreadsheet().getName() });

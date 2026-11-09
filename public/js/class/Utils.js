@@ -102,7 +102,13 @@ const AFFICHAGES_FZZZ = {
   messagerieCouleurs: "Couleurs des titres par type de message",
   messagerieCopie: "Icônes de copie des rapports",
   messagerieAnalyse: "Boutons « Analyser » sous les rapports",
+  messagerieExport:
+    "Boutons « Exporter mes chasses » et « Exporter mes RC » (Google Sheet de l'alliance)",
+  messagerieRanger:
+    "Rangement des messages dans les dossiers Commerce, Chasse, Combat et Conversation à l'ouverture",
   trajet: "Temps de trajet",
+  ennemisFiltre:
+    "Bloc « Filtrer la liste » de la page Ennemies (filtre, « Charger toutes les pages », « Afficher tous les joueurs »)",
   syntheseChasses: "Synthèse des chasses en cours",
   lanceurChasse: "Lanceur de chasses",
   listeAttaques: "Liste des attaques en cours (page Armée)",
@@ -130,6 +136,8 @@ const AFFICHAGES_CONVOIS = {
     "Bloc « Récapitulatif » sous les convois en cours (convoi à faire, temps de trajet, horaire de retour)",
   convoisSuiviLignes:
     "Suivi OUAF devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
+  convoisColonnes:
+    "Convois en cours en deux colonnes : le suivi OUAF à gauche, le texte replié à droite (« Annuler » jamais près d'un bouton d'envoi)",
 };
 
 // Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix

@@ -25,6 +25,38 @@ describe("catégorie des messages", () => {
   });
 });
 
+describe("boutons d'export et rangement : chacun sa case dans les Préférences", () => {
+  const ouvrir = (reglages: Record<string, string>) => {
+    const p = creerPage(
+      ["js/class/Utils.js", "js/class/ExportRapports.js", "js/page/MessagerieFzzz.js"],
+      "var TOAST_SUCCESS = {}, TOAST_ERROR = {};",
+    );
+    p.lire(
+      `localStorage.clear(); Object.entries(${JSON.stringify(reglages)}).forEach(([k, v]) => localStorage.setItem(k, v));
+       window.ENVOIS = [];
+       $.toast = () => {};
+       $.post = (url, d) => { ENVOIS.push(d.traitement); return Promise.resolve("action_valide"); };
+       document.body.innerHTML = "<div id='messagerie'><h2>Messagerie</h2><div class='option_deplacement' id='deplacer_vers_7'><span class='intitule_choix'>Chasse</span></div><table><tr class='en_tete_message' id='conversation_1'><td class='td_participants'>Fourmizzz</td><td class='td_objet'><a class='intitule_message'>Vos chasseuses ont conquis 1 000 cm² en 1 expédition</a></td></tr></table></div>";
+       MessagerieFzzz.boutonsPartage();
+       MessagerieFzzz.ranger();`,
+    );
+    return {
+      boutons: p.lire(`$("#o_partageAlliance button").length`) as number,
+      envois: p.lire(`ENVOIS`) as string[],
+    };
+  };
+
+  test("cochées : boutons sous le titre, message mal rangé déplacé", () => {
+    expect(ouvrir({})).toEqual({ boutons: 2, envois: ["deplacer"] });
+  });
+
+  test("décochées : ni boutons ni requête au jeu", () => {
+    expect(
+      ouvrir({ fzzz_affichage_messagerieExport: "0", fzzz_affichage_messagerieRanger: "0" }),
+    ).toEqual({ boutons: 0, envois: [] });
+  });
+});
+
 describe("couleurs et copie de la messagerie", () => {
   const ligne = (titre: string) =>
     `<tr class='en_tete_message' id='conversation_1'><td class='td_coche'></td><td class='td_participants'>Fourmizzz</td><td class='td_objet'><a class='intitule_message'>${titre}</a></td></tr>`;

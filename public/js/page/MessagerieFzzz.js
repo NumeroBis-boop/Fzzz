@@ -57,7 +57,8 @@ class MessagerieFzzz {
    */
   static boutonsPartage() {
     let $titre = $("#messagerie > h2").first();
-    if (!$titre.length || $("#o_partageAlliance").length) return;
+    if (!Utils.affichage("messagerieExport") || !$titre.length || $("#o_partageAlliance").length)
+      return;
     $(`<div id='o_partageAlliance'>
         <button type='button' class='o_button f_info' data-quoi='chasse' title="Ajoute au Google Sheet de l'alliance (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») les chasses de la messagerie pas encore exportées">Exporter mes chasses</button>
         <button type='button' class='o_button f_info' data-quoi='combat' title="Ajoute au Google Sheet de l'alliance tes attaques (onglet « ${EXPORTS_RAPPORTS.attaque.onglet} »), tes défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») et tes floods avec les membres de l'alliance (« ${EXPORTS_RAPPORTS.interne.onglet} ») pas encore exportés">Exporter mes RC</button>
@@ -339,6 +340,7 @@ class MessagerieFzzz {
    * @method ranger
    */
   static ranger() {
+    if (!Utils.affichage("messagerieRanger")) return;
     // identifiants des dossiers, lus dans le menu « Déplacer vers » du jeu
     let dossiers = {};
     $(".option_deplacement[id^='deplacer_vers_']").each((i, elt) => {

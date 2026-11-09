@@ -52,6 +52,7 @@ class PageAttaquer {
    * @method ajouterFiltreEnnemis
    */
   static ajouterFiltreEnnemis() {
+    if (!Utils.affichage("ennemisFiltre")) return;
     let $cibles = $("#formulairePageEnnemie fieldset")
       .filter((i, f) => $(f).children("legend").text().trim() == "Cibles")
       .first();

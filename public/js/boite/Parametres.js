@@ -35,7 +35,7 @@ const ONGLETS_PARAMETRE = [
   {
     id: "Attaque",
     titre: "Attaque",
-    affichages: ["trajet"],
+    affichages: ["trajet", "ennemisFiltre"],
     origine: "pages d'attaque et liste des ennemis",
   },
   {
@@ -47,7 +47,13 @@ const ONGLETS_PARAMETRE = [
   {
     id: "Messagerie",
     titre: "Messagerie",
-    affichages: ["messagerieCouleurs", "messagerieCopie", "messagerieAnalyse"],
+    affichages: [
+      "messagerieCouleurs",
+      "messagerieCopie",
+      "messagerieAnalyse",
+      "messagerieExport",
+      "messagerieRanger",
+    ],
     origine: "messagerie",
   },
   {

@@ -226,6 +226,8 @@ class PageAttaquer {
       AttaqueLancee.annulerSurPlace($(e.currentTarget));
     });
     if ($("#tabChoixArmee").length) {
+      // TdC de la page lus maintenant : base du TdC à l'impact du Lanceur de Flood
+      this._ouverture = Horloge.serveur();
       // récupération de l'armée
       this._armee = new Armee({ unite: this.extraitArmee() });
       if (Utils.affichage("statArmee")) {
@@ -599,17 +601,24 @@ class PageAttaquer {
 			<tr class='gras'><td>Etape</td><td>Troupes</td><td>Reste</td><td>Mon Terrain</td><td>${this._cible.pseudo} (${Utils.intToTime(monProfil.getTempsParcours2(this._cible))})</td></tr>
 			<tr><td><select id='o_methodeFlood'><option value='0' ${methode == 0 ? "selected" : ""}>${METHODE_FLOOD[0]}</option><option value='1' ${methode == 1 ? "selected" : ""}>${METHODE_FLOOD[1]}</option><option value='2' ${methode == 2 ? "selected" : ""}>${METHODE_FLOOD[2]}</option><option value='3' ${methode == 3 ? "selected" : ""}>${METHODE_FLOOD[3]}</option></select></td><td colspan="2"></td><td><input value='${Utils.terrain}' size='12' id='o_floodTDCA'/></td><td><input value='${this._cible.terrain}' size='12' id='o_floodTDCB'/></td></tr>
 			<tr><td>Antisonde (<span id="o_pourcentAttaque0">0</span>%)</td><td><input value='0' size='12' id='o_floodAntiSonde'/></td><td></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>
-            <tr class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
+            <tr id="o_floodActions" class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
+            ${
+              Utils.affichage("floodImpact")
+                ? `<tr class="o_floodImpactLigne"><td colspan="3" rowspan="2" class="o_floodBoutonsCase"></td><td colspan="2" class="o_floodImpact"><span class="souligne cursor o_floodImpactLire">Calculer le TdC à l'impact</span></td></tr>
+            <tr class="o_floodImpactLigne"><td colspan="2" class="o_floodImpactInfo"></td></tr>`
+                : ""
+            }
             </table>
-            <div class='o_pile'><button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
-            <button type='button' id='o_lanceFloodPartager' class='o_button f_info' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div>
+            <div class='o_floodBoutons'><div class='o_pile'><button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
+            <button type='button' id='o_lanceFloodPartager' class='o_button f_info' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div></div>
             <p class="reduce left">Reste : place les unités restantes sur l'attaque sélectionnée.</p>
             ${this._unitesGardees.html()}
             </fieldset>`);
     $("#o_floodTDCA, #o_floodTDCB, #o_floodAntiSonde, input[id^='o_attaque']").spinner({
       min: 0,
     });
-    $("#o_simulationFlood tr:even").addClass("ligne_paire");
+    $("#o_simulationFlood tr:not(.o_floodImpactLigne):even").addClass("ligne_paire");
+    if (Utils.affichage("floodImpact")) this.brancherImpact();
     this._unitesGardees.brancher();
     this._armee.gardees = this._unitesGardees.reglage;
     this.afficherGardees();
@@ -659,9 +668,13 @@ class PageAttaquer {
       // contexte pour que envoyerFlood capture chaque attaque confirmée. Le
       // terrain de départ est celui saisi dans la simulation (par défaut celui
       // du profil, modifiable si on connaît une valeur plus fraîche)
+      let tdcCible = $("#o_floodTDCB").spinner("value");
       AttaqueLancee.contexteFlood = {
         cible: this._cible.pseudo,
-        terrain: $("#o_floodTDCB").spinner("value"),
+        // TdC à l'impact mis d'un clic : le forum garde celui du lancement, d'où
+        // repart la simulation des partages (sinon les floods d'avant l'impact
+        // compteraient deux fois pour une cible hors alliance)
+        terrain: tdcCible === this._tdcImpactCible ? this._cible.terrain : tdcCible,
         partager: e.currentTarget.id == "o_lanceFloodPartager",
       };
       this._armee.envoyerFlood(
@@ -680,6 +693,163 @@ class PageAttaquer {
     $("#o_supprimeAttaque").click((e) => {
       this.supprimerAttaque();
     });
+  }
+  /**
+   * TdC à l'impact sous le Lanceur de Flood : boutons du flood à gauche (sous
+   * le tableau sur téléphone, où il défile), lien « Calculer le TdC à
+   * l'impact », clic sur un TdC pour le mettre dans son champ.
+   *
+   * @private
+   * @method brancherImpact
+   */
+  brancherImpact() {
+    let etroit = window.matchMedia ? window.matchMedia("(max-width: 760px)") : null,
+      placer = () => {
+        let $boutons = $("#o_prepaFlood .o_floodBoutons");
+        if (etroit && etroit.matches) $boutons.insertAfter("#o_simulationFlood");
+        else $boutons.appendTo("#o_simulationFlood .o_floodBoutonsCase");
+      };
+    placer();
+    if (etroit && etroit.addEventListener) etroit.addEventListener("change", placer);
+    else if (etroit && etroit.addListener) etroit.addListener(placer);
+    $("#o_simulationFlood")
+      .on("click", ".o_floodImpactLire", () => this.lireImpact())
+      .on("click", ".o_tdcImpact", (e) => {
+        let champ = e.currentTarget.dataset.champ,
+          valeur = Number(e.currentTarget.dataset.valeur);
+        $("#" + champ).spinner("value", valeur);
+        if (champ == "o_floodTDCB") this._tdcImpactCible = valeur;
+        this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
+      });
+  }
+  /**
+   * Lit les floods et chasses partagés, mes chasses (Ressources.php) et mes
+   * attaques en cours (liste du jeu de cette page, qui fait foi pour moi),
+   * puis affiche les TdC à l'impact ; ils suivent ensuite l'heure d'arrivée
+   * minute par minute, sans nouvelle requête.
+   *
+   * @private
+   * @method lireImpact
+   */
+  lireImpact() {
+    if (this._lectureImpact) return;
+    $("#o_simulationFlood .o_floodImpactLire")
+      .removeClass("souligne cursor o_floodImpactLire")
+      .text("Lecture des partages…");
+    this._lectureImpact = Promise.all([
+      PartageChasses.charger([this._cible.pseudo, monProfil.pseudo]),
+      Promise.resolve($.get(location.origin + "/Ressources.php"))
+        .then((html) => PageRessource.lireChasses(Utils.parseHtml(String(html))))
+        .catch(() => null),
+    ])
+      .then(([d, chasses]) => {
+        let captures = AttaqueLancee.charger(),
+          mesFloods = PartageChasses.entreesFloods(
+            AttaqueLancee.extraireLignes()
+              .filter((l) => l.cible)
+              .map((l) =>
+                AttaqueLancee.pourPartage({
+                  ligne: l,
+                  capture: captures.find((c) => c.id == l.id) || null,
+                }),
+              ),
+          ),
+          mesChasses = chasses
+            ? PageRessource.aPartager(PageRessource.grouperChasses(chasses)).map((g) => ({
+                date: g.impact.format("YYYY-MM-DD HH:mm"),
+                terrain: g.terrain,
+              }))
+            : null;
+        this._simImpact = PartageChasses.simuler(
+          PageAttaquer.avecMesMouvements(d, monProfil.pseudo, mesFloods, mesChasses),
+          { [monProfil.pseudo]: Utils.terrain, [this._cible.pseudo]: this._cible.terrain },
+          this._ouverture,
+        );
+        this._minuteImpact = null;
+        this.afficherImpact();
+        if (!this._suiviImpact) this._suiviImpact = setInterval(() => this.afficherImpact(), 1000);
+      })
+      .catch(() =>
+        $("#o_simulationFlood .o_floodImpactInfo").html(
+          "Partages illisibles : <span class='souligne cursor o_floodImpactLire'>réessayer</span>",
+        ),
+      )
+      .then(() => (this._lectureImpact = null));
+  }
+  /**
+   * TdC à l'impact d'un flood lancé maintenant (minute du RC), recalculés
+   * quand cette minute change.
+   *
+   * @private
+   * @method afficherImpact
+   */
+  afficherImpact() {
+    if (!this._simImpact) return;
+    let minute = Utils.roundMinute(monProfil.getTempsParcours2(this._cible), Horloge.clic()),
+      cle = minute.format("YYYY-MM-DD HH:mm");
+    if (cle == this._minuteImpact) return;
+    this._minuteImpact = cle;
+    let r = PageAttaquer.tdcImpact(this._simImpact, monProfil.pseudo, this._cible.pseudo, cle),
+      cellule = (t, champ, nom) =>
+        t.tdc == null
+          ? "?"
+          : `<span class='o_tdcImpact' data-champ='${champ}' data-valeur='${t.tdc}' title='Mettre ce TdC dans ${Utils.echapper(nom)}'>${numeral(t.tdc).format()}</span> <small>${t.ecart ? `(${numeral(t.ecart).format("+0,0")})` : "(inchangé)"}</small>`,
+      horsPortee =
+        r.moi.tdc != null && r.cible.tdc != null && !Utils.aPortee(r.cible.tdc, r.moi.tdc);
+    $("#o_simulationFlood .o_floodImpact").remove();
+    $("#o_simulationFlood .o_floodImpactLigne:first").append(
+      `<td class='o_floodImpact'>${cellule(r.moi, "o_floodTDCA", "« Mon Terrain »")}</td><td class='o_floodImpact'>${cellule(r.cible, "o_floodTDCB", "le champ de " + this._cible.pseudo)}</td>`,
+    );
+    $("#o_simulationFlood .o_floodImpactInfo").html(
+      `TdC à l'impact (${minute.format("DD/MM HH[h]mm")}) · <span class='souligne cursor o_floodImpactLire'>Relire</span>` +
+        (horsPortee
+          ? "<div class='o_floodHorsPortee'>Hors portée à l'impact : le flood ne prendrait rien.</div>"
+          : ""),
+    );
+  }
+  /**
+   * TdC de moi et de la cible à une minute d'impact, d'après une simulation
+   * des partages : TdC de départ + variations arrivées à cette minute ou avant.
+   *
+   * @static
+   * @method tdcImpact
+   * @param {Object} sim PartageChasses.simuler()
+   * @param {String} moi
+   * @param {String} cible
+   * @param {String} cle minute d'impact « AAAA-MM-JJ HH:mm »
+   * @return {Object} {moi: {tdc, ecart}, cible: {tdc, ecart}} ; tdc null si inconnu
+   */
+  static tdcImpact(sim, moi, cible, cle) {
+    let suivre = (p) => {
+      let depart = sim.depart[p.toLowerCase()],
+        ecart = PartageChasses.chronologie(sim, p)
+          .filter((v) => v.date <= cle)
+          .reduce((t, v) => t + v.delta, 0);
+      return { tdc: depart == null ? null : depart + ecart, ecart };
+    };
+    return { moi: suivre(moi), cible: suivre(cible) };
+  }
+  /**
+   * Partages du forum où mes floods sont ceux de la liste du jeu et mes
+   * chasses celles de Ressources.php (s'il a été lu) : mes mouvements non
+   * partagés comptent, sans doublon.
+   *
+   * @static
+   * @method avecMesMouvements
+   * @param {Object} d PartageChasses.charger()
+   * @param {String} moi
+   * @param {Array} mesFloods lignes de PartageChasses.entreesFloods
+   * @param {Array|null} mesChasses [{date, terrain}] ; null : celles du forum
+   * @return {Object} {chasses, floods}
+   */
+  static avecMesMouvements(d, moi, mesFloods, mesChasses) {
+    let m = moi.toLowerCase();
+    return {
+      chasses: mesChasses ? { ...d.chasses, [m]: mesChasses } : d.chasses,
+      floods: d.floods
+        .filter((f) => String(f.lanceur).toLowerCase() != m)
+        .concat(mesFloods.map((f) => ({ ...f, lanceur: moi }))),
+    };
   }
   /**
    * Unités gardées pour cette attaque, sous le lanceur.
@@ -807,12 +977,12 @@ class PageAttaquer {
           text: "Votre vitesse d'attaque ne vous permet d'envoyer plus d'attaques",
         });
     } else {
-      $("#o_simulationFlood tr:last").before(
+      $("#o_floodActions").before(
         `<tr class='ligne_paire'><td>Attaque ${nbAttaque} (<span id="o_pourcentAttaque${nbAttaque}">0</span>%)</td><td><input value='0' size='12' id='o_attaque${nbAttaque}'/></td><td><input type="checkbox" id="o_suppAttaque${nbAttaque}" name="o_suppAttaque"/></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>`,
       );
       $("#o_attaque" + nbAttaque).spinner({ min: 0 });
       $("#o_simulationFlood tr").removeClass("ligne_paire");
-      $("#o_simulationFlood tr:even").addClass("ligne_paire");
+      $("#o_simulationFlood tr:not(.o_floodImpactLigne):even").addClass("ligne_paire");
       // Event
       $("#o_attaque" + nbAttaque).on("input spin", (e, ui) => {
         this.preparerFlood(
@@ -845,7 +1015,7 @@ class PageAttaquer {
       $("#o_attaque" + (nbAttaque - 1)).off();
       $("#o_simulationFlood tr:eq(" + (nbAttaque + 1) + ")").remove();
       $("#o_simulationFlood tr").removeClass("ligne_paire");
-      $("#o_simulationFlood tr:even").addClass("ligne_paire");
+      $("#o_simulationFlood tr:not(.o_floodImpactLigne):even").addClass("ligne_paire");
     }
   }
   /**

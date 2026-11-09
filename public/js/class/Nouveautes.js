@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.11",
+    notes: [
+      "Lanceur de Flood : « Flooder + partager » et « Flooder » passent à gauche. À leur droite, « Calculer le TdC à l'impact » donne ton TdC et celui de la cible à l'arrivée d'un flood lancé maintenant (floods et chasses partagés, plus tes propres attaques et chasses en cours), avec l'écart à maintenant ; une cible hors portée à l'impact est signalée en rouge.",
+      "Un clic sur l'un de ces TdC le met dans « Mon Terrain » ou dans le champ de la cible, et les attaques se recalculent. Case dans Préférences → Attaque.",
+    ],
+  },
+  {
     version: "1.95.10",
     notes: [
       "Page d'un membre, tableau « Évolution du TdC » : la ligne du TdC qu'il aurait à l'arrivée d'une attaque lancée à l'ouverture de la page (votre Vitesse d'attaque) est surlignée, comme dans la page Membres.",

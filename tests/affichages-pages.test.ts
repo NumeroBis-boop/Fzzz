@@ -9,7 +9,7 @@ const page = creerPage(
   ["js/class/Utils.js", "js/page/Attaquer.js", "js/page/Armee.js"],
   `var AFFICHAGES_ONGLET = {}, TOAST_ERROR = {};
    var monProfil = { getTempsParcours2: () => 600, parametre: { sondeUnite: { valeur: 0 }, sondeQuantite: { valeur: 1 }, sondeLieu: { valeur: 0 } } };
-   var Horloge = { clic: () => moment(), maintenant: () => Date.now(), libelleLatence: () => "" };
+   var Horloge = { clic: () => moment(), serveur: () => moment(), maintenant: () => Date.now(), libelleLatence: () => "" };
    var AttaqueLancee = { enregistrer: () => {} };`,
 );
 page.lire(`Utils.incrementTime = () => {};`);

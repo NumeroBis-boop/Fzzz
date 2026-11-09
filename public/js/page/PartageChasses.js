@@ -922,43 +922,51 @@ class PartageChasses {
    * @static
    */
   static _partagerFloods(captures, $bouton) {
-    return PartageChasses._avecBouton(
-      $bouton,
-      "Floods",
-      captures
-        .filter((c) => c && c.arrivee)
-        .map((c) => {
-          let unites = Object.values(c.unite || {}).reduce((t, n) => t + (n || 0), 0),
-            zone = AttaqueLancee.zoneLieu(c.lieu),
-            estimee =
-              c.terrainDepart != null && c.terrainCible != null
-                ? c.terrainDepart - c.terrainCible
-                : null;
-          if (zone == "Dôme" || zone == "Loge")
-            return {
-              date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
-              cible: c.cible,
-              unites: unites || null,
-              terrain: 0,
-              tdcCible: c.terrainConnu || c.terrainDepart || null,
-              id: c.id,
-              lieu: zone,
-            };
+    return PartageChasses._avecBouton($bouton, "Floods", PartageChasses.entreesFloods(captures));
+  }
+  /**
+   * Lignes « Floods » du forum de mes attaques capturées (AttaqueLancee) :
+   * minute du RC, cible, unités, prise estimée au lancement, TdC de la cible.
+   *
+   * @static
+   * @method entreesFloods
+   * @param {Array} captures
+   * @return {Array}
+   */
+  static entreesFloods(captures) {
+    return captures
+      .filter((c) => c && c.arrivee)
+      .map((c) => {
+        let unites = Object.values(c.unite || {}).reduce((t, n) => t + (n || 0), 0),
+          zone = AttaqueLancee.zoneLieu(c.lieu),
+          estimee =
+            c.terrainDepart != null && c.terrainCible != null
+              ? c.terrainDepart - c.terrainCible
+              : null;
+        if (zone == "Dôme" || zone == "Loge")
           return {
-            // minute du RC (celle où le terrain change), comme le tableau des attaques
             date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
             cible: c.cible,
-            // unités envoyées et prise estimée au lancement (règle des 20 %) ;
-            // les synthèses recalculent la prise à l'impact (PartageChasses.simuler)
             unites: unites || null,
-            terrain: estimee != null ? estimee : unites,
-            // TdC de la cible connu au lancement (profil ou saisie du lanceur de flood)
+            terrain: 0,
             tdcCible: c.terrainConnu || c.terrainDepart || null,
             id: c.id,
+            lieu: zone,
           };
-        })
-        .filter((e) => e.terrain > 0 || (e.lieu && e.unites)),
-    );
+        return {
+          // minute du RC (celle où le terrain change), comme le tableau des attaques
+          date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
+          cible: c.cible,
+          // unités envoyées et prise estimée au lancement (règle des 20 %) ;
+          // les synthèses recalculent la prise à l'impact (PartageChasses.simuler)
+          unites: unites || null,
+          terrain: estimee != null ? estimee : unites,
+          // TdC de la cible connu au lancement (profil ou saisie du lanceur de flood)
+          tdcCible: c.terrainConnu || c.terrainDepart || null,
+          id: c.id,
+        };
+      })
+      .filter((e) => e.terrain > 0 || (e.lieu && e.unites));
   }
   /**
    * Lit dans le forum les chasses (des joueurs demandés, ou de tous) et les
@@ -1011,10 +1019,12 @@ class PartageChasses {
    * @method simuler
    * @param {Object} d résultat de charger()
    * @param {Object} connus {pseudo: TdC actuel}
+   * @param {Object|null} [depuis] heure (moment) où ces TdC ont été lus ; défaut : maintenant
    * @return {Object} {evenements: [...], depart: {pseudo minuscule: TdC}}
    */
-  static simuler(d, connus = {}) {
-    let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+  static simuler(d, connus = {}, depuis = null) {
+    // les mouvements arrivés depuis la lecture des TdC sont rejoués
+    let maintenant = (depuis ? moment(depuis) : Horloge.serveur()).format("YYYY-MM-DD HH:mm"),
       tdc = {},
       releve = {};
     for (let p in connus) if (connus[p] > 0) tdc[p.toLowerCase()] = connus[p];

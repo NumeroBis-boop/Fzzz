@@ -107,6 +107,8 @@ const AFFICHAGES_FZZZ = {
   styleFormulaires:
     "Style des champs du jeu : cases à cocher et boutons radio alignés, champs nombre élargis, boutons inactifs grisés",
   nouveautes: "Notification des nouveautés après une mise à jour",
+  rappelExport:
+    "Rappel « Export des chasses à faire » à partir du mercredi et du dimanche 22h (rôle Chasseur)",
   rentabilite:
     "Bandeaux « rentabilité du niveau supérieur » (et Étable à pucerons dans Construction)",
   messagerieCouleurs: "Couleurs des titres par type de message",
@@ -237,6 +239,7 @@ const AFFICHAGES_ONGLET = {
   menuCouts: "General",
   styleFormulaires: "General",
   nouveautes: "General",
+  rappelExport: "General",
 };
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
@@ -1261,8 +1264,10 @@ class Utils {
       } catch (e) {}
       $bandeau.remove();
     });
-    // « Mes attaques en cours » reste collé au menu : le bandeau passe dessous
-    if ($("#o_attaquesLancees.o_epingle").length) $bandeau.insertAfter("#o_attaquesLancees");
+    // « Mes attaques en cours » reste collé au menu : le bandeau passe dessous ;
+    // le rappel d'export, lui, passe sous le bandeau de ponte
+    if ($("#o_rappelExport").length) $bandeau.insertBefore("#o_rappelExport");
+    else if ($("#o_attaquesLancees.o_epingle").length) $bandeau.insertAfter("#o_attaquesLancees");
     else if ($("#menu").length) $bandeau.insertAfter("#menu");
     else if ($("#centre").length) $bandeau.prependTo("#centre");
     else $bandeau.prependTo("body");
@@ -1271,6 +1276,7 @@ class Utils {
         ? Utils.calerSousMenu($bandeau[0])
         : $bandeau.css("margin-top", ECART_SOUS_MENU + "px");
     caler();
+    if (typeof RappelExport != "undefined") RappelExport.caler();
     // la page peut encore bouger (images, polices, largeur de fenêtre)
     $(window).off(".o_alertePonte").on("load.o_alertePonte resize.o_alertePonte", caler);
     if (document.fonts) document.fonts.ready.then(caler);

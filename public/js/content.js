@@ -586,6 +586,11 @@ const DATEPICKER_OPTION = {
         } catch (e) {
           console.error("Fzzz : alerte de ponte", e);
         }
+        try {
+          if (!origineGenerale) RappelExport.afficher();
+        } catch (e) {
+          console.error("Fzzz : rappel d'export des chasses", e);
+        }
         // Ajout des outils, sous l'encadré Compte+
         let boite = new Dock();
         boite.afficher();

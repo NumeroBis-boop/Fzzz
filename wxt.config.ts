@@ -146,6 +146,7 @@ export default defineConfig({
           "js/class/MiseAJour.js",
           "js/class/OuafSuivi.js",
           "js/class/Parametre.js",
+          "js/class/RappelExport.js",
           "js/class/SimulationChasse.js",
           "js/class/ModeleChasse.js",
           "js/class/LanceurChasse.js",

@@ -11,6 +11,9 @@ const CLE_RESERVE_EN_PLUS = "fzzz_reserveEnPlus";
 const CLE_METHODE_DEGRESSIVE = "fzzz_methodeDegressive";
 const METHODE_FLOOD_OPTIMISEE = 1;
 const METHODE_FLOOD_DEGRESSIVE = 3;
+// rôle du joueur dans l'alliance (Préférences → Rôle)
+const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
+const ROLE_CHASSEUR = 3;
 
 /**
  * Classe pour creer et gérer un joueur
@@ -105,6 +108,7 @@ class Joueur {
       "#787423",
     );
     // parametres armée
+    this._parametre["role"] = new Parametre("role", "Rôle", "select", 0, ROLES);
     this._parametre["methodeFlood"] = new Parametre(
       "methodeFlood",
       "Méthode de flood",

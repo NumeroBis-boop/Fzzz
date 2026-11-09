@@ -120,7 +120,11 @@ class ExportRapports {
     return parseInt(String(t || "").replace(/\D/g, "")) || 0;
   }
   /**
-   * Date d'un message (« 07/11/26 à 21h07 ») au format "AAAA-MM-JJ HH:mm", ou "".
+   * Date d'un message au format "AAAA-MM-JJ HH:mm", ou "" : « 07/11/26 à
+   * 21h07 », année sur quatre chiffres ou absente (celle du jour, l'an passé
+   * pour une date à venir), heure « 21:07 », « aujourd'hui » ou « hier » (jour
+   * de l'horloge du serveur). Un en-tête de message n'a pas la même forme chez
+   * tous les joueurs (journal du 09/11/2026 : dates vides chez l'un d'eux).
    *
    * @static
    * @method date
@@ -128,10 +132,28 @@ class ExportRapports {
    * @return {String}
    */
   static date(expe) {
-    let m = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})\D+?(\d{1,2})h(\d{2})/.exec(String(expe || ""));
-    if (!m) return "";
-    let deux = (/** @type {String} */ n) => n.padStart(2, "0");
-    return `${m[3].length == 2 ? "20" + m[3] : m[3]}-${deux(m[2])}-${deux(m[1])} ${deux(m[4])}:${m[5]}`;
+    let t = String(expe || ""),
+      deux = (/** @type {Number} */ n) => String(n).padStart(2, "0"),
+      ecrire = (/** @type {any} */ jour, /** @type {String} */ h, /** @type {String} */ mi) =>
+        Number(h) > 23 || Number(mi) > 59 || !jour.isValid()
+          ? ""
+          : `${jour.format("YYYY-MM-DD")} ${deux(Number(h))}:${mi}`,
+      m = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\D+?(\d{1,2})\s*[h:]\s*(\d{2})/.exec(t);
+    if (m) {
+      let annee = m[3] ? Number(m[3].length == 2 ? "20" + m[3] : m[3]) : NaN,
+        jour = moment([
+          isNaN(annee) ? Horloge.serveur().year() : annee,
+          Number(m[2]) - 1,
+          Number(m[1]),
+        ]);
+      if (isNaN(annee) && jour.isAfter(Horloge.serveur().add(1, "day")))
+        jour = jour.subtract(1, "year");
+      return ecrire(jour, m[4], m[5]);
+    }
+    let r = /(aujourd['’]hui|hier)\D*?(\d{1,2})\s*[h:]\s*(\d{2})/i.exec(t);
+    if (!r) return "";
+    let jour = Horloge.serveur().startOf("day");
+    return ecrire(/^hier/i.test(r[1]) ? jour.subtract(1, "day") : jour, r[2], r[3]);
   }
   /**
    * Espaces du jeu (insécables, doublés) ramenés à une espace simple ; les
@@ -535,18 +557,34 @@ class ExportRapports {
    * @param {Array} conversations [{id, titre, camp?, messages: [{id, date, texte}]}]
    * @param {String} pseudo
    * @param {Set<String>} [membres] pseudos des membres de l'alliance, en minuscules
+   * @param {{sansDate: Number, entete: String, conversations: Set<Number>}} [bilan]
+   *   RC laissés de côté faute de date lisible (la clé et les statistiques en ont besoin)
    * @return {Array<{onglet: String, conversation: Number, ligne: Array}>} ligne : [clé, ...valeurs]
    */
-  static lignes(type, conversations, pseudo, membres = new Set()) {
+  static lignes(
+    type,
+    conversations,
+    pseudo,
+    membres = new Set(),
+    bilan = { sansDate: 0, entete: "", conversations: new Set() },
+  ) {
     /** @type {Array<{id: Number, conversation: Number, onglet: String, rc: {signature: String, date: String, valeurs: Array}}>} */
     let rcs = [];
     conversations.forEach((c) => {
       let titreUtilise = false;
+      let sansDate = (/** @type {{entete?: String}} */ m) => {
+        bilan.sansDate++;
+        bilan.entete = bilan.entete || m.entete || "";
+        bilan.conversations.add(c.id);
+      };
       c.messages.forEach(
-        (/** @type {{id: Number, date: String, texte: String, rc?: String}} */ m) => {
+        (
+          /** @type {{id: Number, date: String, texte: String, rc?: String, entete?: String}} */ m,
+        ) => {
           if (type == "chasse") {
             let rc = ExportRapports.chasse(m.texte, m.date, pseudo);
-            if (rc)
+            if (rc && !m.date) sansDate(m);
+            else if (rc)
               rcs.push({
                 id: m.id,
                 conversation: c.id,
@@ -559,6 +597,7 @@ class ExportRapports {
             ExportRapports.combat(m.texte, m.date, pseudo) ||
             ExportRapports.prise(m.texte, m.date, pseudo, titreUtilise ? "" : c.titre);
           if (!rc) return;
+          if (!m.date) return sansDate(m);
           if (rc.valeurs[2] == "Prise") titreUtilise = true;
           let interne = !!rc.adversaire && membres.has(rc.adversaire.toLowerCase());
           rcs.push({
@@ -680,9 +719,16 @@ class ExportRapports {
           .each((i, img) =>
             $(img).replaceWith(` ${img.getAttribute("alt") || img.getAttribute("title") || ""}`),
           );
+        // la date, dans l'en-tête du message ou à défaut ailleurs dans sa ligne
+        let $ligne = $(tr).clone(),
+          expe = $(tr).find(".expe").first().text();
+        $ligne.find(".message").remove();
         return {
           id: parseInt((tr.id.match(/\d+/) || ["0"])[0]),
-          date: ExportRapports.date($(tr).find(".expe").first().text()),
+          date: ExportRapports.date(expe) || ExportRapports.date($ligne.text()),
+          entete: ExportRapports.espaces(expe || $ligne.text())
+            .trim()
+            .slice(0, 80),
           texte: $message.text(),
           rc: $affiche
             .text()
@@ -1176,8 +1222,11 @@ class ExportRapports {
             .filter((c) => c.id);
         let connues = listees.flatMap((c) => memoire[c.id] || []);
         return ExportRapports.absentes(type, connues, url).then((absentes) => {
+          // clé sans date (« |… ») : RC exporté sans date par une version d'avant, relu
           let aLire = listees.filter(
-            (c) => !memoire[c.id] || memoire[c.id].some((cle) => absentes.has(cle)),
+            (c) =>
+              !memoire[c.id] ||
+              memoire[c.id].some((cle) => absentes.has(cle) || cle.startsWith("|")),
           );
           Journal.info(
             JOURNAL_EXPORT,
@@ -1253,7 +1302,8 @@ class ExportRapports {
         );
       })
       .then(() => {
-        let lignes = ExportRapports.lignes(type, lues, pseudo, membres),
+        let bilanDates = { sansDate: 0, entete: "", conversations: new Set() },
+          lignes = ExportRapports.lignes(type, lues, pseudo, membres, bilanDates),
           // conversations sans RC reconnu : pas retenues, relues au prochain export
           /** @type {Object<string, Array<String>>} */
           parConversation = {},
@@ -1268,6 +1318,12 @@ class ExportRapports {
           JOURNAL_EXPORT,
           `${lues.length} conversation(s) lue(s) : ${lignes.length} RC reconnu(s) (${onglets.map((o) => `${lignes.filter((l) => l.onglet == o).length} pour « ${EXPORTS_RAPPORTS[o].onglet} »`).join(", ") || "aucun"}), ${lues.length - Object.keys(parConversation).length} sans RC reconnu`,
         );
+        if (bilanDates.sansDate)
+          Journal.erreur(
+            JOURNAL_EXPORT,
+            `${bilanDates.sansDate} RC sans date lisible, pas exporté(s)`,
+            `en-tête du message : « ${bilanDates.entete} »`,
+          );
         if (lignes.length) $("#o_exportProgres").text("envoi au Google Sheet…");
         return onglets
           .reduce(
@@ -1283,12 +1339,15 @@ class ExportRapports {
           )
           .then(() => {
             ExportRapports.memoriser(type, parConversation);
-            let sansRC = lues.length - Object.keys(parConversation).length,
+            let sansRC = lues.filter(
+                (c) => !parConversation[c.id] && !bilanDates.conversations.has(c.id),
+              ).length,
               pluriel = (/** @type {Number} */ n) => (n > 1 ? "s" : ""),
-              deja = bilans.reduce((t, b) => t + b.deja, 0);
+              deja = bilans.reduce((t, b) => t + b.deja, 0),
+              n = bilanDates.sansDate;
             $.toast({
-              ...TOAST_SUCCESS,
-              hideAfter: 10000,
+              ...(n ? TOAST_WARNING : TOAST_SUCCESS),
+              hideAfter: n ? false : 10000,
               text:
                 `Export des ${quoi} : ` +
                 (bilans.length
@@ -1304,6 +1363,9 @@ class ExportRapports {
                 (sansRC ? ` ${sansRC} conversation(s) sans RC reconnu.` : "") +
                 (echecs
                   ? ` ${echecs} conversation(s) n'ont pas pu être lues : réessaie plus tard.`
+                  : "") +
+                (n
+                  ? ` ${n} rapport${pluriel(n)} sans date lisible, pas exporté${pluriel(n)} : envoie ce message à la personne qui gère l'extension (date lue : « ${Utils.echapper(bilanDates.entete)} »).`
                   : ""),
             });
           });

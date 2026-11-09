@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
-import { classeurSimule } from "./sheet-simule";
+import { classeurSimule, feuille } from "./sheet-simule";
 
 /**
  * Robustesse de l'export face aux « bêtises » : double clic, deux boutons à la
@@ -19,7 +19,7 @@ const page = creerPage(
   ],
   `var Horloge = { serveur: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-10-29 10:00", "YYYY-MM-DD HH:mm").valueOf() };
    var monProfil = { pseudo: "DoggyBag", parametre: {} };
-   var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};`,
+   var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {}, TOAST_WARNING = {};`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const fenetre = page.window as any;
@@ -140,6 +140,51 @@ const CHASSES = {
     html: message(104, chasse(4)),
   },
 };
+
+describe("export : date des rapports", () => {
+  test("RC exportés sans date par une version d'avant : retirés, puis renvoyés datés au clic suivant, sans doublon", async () => {
+    messagerie(CHASSES);
+    // état laissé par une version d'avant : quatre lignes sans date, leurs clés gardées
+    const entetes = lire<string[]>(`EXPORTS_RAPPORTS.chasse.entetes`);
+    const sansDate = (k: string) =>
+      entetes.map((t) => (t == "Clé" ? k : t == "Exporté par" ? "DoggyBag" : t == "Date" ? "" : 1));
+    fichier.onglets["BDD chasse"] = feuille("BDD chasse", [
+      entetes,
+      ...["|a1", "|a2", "|a3", "|a4"].map(sansDate),
+    ]);
+    lire(
+      `localStorage.setItem(ExportRapports._cleMemoire("chasse"), ${JSON.stringify(JSON.stringify({ 11: ["|a1", "|a2", "|a3"], 12: ["|a4"] }))})`,
+    );
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([11, 12]);
+    const cles = fichier.cles("BDD chasse");
+    expect(cles).toHaveLength(4);
+    expect(cles.every((c) => c.startsWith("2026-10-29 09:00|"))).toBe(true);
+    sansDoublon(cles);
+    // clic suivant : tout est là, rien à relire
+    lire(`LECTURES.length = 0`);
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([]);
+  });
+
+  test("date illisible : rapport pas envoyé, le message cite l'en-tête lu ; sa conversation relue au clic suivant", async () => {
+    messagerie({
+      ...CHASSES,
+      13: {
+        titre: "Chasse réussie : vos chasseuses ont conquis 1 000 cm² en 1 expédition",
+        html: `<tr id="message_105"><td class="expe">Fourmizzz il y a 3 heures</td><td class="message">${chasse(5)}</td></tr>`,
+      },
+    });
+    await exporter("chasse");
+    expect(fichier.cles("BDD chasse")).toHaveLength(4);
+    expect(dernierMessage()).toContain("1 rapport sans date lisible, pas exporté");
+    expect(dernierMessage()).toContain("« Fourmizzz il y a 3 heures »");
+    lire(`LECTURES.length = 0`);
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([13]);
+    expect(fichier.cles("BDD chasse")).toHaveLength(4);
+  });
+});
 
 describe("export : clics répétés et pages rechargées", () => {
   beforeEach(() => messagerie(CHASSES));

@@ -17,7 +17,8 @@ const page = creerPage(
   ],
   // joueur de la liste du forum caché (LISTE)
   `var monProfil = { pseudo: "DoggyBag", parametre: {} };
-   var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};`,
+   var Horloge = { serveur: () => moment("2026-11-09 10:00", "YYYY-MM-DD HH:mm") };
+   var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {}, TOAST_WARNING = {};`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbTest_123-abc/exec";
@@ -80,7 +81,18 @@ describe("lecture des rapports", () => {
   test("date d'un message du jeu", () => {
     expect(lire(`ExportRapports.date("07/11/26 à 21h07")`)).toBe(DATE);
     expect(lire(`ExportRapports.date("Fourmizzz 25/10/26 à 04h21")`)).toBe("2026-10-25 04:21");
-    expect(lire(`ExportRapports.date("hier 21h07")`)).toBe("");
+    // autres formes : l'en-tête n'est pas le même chez tous les joueurs ; jour de
+    // l'horloge du serveur (simulée : 09/11/2026 à 10:00)
+    expect(lire(`ExportRapports.date("07/11/2026 21:07:33")`)).toBe(DATE);
+    expect(lire(`ExportRapports.date("le 07/11 à 21h07")`)).toBe(DATE);
+    // sans année et à venir : l'an passé
+    expect(lire(`ExportRapports.date("25/12 à 08h00")`)).toBe("2025-12-25 08:00");
+    expect(lire(`ExportRapports.date("Aujourd'hui à 09h15")`)).toBe("2026-11-09 09:15");
+    expect(lire(`ExportRapports.date("hier 21h07")`)).toBe("2026-11-08 21:07");
+    // rien de reconnaissable, ou impossible : vide
+    expect(lire(`ExportRapports.date("il y a 3 heures")`)).toBe("");
+    expect(lire(`ExportRapports.date("31/02/26 à 25h00")`)).toBe("");
+    expect(lire(`ExportRapports.date("")`)).toBe("");
   });
 
   test("chasse : terrain, nourriture, fourmis perdues, armées et RC", () => {
@@ -304,6 +316,26 @@ describe("clé unique et onglet de chaque RC", () => {
 });
 
 describe("lecture d'une conversation", () => {
+  test("date ailleurs dans la ligne du message ; sans date lisible : RC laissé de côté, en-tête gardé", async () => {
+    const html = (id: number, expe: string, autre = "") =>
+      `<tr id="message_${id}"><td class="expe">${expe}</td>${autre}<td class="message">${chasse(id).replace(/\n/g, "<br/>")}</td></tr>`;
+    lire(
+      `$.post = () => Promise.resolve(${JSON.stringify(html(1, "Fourmizzz", "<td>07/11/26 à 21h07</td>") + html(2, "Fourmizzz il y a 3 heures"))});`,
+    );
+    const messages = await lire<Promise<any[]>>(`ExportRapports.messages(5)`);
+    expect(messages.map((m) => [m.date, m.entete])).toEqual([
+      [DATE, "Fourmizzz"],
+      ["", "Fourmizzz il y a 3 heures"],
+    ]);
+    expect(
+      lire(`(() => {
+        let bilan = { sansDate: 0, entete: "", conversations: new Set() };
+        let l = ExportRapports.lignes("chasse", [{ id: 5, titre: "Chasse", messages: ${JSON.stringify(messages)} }], "DoggyBag", new Set(), bilan);
+        return [l.map((x) => x.ligne[0].split("|")[0]), bilan.sansDate, bilan.entete, [...bilan.conversations]];
+      })()`),
+    ).toEqual([[DATE], 1, "Fourmizzz il y a 3 heures", [5]]);
+  });
+
   const ligneMessage = (id: number) =>
     `<tr id="message_${id}"><td class="expe">07/11/26 à 21h07</td><td class="message">${chasse(id).replace(/\n/g, "<br/>")}</td></tr>`;
   const precedent = `<tr><td><a href="#" class="lien_voir_precedent">Voir les messages précédents</a></td></tr>`;

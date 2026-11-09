@@ -21,7 +21,8 @@ const OUAF_PANNE =
 class CommerceFzzz {
   /**
    * Lignes des convois en cours : les <strong> qui suivent le titre
-   * « Convois en cours: » et commencent par « - ».
+   * « Convois en cours: » et commencent par « - », ou déjà rangés en deux
+   * colonnes (CommerceFzzz.colonnes).
    *
    * @static
    * @method lignes
@@ -29,11 +30,52 @@ class CommerceFzzz {
   static lignes() {
     let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours"));
     if (!$titre.length) return $();
-    return $titre
-      .first()
-      .nextUntil("h3")
+    let $section = $titre.first().nextUntil("h3");
+    return $section
       .filter("strong")
-      .filter((i, e) => /^\s*-/.test($(e).text()) && $(e).text().includes("dans"));
+      .filter((i, e) => /^\s*-/.test($(e).text()) && $(e).text().includes("dans"))
+      .add($section.filter(".o_convois").find(".o_convoiTexte > strong:first-child"));
+  }
+  /**
+   * Convois en cours en deux colonnes : le « - » du jeu et l'état de suivi à
+   * gauche, le reste de la ligne à droite, replié sous « Vous allez… » ; ainsi
+   * « Annuler » ne se trouve jamais sous ou sur un bouton d'envoi (demande du
+   * mainteneur). Rend la case d'état de chaque ligne.
+   *
+   * @static
+   * @method colonnes
+   * @param {Array<Element>} lignes <strong> des convois (CommerceFzzz.lignes)
+   * @return {Map<Element, any>}
+   */
+  static colonnes(lignes) {
+    let cases = new Map(),
+      $convois = $("<div class='o_convois'></div>");
+    lignes.forEach((elt) => {
+      let noeud = elt.firstChild,
+        tiret = noeud instanceof Text ? noeud.data.match(/^\s*-\s*/) : null;
+      // sans « - » en tête : ligne d'un autre format, ou déjà rangée
+      if (!tiret) return;
+      // une ligne du jeu : le <strong>, puis « - Retour… - Annuler » jusqu'au <br>
+      let suite = [],
+        n = elt.nextSibling;
+      for (
+        ;
+        n &&
+        n.nodeName != "BR" &&
+        (n instanceof Text || /^(A|SMALL|EM|I|B|SPAN|IMG|FONT)$/.test(n.nodeName));
+        n = n.nextSibling
+      )
+        suite.push(n);
+      if (!$convois.parent().length) $convois.insertBefore(elt);
+      noeud.splitText(tiret[0].length);
+      let $etat = $("<span class='o_convoiEtat'></span>").append(noeud);
+      $("<span class='o_convoi'></span>")
+        .append($etat, $("<span class='o_convoiTexte'></span>").append(elt, suite))
+        .appendTo($convois);
+      if (n && n.nodeName == "BR") n.remove();
+      cases.set(elt, $etat);
+    });
+    return cases;
   }
   /**
    * Cadre « Organiser un convoi » du jeu : le tableau du formulaire, ou son
@@ -77,7 +119,8 @@ class CommerceFzzz {
    * un bouton « 📤 Envoyer au suivi », qui le transmet au site de suivi puis le
    * note dans le sujet. Transmis mais pas noté (écriture du forum en échec) :
    * bouton « 📝 Noter dans le forum », qui ne renvoie rien au site. Le mot de
-   * passe du site se renseigne seulement dans Paramètres → Convois.
+   * passe du site se renseigne seulement dans Paramètres → Convois. L'état va
+   * dans une colonne à part (CommerceFzzz.colonnes).
    *
    * @static
    * @method suiviOuaf
@@ -87,7 +130,8 @@ class CommerceFzzz {
     let convois = OuafSuivi.convoisJeu();
     CommerceFzzz.reporterAnnulations(convois);
     if (!convois.length) return;
-    let toast = (texte, type = TOAST_INFO) => $.toast({ ...type, text: texte, hideAfter: 8000 }),
+    let cases = CommerceFzzz.colonnes(CommerceFzzz.lignes().get()),
+      toast = (texte, type = TOAST_INFO) => $.toast({ ...type, text: texte, hideAfter: 8000 }),
       // convoi noté dans le forum → sa ligne (sa répartition sert à une annulation)
       notees = new Map(),
       // clic sur « Annuler » du jeu, pour un convoi transmis : retenu, puis retiré
@@ -133,15 +177,14 @@ class CommerceFzzz {
       // état affiché devant un convoi : noté dans le forum, bouton d'envoi, ou
       // bouton de note dans le forum (transmis au site, pas encore noté)
       etatLigne = (c, statut, detail = "") => {
-        let $l = $(c.elt).find(".o_ouafLigne");
+        let $case = cases.get(c.elt),
+          $l = ($case || $(c.elt)).find(".o_ouafLigne");
         if (!$l.length) {
           $l = $(
             `<span class='o_ouafLigne'><span class='o_ouafOui'>✅ Enregistré</span><button type='button' class='o_button o_ouafEnvoyer'>📤 Envoyer au suivi</button><button type='button' class='o_button o_ouafNoter'>📝 Noter dans le forum</button></span>`,
           );
-          // entre le « - » du jeu et « Vous allez livrer… »
-          let noeud = c.elt.firstChild,
-            tiret = noeud && noeud.nodeType == Node.TEXT_NODE ? noeud.data.match(/^\s*-\s*/) : null;
-          if (tiret) $l.insertBefore(noeud.splitText(tiret[0].length));
+          // après le « - » du jeu, dans la colonne des états
+          if ($case) $case.append($l);
           else $(c.elt).prepend($l);
           $l.find(".o_ouafEnvoyer").on("click", (e) => {
             e.preventDefault();

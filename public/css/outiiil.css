@@ -2624,6 +2624,24 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   color: var(--fzzz-succes);
   font-weight: bold;
 }
+/* Fzzz : convois en cours en deux colonnes (CommerceFzzz.colonnes) : le « - »
+   et l'état de suivi à gauche, le texte replié sous « Vous allez… » */
+.o_convois {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  row-gap: 2px;
+}
+.o_convoi {
+  display: contents;
+}
+.o_convoiEtat {
+  font-weight: bold;
+  white-space: nowrap;
+}
+.o_convoiTexte {
+  overflow-wrap: break-word;
+}
 /* Fzzz : bloc « Récapitulatif » (page Convois) */
 #o_convoisMembres {
   /* largeur du cadre « Organiser un convoi » (CommerceFzzz.calerSurCadreConvoi), jamais plus étroit que son tableau */

@@ -176,6 +176,10 @@ describe("TdC à l'impact : lanceur de flood", () => {
     );
     expect(page.lire(`$("#o_floodActions").next().hasClass("o_floodImpactLigne")`)).toBe(true);
     expect(page.lire(`$(".o_floodBoutonsCase .o_floodBoutons #o_lanceFlood").length`)).toBe(1);
+    // le flood part toujours sur le TdC : les deux boutons en vert « terrain »
+    expect(page.lire(`$("#o_lanceFlood, #o_lanceFloodPartager").filter(".o_lieu1").length`)).toBe(
+      2,
+    );
     expect(texte(".o_floodImpact")).toBe("Calculer le TdC à l'impact");
     // une attaque ajoutée passe avant « Supprimer / Ajouter », pas après les TdC à l'impact
     const lignes = page.lire<number>(`$("input[id^='o_attaque']").length`);

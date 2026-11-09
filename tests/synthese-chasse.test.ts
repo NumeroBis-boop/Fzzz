@@ -351,7 +351,10 @@ describe("affichage", () => {
     const g = lire<any[]>(`SyntheseChasse.graphiques(${json(STATS)})`);
     expect(g.map((x) => [x.chart.type, x.title.text])).toEqual([
       [undefined, "Terrain, nourriture et pertes de chaque chasse"],
-      ["line", "Terrain chassé à chaque chasse : toi, les autres chasseurs et leur moyenne"],
+      [
+        "line",
+        "Terrain chassé à chaque chasse : toi, les autres chasseurs et la tendance de leur moyenne",
+      ],
       ["scatter", "Nourriture selon le terrain chassé (un point par chasse)"],
       ["scatter", "Terrain chassé selon la difficulté par cm² (un point par chasse)"],
       ["line", "Pertes par M cm² de chaque chasse dans le temps"],
@@ -377,77 +380,77 @@ describe("affichage", () => {
     ).toBe("300 000");
   });
 
-  test("terrain chassé : toi en vert épais, les autres en pointillés, leur moyenne et les tendances", () => {
+  test("terrain chassé : chaque chasseur en pointillés de sa couleur, les deux tendances en tirets", () => {
     const g = lire<any>(`SyntheseChasse.graphiques(${json(STATS)})[1]`);
+    expect(g.title.text).toBe(
+      "Terrain chassé à chaque chasse : toi, les autres chasseurs et la tendance de leur moyenne",
+    );
     expect(g.xAxis.categories).toEqual(["Chasse 1 (01/11)", "Chasse 2 (03/11)"]);
     const series = Object.fromEntries(g.series.map((x: any) => [x.name, x]));
+    // plus de courbe de la moyenne : seulement sa tendance
     expect(g.series.map((x: any) => x.name)).toEqual([
       "DoggyBag",
       "Alpha",
       "Bravo",
-      "Moyenne des chasseurs",
       "Tendance de la moyenne",
       "Ta tendance",
     ]);
-    // aucune courbe épaisse (illisible, demande du mainteneur)
-    expect([series.DoggyBag.color, series.DoggyBag.lineWidth, series.DoggyBag.data]).toEqual([
-      "#008300",
-      2,
+    // les chasseurs : tous le même pointillé, la même épaisseur, sans points,
+    // chacun sa couleur (le joueur en vert) ; les autres étirés sur ses deux chasses
+    const chasseurs = ["DoggyBag", "Alpha", "Bravo"].map((n) => series[n]);
+    expect(chasseurs.map((c: any) => [c.dashStyle, c.lineWidth, c.marker.enabled])).toEqual(
+      Array(3).fill(["ShortDot", 2, false]),
+    );
+    expect(chasseurs.map((c: any) => c.data)).toEqual([
       [12000, 8000],
+      [4000, 2000],
+      [5000, 5000],
     ]);
-    expect(g.series.every((x: any) => (x.lineWidth || 2) <= 2)).toBe(true);
-    // autres chasseurs (même sans « Comparer ») : leurs chasses étirées sur les
-    // deux de DoggyBag (Bravo n'en a qu'une), en pointillés, d'autres couleurs
-    expect(series.Alpha.data).toEqual([4000, 2000]);
-    expect(series.Bravo.data).toEqual([5000, 5000]);
-    for (const nom of ["Alpha", "Bravo"]) {
-      expect(series[nom].dashStyle).toBe("ShortDot");
-      expect(["#008300", "#e34948"]).not.toContain(series[nom].color);
-    }
-    expect(series.Alpha.color).not.toBe(series.Bravo.color);
-    // moyenne des trois, en rouge plein ; sa tendance en rouge, du même trait
-    // que la tendance du joueur, en vert : mêmes valeurs que l'onglet du Sheet
-    const colonne = (t: string) => lire(`SyntheseChasse.colonne(${json(STATS)}, ${json(t)})`);
-    expect(series["Moyenne des chasseurs"].data).toEqual([7000, 5000]);
-    expect(series["Moyenne des chasseurs"].data).toEqual(colonne("Moyenne des chasseurs (cm²)"));
-    expect(series["Tendance de la moyenne"].data).toEqual(colonne("Tendance de la moyenne (cm²)"));
-    expect(series["Ta tendance"].data).toEqual(colonne("Tendance (cm²)"));
-    expect([
-      series["Moyenne des chasseurs"].color,
-      series["Moyenne des chasseurs"].dashStyle,
-    ]).toEqual(["#e34948", undefined]);
-    expect([
-      series["Tendance de la moyenne"].color,
-      series["Tendance de la moyenne"].dashStyle,
-    ]).toEqual(["#e34948", "LongDash"]);
+    expect(series.DoggyBag.color).toBe("#008300");
+    expect(new Set(chasseurs.map((c: any) => c.color)).size).toBe(3);
+    expect(chasseurs.map((c: any) => c.color)).not.toContain("#e34948");
+    // les tendances : en tirets longs, autres que les pointillés des chasseurs ;
+    // la sienne en vert comme sa courbe, celle de la moyenne en rouge
     expect([series["Ta tendance"].color, series["Ta tendance"].dashStyle]).toEqual([
       "#008300",
       "LongDash",
     ]);
-    // la légende cache ou montre un chasseur : la moyenne et sa tendance suivent
+    expect([
+      series["Tendance de la moyenne"].color,
+      series["Tendance de la moyenne"].dashStyle,
+    ]).toEqual(["#e34948", "LongDash"]);
+    // mêmes valeurs que l'onglet du Sheet
+    const colonne = (t: string) => lire(`SyntheseChasse.colonne(${json(STATS)}, ${json(t)})`);
+    expect(series["Tendance de la moyenne"].data).toEqual(colonne("Tendance de la moyenne (cm²)"));
+    expect(series["Ta tendance"].data).toEqual(colonne("Tendance (cm²)"));
+    // aucune courbe épaisse (illisible, demande du mainteneur)
+    expect(g.series.every((x: any) => x.lineWidth == 2)).toBe(true);
+    // la légende cache ou montre un chasseur : la tendance de la moyenne suit
     expect(g.legend.enabled).toBe(true);
     expect(typeof g.plotOptions.series.events.hide).toBe("function");
   });
 
-  test("chasseur caché par la légende : moyenne et tendance recalculées sur ceux qui restent", () => {
+  test("chasseur caché par la légende : tendance de la moyenne recalculée sur ceux qui restent", () => {
+    // trois chasseurs sur quatre chasses, et la tendance (pas un chasseur)
     const recalcul = (visibles: string[]) =>
       lire(`(() => {
-        let g = SyntheseChasse.graphiques(${json(STATS)})[1], faits = {}, redessine = 0,
-          series = g.series.map((o) => ({ userOptions: o, visible: ${json(visibles)}.includes(o.name) })),
-          graphique = {
-            series,
-            get: (id) => ({ setData: (d) => (faits[id] = d) }),
-            redraw: () => redessine++,
-          };
-        SyntheseChasse.recalculer(graphique);
-        return [faits.o_moyenneChasseurs, faits.o_tendanceMoyenne, redessine];
+        let faits = {}, redessine = 0,
+          courbes = { A: [10, 20, 30, 40], B: [30, 30, 30, 30], C: [0, 0, 0, 100] },
+          series = Object.keys(courbes).map((n) => ({ name: n, userOptions: { chasseur: true, data: courbes[n] }, visible: ${json(visibles)}.includes(n) }));
+        series.push({ name: "Tendance de la moyenne", userOptions: { data: [9, 9, 9, 9] }, visible: true });
+        SyntheseChasse.recalculer({
+          series,
+          get: (id) => ({ setData: (d) => (faits[id] = d) }),
+          redraw: () => redessine++,
+        });
+        return [faits, redessine];
       })()`);
-    // Alpha caché : DoggyBag et Bravo, (12 000 + 5 000) / 2 puis (8 000 + 5 000) / 2
-    expect(recalcul(["DoggyBag", "Bravo"])).toEqual([[8500, 6500], [8500, 6500], 1]);
-    // le joueur caché aussi : Bravo seul
-    expect(recalcul(["Bravo"])).toEqual([[5000, 5000], [5000, 5000], 1]);
-    // personne : plus de moyenne
-    expect(recalcul([])).toEqual([[], [], 1]);
+    // A et B : moyenne 20, 25, 30, 35, déjà une droite
+    expect(recalcul(["A", "B"])).toEqual([{ o_tendanceMoyenne: [20, 25, 30, 35] }, 1]);
+    // A et C : moyenne 5, 10, 15, 70 ; droite 25 + 20 × (x − 1,5), ramenée à 0 au départ
+    expect(recalcul(["A", "C"])).toEqual([{ o_tendanceMoyenne: [0, 15, 35, 55] }, 1]);
+    // personne : plus de tendance
+    expect(recalcul([])).toEqual([{ o_tendanceMoyenne: [] }, 1]);
     // moyenne et tendance comme le script (arrondis, jamais négative)
     expect(lire(`SyntheseChasse.moyenne([[1, 2], [2, null], [4, 5]])`)).toEqual([2, 4]);
     expect(lire(`SyntheseChasse.tendance([100, 100, 100, 100000])`)).toEqual([

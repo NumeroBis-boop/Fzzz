@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.7",
+    notes: [
+      "Préférences : nouvelles cases pour masquer les boutons « Exporter mes chasses » / « Exporter mes RC » et le rangement automatique des messages (Messagerie), le bloc « Filtrer la liste » de la page Ennemies (Attaque) et la mise en page en deux colonnes des convois en cours (Convois).",
+    ],
+  },
+  {
     version: "1.95.6",
     notes: [
       "Export des chasses et des RC : dates lues aussi en toutes lettres, en français ou en anglais (« 7 nov. 2026 à 21h07 », « Nov 7 2026 at 9:07 PM ») ; l'heure exportée est toujours celle du serveur, même pour un joueur qui voit l'heure de chez lui.",

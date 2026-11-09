@@ -130,7 +130,9 @@ class CommerceFzzz {
     let convois = OuafSuivi.convoisJeu();
     CommerceFzzz.reporterAnnulations(convois);
     if (!convois.length) return;
-    let cases = CommerceFzzz.colonnes(CommerceFzzz.lignes().get()),
+    let cases = Utils.affichage("convoisColonnes")
+        ? CommerceFzzz.colonnes(CommerceFzzz.lignes().get())
+        : new Map(),
       toast = (texte, type = TOAST_INFO) => $.toast({ ...type, text: texte, hideAfter: 8000 }),
       // convoi noté dans le forum → sa ligne (sa répartition sert à une annulation)
       notees = new Map(),
@@ -183,8 +185,11 @@ class CommerceFzzz {
           $l = $(
             `<span class='o_ouafLigne'><span class='o_ouafOui'>✅ Enregistré</span><button type='button' class='o_button o_ouafEnvoyer'>📤 Envoyer au suivi</button><button type='button' class='o_button o_ouafNoter'>📝 Noter dans le forum</button></span>`,
           );
-          // après le « - » du jeu, dans la colonne des états
+          // après le « - » du jeu : dans la colonne des états, sinon dans la ligne
+          let noeud = c.elt.firstChild,
+            tiret = noeud instanceof Text ? noeud.data.match(/^\s*-\s*/) : null;
           if ($case) $case.append($l);
+          else if (tiret) $l.insertBefore(noeud.splitText(tiret[0].length));
           else $(c.elt).prepend($l);
           $l.find(".o_ouafEnvoyer").on("click", (e) => {
             e.preventDefault();

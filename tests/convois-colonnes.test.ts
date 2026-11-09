@@ -27,10 +27,11 @@ const recevoir = `<strong>- Vous allez recevoir 50 000 <img alt="nourritures" sr
 const attendre = () => new Promise((r) => setTimeout(r, 50));
 
 // page Convois ; le forum note le premier convoi
-function ouvrir(suivi = true) {
+function ouvrir(suivi = true, colonnes = true) {
   page.lire(`(() => {
     localStorage.clear();
     if (!${suivi}) localStorage.setItem("fzzz_affichage_convoisSuiviLignes", "0");
+    if (!${colonnes}) localStorage.setItem("fzzz_affichage_convoisColonnes", "0");
     window.chrome = {
       storage: { local: { get: () => Promise.resolve({}) } },
       runtime: { sendMessage: () => Promise.resolve({ ok: true, donnees: {} }) },
@@ -101,6 +102,22 @@ describe("page Convois : état de suivi dans sa colonne", () => {
     expect(
       page.lire(`[$(".o_convois").length, $(".o_convoi").length, $(".o_ouafLigne").length]`),
     ).toEqual([1, 3, 2]);
+  });
+
+  test("colonnes coupées (Préférences) : l'état après le « - » du jeu, dans la ligne, comme avant", async () => {
+    ouvrir(true, false);
+    await attendre();
+    expect(page.lire(`$(".o_convois").length`)).toBe(0);
+    expect(page.lire(`$("#centre > strong").length + $("#centre br").length`)).toBe(6);
+    expect(
+      page.lire(
+        `$("#centre > strong").map((i, s) => [[s.firstChild.data, $(s).children(".o_ouafLigne").length]]).get()`,
+      ),
+    ).toEqual([
+      ["- ", 1],
+      ["- ", 1],
+      ["- Vous allez recevoir 50 000 ", 0],
+    ]);
   });
 
   test("suivi des convois masqué (Préférences) : la page reste celle du jeu", async () => {

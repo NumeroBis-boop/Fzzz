@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
 /**
- * Historique des actions passées (floods, chasses, convois) dans des sujets à
- * part, « Historique <type> N | pseudo » : une réponse dans un sujet empêche de
+ * Historique des actions passées (floods, chasses) dans des sujets à part,
+ * « Historique <type> N | pseudo » : une réponse dans un sujet empêche de
  * modifier son premier message, le suivi ne peut donc pas garder un second
- * message. Le suivi ne lit que le premier message de ses sujets.
+ * message. Le suivi ne lit que le premier message de ses sujets. Les convois
+ * arrivés sont seulement retirés de leur sujet (1.97.2, règle du mainteneur).
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js", "js/page/ConvoisForum.js"],
@@ -93,10 +94,9 @@ describe("suivi : premier message seulement", () => {
     expect(s.exportSheet).toBe("4");
     expect(s["Floods | doggybag"]).toBe("1");
     expect(s.liste.map((t: any) => t.id)).toEqual(["1"]);
-    expect(s.historiques).toEqual([
-      { type: "Floods", page: 1, pseudo: "DoggyBag", id: "2" },
-      { type: "Convois", page: 2, pseudo: "DoggyBag", id: "3" },
-    ]);
+    expect(s.historiques).toEqual([{ type: "Floods", page: 1, pseudo: "DoggyBag", id: "2" }]);
+    // ancien historique des convois (avant 1.97.2) : ignoré
+    expect(s["Convois | doggybag"]).toBeUndefined();
   });
 });
 
@@ -161,7 +161,7 @@ describe("floods passés vers l'historique", () => {
   });
 });
 
-describe("chasses et convois passés vers l'historique", () => {
+describe("chasses passées vers l'historique, convois arrivés retirés", () => {
   test("chasses : la passée part dans l'historique, l'annulée disparaît", async () => {
     sujet("1", "Chasses | DoggyBag", "29/10/26 12:00 | 20 000 cm²\n29/10/26 09:00 | 10 000 cm²");
     await lire(`PartageChasses.recalerChasses([])`);
@@ -169,7 +169,7 @@ describe("chasses et convois passés vers l'historique", () => {
     expect(message("Chasses | DoggyBag")).toBe("Aucune chasse en cours.");
   });
 
-  test("convois : arrivés dans l'historique, avec leur répartition ; l'annulé n'y va pas", async () => {
+  test("convois : l'annulé et l'arrivé retirés du sujet, sans historique", async () => {
     sujet(
       "1",
       "Convois | DoggyBag",
@@ -178,18 +178,22 @@ describe("chasses et convois passés vers l'historique", () => {
     await lire(
       `ConvoisForum.retirer({ id: 6, vers: "Bravo", montant: 2000, arrivee: moment("2026-10-29 12:00", "YYYY-MM-DD HH:mm").valueOf() })`,
     );
-    expect(message("Historique Convois 1 | DoggyBag")).toBe(
-      "29/10/26 09:00 | Bravo | 1 000 | #5 | prévu 600 | avance 400",
-    );
     expect(message("Convois | DoggyBag")).toBe("");
+    expect(lire(`FORUM.sujets.map((s) => s.titre)`)).toEqual(["Convois | DoggyBag"]);
   });
 
-  test("convoi noté : les arrivés sortent du suivi au passage", async () => {
+  test("convoi noté : les arrivés sortent du suivi ; un ancien historique des convois n'est ni lu ni modifié", async () => {
     sujet("1", "Convois | DoggyBag", "29/10/26 09:00 | Bravo | 1 000 | #5");
+    sujet("2", "Historique Convois 1 | DoggyBag", "28/10/26 09:00 | Bravo | 500 | #4");
     await lire(
       `ConvoisForum.noter([{ id: 7, vers: "Bravo", montant: 3000, arrivee: moment("2026-10-29 15:00", "YYYY-MM-DD HH:mm").valueOf() }])`,
     );
-    expect(message("Historique Convois 1 | DoggyBag")).toBe("29/10/26 09:00 | Bravo | 1 000 | #5");
     expect(message("Convois | DoggyBag")).toBe("29/10/26 15:00 | Bravo | 3 000 | #7");
+    expect(message("Historique Convois 1 | DoggyBag")).toBe("28/10/26 09:00 | Bravo | 500 | #4");
+    expect(lire(`FORUM.appels`)).toEqual([
+      "callGetForum",
+      "callGetTopic",
+      "envoiEditTopic Convois | DoggyBag",
+    ]);
   });
 });

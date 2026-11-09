@@ -9,7 +9,7 @@
 const FORUM_SECTIONS_CHASSES = ["BDD partagée cachée", "Fzzz-Chasses", "Fzzz_Chasses"];
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
-// actions passées : sujets « Historique Chasses N | pseudo » (Floods, Convois),
+// actions passées : sujets « Historique Chasses N | pseudo » (et Floods),
 // un seul message chacun, car une réponse empêche de modifier le premier
 // message ; page suivante quand ce message dépasserait cette taille
 const HISTORIQUE_MAX_CARACTERES = 15000;
@@ -45,7 +45,7 @@ const DUREE_CACHE_FORUM = 60000;
  * « BDD partagée cachée » : « Chasses | pseudo » et « Floods | pseudo » (et
  * « Convois | pseudo », voir ConvoisForum). Le message unique du sujet
  * contient les entrées en cours, une ligne par entrée, et chaque partage le
- * réécrit (fusion sans doublon) ; les entrées passées partent dans
+ * réécrit (fusion sans doublon) ; les chasses et floods passés partent dans
  * « Historique <type> N | pseudo » (voir archiver). La page membre lit les
  * deux sujets du joueur consulté.
  *
@@ -249,7 +249,7 @@ class PartageChasses {
         .each((i, elt) => {
           let titre = $(elt).find("td:eq(1)").text().trim(),
             m = titre.match(/^(Chasses|Floods|Convois) \| (.+)$/),
-            h = titre.match(/^Historique (Chasses|Floods|Convois) (\d+) \| (.+)$/),
+            h = titre.match(/^Historique (Chasses|Floods) (\d+) \| (.+)$/),
             idSujet =
               $(elt).find("input[name='topic[]']").val() ||
               (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0];
@@ -371,7 +371,7 @@ class PartageChasses {
    *
    * @static
    * @method archiver
-   * @param {String} type "Chasses", "Floods" ou "Convois"
+   * @param {String} type "Chasses" ou "Floods"
    * @param {Array<String>} lignes
    * @param {Object} sujets voir sujets()
    * @return {Promise} rejetée si l'historique n'a pas pu être lu ou écrit
@@ -441,7 +441,7 @@ class PartageChasses {
    *
    * @static
    * @method archiverPassees
-   * @param {String} type "Chasses", "Floods" ou "Convois"
+   * @param {String} type "Chasses" ou "Floods"
    * @param {Array} entrees
    * @param {Object} sujets voir sujets()
    * @param {(e: any) => String} [ligne] texte d'une entrée

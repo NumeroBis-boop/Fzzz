@@ -50,8 +50,8 @@ function selecteurs(css: string): string[] {
 
 describe("styles de l'extension et affichage d'origine", () => {
   // classes utilitaires de l'extension (seul « gras » existe aussi dans le jeu,
-  // avec le même sens) et pages sans onglet dans les préférences (Membres
-  // d'alliance, chat) : à retirer d'ici le jour où ces pages ont un onglet
+  // avec le même sens) et page Membres d'alliance, sans onglet dans les
+  // préférences : à retirer d'ici le jour où elle en aura un
   const AUTORISES = new Set([
     ...[".black", ".blue", ".blue_light", ".centre", ".clear", ".cursor", ".cursor_copy"],
     ...[".f_error", ".f_info", ".f_success", ".f_warning", ".gras", ".green", ".green_light"],
@@ -64,7 +64,7 @@ describe("styles de l'extension et affichage d'origine", () => {
       "#tabMembresAlliance thead th",
       "#tabMembresAlliance tbody td",
     ],
-    ...["#tabMembresAlliance_wrapper", "center > div > #tabMembresAlliance", "#color"],
+    ...["#tabMembresAlliance_wrapper", "center > div > #tabMembresAlliance"],
   ]);
 
   test("toute règle qui touche le jeu se coupe avec « Rétablir l'affichage d'origine »", () => {

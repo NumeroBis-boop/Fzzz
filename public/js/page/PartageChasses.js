@@ -1404,7 +1404,11 @@ class PartageChasses {
         let id = ($span.attr("class").match(/\d+/) || [])[0];
         if (id) PartageChasses.idSection = id;
         $("#o_creerSectionChasses").remove();
-      } else if ($alliance.find("#cat_forum").length && !$("#o_creerSectionChasses").length) {
+      } else if (
+        Utils.affichage("forumSection") &&
+        $alliance.find("#cat_forum").length &&
+        !$("#o_creerSectionChasses").length
+      ) {
         $alliance
           .find("#cat_forum")
           .after(

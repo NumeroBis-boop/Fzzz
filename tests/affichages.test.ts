@@ -84,6 +84,18 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       "profilRetour",
       "profilTrajet",
       "profilSurveiller",
+      "reineBonus",
+      "reinePonte",
+      "reineNombre",
+      "classementTableau",
+      "classementIcones",
+      "classementSurveiller",
+      "chatCiter",
+      "chatCouleur",
+      "chatMiseEnForme",
+      "chatSmileys",
+      "forumSection",
+      "menuRapide",
     ])
       expect(lues.has(c)).toBe(true);
   });

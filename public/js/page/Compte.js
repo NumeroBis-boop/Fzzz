@@ -25,6 +25,7 @@ class PageCompte {
    * @method executer
    */
   executer() {
+    if (!Utils.affichage("menuRapide")) return this;
     if (Utils.comptePlus) this._hookNatif();
     else this._injecterFormulaire();
     return this;

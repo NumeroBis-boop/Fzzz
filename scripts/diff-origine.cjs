@@ -33,6 +33,11 @@ const PAGES = (
     "Messagerie",
     "Convois",
     "Membre",
+    "Reine",
+    "Classement",
+    "Chat",
+    "Forum",
+    "Compte",
   ],
   PROPRIETES = [
     "display",

@@ -169,6 +169,23 @@ const AFFICHAGES_FZZZ = {
   coutsDeveloppement: "Courbes « Coûts & temps de développement » (lien #cout de Construction)",
   laboBordures: "Lignes de Construction et du Laboratoire sans bordure",
   laboInfobulles: "Info-bulles de rentabilité sur les titres « Bouclier Thoracique » et « Armes »",
+  reineBonus: "Hors Compte+ : vie et dégâts « Avec bonus » au clic sur l'icône d'une unité",
+  reinePonte:
+    "Hors Compte+ : formulaire de ponte par nombre, durée ou nourriture, avec un curseur de 1 à 7 jours",
+  reineNombre: "Hors Compte+ : nombre d'unités possédées à côté de chaque nom",
+  classementTableau:
+    "Tableau des membres d'une alliance : tri, recherche, exports et totaux (cadre du classement retiré)",
+  classementIcones: "Hors Compte+ : épée d'attaque et bouclier de défense selon la portée",
+  classementSurveiller: "Bouton « Surveiller / Ignorer » l'alliance (boîte radar)",
+  chatCiter: "Lien « citer » dans chaque message",
+  chatCouleur: "Choix de la couleur du texte (remplace le bouton du jeu)",
+  chatMiseEnForme:
+    "Hors Compte+ : boutons de mise en forme (taille, gras, italique, lien, pseudo…)",
+  chatSmileys: "Hors Compte+ : listes de smileys et flèches pour passer de l'une à l'autre",
+  forumSection:
+    "Bouton pour créer la section cachée du partage des chasses, quand elle n'existe pas encore",
+  menuRapide:
+    "Menu rapide : bloc hors Compte+ ; en Compte+, cases du jeu cochées comme dans ce navigateur",
 };
 
 // Fzzz : couleur des titres de la messagerie par type de message, réglable

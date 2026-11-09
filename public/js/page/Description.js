@@ -28,8 +28,9 @@ class PageDescription {
    * @return
    */
   executer() {
+    let tableau = Utils.affichage("classementTableau");
     // Suppression du cadre classement
-    $("#centre center:first").remove();
+    if (tableau) $("#centre center:first").remove();
     // construction de l'alliance
     let tmpJoueurs = {};
     $("#tabMembresAlliance tr:gt(0)").each((i, elt) => {
@@ -41,7 +42,11 @@ class PageDescription {
         fourmiliere: ~~$(elt).find("td:eq(7)").text(),
         technologie: ~~$(elt).find("td:eq(6)").text(),
       });
-      if (!Utils.comptePlus && !tmpJoueurs[pseudo].estJoueurCourant()) {
+      if (
+        !Utils.comptePlus &&
+        Utils.affichage("classementIcones") &&
+        !tmpJoueurs[pseudo].estJoueurCourant()
+      ) {
         if (tmpJoueurs[pseudo].estAttaquable())
           $(elt).find("td:eq(5)").html(Joueur.lienAttaque(pseudo));
         if (tmpJoueurs[pseudo].estAttaquant()) $(elt).find("td:eq(3)").html(IMG_DEF);
@@ -50,20 +55,27 @@ class PageDescription {
     this._alliance.joueurs = tmpJoueurs;
     Joueur.activerLiensAttaque();
 
-    $("#tabMembresAlliance tr:first").remove();
-    $("#tabMembresAlliance")
-      .append(
-        `<tfoot><tr class='gras centre'><td colspan='8'>Terrain : <span id='totalTerrain'>${numeral(this._alliance.calculTerrain()).format()}</span> cm² | Fourmilière : ${numeral(this._alliance.calculFourmiliere()).format()} | Technologie : ${numeral(this._alliance.calculTechnologie()).format()}.</td></tr></tfoot>`,
-      )
-      .wrap("<div class='simulateur'>")
-      .css({ border: "0px", width: "100%", padding: "0px" })
-      .prepend(
-        `<thead><tr class='alt'><th></th><th>Rang</th><th>Pseudo</th><th></th><th>Terrain</th><th></th><th><span style='padding-right:10px'>Technologie</span></th><th><span style='padding-right:10px'>Fourmiliere</span></th></tr></thead>`,
-      )
-      .after(
-        `<div id='o_bouton_alliance' class='o_group_bouton'><span id='o_surveiller' class='option_gestion'><img src="${IMG_RADAR}" alt="surveiller"/>${this._boiteRadar.alliances.hasOwnProperty(this._alliance.tag) ? " Ignorer" : " Surveiller"}</span>${Utils.antleaksDisponible ? `<span id='o_antleaks' class='option_gestion cursor' title='Voir sur AntLeaks'><img src="${IMG_HISTORIQUE}" alt="AntLeaks"/> Voir sur AntLeaks</span>` : ""}</div><div id='o_separation_graph' class='clear'></div>`,
-      );
-    this.tableau();
+    if (tableau) {
+      $("#tabMembresAlliance tr:first").remove();
+      $("#tabMembresAlliance")
+        .append(
+          `<tfoot><tr class='gras centre'><td colspan='8'>Terrain : <span id='totalTerrain'>${numeral(this._alliance.calculTerrain()).format()}</span> cm² | Fourmilière : ${numeral(this._alliance.calculFourmiliere()).format()} | Technologie : ${numeral(this._alliance.calculTechnologie()).format()}.</td></tr></tfoot>`,
+        )
+        .wrap("<div class='simulateur'>")
+        .css({ border: "0px", width: "100%", padding: "0px" })
+        .prepend(
+          `<thead><tr class='alt'><th></th><th>Rang</th><th>Pseudo</th><th></th><th>Terrain</th><th></th><th><span style='padding-right:10px'>Technologie</span></th><th><span style='padding-right:10px'>Fourmiliere</span></th></tr></thead>`,
+        );
+      this.tableau();
+    }
+    if (!Utils.affichage("classementSurveiller")) return this;
+    // après le tableau, ou après le cadre que DataTables pose autour
+    ($("#tabMembresAlliance_wrapper").length
+      ? $("#tabMembresAlliance_wrapper")
+      : $("#tabMembresAlliance")
+    ).after(
+      `<div id='o_bouton_alliance' class='o_group_bouton'><span id='o_surveiller' class='option_gestion'><img src="${IMG_RADAR}" alt="surveiller"/>${this._boiteRadar.alliances.hasOwnProperty(this._alliance.tag) ? " Ignorer" : " Surveiller"}</span>${Utils.antleaksDisponible ? `<span id='o_antleaks' class='option_gestion cursor' title='Voir sur AntLeaks'><img src="${IMG_HISTORIQUE}" alt="AntLeaks"/> Voir sur AntLeaks</span>` : ""}</div><div id='o_separation_graph' class='clear'></div>`,
+    );
 
     $("#o_antleaks").click(() => {
       let url = `https://antleaks.guics.st/alliance/${encodeURIComponent(this._alliance.tag)}`;

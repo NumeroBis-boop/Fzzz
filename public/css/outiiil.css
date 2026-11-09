@@ -1483,7 +1483,7 @@ html:not(.o_originePage) #tabChoixArmee {
 }
 
 /* Page Chat */
-#color {
+html:not(.o_originePage) #color {
   padding: 2px;
   width: 46px;
   height: 26px;
@@ -1537,18 +1537,18 @@ html:not(.o_originePage) #tabChoixArmee {
 }
 
 /* Page alliance : police et marges réduites, le tableau tient dans le cadre du jeu */
-html:not(.o_desactivee) #tabMembresAlliance {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance {
   font-size: 0.85em;
 }
-html:not(.o_desactivee) #tabMembresAlliance thead th,
-html:not(.o_desactivee) #tabMembresAlliance thead td {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance thead th,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance thead td {
   padding: 6px 14px 6px 4px;
   font-size: 0.9em;
 }
-html:not(.o_desactivee) #tabMembresAlliance tbody td {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody td {
   padding: 3px 4px;
 }
-html:not(.o_desactivee) center > div > #tabMembresAlliance {
+html:not(.o_desactivee):not(.o_originePage) center > div > #tabMembresAlliance {
   width: calc(100% - 20px);
 }
 #o_historique > img,
@@ -2371,48 +2371,48 @@ html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td
   padding: 0 6px;
   white-space: nowrap;
 }
-html:not(.o_desactivee) #tabMembresAlliance .o_allCol0,
-html:not(.o_desactivee) #tabMembresAlliance .o_allCol1,
-html:not(.o_desactivee) #tabMembresAlliance .o_allCol2 {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allCol0,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allCol1,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allCol2 {
   white-space: nowrap;
   /* DataTables fige des largeurs en ligne à l'initialisation : on les écrase */
   width: 1% !important;
 }
-html:not(.o_desactivee) #tabMembresAlliance th.o_allCol0,
-html:not(.o_desactivee) #tabMembresAlliance th.o_allCol1,
-html:not(.o_desactivee) #tabMembresAlliance th.o_allCol2 {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance th.o_allCol0,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance th.o_allCol1,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance th.o_allCol2 {
   white-space: normal;
 }
-html:not(.o_desactivee) #tabMembresAlliance .o_allRang {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allRang {
   padding-right: 8px;
 }
 /* vue Floods : rang, pseudo et terrain au plus juste, les colonnes de
    l'extension se partagent la place restante */
-html:not(.o_desactivee) #tabMembresAlliance.o_allVueFloods .o_allPseudo {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allVueFloods .o_allPseudo {
   width: 1% !important;
   white-space: nowrap;
 }
-html:not(.o_desactivee) #tabMembresAlliance.o_allVueFloods .o_allCol0,
-html:not(.o_desactivee) #tabMembresAlliance.o_allVueFloods .o_allCol1,
-html:not(.o_desactivee) #tabMembresAlliance.o_allVueFloods .o_allCol2 {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allVueFloods .o_allCol0,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allVueFloods .o_allCol1,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allVueFloods .o_allCol2 {
   width: auto !important;
 }
 /* épées de portée serrées contre le terrain, chacune dans sa colonne */
-html:not(.o_desactivee) #tabMembresAlliance .o_allEpeeG,
-html:not(.o_desactivee) #tabMembresAlliance .o_allEpeeD {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allEpeeG,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allEpeeD {
   width: 1% !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
   white-space: nowrap;
   background-image: none !important;
 }
-html:not(.o_desactivee) #tabMembresAlliance td.o_allEpeeG {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance td.o_allEpeeG {
   text-align: right !important;
 }
-html:not(.o_desactivee) #tabMembresAlliance td.o_allEpeeD {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance td.o_allEpeeD {
   text-align: left !important;
 }
-html:not(.o_desactivee) #tabMembresAlliance td.o_allTerrain {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance td.o_allTerrain {
   width: 1% !important;
   white-space: nowrap;
   padding-left: 4px !important;
@@ -2431,31 +2431,31 @@ html:not(.o_desactivee) #tabMembresAlliance td.o_allTerrain {
 .o_epeeRouge:visited {
   color: #b42318;
 }
-html:not(.o_desactivee) #tabMembresAlliance td.o_allVide {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance td.o_allVide {
   text-align: center;
 }
 /* tableau des membres : même largeur dans les trois vues ; rang à largeur fixe
    (12 caractères et les épées de portée) */
-html:not(.o_desactivee) #tabMembresAlliance {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance {
   width: 100% !important;
 }
-html:not(.o_desactivee) #tabMembresAlliance .o_allRang {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance .o_allRang {
   width: calc(13ch + 2.4em) !important;
   min-width: calc(13ch + 2.4em);
   max-width: calc(13ch + 2.4em);
   white-space: nowrap;
 }
-html:not(.o_desactivee) #tabMembresAlliance th,
-html:not(.o_desactivee) #tabMembresAlliance td {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance th,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance td {
   text-align: center !important;
 }
 /* mesure de la largeur naturelle d'une vue (AllianceFzzz) */
-html:not(.o_desactivee) #tabMembresAlliance.o_allMesure {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure {
   width: auto !important;
 }
-html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol0,
-html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol1,
-html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_allCol0,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_allCol1,
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_allCol2 {
   width: auto !important;
 }
 #o_allInfobulle .o_allInfoCible {
@@ -2554,18 +2554,18 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
     white-space: normal;
   }
   /* page Membres : le tableau défile dans son cadre, largeur fixe désactivée */
-  html:not(.o_desactivee) #tabMembresAlliance_wrapper {
+  html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance_wrapper {
     width: auto !important;
     max-width: calc(100vw - 24px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  html:not(.o_desactivee) #tabMembresAlliance_wrapper .dt-buttons {
+  html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance_wrapper .dt-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
   }
-  html:not(.o_desactivee) #tabMembresAlliance_wrapper .dataTables_filter {
+  html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance_wrapper .dataTables_filter {
     float: none;
     text-align: left;
   }

@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.9",
+    notes: [
+      "Alliance → Membres, vue « Floods et chasses en cours » : les colonnes « Prochaine variation » et « TdC (estimé) » deviennent « Date dernier mouvement » (dernier flood ou dernière chasse en cours) et « Variation totale de TdC » (gain ou perte après tous les mouvements).",
+      "Dans l'info-bulle d'un membre, la ligne du TdC qu'il aurait à l'arrivée d'une attaque lancée à l'ouverture de la page (temps de trajet à votre Vitesse d'attaque) est surlignée.",
+    ],
+  },
+  {
     version: "1.95.8",
     notes: [
       "Export des chasses et des RC sur téléphone : la date des rapports, que le jeu écrit sur deux lignes (« 07/11/26 » puis « 23h35 »), est lue ; plus besoin de passer en mode ordinateur.",

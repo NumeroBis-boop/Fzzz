@@ -200,7 +200,7 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
     expect(lire(`FORUM.sujets.find((s) => s.id == "3").messages[0]`)).toBe(DEJA);
   });
 
-  test("convois notés deux fois de suite (double clic) : chaque convoi arrivé une seule fois dans l'historique", async () => {
+  test("convois notés deux fois de suite (double clic) : chaque convoi une seule fois dans le suivi, sans historique", async () => {
     forum([
       {
         id: "1",
@@ -213,10 +213,7 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
       lire(`ConvoisForum.noter(${convoi})`),
       lire(`ConvoisForum.noter(${convoi})`),
     ]);
-    expect(message1("Historique Convois 1 | DoggyBag")).toBe(
-      "29/10/26 09:00 | Canaille | 1 000 | #5",
-    );
-    expect(sujetsDe("Historique Convois 1 | DoggyBag")).toBe(1);
+    expect(sujetsDe("Historique Convois 1 | DoggyBag")).toBe(0);
     expect(message1("Convois | DoggyBag")).toBe("29/10/26 15:00 | Canaille | 3 000 | #7");
   });
 });

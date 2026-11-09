@@ -11,6 +11,54 @@
 // si le forum ne répond pas) ; un autre joueur donne celle de son propre fichier
 const CLE_EXPORT_SHEET_ALLIANCE = "fzzz_exportSheetAlliance";
 const CLE_EXPORT_SHEET = "fzzz_exportSheet";
+// mois écrits en lettres dans les dates des messages, en français ou en anglais
+const MOIS_EN_LETTRES = {
+  janvier: 0,
+  janv: 0,
+  january: 0,
+  jan: 0,
+  février: 1,
+  fevrier: 1,
+  févr: 1,
+  fevr: 1,
+  february: 1,
+  feb: 1,
+  mars: 2,
+  march: 2,
+  mar: 2,
+  avril: 3,
+  avr: 3,
+  april: 3,
+  apr: 3,
+  mai: 4,
+  may: 4,
+  juin: 5,
+  june: 5,
+  jun: 5,
+  juillet: 6,
+  juil: 6,
+  july: 6,
+  jul: 6,
+  août: 7,
+  aout: 7,
+  august: 7,
+  aug: 7,
+  septembre: 8,
+  sept: 8,
+  september: 8,
+  sep: 8,
+  octobre: 9,
+  october: 9,
+  oct: 9,
+  novembre: 10,
+  november: 10,
+  nov: 10,
+  décembre: 11,
+  decembre: 11,
+  déc: 11,
+  december: 11,
+  dec: 11,
+};
 // titre de la liste, dans ce message : « Joueurs autorisés à partager des RC : »
 const LISTE_EXPORT_ALLIANCE = /joueurs\s+autoris[ée]s?[^:\n]*(?::|\n|$)/i;
 const ADRESSE_EXPORT_SHEET =
@@ -120,11 +168,16 @@ class ExportRapports {
     return parseInt(String(t || "").replace(/\D/g, "")) || 0;
   }
   /**
-   * Date d'un message au format "AAAA-MM-JJ HH:mm", ou "" : « 07/11/26 à
-   * 21h07 », année sur quatre chiffres ou absente (celle du jour, l'an passé
-   * pour une date à venir), heure « 21:07 », « aujourd'hui » ou « hier » (jour
-   * de l'horloge du serveur). Un en-tête de message n'a pas la même forme chez
-   * tous les joueurs (journal du 09/11/2026 : dates vides chez l'un d'eux).
+   * Date d'un message au format "AAAA-MM-JJ HH:mm", à l'heure du serveur, ou ""
+   * si elle n'est pas lisible : « 07/11/26 à 21h07 », année sur quatre chiffres
+   * ou absente (celle du jour, l'an passé pour une date à venir), heure
+   * « 21:07 » ou « 9:07 PM », mois en lettres en français ou en anglais (formes
+   * de formaterDateLocale du jeu : « 07 nov. 2026 à 21h07 », « Nov 7 2026 at
+   * 9:07 PM »), « 2026-11-07 21:07 », « aujourd'hui », « hier », « today »,
+   * « yesterday ». L'en-tête d'un message n'a pas la même forme chez tous les
+   * joueurs (09/11/2026 : dates vides chez l'un d'eux). Une date à plus d'une
+   * heure dans le futur (heure locale d'un joueur en avance sur le serveur) est
+   * refusée : jamais d'heure fausse.
    *
    * @static
    * @method date
@@ -132,28 +185,115 @@ class ExportRapports {
    * @return {String}
    */
   static date(expe) {
-    let t = String(expe || ""),
-      deux = (/** @type {Number} */ n) => String(n).padStart(2, "0"),
-      ecrire = (/** @type {any} */ jour, /** @type {String} */ h, /** @type {String} */ mi) =>
-        Number(h) > 23 || Number(mi) > 59 || !jour.isValid()
-          ? ""
-          : `${jour.format("YYYY-MM-DD")} ${deux(Number(h))}:${mi}`,
-      m = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\D+?(\d{1,2})\s*[h:]\s*(\d{2})/.exec(t);
-    if (m) {
-      let annee = m[3] ? Number(m[3].length == 2 ? "20" + m[3] : m[3]) : NaN,
-        jour = moment([
-          isNaN(annee) ? Horloge.serveur().year() : annee,
-          Number(m[2]) - 1,
-          Number(m[1]),
-        ]);
-      if (isNaN(annee) && jour.isAfter(Horloge.serveur().add(1, "day")))
-        jour = jour.subtract(1, "year");
-      return ecrire(jour, m[4], m[5]);
+    let t = ExportRapports.espaces(String(expe || "")),
+      mois = Object.keys(MOIS_EN_LETTRES)
+        .sort((a, b) => b.length - a.length)
+        .join("|"),
+      lettre = "a-zà-ÿ",
+      maintenant = () => Horloge.serveur(),
+      enLettres = (/** @type {String} */ m) => MOIS_EN_LETTRES[m.toLowerCase()],
+      /** @type {Array<[String, Number, function(Array<String>, String): any]>} motif de la date, ses groupes, [année, mois 0-11, jour] */
+      formes = [
+        // 2026-11-07 21:07
+        ["(\\d{4})-(\\d{1,2})-(\\d{1,2})[T\\s]+", 3, (m) => [m[1], Number(m[2]) - 1, Number(m[3])]],
+        // 07/11/26 à 21h07 ; « 11/07/26 at 9:07 PM » : mois puis jour, à l'américaine
+        [
+          "(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?\\D+?",
+          3,
+          (m, apm) => {
+            let a = Number(m[1]),
+              b = Number(m[2]),
+              americain = a > 12 ? false : b > 12 ? true : !!apm;
+            return americain ? [m[3], a - 1, b] : [m[3], b - 1, a];
+          },
+        ],
+        // 07 nov. 2026 à 21h07 ; 1er décembre à 08h00
+        [
+          `(\\d{1,2})(?:er)?\\s+(${mois})(?![${lettre}])\\.?(?:\\s+(\\d{4}))?\\D+?`,
+          3,
+          (m) => [m[3], enLettres(m[2]), Number(m[1])],
+        ],
+        // Nov 7 2026 at 9:07 PM ; November 7, 2026 (« mardi » n'est pas un mois)
+        [
+          `(?:^|[^${lettre}])(${mois})(?![${lettre}])\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?(?:\\s+(\\d{4}))?\\D+?`,
+          3,
+          (m) => [m[3], enLettres(m[1]), Number(m[2])],
+        ],
+        // aujourd'hui à 21h07 ; yesterday at 9:07 PM : jour de l'horloge du serveur
+        ["(aujourd['’]hui|today|hier|yesterday)\\D*?", 1, (m) => m[1]],
+      ];
+    for (let [motif, groupes, lire] of formes) {
+      let m = new RegExp(
+        motif +
+          "(\\d{1,2})\\s*[h:]\\s*(\\d{2})(?:\\s*:\\s*\\d{2})?(?:\\s*([ap])\\.?\\s*m\\.?(?![a-z]))?",
+        "i",
+      ).exec(t);
+      if (!m) continue;
+      let h = Number(m[groupes + 1]),
+        mi = Number(m[groupes + 2]),
+        apm = (m[groupes + 3] || "").toLowerCase(),
+        lu = lire(m, apm),
+        jour;
+      if (apm) {
+        if (h < 1 || h > 12) return "";
+        h = (h % 12) + (apm == "p" ? 12 : 0);
+      }
+      if (h > 23 || mi > 59) return "";
+      if (typeof lu == "string") {
+        jour = maintenant().startOf("day");
+        if (/^(hier|yesterday)/i.test(lu)) jour.subtract(1, "day");
+      } else {
+        let [a, moisLu, j] = lu;
+        jour = moment([a ? Number(a.length == 2 ? "20" + a : a) : maintenant().year(), moisLu, j]);
+        // sans année : celle du jour, ou l'an passé pour une date à venir
+        if (!a && jour.isAfter(maintenant().add(1, "day"))) jour.subtract(1, "year");
+      }
+      if (!jour.isValid()) return "";
+      jour.hours(h).minutes(mi);
+      return jour.isAfter(maintenant().add(1, "hour")) ? "" : jour.format("YYYY-MM-DD HH:mm");
     }
-    let r = /(aujourd['’]hui|hier)\D*?(\d{1,2})\s*[h:]\s*(\d{2})/i.exec(t);
-    if (!r) return "";
-    let jour = Horloge.serveur().startOf("day");
-    return ecrire(/^hier/i.test(r[1]) ? jour.subtract(1, "day") : jour, r[2], r[3]);
+    return "";
+  }
+  /**
+   * Instant d'un horodatage du jeu (secondes ou millisecondes depuis 1970) au
+   * format "AAAA-MM-JJ HH:mm", à l'heure du serveur, ou "".
+   *
+   * @static
+   * @method horodatage
+   * @param {any} valeur
+   * @return {String}
+   */
+  static horodatage(valeur) {
+    let n = Number(valeur);
+    if (!(n > 1e9)) return "";
+    let instant = moment(n > 1e12 ? n : n * 1000);
+    return instant.isValid() ? instant.format("YYYY-MM-DD HH:mm") : "";
+  }
+  /**
+   * Date d'une ligne de message (tr[id^='message_']) à l'heure du serveur : son
+   * horodatage s'il en a un, exact même quand le jeu a réécrit la date dans le
+   * fuseau de l'ordinateur (localiserDates de son util.js) ; sinon son en-tête,
+   * sinon le reste de la ligne hors du message.
+   *
+   * @static
+   * @method dateDe
+   * @param {Element} tr
+   * @return {{date: String, entete: String}}
+   */
+  static dateDe(tr) {
+    let $ligne = $(tr).clone(),
+      expe = $(tr).find(".expe").first().text();
+    $ligne.find(".message").remove();
+    let texte = $ligne.text();
+    return {
+      date:
+        ExportRapports.horodatage($ligne.find("[data-timestamp]").first().attr("data-timestamp")) ||
+        ExportRapports.date(expe) ||
+        ExportRapports.date(texte),
+      entete: ExportRapports.espaces(expe || texte)
+        .trim()
+        .slice(0, 80),
+    };
   }
   /**
    * Espaces du jeu (insécables, doublés) ramenés à une espace simple ; les
@@ -719,16 +859,11 @@ class ExportRapports {
           .each((i, img) =>
             $(img).replaceWith(` ${img.getAttribute("alt") || img.getAttribute("title") || ""}`),
           );
-        // la date, dans l'en-tête du message ou à défaut ailleurs dans sa ligne
-        let $ligne = $(tr).clone(),
-          expe = $(tr).find(".expe").first().text();
-        $ligne.find(".message").remove();
+        let { date, entete } = ExportRapports.dateDe(tr);
         return {
           id: parseInt((tr.id.match(/\d+/) || ["0"])[0]),
-          date: ExportRapports.date(expe) || ExportRapports.date($ligne.text()),
-          entete: ExportRapports.espaces(expe || $ligne.text())
-            .trim()
-            .slice(0, 80),
+          date,
+          entete,
           texte: $message.text(),
           rc: $affiche
             .text()

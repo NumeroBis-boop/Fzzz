@@ -10,6 +10,9 @@ import { creerPage } from "./harnais";
  */
 const page = creerPage(
   [
+    // heures du jeu à l'heure de Paris, quel que soit le fuseau de la machine de test
+    "js/lib/moment-timezone_0.5.48.js",
+    "js/class/Fuseau.js",
     "js/class/Utils.js",
     "js/class/ExportRapports.js",
     "js/page/MessagerieFzzz.js",
@@ -89,8 +92,26 @@ describe("lecture des rapports", () => {
     expect(lire(`ExportRapports.date("25/12 à 08h00")`)).toBe("2025-12-25 08:00");
     expect(lire(`ExportRapports.date("Aujourd'hui à 09h15")`)).toBe("2026-11-09 09:15");
     expect(lire(`ExportRapports.date("hier 21h07")`)).toBe("2026-11-08 21:07");
+    // mois en lettres, en français ou en anglais (formaterDateLocale du jeu), heure AM/PM
+    expect(lire(`ExportRapports.date("07 nov. 2026 à 21h07")`)).toBe(DATE);
+    expect(lire(`ExportRapports.date("1er novembre 2026 à 08h00")`)).toBe("2026-11-01 08:00");
+    expect(lire(`ExportRapports.date("Nov 7 2026 at 9:07 PM")`)).toBe(DATE);
+    expect(lire(`ExportRapports.date("November 7, 2026 at 9:07 a.m.")`)).toBe("2026-11-07 09:07");
+    expect(lire(`ExportRapports.date("Nov 7 2026 at 12:05 AM")`)).toBe("2026-11-07 00:05");
+    expect(lire(`ExportRapports.date("2026-11-07 21:07")`)).toBe(DATE);
+    expect(lire(`ExportRapports.date("yesterday at 9:07 PM")`)).toBe("2026-11-08 21:07");
+    // en chiffres avec AM/PM : mois puis jour, à l'américaine ; un nombre au-delà de 12 est le jour
+    expect(lire(`ExportRapports.date("11/07/26 at 9:07 PM")`)).toBe(DATE);
+    expect(lire(`ExportRapports.date("10/25/26 at 9:07 PM")`)).toBe("2026-10-25 21:07");
+    expect(lire(`ExportRapports.date("25/10/26 à 21h07")`)).toBe("2026-10-25 21:07");
+    // jour de la semaine : « mardi » n'est pas « mars »
+    expect(lire(`ExportRapports.date("mardi 7 nov. à 21h07")`)).toBe(DATE);
+    // plus d'une heure après l'heure du serveur : l'heure d'un joueur en avance, refusée
+    expect(lire(`ExportRapports.date("09/11/26 à 23h00")`)).toBe("");
+    expect(lire(`ExportRapports.date("Aujourd'hui à 10h30")`)).toBe("2026-11-09 10:30");
     // rien de reconnaissable, ou impossible : vide
     expect(lire(`ExportRapports.date("il y a 3 heures")`)).toBe("");
+    expect(lire(`ExportRapports.date("Nov 7 2026 at 13:07 PM")`)).toBe("");
     expect(lire(`ExportRapports.date("31/02/26 à 25h00")`)).toBe("");
     expect(lire(`ExportRapports.date("")`)).toBe("");
   });
@@ -316,6 +337,23 @@ describe("clé unique et onglet de chaque RC", () => {
 });
 
 describe("lecture d'une conversation", () => {
+  test("horodatage du jeu : instant exact à l'heure du serveur, même si le texte est à l'heure du joueur", async () => {
+    // 21:07 à Paris le 07/11 (UTC+1) ; 12:00 à Paris le 01/07 (UTC+2)
+    const hiver = Date.UTC(2026, 10, 7, 20, 7) / 1000;
+    expect(lire(`ExportRapports.horodatage(${hiver})`)).toBe(DATE);
+    expect(lire(`ExportRapports.horodatage(${hiver * 1000})`)).toBe(DATE);
+    expect(lire(`ExportRapports.horodatage(${Date.UTC(2026, 6, 1, 10, 0) / 1000})`)).toBe(
+      "2026-07-01 12:00",
+    );
+    expect(lire(`ExportRapports.horodatage("")`)).toBe("");
+    // texte réécrit par le jeu à l'heure d'un joueur à Montréal : l'horodatage fait foi
+    lire(
+      `$.post = () => Promise.resolve(${JSON.stringify(`<tr id="message_1"><td class="expe">Fourmizzz <span class="date_locale" data-timestamp="${hiver}">07 nov. 2026 à 15h07</span></td><td class="message">${chasse(1).replace(/\n/g, "<br/>")}</td></tr>`)});`,
+    );
+    const messages = await lire<Promise<any[]>>(`ExportRapports.messages(5)`);
+    expect(messages[0].date).toBe(DATE);
+  });
+
   test("date ailleurs dans la ligne du message ; sans date lisible : RC laissé de côté, en-tête gardé", async () => {
     const html = (id: number, expe: string, autre = "") =>
       `<tr id="message_${id}"><td class="expe">${expe}</td>${autre}<td class="message">${chasse(id).replace(/\n/g, "<br/>")}</td></tr>`;

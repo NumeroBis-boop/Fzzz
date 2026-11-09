@@ -121,6 +121,26 @@ const ONGLETS_PARAMETRE = [
     affichages: ["profilPartages", "profilRetour", "profilTrajet", "profilSurveiller"],
     origine: "pages des membres",
   },
+  {
+    id: "Reine",
+    titre: "Reine",
+    affichages: ["reineBonus", "reinePonte", "reineNombre"],
+    origine: "page Reine",
+  },
+  {
+    id: "Classement",
+    titre: "Classement",
+    affichages: ["classementTableau", "classementIcones", "classementSurveiller"],
+    origine: "page d'une alliance (classement)",
+  },
+  {
+    id: "Chat",
+    titre: "Chat",
+    affichages: ["chatCiter", "chatCouleur", "chatMiseEnForme", "chatSmileys"],
+    origine: "chat de l'alliance",
+  },
+  { id: "Forum", titre: "Forum", affichages: ["forumSection"], origine: "forum de l'alliance" },
+  { id: "Compte", titre: "Compte", affichages: ["menuRapide"], origine: "page Compte" },
   { id: "Apropos", titre: "À propos", affichages: [] },
 ];
 
@@ -177,6 +197,7 @@ class BoiteParametre extends Boite {
         .ongletMessagerie()
         .ongletConvois()
         .ongletMembre()
+        .ongletsSimples(["Reine", "Classement", "Chat", "Forum", "Compte"])
         .apropos()
         .css()
         .event();
@@ -620,6 +641,16 @@ class BoiteParametre extends Boite {
     $("#o_tabsParametreMembre").append(
       `<form>${this.cases("Membre")}${monProfil.parametre["vueMembres"].getForm("Vue par défaut de la page Membres de l'alliance")}</form>`,
     );
+    return this;
+  }
+  /**
+   * Onglets sans réglage : leurs seules cases d'affichage.
+   *
+   * @method ongletsSimples
+   * @param {Array<String>} ids
+   */
+  ongletsSimples(ids) {
+    ids.forEach((id) => $("#o_tabsParametre" + id).append(`<form>${this.cases(id)}</form>`));
     return this;
   }
   /**

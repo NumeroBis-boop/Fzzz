@@ -22,11 +22,10 @@ class PageChat {
   executer() {
     // fonction plus
     if (!Utils.comptePlus) this.plus();
-    // Couleur du texte
+    if (Utils.affichage("chatCiter")) this.afficheMessage();
+    if (!Utils.affichage("chatCouleur")) return this;
+    // Couleur du texte, ajoutée au message à l'envoi
     this.couleur();
-    // Reaffichage message
-    this.afficheMessage();
-    // Modification pour l'envoie du formulaire
     $("#message").on("keypress", (e) => {
       let code = e.keyCode || e.which;
       if (code == 13) this.parserMessage();
@@ -91,7 +90,16 @@ class PageChat {
     // Fzzz : l'actualisation automatique du chat (une requête toutes les 5 s) a
     // été retirée. Le règlement du s5 interdit les requêtes périodiques, qui
     // maintiennent la session. Le bouton « Actualiser » du jeu reste disponible.
-    // Ajout des fonctions de mise en forme
+    if (Utils.affichage("chatMiseEnForme")) this.miseEnForme();
+    if (Utils.affichage("chatSmileys")) this.smileys();
+  }
+  /**
+   * Hors Compte+ : boutons de mise en forme du message.
+   *
+   * @private
+   * @method miseEnForme
+   */
+  miseEnForme() {
     $("#formulaireChat")
       .append(`<div class='o_group_bouton o_group_bouton_chat'><span id='o_msgUp' class='option_gestion'>aA</span><span id='o_msgDown' class='option_gestion'>Aa</span></div>
             <div class='o_group_bouton o_group_bouton_chat'><span id='o_msgB' class='option_gestion gras' onclick="miseEnForme('message','gras');">B</span><span id='o_msgI' class='option_gestion' onclick="miseEnForme('message','italic');"><em>I</em></span><span id='o_msgU' class='option_gestion' onclick="miseEnForme('message','souligne');" style='text-decoration:underline'>U</span></div>
@@ -115,6 +123,14 @@ class PageChat {
     $("#o_msgB, #o_msgI, #o_msgU, #o_msgImg, #o_msgLink, #o_msgPlay, #o_msgAlly").click((e) => {
       e.preventDefault();
     });
+  }
+  /**
+   * Hors Compte+ : listes de smileys et flèches pour passer de l'une à l'autre.
+   *
+   * @private
+   * @method smileys
+   */
+  smileys() {
     // Ajout des emoticone
     $("#listeSmiley20").html(LISTESMILEY1);
     $("#listeSmiley30").html(LISTESMILEY2);

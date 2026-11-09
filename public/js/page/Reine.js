@@ -22,9 +22,25 @@ class PageReine {
    * @method plus
    */
   plus() {
-    $(
-      "span[id^='bouton_cout_nombre'], span[id^='bouton_cout_temps'], span[id^='bouton_cout_nourriture'], .icones_unite",
-    ).addClass("cliquable3");
+    if (Utils.affichage("reineBonus")) this.bonusUnites();
+    if (Utils.affichage("reinePonte")) this.formulairePonte();
+    // Sauvegarde de la ponte en cours (encart Compte+ recréé)
+    let listePonte = Utils.pontesReine($(document)).map((p) => ({
+      unite: p.unite.substr(0, 1).toUpperCase() + p.unite.substr(1),
+      nombre: p.nombre,
+      exp: Horloge.serveur().add(p.secondes, "s"),
+    }));
+    if (listePonte.length) this.savePonte(listePonte);
+    return this;
+  }
+  /**
+   * Vie et dégâts « Avec bonus » de chaque unité, au clic sur son icône.
+   *
+   * @private
+   * @method bonusUnites
+   */
+  bonusUnites() {
+    $(".icones_unite").addClass("cliquable3");
     $(".icones_unite").attr("onclick", "$('.tab_stat').toggle();");
     // Ajout des statistiques des unités avec bonus
     $(".icones_unite").each((i, elt) => {
@@ -33,6 +49,17 @@ class PageReine {
         `<table class="tab_stat" style="display: none;"><tbody><tr><td style="text-align:center;font-size:0.8em;height:30px;" colspan="2"> Avec Bonus</td></tr><tr title="Vie avec Bouclier niveau ${monProfil.niveauRecherche[1]}"><td class="icone_vie" style="position:relative; top:4px">${IMG_VIE}</td><td class="vie" style="white-space:nowrap">${Utils.decimal(VIE_UNITE[index] + (VIE_UNITE[index] / 10) * monProfil.niveauRecherche[1], 1, true)}</td></tr><tr title="Dégâts en Attaque avec Armes niveau ${monProfil.niveauRecherche[2]}"><td class="icone_degat_attaque" style="position:relative;top:3px">${IMG_ATT}</td><td class="degat_defense" style="white-space:nowrap">${Utils.decimal(ATT_UNITE[index] + (ATT_UNITE[index] / 10) * monProfil.niveauRecherche[2], 1, true)}</td></tr><tr title="Dégâts en Défense avec Armes niveau ${monProfil.niveauRecherche[2]}"><td class="icone_degat_defense" style="position:relative;top:3px">${IMG_DEF}</td><td class="degat_defense" style="white-space:nowrap">${Utils.decimal(DEF_UNITE[index] + (DEF_UNITE[index] / 10) * monProfil.niveauRecherche[2], 1, true)}</td></tr><tr><td style="height:30px;" colspan="2"></td></tr></tbody></table>`,
       );
     });
+  }
+  /**
+   * Formulaire de ponte : nombre, durée ou nourriture, curseur de 1 à 7 jours.
+   *
+   * @private
+   * @method formulairePonte
+   */
+  formulairePonte() {
+    $(
+      "span[id^='bouton_cout_nombre'], span[id^='bouton_cout_temps'], span[id^='bouton_cout_nourriture']",
+    ).addClass("cliquable3");
     // Switch entre les inputs : clic sur un bouton-span → on ouvre son input
     // (et on referme les autres). Les natifs Fourmizzz appellent
     // `ouvrir_input` / `fermer_input` via des inline `onclick` / `onblur`,
@@ -209,14 +236,6 @@ class PageReine {
       // en cours) alors que le slider est posé à 1 — incohérence visuelle.
       sync(1);
     });
-    // Sauvegarde de la ponte en cours
-    let listePonte = Utils.pontesReine($(document)).map((p) => ({
-      unite: p.unite.substr(0, 1).toUpperCase() + p.unite.substr(1),
-      nombre: p.nombre,
-      exp: Horloge.serveur().add(p.secondes, "s"),
-    }));
-    if (listePonte.length) this.savePonte(listePonte);
-    return this;
   }
   /**
    * Affiche le nombre d'unités possédées à côté de leur nom (dans un span

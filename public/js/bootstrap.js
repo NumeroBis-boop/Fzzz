@@ -53,7 +53,9 @@
   // « Rétablir l'affichage d'origine » (Préférences) : classes posées avant
   // l'affichage, lues par outiiil.css (règles qui touchent le jeu) et content.js
   // (modules des pages). Onglet de chaque page modifiée par l'extension :
-  /** @type {Array<[RegExp, String]>} */
+  // 3e élément : l'expression lit aussi les paramètres de l'adresse (alliance.php
+  // sert le chat, le forum et la page Membres)
+  /** @type {Array<[RegExp, String, Boolean?]>} */
   const ONGLET_PAGE = [
     [/^\/(construction|laboratoire)\.php$/i, "Laboratoire"],
     [/^\/ressources\.php$/i, "Ressources"],
@@ -62,6 +64,11 @@
     [/^\/messagerie\.php$/i, "Messagerie"],
     [/^\/commerce\.php$/i, "Convois"],
     [/^\/membre\.php$/i, "Membre"],
+    [/^\/reine\.php$/i, "Reine"],
+    [/^\/classementalliance\.php$/i, "Classement"],
+    [/^\/(alliance|chat)\.php$/i, "Chat", true],
+    [/^\/alliance\.php\?forum_menu/i, "Forum", true],
+    [/^\/compte\.php$/i, "Compte"],
   ];
   let lire = (cle) => {
       try {
@@ -73,7 +80,9 @@
     origine = (onglet) => lire("fzzz_origine_" + onglet),
     // « Désactiver l'extension » (boîte Extension OUAF) : toute la page comme le jeu
     desactivee = lire("fzzz_desactivee"),
-    ongletPage = ONGLET_PAGE.find(([re]) => re.test(location.pathname)),
+    ongletPage = ONGLET_PAGE.find(([re, , requete]) =>
+      re.test(requete ? location.pathname + location.search : location.pathname),
+    ),
     originePage = desactivee || (!!ongletPage && origine(ongletPage[1]));
   document.documentElement.classList.toggle("o_desactivee", desactivee);
   document.documentElement.classList.toggle("o_origineGenerale", desactivee || origine("General"));

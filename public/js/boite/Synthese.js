@@ -31,6 +31,8 @@ const TRAITS_AUTRES = ["ShortDot", "ShortDashDot", "LongDashDot"];
 const TRAIT_TENDANCE = "LongDash";
 const COULEUR_NOURRITURE = "#eb6834";
 const COULEUR_PERTES = "#6250d6";
+// chiffres de chasse où être sous la moyenne des chasseurs est mieux (demande du mainteneur)
+const SYNTHESE_MOINS_EST_MIEUX = ["Fourmis perdues", "Pertes par M cm² chassé"];
 // fond clair des graphiques : sur le beige des boîtes, ces couleurs perdent leur contraste
 const FOND_GRAPHIQUE = "#fffdf7";
 const ENCRE_GRAPHIQUE = "#52514e";
@@ -276,8 +278,8 @@ class SyntheseChasse {
   /**
    * Chiffres clés de chasse de la période, lus dans le résumé du script, avec
    * l'écart à la moyenne des chasseurs de la période (chacun compte autant ;
-   * au-dessus en vert, en dessous en rouge, demande du mainteneur), quand ils
-   * sont au moins deux.
+   * mieux qu'elle en vert, moins bien en rouge : au-dessus, sauf pour les
+   * pertes ; demandes du mainteneur), quand ils sont au moins deux.
    *
    * @static
    * @method cartes
@@ -306,9 +308,9 @@ class SyntheseChasse {
           detail: ecart == null ? "" : `${arrondi > 0 ? "+" : ""}${Utils.decimal(arrondi, 1)} %`,
           classeDetail: !arrondi
             ? ""
-            : arrondi > 0
-              ? "o_syntheseEcartPlus"
-              : "o_syntheseEcartMoins",
+            : arrondi > 0 != SYNTHESE_MOINS_EST_MIEUX.includes(titre)
+              ? "o_syntheseEcartMieux"
+              : "o_syntheseEcartMoinsBien",
         };
       };
     return [

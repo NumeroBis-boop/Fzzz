@@ -3047,11 +3047,11 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 .o_synthesePerte small {
   color: #b03a2e;
 }
-/* écart d'un chiffre à la moyenne des chasseurs : au-dessus en vert, en dessous en rouge */
-.o_syntheseEcartPlus {
+/* écart d'un chiffre à la moyenne des chasseurs : mieux en vert, moins bien en rouge */
+.o_syntheseEcartMieux {
   color: #2e7d32;
 }
-.o_syntheseEcartMoins {
+.o_syntheseEcartMoinsBien {
   color: #b03a2e;
 }
 /* tableau des chasseurs : défile dans sa largeur sur un téléphone */

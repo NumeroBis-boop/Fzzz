@@ -34,14 +34,19 @@ const page = creerPage(
    // modes : normal ; rafale (action juste après une autre ignorée, comme le
    // journal du 08/11) ; retard (réponse au dernier déplacement d'avant lui) ;
    // dôme refusé ; loge refusée (« tout en loge » sans effet) ; moitié (le
-   // premier déplacement n'en fait que la moitié)
+   // premier déplacement n'en fait que la moitié) ; ponte (une JSN pondue
+   // arrive en loge avant chaque requête, comme le journal du 09/11), seule ou
+   // avec rafale
    function installerServeur(etat, mode, postes) {
      let s = (window.serveur = { etat, mode, jeton: 0, requetes: [], derniere: "lecture" }),
        lieu = { 1: "tdc", 2: "dome", 3: "loge" },
        copie = () => JSON.parse(JSON.stringify(s.etat)),
        reponse = (affiche, message) => pageArmee(affiche, "j" + ++s.jeton, message),
+       pondre = () => {
+         if (s.mode.includes("ponte")) s.etat.loge[0]++;
+       },
        ignoree = () => {
-         let rafale = s.mode == "rafale" && s.derniere == "action";
+         let rafale = s.mode.includes("rafale") && s.derniere == "action";
          s.derniere = "action";
          return rafale;
        };
@@ -52,6 +57,7 @@ const page = creerPage(
      Journal.erreur = (src, m, d) => notes.push(["erreur", src, m, d]);
      $.get = (url, data) => {
        s.requetes.push(["GET", url, data || null]);
+       pondre();
        if (!data) {
          s.derniere = "lecture";
          return Promise.resolve(reponse(copie()));
@@ -65,6 +71,7 @@ const page = creerPage(
      };
      $.post = (url, d) => {
        s.requetes.push(["POST", url, d]);
+       pondre();
        let avant = copie(),
          k = Number(String(d.ChoixUnite).replace("unite", "")) - 1,
          n = s.requetes.filter((r) => r[0] == "POST").length,
@@ -119,6 +126,10 @@ const envois = (r: { requetes: Requete[] }) =>
 const REUSSI: [string, string] = [
   "success",
   "Armée replacée : 2 Jeune Soldate Naine en TdC, 2 Jeune Soldate Naine en dôme, le reste en loge.",
+];
+const REUSSI_1: [string, string] = [
+  "success",
+  "Armée replacée : 1 Jeune Soldate Naine en TdC, 1 Jeune Soldate Naine en dôme, le reste en loge.",
 ];
 
 describe("garnison lue dans son tableau", () => {
@@ -236,6 +247,35 @@ describe("replacement vérifié déplacement par déplacement", () => {
       ],
     ]);
     expect(envois(r)).toEqual([[2, 1, 1], [2, 3, 1789], "relue", [2, 3, 1789]]);
+  });
+
+  test("unités pondues en loge pendant le replacement : le dôme compte, rien n'est relu", async () => {
+    const r = await replacer(
+      "ponte",
+      { tdc: [0, 0, 0], dome: [3114, 0, 0], loge: [500, 300, 0] },
+      1,
+      1,
+    );
+    expect(r.toasts).toEqual([REUSSI_1]);
+    expect(envois(r)).toEqual([
+      [2, 1, 1],
+      [2, 3, 3112],
+    ]);
+    expect(r.notes).toEqual([]);
+  });
+
+  test("cas du journal du 09/11 : action ignorée, ponte avant la relecture, tout ce qui manque renvoyé", async () => {
+    // compté en loge, le renvoi faisait 3 114 au lieu de 3 115 : 2 en dôme
+    const r = await replacer(
+      "rafale ponte",
+      { tdc: [3117, 0, 0], dome: [0, 0, 0], loge: [500, 300, 0] },
+      1,
+      1,
+    );
+    expect(r.toasts).toEqual([REUSSI_1]);
+    expect(envois(r)).toEqual([[1, 2, 3116], [2, 3, 3115], "relue", [2, 3, 3115]]);
+    expect(r.notes.map((n) => n[2])).toEqual(["Armée placée après relecture de la page"]);
+    expect((r.armee as number[]).slice(0, 2)).toEqual([1, 1]);
   });
 
   test("réponse d'avant le déplacement : la page relue le montre fait, rien n'est renvoyé", async () => {

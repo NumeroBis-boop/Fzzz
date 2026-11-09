@@ -16,14 +16,32 @@ const ONGLETS_PARAMETRE = [
   {
     id: "General",
     titre: "Général",
-    affichages: ["horloge", "journal"],
+    affichages: [
+      "horloge",
+      "journal",
+      "rapprocherEncadres",
+      "radar",
+      "jaugeTdc",
+      "infobulleRessources",
+      "menuCarte",
+      "menuCouts",
+      "styleFormulaires",
+      "nouveautes",
+    ],
     origine:
       "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts ; l'encadré Extension OUAF reste, pour revenir ici",
   },
   {
     id: "Ressources",
     titre: "Ressources",
-    affichages: ["syntheseChasses", "lanceurChasse"],
+    affichages: [
+      "syntheseChasses",
+      "lanceurChasse",
+      "chassesAnnulerTout",
+      "affectationOuvrieres",
+      "ressourcesMax",
+      "chassesRetour",
+    ],
     origine: "page Ressources",
   },
   {
@@ -65,7 +83,14 @@ const ONGLETS_PARAMETRE = [
   {
     id: "Laboratoire",
     titre: "Laboratoire",
-    affichages: ["rentabilite"],
+    affichages: [
+      "rentabilite",
+      "evolutionEnCours",
+      "retourAnnuler",
+      "coutsDeveloppement",
+      "laboBordures",
+      "laboInfobulles",
+    ],
     origine: "pages Laboratoire et Construction",
   },
   {
@@ -77,6 +102,10 @@ const ONGLETS_PARAMETRE = [
       "messagerieAnalyse",
       "messagerieExport",
       "messagerieRanger",
+      "messagerieCompacte",
+      "messagerieNonLus",
+      "messagerieMiseEnForme",
+      "messagerieSmileys",
     ],
     origine: "messagerie",
   },
@@ -89,7 +118,7 @@ const ONGLETS_PARAMETRE = [
   {
     id: "Membre",
     titre: "Page membre",
-    affichages: ["profilPartages"],
+    affichages: ["profilPartages", "profilRetour", "profilTrajet", "profilSurveiller"],
     origine: "pages des membres",
   },
   { id: "Apropos", titre: "À propos", affichages: [] },

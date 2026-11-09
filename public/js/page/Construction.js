@@ -38,10 +38,10 @@ class PageConstruction {
     // <a>Retour</a> juste après "Je confirme", et la 2nde le déplace en même
     // temps que le warning sous le tableau récap. Sinon en C+ le Retour
     // resterait orphelin à sa position d'injection.
-    Utils.confirmationAnnuler("construction.php");
-    Utils.tableauEvolution("Construction", "Construction");
+    if (Utils.affichage("retourAnnuler")) Utils.confirmationAnnuler("construction.php");
+    if (Utils.affichage("evolutionEnCours")) Utils.tableauEvolution("Construction", "Construction");
     // Visualisation des coûts/temps par niveau
-    this.couts();
+    if (Utils.affichage("coutsDeveloppement")) this.couts();
     // Après un clic qui recharge la page (construire, annuler et sa
     // confirmation, redirections du jeu) : même position à l'écran, une fois
     // toutes les manipulations DOM faites

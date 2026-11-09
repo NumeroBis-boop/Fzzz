@@ -78,15 +78,33 @@
   document.documentElement.classList.toggle("o_desactivee", desactivee);
   document.documentElement.classList.toggle("o_origineGenerale", desactivee || origine("General"));
   document.documentElement.classList.toggle("o_originePage", originePage);
+  // case décochée dans les Préférences : la règle CSS de cet affichage tombe
+  // avant le rendu (classe o_sans_<clé> sur <html>)
+  let coupe = (cle) => {
+    try {
+      return localStorage.getItem("fzzz_affichage_" + cle) == "0";
+    } catch (e) {
+      return false;
+    }
+  };
+  ["styleFormulaires", "laboBordures", "messagerieCompacte", "messagerieNonLus"].forEach((cle) =>
+    document.documentElement.classList.toggle("o_sans_" + cle, coupe(cle)),
+  );
   let appliquer = () => {
     if (originePage) return;
-    document.documentElement.classList.toggle("toolzzz-mode-couts", location.hash === "#cout");
+    document.documentElement.classList.toggle(
+      "toolzzz-mode-couts",
+      location.hash === "#cout" && !coupe("coutsDeveloppement"),
+    );
     // construction.php / laboratoire.php : on cache les `<strong>` (évolutions
     // en cours) avant le parse du body, pour éviter le flash entre le rendu
     // natif et notre tableau récap (cf. Utils.tableauEvolution).
     let evolutionPage =
       location.pathname === "/construction.php" || location.pathname === "/laboratoire.php";
-    document.documentElement.classList.toggle("toolzzz-mode-evolution", evolutionPage);
+    document.documentElement.classList.toggle(
+      "toolzzz-mode-evolution",
+      evolutionPage && !coupe("evolutionEnCours"),
+    );
   };
   appliquer();
   window.addEventListener("hashchange", appliquer);

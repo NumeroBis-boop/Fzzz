@@ -111,7 +111,8 @@ class MessagerieFzzz {
    */
   static decorer() {
     let couleurs = Utils.affichage("messagerieCouleurs"),
-      copie = Utils.affichage("messagerieCopie");
+      copie = Utils.affichage("messagerieCopie"),
+      compacte = Utils.affichage("messagerieCompacte");
     if (!couleurs && !copie) return;
     if (couleurs)
       for (let type in COULEURS_MESSAGES)
@@ -138,7 +139,7 @@ class MessagerieFzzz {
         let $ligne = $(elt).addClass("o_fzzz"),
           $titre = $ligne.find(".intitule_message");
         // titre complet au survol : la liste compactée le tronque
-        if (!$titre.attr("title")) $titre.attr("title", $titre.text().trim());
+        if (compacte && !$titre.attr("title")) $titre.attr("title", $titre.text().trim());
         let type = MessagerieFzzz.typeCouleur($ligne);
         // le titre et la date prennent la couleur du type
         if (couleurs && Utils.couleurMessage(type))

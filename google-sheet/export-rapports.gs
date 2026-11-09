@@ -35,12 +35,13 @@
 // onglets que l'extension peut remplir
 var ONGLETS_EXPORT = ["BDD chasse", "BDD attaques", "BDD défenses", "Flood internes"];
 var ONGLET_INTERNE = "Flood internes";
+var ONGLET_CHASSE = "BDD chasse";
 var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 // hauteur d'une ligne de texte : un RC (plusieurs lignes) n'y montre que la première
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-09.4";
+var VERSION_SCRIPT = "2026-11-09.5";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -114,22 +115,33 @@ function ajouter(classeur, d) {
   // reconnu comme interne), et jamais rajouté à l'un d'eux ensuite
   if (d.onglet == ONGLET_INTERNE) retirerCles(classeur, ONGLETS_CAMPS, cles);
   else if (ONGLETS_CAMPS.indexOf(d.onglet) != -1) exclues = clesDe(classeur, ONGLET_INTERNE);
-  return ajouterLignes(classeur, d.onglet, d.entetes, d.lignes, exclues);
+  var r = ajouterLignes(classeur, d.onglet, d.entetes, d.lignes, exclues);
+  if (d.onglet == ONGLET_CHASSE && r.ajoutees) majStatistiques(classeur);
+  return r;
 }
 
 /**
  * Clés de `cles` absentes de tous les onglets `noms` : l'extension relit les
  * conversations de ces RC (ligne effacée, onglet vidé). Les onglets sont remis
- * en lignes compactes au passage, à chaque clic d'export.
+ * en lignes compactes au passage, à chaque clic d'export. Un RC exporté sans
+ * date (clé « |… », version d'avant 1.95.5) est inutilisable : sa ligne est
+ * retirée, et l'extension le relit et le renvoie daté.
  */
 function clesAbsentes(classeur, noms, cles) {
-  var presentes = {};
+  var presentes = {},
+    sansDate = {};
+  cles.forEach(function (c) {
+    if (estSansDate(String(c))) sansDate[String(c)] = true;
+  });
   noms.forEach(function (nom) {
     var feuille = classeur.getSheetByName(nom);
     if (!feuille) return;
-    lireCles(feuille).forEach(function (c) {
-      presentes[c] = true;
+    var aRetirer = [];
+    lireCles(feuille).forEach(function (c, i) {
+      if (sansDate[c]) aRetirer.push(i + 2);
+      else presentes[c] = true;
     });
+    supprimerLignes(feuille, aRetirer);
     compacter(feuille);
   });
   return {
@@ -137,6 +149,28 @@ function clesAbsentes(classeur, noms, cles) {
       return !presentes[String(c)];
     }),
   };
+}
+
+// clé d'un RC dont la date n'a pas été lue : « |empreinte »
+function estSansDate(cle) {
+  return cle.charAt(0) == "|";
+}
+
+// lignes (numéros) retirées de la dernière à la première, par blocs voisins ;
+// Google Sheets refuse de retirer toutes les lignes sous les titres : une ligne
+// vide est d'abord ajoutée s'il le faut
+function supprimerLignes(feuille, lignes) {
+  if (!lignes.length) return;
+  lignes.sort(function (a, b) {
+    return b - a;
+  });
+  if (lignes.length >= feuille.getMaxRows() - 1) feuille.insertRowsAfter(feuille.getMaxRows(), 1);
+  for (var i = 0; i < lignes.length; i++) {
+    var fin = lignes[i],
+      debut = fin;
+    while (i + 1 < lignes.length && lignes[i + 1] == debut - 1) debut = lignes[++i];
+    feuille.deleteRows(debut, fin - debut + 1);
+  }
 }
 
 /**
@@ -176,9 +210,16 @@ function ajouterLignes(classeur, nom, entetes, lignes, exclues) {
   lireCles(feuille).forEach(function (c) {
     cles[c] = true;
   });
-  var nouvelles = [];
+  var nouvelles = [],
+    iDate = entetes.indexOf("Date"),
+    sansDate = 0;
   lignes.forEach(function (l) {
     var cle = String((l && l[0]) || "");
+    // sans date : hors de toute période, et sa clé ne distingue pas deux RC
+    if (cle && (estSansDate(cle) || (iDate != -1 && !String(l[iDate] || "").trim()))) {
+      sansDate++;
+      return;
+    }
     if (!cle || cles[cle]) return;
     cles[cle] = true;
     var ligne = titres.map(function () {
@@ -194,7 +235,9 @@ function ajouterLignes(classeur, nom, entetes, lignes, exclues) {
     feuille.getRange(derniere + 1, 1, nouvelles.length, titres.length).setValues(nouvelles);
   }
   compacter(feuille);
-  return { ajoutees: nouvelles.length, deja: lignes.length - nouvelles.length };
+  var r = { ajoutees: nouvelles.length, deja: lignes.length - nouvelles.length - sansDate };
+  if (sansDate) r.sansDate = sansDate;
+  return r;
 }
 
 // la grille de l'onglet (1 000 lignes et 26 colonnes à sa création) doit
@@ -851,11 +894,18 @@ function comparaisonChasseurs(parJoueur) {
 
 // résumé de l'onglet avec l'écart de chaque chiffre à la moyenne des chasseurs
 // de la période (chacun compte autant), en %, au dixième, comme la synthèse ;
-// vide s'ils sont moins de deux
+// vide s'ils sont moins de deux ou s'il n'a pas chassé
 function ecartsDuResume(s) {
-  var c = s.comparaison;
+  var c = s.comparaison,
+    moi = nomJoueur(s.joueur),
+    // sans chasse dans la période, il n'est pas l'un des chasseurs comparés
+    compare =
+      c.lignes.length >= 2 &&
+      c.lignes.some(function (l) {
+        return nomJoueur(l[0]) == moi;
+      });
   return s.resume.map(function (l) {
-    var m = c.lignes.length >= 2 ? c.moyenne[c.titres.indexOf(l[0])] : "";
+    var m = compare ? c.moyenne[c.titres.indexOf(l[0])] : "";
     return [
       l[0],
       l[1],
@@ -1296,6 +1346,77 @@ function preparerStatistiques(classeur) {
   }
 }
 
+// colonnes laissées libres après les autres chasseurs (un export en ajoute au besoin)
+var MARGE_STATISTIQUES = 10;
+var TITRE_GRAPHIQUE_TERRAINS =
+  "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et la tendance de leur moyenne";
+
+// séries du graphique des terrains : ton terrain, ta tendance, celle de la
+// moyenne, puis `n` autres chasseurs ; couleurs de la synthèse de l'extension :
+// chaque chasseur en pointillés, le joueur en vert, les autres dans les autres
+// couleurs (un autre pointillé quand elles sont épuisées) ; les tendances en
+// tirets, celle du joueur en vert, celle de la moyenne des chasseurs en rouge
+function seriesTerrains(n) {
+  var trait = [10, 5],
+    pointilles = [2, 3],
+    autresPointilles = [pointilles, [6, 3, 2, 3], [12, 3, 2, 3]],
+    series = {
+      0: { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: pointilles },
+      1: { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: trait },
+      2: { color: COULEUR_MOYENNE, lineWidth: 2, lineDashStyle: trait },
+    };
+  for (var k = 0; k < n; k++)
+    series[3 + k] = {
+      color: COULEURS_AUTRES_CHASSEURS[k % COULEURS_AUTRES_CHASSEURS.length],
+      lineWidth: 2,
+      lineDashStyle:
+        autresPointilles[
+          Math.floor(k / COULEURS_AUTRES_CHASSEURS.length) % autresPointilles.length
+        ],
+    };
+  return series;
+}
+
+/**
+ * Après un export vers « BDD chasse » : un nouveau chasseur élargit l'onglet
+ * « Statistiques » (sinon le résultat de STATS_OUAF n'y tient plus) et entre
+ * dans son graphique des terrains, sans recréer l'onglet. Une erreur n'empêche
+ * pas l'export (raison dans Apps Script → Exécutions).
+ */
+function majStatistiques(classeur) {
+  try {
+    var f = classeur.getSheetByName(ONGLET_STATISTIQUES);
+    if (!f) return;
+    var chasseurs = chasseursDe(lireColonnes(classeur, ONGLET_CHASSE, ["Exporté par"])).length,
+      n = Math.max(1, chasseurs - 1),
+      c0 = COLONNE_STATISTIQUES,
+      cAutres = c0 + colonneBloc("autres"),
+      largeur = cAutres + chasseurs + MARGE_STATISTIQUES - c0;
+    if (f.getMaxColumns() < c0 + largeur) {
+      agrandir(f, LIGNES_STATISTIQUES, c0 + largeur);
+      f.getRange(1, c0, 2, largeur).setFontWeight("bold");
+      f.getRange(3, c0 + 1, LIGNES_STATISTIQUES - 2, largeur - 1).setNumberFormat("#,##0");
+    }
+    f.getCharts().forEach(function (g) {
+      if (g.getOptions().get("title") != TITRE_GRAPHIQUE_TERRAINS) return;
+      var autres = g.getRanges().filter(function (p) {
+          return p.getColumn() == cAutres;
+        })[0],
+        b = g.modify();
+      if (autres && autres.getNumColumns() == n) return;
+      if (autres) b = b.removeRange(autres);
+      f.updateChart(
+        b
+          .addRange(f.getRange(2, cAutres, LIGNES_STATISTIQUES - 1, n))
+          .setOption("series", seriesTerrains(n))
+          .build(),
+      );
+    });
+  } catch (err) {
+    console.warn("Onglet Statistiques non mis à jour : " + err);
+  }
+}
+
 function creerStatistiques(classeur) {
   // la formule de contrôle cite l'onglet des chasses : il doit exister, même vide
   if (!classeur.getSheetByName("BDD chasse")) classeur.insertSheet("BDD chasse");
@@ -1310,17 +1431,16 @@ function creerStatistiques(classeur) {
     },
     cJoueurs = colonne("joueurs"),
     cAutres = colonne("autres"),
-    // une colonne par autre chasseur du fichier : celles du graphique (onglet à
-    // recréer quand de nouveaux chasseurs exportent)
-    nAutres = Math.max(
-      1,
-      chasseursDe(lireColonnes(classeur, "BDD chasse", ["Exporté par"])).length - 1,
-    ),
+    // une colonne par autre chasseur du fichier (un nouveau : majStatistiques)
+    chasseurs = chasseursDe(lireColonnes(classeur, ONGLET_CHASSE, ["Exporté par"])).length,
+    nAutres = Math.max(1, chasseurs - 1),
+    largeur = cAutres + chasseurs + MARGE_STATISTIQUES - c0,
     donnees = LIGNES_STATISTIQUES - 2,
     // libellés du résumé (ils ne dépendent pas des données) : graphiques dessous
     resume = statistiques({}, "?", "2000-01-01", "2000-01-01", "UTC").resume;
-  // résultat de STATS_OUAF plus large que les 26 colonnes d'un nouvel onglet
-  agrandir(f, LIGNES_STATISTIQUES, cAutres + nAutres - 1);
+  // résultat de STATS_OUAF plus large que les 26 colonnes d'un nouvel onglet :
+  // place pour tous les chasseurs (joueur de B3 sans chasse) et quelques autres
+  agrandir(f, LIGNES_STATISTIQUES, c0 + largeur);
   f.getRange(1, 1).setValue("Statistiques de chasse (Extension OUAF)").setFontWeight("bold");
   f.getRange(3, 1, 3, 1)
     .setValues([["Joueur"], ["Premier jour"], ["Dernier jour"]])
@@ -1346,8 +1466,8 @@ function creerStatistiques(classeur) {
   f.getRange(6, 1).setValue("Contrôle (ne pas effacer)");
   f.getRange(6, 2).setFormula(formuleControle()).setNumberFormat(";;;");
   f.getRange(1, c0).setFormula("=STATS_OUAF(B3:B6)");
-  f.getRange(1, c0, 2, cAutres + nAutres - c0).setFontWeight("bold");
-  f.getRange(3, c0 + 1, donnees, cAutres + nAutres - c0 - 1).setNumberFormat("#,##0");
+  f.getRange(1, c0, 2, largeur).setFontWeight("bold");
+  f.getRange(3, c0 + 1, donnees, largeur - 1).setNumberFormat("#,##0");
   // variation de l'armée en % : une décimale ; date de retour ; difficulté au centième
   f.getRange(3, colonne("armee", 3), donnees, 1).setNumberFormat("0.0");
   f.getRange(3, titreChasses("Date"), donnees, 1).setNumberFormat("dd/mm hh:mm");
@@ -1402,27 +1522,7 @@ function creerStatistiques(classeur) {
       return f.getRange(2, titreChasses(titre), LIGNES_STATISTIQUES - 1, n || 1);
     },
     chasses = plage("Chasse"),
-    premiere = resume.length + 5,
-    // couleurs de la synthèse de l'extension : chaque chasseur en pointillés, le
-    // joueur en vert, les autres dans les autres couleurs (un autre pointillé
-    // quand elles sont épuisées) ; les tendances en tirets, celle du joueur en
-    // vert, celle de la moyenne des chasseurs en rouge
-    trait = [10, 5],
-    pointilles = [2, 3],
-    autresPointilles = [pointilles, [6, 3, 2, 3], [12, 3, 2, 3]],
-    seriesAutres = {};
-  for (var k = 0; k < nAutres; k++)
-    seriesAutres[3 + k] = {
-      color: COULEURS_AUTRES_CHASSEURS[k % COULEURS_AUTRES_CHASSEURS.length],
-      lineWidth: 2,
-      lineDashStyle:
-        autresPointilles[
-          Math.floor(k / COULEURS_AUTRES_CHASSEURS.length) % autresPointilles.length
-        ],
-    };
-  seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: pointilles };
-  seriesAutres[1] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: trait };
-  seriesAutres[2] = { color: COULEUR_MOYENNE, lineWidth: 2, lineDashStyle: trait };
+    premiere = resume.length + 5;
   [
     {
       // pommes et pertes sur le même axe de droite (Google Sheets n'en a que
@@ -1445,15 +1545,14 @@ function creerStatistiques(classeur) {
     },
     {
       type: Charts.ChartType.LINE,
-      titre:
-        "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et la tendance de leur moyenne",
+      titre: TITRE_GRAPHIQUE_TERRAINS,
       plages: [
         chasses,
         plage("Terrain (cm²)", 2),
         plage("Tendance de la moyenne (cm²)"),
         f.getRange(2, cAutres, LIGNES_STATISTIQUES - 1, nAutres),
       ],
-      options: { series: seriesAutres },
+      options: { series: seriesTerrains(nAutres) },
     },
     {
       type: Charts.ChartType.SCATTER,

@@ -74,6 +74,37 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     insertChart: (g: any) => {
       f.graphiques.push(g);
     },
+    // graphiques déjà là : options et plages relues, modifiés en place (updateChart)
+    majGraphiques: 0,
+    getCharts: () =>
+      f.graphiques.map((g: any) => ({
+        getOptions: () => ({ get: (k: string) => g.options[k] }),
+        getRanges: () =>
+          g.plages.map((p: any) => ({
+            adresse: p,
+            getColumn: () => p.c,
+            getNumColumns: () => p.nc,
+          })),
+        modify: () => {
+          const m: any = { ...g, plages: [...g.plages], options: { ...g.options } },
+            b: any = {
+              removeRange: (r: any) => (
+                (m.plages = m.plages.filter((p: any) => p !== r.adresse)),
+                b
+              ),
+              addRange: (r: any) => (m.plages.push(r.adresse), b),
+              setOption: (k: string, v: unknown) => ((m.options[k] = v), b),
+              build: () => ({ avant: g, apres: m }),
+            };
+          return b;
+        },
+      })),
+    updateChart: (c: any) => {
+      const i = f.graphiques.indexOf(c.avant);
+      if (i == -1) throw new Error("graphique inconnu");
+      f.graphiques[i] = c.apres;
+      f.majGraphiques++;
+    },
     getLastRow: () => {
       for (let r = grille.length; r > 0; r--)
         if (grille[r - 1]!.some((v) => v !== "" && v != null)) return r;

@@ -597,6 +597,18 @@ describe("onglet « Statistiques » du fichier (STATS_OUAF)", () => {
     expect(vide.slice(1, 4).map((l) => l[blocs.comparaison])).toEqual(["", "", ""]);
   });
 
+  test("joueur sans chasse dans la période : pas d'écart, le tableau des chasseurs quand même", () => {
+    // Delta n'a chassé que le 15/10
+    const o = sortie("Delta", "2026-11-01", "2026-11-07");
+    expect(o.slice(2, 9).every((l) => l[blocs.resume + 2] === "")).toBe(true);
+    expect(o.slice(2, 6).map((l) => l[blocs.comparaison])).toEqual([
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Moyenne des chasseurs",
+    ]);
+  });
+
   test("liste des joueurs de la case « Joueur » : les chasseurs du fichier, sans doublon de casse", () => {
     const liste = sortie("Alpha", "2026-11-01", "2026-11-07")
       .slice(2)
@@ -1018,6 +1030,33 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
       ...synthese.match(/const COULEURS_AUTRES = \[([^\]]*)\]/)![1]!.matchAll(/#[0-9a-f]{6}/g),
     ].map((m) => m[0]);
     expect(extension).toEqual([...f.script.COULEURS_AUTRES_CHASSEURS]);
+  });
+
+  test("nouveau chasseur exporté : onglet élargi et graphique des terrains complété, sans le recréer", () => {
+    const f = classeurSimule({ "BDD chasse": feuille("BDD chasse", donnees().chasse) });
+    f.doGet();
+    const s = f.onglets["Statistiques"];
+    const autres = () => s.graphiques[1].plages.at(-1);
+    // Alpha, Bravo, Charlie, Delta : trois autres chasseurs à partir de AY (51) ;
+    // place pour les quatre (joueur de B3 sans chasse) et dix de plus
+    expect([autres().c, autres().nc]).toEqual([51, 3]);
+    expect(s.getMaxColumns()).toBe(65);
+    f.doPost({
+      onglet: "BDD chasse",
+      entetes: CHASSE,
+      lignes: [chasse("Echo", "2026-11-05 10:00", 1, 1, 1, "1 Tank")],
+    });
+    expect([autres().c, autres().nc]).toEqual([51, 4]);
+    expect(Object.keys(s.graphiques[1].options.series)).toHaveLength(7);
+    expect(s.getMaxColumns()).toBe(66);
+    expect([s.graphiques.length, s.majGraphiques]).toEqual([6, 1]);
+    // chasse d'un chasseur déjà là : rien à changer
+    f.doPost({
+      onglet: "BDD chasse",
+      entetes: CHASSE,
+      lignes: [chasse("Alpha", "2026-11-06 10:00", 1, 1, 1, "1 Tank")],
+    });
+    expect([s.graphiques.length, s.majGraphiques]).toEqual([6, 1]);
   });
 
   test("déjà là : rien n'est recréé ; jamais créé par un export", () => {

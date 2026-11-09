@@ -42,6 +42,22 @@ describe("script du Google Sheet", () => {
     ]);
   });
 
+  test("RC sans date (version d'avant 1.95.5) : refusé, compté à part", () => {
+    const ctx = charger();
+    expect(
+      poster(ctx, {
+        onglet: "BDD chasse",
+        entetes: ENTETES,
+        lignes: [
+          ["|e1", "Staffie", "", 7000, "RC 1"],
+          ["k2", "Staffie", "", 7000, "RC 2"],
+          ["k3", "Staffie", "2026-11-07 21:07", 7000, "RC 3"],
+        ],
+      }),
+    ).toEqual({ ajoutees: 1, deja: 0, sansDate: 2 });
+    expect(onglets["BDD chasse"].grille.map((l: unknown[]) => l[0])).toEqual(["Clé", "k3"]);
+  });
+
   test("clé déjà présente : pas ajoutée, même en double dans un même envoi", () => {
     const ctx = charger();
     poster(ctx, { onglet: "BDD chasse", entetes: ENTETES, lignes: [["k1", "Alpha", "d", 1, "a"]] });
@@ -216,6 +232,25 @@ describe("vérification : clés que le fichier n'a plus", () => {
     expect(Object.keys(onglets)).toEqual(["BDD défenses", "Flood internes"]);
     expect(onglets["BDD défenses"].hauteurs).toEqual({ 2: 21 });
     expect(onglets["Flood internes"].alignements).toEqual({ 2: "top" });
+  });
+
+  test("RC exportés sans date : leurs lignes retirées et déclarées absentes, les autres gardées", () => {
+    onglets["BDD chasse"] = feuille("BDD chasse", [
+      ENTETES,
+      ["k1", "Alpha", "2026-11-07 21:07", 1, "a"],
+      ["|e1", "Staffie", "", 2, "b"],
+      ["|e2", "Staffie", "", 3, "c"],
+      ["k4", "Alpha", "2026-11-07 21:08", 4, "d"],
+      ["|e3", "Staffie", "", 5, "e"],
+    ]);
+    expect(
+      poster(charger(), {
+        verifier: true,
+        onglets: ["BDD chasse"],
+        cles: ["k1", "|e1", "|e2", "|e3", "|e9"],
+      }),
+    ).toEqual({ absentes: ["|e1", "|e2", "|e3", "|e9"] });
+    expect(onglets["BDD chasse"].grille.map((l: unknown[]) => l[0])).toEqual(["Clé", "k1", "k4"]);
   });
 
   test("onglet vidé à la main : toutes ses clés sont absentes", () => {

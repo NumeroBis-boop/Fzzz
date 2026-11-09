@@ -293,7 +293,8 @@ class SyntheseChasse {
    * Chiffres clés de chasse de la période, lus dans le résumé du script, avec
    * l'écart à la moyenne des chasseurs de la période (chacun compte autant ;
    * mieux qu'elle en vert, moins bien en rouge : au-dessus, sauf pour les
-   * pertes ; demandes du mainteneur), quand ils sont au moins deux.
+   * pertes ; demandes du mainteneur), quand ils sont au moins deux et que le
+   * joueur en est.
    *
    * @static
    * @method cartes
@@ -305,8 +306,14 @@ class SyntheseChasse {
       nombre = (/** @type {Number|null} */ n, unite = "") =>
         n == null ? "—" : numeral(n).format() + unite,
       c = s.comparaison,
+      moi = String(s.joueur).toLowerCase(),
+      // sans chasse dans la période, le joueur n'est pas l'un des chasseurs comparés
+      compare =
+        !!c &&
+        c.lignes.length >= 2 &&
+        c.lignes.some((/** @type {any[]} */ l) => String(l[0]).toLowerCase() == moi),
       moyenne = (/** @type {String} */ titre) => {
-        if (!c || c.lignes.length < 2) return null;
+        if (!compare) return null;
         let m = c.moyenne[c.titres.indexOf(titre)];
         return typeof m == "number" && m > 0 ? m : null;
       },

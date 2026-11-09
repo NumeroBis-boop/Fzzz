@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.5",
+    notes: [
+      "Export des chasses et des RC : la date des rapports est lue même écrite autrement (année absente, « 21:07 », « aujourd'hui », « hier ») ; un rapport dont la date reste illisible n'est plus envoyé sans date : le message le dit et cite la date lue.",
+      "Export : les rapports envoyés sans date par une version d'avant sont relus et renvoyés avec leur date au prochain export.",
+      "Google Sheet : un nouveau chasseur entre tout seul dans l'onglet « Statistiques » et son graphique des terrains, sans recréer l'onglet (script à recoller et redéployer une fois).",
+      "Synthèse : pas d'écart à la moyenne pour un joueur qui n'a pas chassé dans la période.",
+    ],
+  },
+  {
     version: "1.95.4",
     notes: [
       "Convois : le « - » et l'état de suivi (« ✅ Enregistré », « 📤 Envoyer au suivi ») dans leur colonne, le texte du convoi replié à côté : « Annuler » n'est plus jamais au-dessus ou en dessous d'un bouton d'envoi.",

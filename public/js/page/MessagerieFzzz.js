@@ -656,13 +656,11 @@ class HistoriqueChasses {
     if (!id || !chasse.terrain) return;
     let sauver = !h;
     h = h || HistoriqueChasses.charger();
-    let date = $message
-      .find(".expe")
-      .text()
-      .match(/(\d{2}\/\d{2}\/\d{2}) à (\d{2}h\d{2})/);
+    // même lecture que l'export (l'en-tête n'a pas la même forme chez tous) ; « 07/11 21h07 »
+    let d = ExportRapports.date($message.find(".expe").text());
     h.chasses[id] = {
       id,
-      date: date ? `${date[1].slice(0, 5)} ${date[2]}` : "",
+      date: d ? `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 13)}h${d.slice(14, 16)}` : "",
       terrain: chasse.terrain,
       pertes: chasse.pertes,
     };

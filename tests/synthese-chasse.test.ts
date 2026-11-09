@@ -297,6 +297,14 @@ describe("affichage", () => {
     expect([cartes[4].detail, cartes[4].classeDetail]).toEqual(["-50,0 %", "o_syntheseEcartMieux"]);
     expect([cartes[1].detail, cartes[1].classeDetail]).toEqual(["0,0 %", ""]);
     expect([cartes[3].detail, cartes[3].classeDetail]).toEqual(["", ""]);
+    // joueur sans chasse dans la période (absent du tableau) : pas d'écart
+    const sans = JSON.parse(json(STATS));
+    sans.comparaison.lignes = sans.comparaison.lignes.filter(
+      (l: any[]) => String(l[0]).toLowerCase() != "doggybag",
+    );
+    expect(lire<any[]>(`SyntheseChasse.cartes(${json(sans)})`).every((c) => c.detail == "")).toBe(
+      true,
+    );
     // seul chasseur de la période, ou script au format 4 : chiffres sans écart
     s.comparaison.lignes = s.comparaison.lignes.slice(0, 1);
     expect(lire<any[]>(`SyntheseChasse.cartes(${json(s)})`).every((c) => c.detail == "")).toBe(

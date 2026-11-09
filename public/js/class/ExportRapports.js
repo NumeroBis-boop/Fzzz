@@ -11,6 +11,23 @@
 // si le forum ne répond pas) ; un autre joueur donne celle de son propre fichier
 const CLE_EXPORT_SHEET_ALLIANCE = "fzzz_exportSheetAlliance";
 const CLE_EXPORT_SHEET = "fzzz_exportSheet";
+// jours de la semaine (0 : dimanche, comme moment().day()), en français ou en anglais
+const JOURS_EN_LETTRES = {
+  dimanche: 0,
+  lundi: 1,
+  mardi: 2,
+  mercredi: 3,
+  jeudi: 4,
+  vendredi: 5,
+  samedi: 6,
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
 // mois écrits en lettres dans les dates des messages, en français ou en anglais
 const MOIS_EN_LETTRES = {
   janvier: 0,
@@ -198,7 +215,7 @@ class ExportRapports {
         ["(\\d{4})-(\\d{1,2})-(\\d{1,2})[T\\s]+", 3, (m) => [m[1], Number(m[2]) - 1, Number(m[3])]],
         // 07/11/26 à 21h07 ; « 11/07/26 at 9:07 PM » : mois puis jour, à l'américaine
         [
-          "(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?\\D+?",
+          "(\\d{1,2})\\s*/\\s*(\\d{1,2})(?:\\s*/\\s*(\\d{2,4}))?\\D+?",
           3,
           (m, apm) => {
             let a = Number(m[1]),
@@ -221,6 +238,8 @@ class ExportRapports {
         ],
         // aujourd'hui à 21h07 ; yesterday at 9:07 PM : jour de l'horloge du serveur
         ["(aujourd['’]hui|today|hier|yesterday)\\D*?", 1, (m) => m[1]],
+        // samedi 23h35 (liste des conversations du jeu) : ce jour-là, dans la semaine écoulée
+        [`(${Object.keys(JOURS_EN_LETTRES).join("|")})(?![${lettre}])\\D*?`, 1, (m) => m[1]],
       ];
     for (let [motif, groupes, lire] of formes) {
       let m = new RegExp(
@@ -241,7 +260,14 @@ class ExportRapports {
       if (h > 23 || mi > 59) return "";
       if (typeof lu == "string") {
         jour = maintenant().startOf("day");
+        let semaine = JOURS_EN_LETTRES[lu.toLowerCase()];
         if (/^(hier|yesterday)/i.test(lu)) jour.subtract(1, "day");
+        else if (semaine !== undefined) {
+          jour.subtract((jour.day() - semaine + 7) % 7, "day");
+          // le jour même, mais à une heure à venir : celui de la semaine d'avant
+          if (jour.clone().hours(h).minutes(mi).isAfter(maintenant().add(1, "hour")))
+            jour.subtract(7, "day");
+        }
       } else {
         let [a, moisLu, j] = lu;
         jour = moment([a ? Number(a.length == 2 ? "20" + a : a) : maintenant().year(), moisLu, j]);
@@ -282,9 +308,12 @@ class ExportRapports {
    */
   static dateDe(tr) {
     let $ligne = $(tr).clone(),
-      expe = $(tr).find(".expe").first().text();
+      $expe = $(tr).find(".expe").first(),
+      // date sur deux lignes (« 07/11/26<br>23h35 », messagerie du jeu sur
+      // téléphone) : ses morceaux séparés, sinon « 07/11/2623h35 » est illisible
+      expe = $expe.length ? ExportRapports.morceaux($expe[0]) : "";
     $ligne.find(".message").remove();
-    let texte = $ligne.text();
+    let texte = ExportRapports.morceaux($ligne[0]);
     return {
       date:
         ExportRapports.horodatage($ligne.find("[data-timestamp]").first().attr("data-timestamp")) ||
@@ -294,6 +323,21 @@ class ExportRapports {
         .trim()
         .slice(0, 80),
     };
+  }
+  /**
+   * Texte d'un élément, ses morceaux (nœuds de texte) séparés par une espace.
+   *
+   * @static
+   * @method morceaux
+   * @param {Node} n
+   * @return {String}
+   */
+  static morceaux(n) {
+    let textes = (/** @type {Node} */ x) =>
+      x.nodeType == Node.TEXT_NODE
+        ? [/** @type {Text} */ (x).data]
+        : [...x.childNodes].flatMap((/** @type {Node} */ y) => textes(y));
+    return textes(n).join(" ");
   }
   /**
    * Espaces du jeu (insécables, doublés) ramenés à une espace simple ; les

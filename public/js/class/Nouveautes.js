@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.96.3",
+    notes: [
+      "Lanceur de Flood : « Flooder + partager » et « Flooder » sont en vert, la couleur du TdC (les floods partent toujours sur le terrain de chasse), comme « Lancer + partager » vers le TdC.",
+    ],
+  },
+  {
     version: "1.96.2",
     notes: [
       "Lanceur de Flood : la méthode par défaut devient « Dégressive ». Si « Optimisée » (l'ancien défaut) était enregistrée, elle passe en Dégressive ; « Standard » et « Uniforme » restent. Elle se change dans Préférences → Attaque, « Méthode de flood par défaut ».",

@@ -609,8 +609,8 @@ class PageAttaquer {
                 : ""
             }
             </table>
-            <div class='o_floodBoutons'><div class='o_pile'><button id='o_lanceFlood' class='o_button f_success'>Flooder</button>
-            <button type='button' id='o_lanceFloodPartager' class='o_button f_info' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div></div>
+            <div class='o_floodBoutons'><div class='o_pile'><button id='o_lanceFlood' class='o_button o_lieu1'>Flooder</button>
+            <button type='button' id='o_lanceFloodPartager' class='o_button o_lieu1' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div></div>
             <p class="reduce left">Reste : place les unités restantes sur l'attaque sélectionnée.</p>
             ${this._unitesGardees.html()}
             </fieldset>`);

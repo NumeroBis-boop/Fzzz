@@ -656,8 +656,8 @@ class HistoriqueChasses {
     if (!id || !chasse.terrain) return;
     let sauver = !h;
     h = h || HistoriqueChasses.charger();
-    // même lecture que l'export (l'en-tête n'a pas la même forme chez tous) ; « 07/11 21h07 »
-    let d = ExportRapports.date($message.find(".expe").text());
+    // même lecture que l'export, à l'heure du serveur ; « 07/11 21h07 »
+    let d = ExportRapports.dateDe($message[0]).date;
     h.chasses[id] = {
       id,
       date: d ? `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 13)}h${d.slice(14, 16)}` : "",

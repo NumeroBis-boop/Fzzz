@@ -149,7 +149,8 @@ describe("calcul des statistiques de chasse", () => {
       "Difficulté / cm²",
       "Nourriture",
     ]);
-    // pertes par million de cm² 50 000, 100 000 et 20 000 : moyenne 56 667 ;
+    // pertes par million de cm² 50 000, 100 000 et 20 000 ; moyenne de la période
+    // celle du résumé : 2 100 pertes ÷ 45 000 cm² = 46 667 ;
     // tendance du terrain (24 000, 6 000, 15 000) : 19 500, 15 000, 10 500 ;
     // moyenne avec Bravo (10 000 et 2 000, étirés en 10 000, 6 000, 2 000) et
     // Charlie (1 000) : 11 667, 4 333, 6 000, sa tendance 10 167, 7 333, 4 500 ;
@@ -166,7 +167,7 @@ describe("calcul des statistiques de chasse", () => {
         10167,
         1200,
         50000,
-        56667,
+        46667,
         0.07,
         186000,
       ],
@@ -181,7 +182,7 @@ describe("calcul des statistiques de chasse", () => {
         7333,
         600,
         100000,
-        56667,
+        46667,
         0.1,
         45000,
       ],
@@ -196,7 +197,7 @@ describe("calcul des statistiques de chasse", () => {
         4500,
         300,
         20000,
-        56667,
+        46667,
         0.12,
         123000,
       ],
@@ -941,7 +942,7 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
       ],
       [
         "LINE",
-        "Pertes par M cm² de chaque chasse dans le temps, et leur moyenne",
+        "Pertes par M cm² de chaque chasse dans le temps, et la moyenne de la période (pertes totales ÷ terrain total)",
         [
           [23, 1],
           [30, 2],
@@ -994,6 +995,29 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
       [84, 1],
       [102, 1],
     ]);
+  });
+
+  test("autres chasseurs : six couleurs, leurs nuances, puis un autre pointillé ; celles de l'extension", () => {
+    const grille: unknown[][] = [CHASSE];
+    for (let i = 0; i < 14; i++)
+      grille.push(chasse(`J${i}`, "2026-11-01 10:00", 1, 1, 1, "1 Tank"));
+    const f = classeurSimule({ "BDD chasse": feuille("BDD chasse", grille) });
+    f.doGet();
+    const series = f.onglets["Statistiques"].graphiques[1].options.series;
+    // 13 autres chasseurs (le joueur de la case B3 est l'un des 14) : séries 3 à 15
+    const autres = Array.from({ length: 13 }, (_, k) => series[3 + k]);
+    expect(new Set(autres.slice(0, 12).map((a: any) => a.color)).size).toBe(12);
+    expect(autres.slice(0, 12).every((a: any) => String(a.lineDashStyle) == "2,3")).toBe(true);
+    expect([autres[12].color, String(autres[12].lineDashStyle)]).toEqual(["#2a78d6", "6,3,2,3"]);
+    // mêmes couleurs, dans le même ordre, que la synthèse de l'extension
+    const synthese = readFileSync(
+      join(import.meta.dir, "..", "public", "js", "boite", "Synthese.js"),
+      "utf8",
+    );
+    const extension = [
+      ...synthese.match(/const COULEURS_AUTRES = \[([^\]]*)\]/)![1]!.matchAll(/#[0-9a-f]{6}/g),
+    ].map((m) => m[0]);
+    expect(extension).toEqual([...f.script.COULEURS_AUTRES_CHASSEURS]);
   });
 
   test("déjà là : rien n'est recréé ; jamais créé par un export", () => {

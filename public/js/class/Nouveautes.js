@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.4",
+    notes: [
+      "Convois : le « - » et l'état de suivi (« ✅ Enregistré », « 📤 Envoyer au suivi ») dans leur colonne, le texte du convoi replié à côté : « Annuler » n'est plus jamais au-dessus ou en dessous d'un bouton d'envoi.",
+      "Synthèse : la ligne en tirets des pertes par M cm² est la moyenne de la période (pertes totales ÷ terrain total), le même chiffre que la carte.",
+      "Synthèse : du 7e au 12e autre chasseur, une nuance plus claire ou plus foncée des six couleurs, toujours en pointillés.",
+      "Google Sheet : la même moyenne et les mêmes nuances dans l'onglet « Statistiques » (la personne qui gère le fichier recolle le script, le redéploie et recrée l'onglet).",
+    ],
+  },
+  {
     version: "1.95.3",
     notes: [
       "Synthèse : sous « Pertes » et « Pertes / M cm² », un écart au-dessus de la moyenne des chasseurs est en rouge (plus de pertes, c'est moins bien), en dessous en vert.",

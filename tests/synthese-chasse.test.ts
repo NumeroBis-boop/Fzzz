@@ -531,7 +531,8 @@ describe("affichage", () => {
     expect(g.yAxis.plotLines).toHaveLength(1);
     expect(g.yAxis.plotLines[0].value).toBe(50000);
     expect(g.yAxis.plotLines[0].dashStyle).toBe("Dash");
-    expect(g.subtitle.text).toBe("Moyenne : 50 000 (tirets)");
+    // celle de la carte « Pertes / M cm² chassé » : pertes totales ÷ terrain total
+    expect(g.subtitle.text).toBe("Moyenne de la période : 50 000 (tirets, le chiffre de la carte)");
     expect(
       lire(
         `SyntheseChasse.graphiques(${json(STATS)})[4].tooltip.formatter.call({ series: { name: "DoggyBag" }, x: ${Date.UTC(2026, 10, 1, 10, 0)}, y: 50000 })`,
@@ -617,9 +618,16 @@ describe("affichage", () => {
         "#eb6834",
       ]);
     }
-    // au-delà de six autres chasseurs : mêmes couleurs, autre pointillé
-    const s = { ...STATS, chasseurs: Array.from({ length: 10 }, (_, i) => `J${i}`) };
-    expect(style(s, "j9")).toEqual({ color: "#eda100", dashStyle: "ShortDashDot" });
+    // du 7e au 12e autre chasseur : une nuance de chaque couleur, même pointillé ;
+    // au-delà, les mêmes couleurs avec un autre pointillé
+    const s = { ...STATS, chasseurs: Array.from({ length: 14 }, (_, i) => `J${i}`) };
+    expect(style(s, "j6")).toEqual({ color: "#65a8ff", dashStyle: "ShortDot" });
+    expect(style(s, "j9")).toEqual({ color: "#9d6a06", dashStyle: "ShortDot" });
+    expect(style(s, "j12")).toEqual({ color: "#2a78d6", dashStyle: "ShortDashDot" });
+    const couleurs = Array.from({ length: 12 }, (_, i) => (style(s, `j${i}`) as any).color);
+    expect(new Set(couleurs).size).toBe(12);
+    expect(couleurs).not.toContain("#008300");
+    expect(couleurs).not.toContain("#e34948");
   });
 });
 

@@ -193,7 +193,19 @@ class PageAlliance {
     }
     // Fzzz : vues Temps de trajet (ancien « Synchroniser ») / Reset / Floods et
     // chasses en cours, et évolution du TdC au survol (AllianceFzzz)
-    AllianceFzzz.installer((progres) => this._fetchAndCacheCoords(progres), !!hasCache);
+    AllianceFzzz.installer(
+      (progres) => this._fetchAndCacheCoords(progres),
+      !!hasCache,
+      // temps de trajet de la colonne « Tdt » ; inconnu sans coordonnées ou sans Vitesse d'attaque
+      (pseudo) => {
+        const j = Object.values(this._alliance.joueurs).find(
+          (m) => String(m.pseudo).trim() == pseudo,
+        );
+        return j && j.x !== -1 && j.y !== -1 && monProfil.niveauRecherche[6] >= 0
+          ? monProfil.getTempsParcours2(j)
+          : null;
+      },
+    );
     return this;
   }
   /**

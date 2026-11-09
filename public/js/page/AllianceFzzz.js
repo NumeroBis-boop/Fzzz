@@ -8,14 +8,21 @@ const CLE_VUE_APRES_SYNCHRO = "fzzz_vueMembresApresSynchro";
 // vues de la page Membres, dans l'ordre du réglage « vueMembres »
 const VUES_MEMBRES = ["reset", "trajet", "floods"];
 // colonnes ajoutées en fin de ligne au tableau des membres
-const ALLIANCE_COLONNES_FZZZ = ["Prochaine<br/>variation", "TdC<br/>(estimé)", "TdC<br/>final"];
+const ALLIANCE_COLONNES_FZZZ = [
+  "Date dernier<br/>mouvement",
+  "Variation<br/>totale de TdC",
+  "TdC<br/>final",
+];
+// membre sans mouvement en cours : après les autres dans le tri croissant des dates
+const ALLIANCE_SANS_MOUVEMENT = 9999999999;
 
 /**
  * Page Membres de l'alliance : vues « Standard » (tableau du jeu, à
  * l'ouverture), « Temps de trajet » et « Floods et chasses en cours ». Les
  * chasses et floods partagés dans le forum (PartageChasses) ne sont lus qu'au
  * premier choix de cette dernière vue ; ils remplissent ses colonnes et
- * l'infobulle de l'évolution future du TdC au survol d'une ligne.
+ * l'infobulle de l'évolution future du TdC au survol d'une ligne, où est
+ * surlignée la ligne du TdC à l'arrivée d'une attaque lancée à l'ouverture.
  *
  * @class AllianceFzzz
  */
@@ -36,7 +43,7 @@ class AllianceFzzz {
     $t.find("tbody tr").each((i, tr) => $(tr).find("td:eq(2)").addClass("o_allRang"));
     $t.find("tbody tr").each((i, tr) => {
       $(tr).append(
-        `<td class='o_allVar o_allCol0' data-order='99999999'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allFinal o_allCol2' data-order='0'></td>`,
+        `<td class='o_allVar o_allCol0' data-order='${ALLIANCE_SANS_MOUVEMENT}'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allFinal o_allCol2' data-order='0'></td>`,
       );
     });
     // ligne des totaux (pied fusionné sur toutes les colonnes) déplacée sous le
@@ -57,9 +64,12 @@ class AllianceFzzz {
    * @method installer
    * @param {Function} synchroniser récupère les coordonnées (ancien « Synchroniser »)
    * @param {Boolean} avecTrajet colonnes Tdt / Retour présentes (coordonnées en cache)
+   * @param {Function} [tempsTrajet] pseudo → temps de trajet (s) à ma vitesse d'attaque, null si inconnu
    */
-  static installer(synchroniser, avecTrajet) {
+  static installer(synchroniser, avecTrajet, tempsTrajet = () => null) {
     let api = $("#tabMembresAlliance").DataTable(),
+      // heure d'une attaque lancée à l'ouverture de la page, comme la colonne « Retour »
+      ouverture = Horloge.clic(),
       // nombre de colonnes lu dans les réglages : columns() sans sélecteur plante en 1.10.16
       n = api.settings()[0].aoColumns.length,
       k = ALLIANCE_COLONNES_FZZZ.length,
@@ -92,7 +102,7 @@ class AllianceFzzz {
         $(`.o_allVue[data-vue='${vue}']`).addClass("o_allVueActive");
         if (vue == "floods" && !partagesLus) {
           partagesLus = true;
-          AllianceFzzz._charger(api);
+          AllianceFzzz._charger(api, tempsTrajet, ouverture);
         }
       };
     let $boutons = $("#tabMembresAlliance_wrapper .dt-buttons");
@@ -174,9 +184,9 @@ class AllianceFzzz {
    *
    * @private
    */
-  static _charger(api) {
+  static _charger(api, tempsTrajet, ouverture) {
     PartageChasses.charger()
-      .then((d) => AllianceFzzz._remplir(api, d))
+      .then((d) => AllianceFzzz._remplir(api, d, tempsTrajet, ouverture))
       .catch(() => {
         let n = api.settings()[0].aoColumns.length;
         api
@@ -185,15 +195,20 @@ class AllianceFzzz {
       });
   }
   /**
+   * Variation signée et colorée ; « ~ » si une prise n'est qu'estimée au lancement.
+   *
    * @private
    */
-  static _signe(v) {
-    return `<span class='${v >= 0 ? "o_varPos" : "o_varNeg"}'>${v >= 0 ? "+" : "−"}${numeral(Math.abs(v)).format()}</span>`;
+  static _signe(v, estimee = false) {
+    if (v == 0) return `<span>0</span>`;
+    return `<span class='${v > 0 ? "o_varPos" : "o_varNeg"}'>${v > 0 ? "+" : "−"}${estimee ? "~" : ""}${numeral(Math.abs(v)).format()}</span>`;
   }
   /**
    * @private
+   * @param {Function} tempsTrajet pseudo → temps de trajet (s), null si inconnu
+   * @param {Object} ouverture heure (moment) d'une attaque lancée à l'ouverture de la page
    */
-  static _remplir(api, d) {
+  static _remplir(api, d, tempsTrajet = () => null, ouverture = Horloge.clic()) {
     let $info = $("#o_allInfobulle");
     if (!$info.length) $info = $("<div id='o_allInfobulle'></div>").appendTo("body").hide();
     // cellules lues par l'API : celles des colonnes masquées ne sont pas dans la page
@@ -219,36 +234,63 @@ class AllianceFzzz {
         pseudo = cellule(r, 3).text().trim(),
         terrain = connus[pseudo],
         vars = PartageChasses.chronologie(sim, pseudo),
-        final = terrain + vars.reduce((t, v) => t + v.delta, 0),
-        p = vars[0];
+        total = vars.reduce((t, v) => t + v.delta, 0),
+        final = terrain + total,
+        dernier = vars[vars.length - 1],
+        // on ne s'attaque pas soi-même
+        moi = pseudo.toLowerCase() == String(monProfil.pseudo).toLowerCase(),
+        secondes = moi ? null : tempsTrajet(pseudo),
+        // minute du RC de cette attaque, comme les dates des floods partagés
+        arrivee = secondes != null ? Utils.roundMinute(secondes, ouverture) : null,
+        minute = arrivee ? arrivee.format("YYYY-MM-DD HH:mm") : null,
+        // TdC qu'elle trouverait : après la dernière variation de sa minute ou d'avant
+        // (à minute égale, comme dans la simulation, ordre d'envoi : les floods
+        // partagés d'abord) ; -1 : la ligne « Actuellement »
+        atteinte = minute ? vars.reduce((a, v, j) => (v.date <= minute ? j : a), -1) : null;
       cellule(r, n - k)
-        .attr("data-order", p ? moment(p.date, "YYYY-MM-DD HH:mm").unix() : 99999999)
-        .toggleClass("o_allVide", !p)
-        .html(p ? moment(p.date, "YYYY-MM-DD HH:mm").format("DD/MM HH:mm") : "—");
+        .attr(
+          "data-order",
+          dernier ? moment(dernier.date, "YYYY-MM-DD HH:mm").unix() : ALLIANCE_SANS_MOUVEMENT,
+        )
+        .toggleClass("o_allVide", !dernier)
+        .html(dernier ? moment(dernier.date, "YYYY-MM-DD HH:mm").format("DD/MM HH:mm") : "—");
       cellule(r, n - k + 1)
-        .attr("data-order", p ? p.delta : 0)
-        .toggleClass("o_allVide", !p)
-        .html(p ? PartageChasses.libellePrise(p, "") : "—");
+        .attr("data-order", total)
+        .toggleClass("o_allVide", !dernier)
+        .html(
+          dernier
+            ? AllianceFzzz._signe(
+                total,
+                vars.some((v) => v.statut == "inconnu"),
+              )
+            : "—",
+        );
       cellule(r, n - 1)
         .attr("data-order", final)
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
       let tdc = terrain,
+        surligner = (j) => (j === atteinte ? " class='o_allInfoAttaque'" : ""),
         lignes = [
           `<tr class='gras'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Lanceur → cible</td></tr>`,
-          `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
+          `<tr${surligner(-1)}><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
         ];
-      vars.forEach((v) => {
+      vars.forEach((v, j) => {
         tdc += v.delta;
         lignes.push(
-          `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td></tr>`,
+          `<tr${surligner(j)}><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td></tr>`,
         );
       });
-      let html = `<div class='gras'>${Utils.echapper(pseudo)}</div>${
-        vars.length
-          ? `<table cellspacing='0'>${lignes.join("")}</table>`
-          : "<em>Aucune variation partagée en cours.</em>"
-      }`;
+      let note = moi
+          ? ""
+          : arrivee
+            ? `Surligné : TdC à l'arrivée d'une attaque lancée à l'ouverture de la page (${arrivee.format("DD/MM HH[h]mm")}).`
+            : "TdC à l'arrivée d'une attaque : temps de trajet inconnu (vue « Temps de trajet »).",
+        html = `<div class='gras'>${Utils.echapper(pseudo)}</div>${
+          vars.length
+            ? `<table cellspacing='0'>${lignes.join("")}</table>${note ? `<div class='o_note'>${note}</div>` : ""}`
+            : "<em>Aucune variation partagée en cours.</em>"
+        }`;
       // souris : au survol ; écran tactile (pas de survol) : au toucher de la ligne
       if (tactile)
         $tr.on("click", (e) => {

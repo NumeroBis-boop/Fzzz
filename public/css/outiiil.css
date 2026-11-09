@@ -2459,6 +2459,19 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 #o_allInfobulle .o_allInfoCible {
   font-style: italic;
 }
+/* TdC à l'arrivée d'une attaque lancée à l'ouverture de la page */
+#o_allInfobulle tr.o_allInfoAttaque td {
+  font-weight: bold;
+  background: #fff8d6;
+  border-top: 1px solid #8b7440;
+  border-bottom: 1px solid #8b7440;
+}
+#o_allInfobulle tr.o_allInfoAttaque td:first-child {
+  border-left: 1px solid #8b7440;
+}
+#o_allInfobulle tr.o_allInfoAttaque td:last-child {
+  border-right: 1px solid #8b7440;
+}
 #o_chassesPartagees .o_allInfoCible {
   font-style: italic;
   padding-left: 6px;

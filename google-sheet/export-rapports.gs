@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-09.1";
+var VERSION_SCRIPT = "2026-11-09.2";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -1285,21 +1285,21 @@ function creerStatistiques(classeur) {
     },
     chasses = plage("Chasse"),
     premiere = resume.length + 5,
-    // couleurs de la synthèse de l'extension : le joueur en vert, la moyenne en
-    // rouge, les autres chasseurs dans les autres couleurs, en pointillés
+    // couleurs de la synthèse de l'extension : chaque chasseur en pointillés, le
+    // joueur en vert, les autres dans les autres couleurs ; les tendances en
+    // tirets, celle du joueur en vert, celle de la moyenne des chasseurs en rouge
     trait = [10, 5],
     pointilles = [2, 3],
     seriesAutres = {};
   for (var k = 0; k < nAutres; k++)
-    seriesAutres[4 + k] = {
+    seriesAutres[3 + k] = {
       color: COULEURS_AUTRES_CHASSEURS[k % COULEURS_AUTRES_CHASSEURS.length],
-      lineWidth: 1.5,
+      lineWidth: 2,
       lineDashStyle: pointilles,
     };
-  seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 2 };
+  seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: pointilles };
   seriesAutres[1] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: trait };
-  seriesAutres[2] = { color: COULEUR_MOYENNE, lineWidth: 2 };
-  seriesAutres[3] = { color: COULEUR_MOYENNE, lineWidth: 2, lineDashStyle: trait };
+  seriesAutres[2] = { color: COULEUR_MOYENNE, lineWidth: 2, lineDashStyle: trait };
   [
     {
       // pommes et pertes sur le même axe de droite (Google Sheets n'en a que
@@ -1323,10 +1323,11 @@ function creerStatistiques(classeur) {
     {
       type: Charts.ChartType.LINE,
       titre:
-        "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et leur moyenne",
+        "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et la tendance de leur moyenne",
       plages: [
         chasses,
-        plage("Terrain (cm²)", 4),
+        plage("Terrain (cm²)", 2),
+        plage("Tendance de la moyenne (cm²)"),
         f.getRange(2, cAutres, LIGNES_STATISTIQUES - 1, nAutres),
       ],
       options: { series: seriesAutres },

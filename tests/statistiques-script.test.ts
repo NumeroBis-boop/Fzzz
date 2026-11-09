@@ -806,10 +806,11 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
       ],
       [
         "LINE",
-        "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et leur moyenne",
+        "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et la tendance de leur moyenne",
         [
           [12, 1],
-          [16, 4],
+          [16, 2],
+          [19, 1],
           [42, 3],
         ],
       ],
@@ -858,19 +859,21 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     expect([combo.series[1].type, combo.series[1].targetAxisIndex]).toEqual(["line", 1]);
     expect([combo.series[2].type, combo.series[2].targetAxisIndex]).toEqual(["line", 1]);
     expect(combo.vAxes[1].logScale).toBe(true);
-    // le joueur en vert épais, sa tendance en vert, la moyenne et sa tendance en
-    // rouge, les tendances du même trait ; les autres en pointillés, d'autres couleurs
+    // chaque chasseur en pointillés (le joueur en vert, les autres d'autres
+    // couleurs), sans courbe épaisse ; la tendance du joueur en vert, celle de
+    // la moyenne en rouge, en tirets autres que les pointillés ; plus de courbe moyenne
     const lignes = s.graphiques[1].options.series;
-    // plus aucune courbe épaisse (illisible, demande du mainteneur)
-    expect(lignes[0]).toEqual({ color: "#008300", lineWidth: 2 });
+    expect(lignes[0]).toEqual({ color: "#008300", lineWidth: 2, lineDashStyle: [2, 3] });
     expect(lignes[1]).toEqual({ color: "#008300", lineWidth: 2, lineDashStyle: [10, 5] });
-    expect(lignes[2]).toEqual({ color: "#e34948", lineWidth: 2 });
-    expect(lignes[3]).toEqual({ color: "#e34948", lineWidth: 2, lineDashStyle: [10, 5] });
-    const autres = [4, 5, 6].map((k) => lignes[k]);
-    expect(autres.every((a: any) => String(a.lineDashStyle) == "2,3")).toBe(true);
+    expect(lignes[2]).toEqual({ color: "#e34948", lineWidth: 2, lineDashStyle: [10, 5] });
+    const autres = [3, 4, 5].map((k) => lignes[k]);
+    expect(autres.every((a: any) => String(a.lineDashStyle) == "2,3" && a.lineWidth == 2)).toBe(
+      true,
+    );
     expect(new Set(autres.map((a: any) => a.color)).size).toBe(3);
     expect(autres.map((a: any) => a.color)).not.toContain("#008300");
     expect(autres.map((a: any) => a.color)).not.toContain("#e34948");
+    expect(lignes[6]).toBeUndefined();
     expect(s.graphiques[2].options.legend).toEqual({ position: "none" });
     expect(s.graphiques[5].options.isStacked).toBe(true);
     // sous le résumé, l'un sous l'autre

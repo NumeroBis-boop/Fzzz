@@ -487,7 +487,7 @@ class SyntheseChasse {
     return y.map((v, x) => Math.max(0, Math.round(my + (sxx ? sxy / sxx : 0) * (x - mx))));
   }
   /**
-   * Moyenne des chasseurs affichés et sa tendance, recalculées quand un chasseur
+   * Tendance de la moyenne des chasseurs affichés, recalculée quand un chasseur
    * est caché ou montré par la légende du graphique du terrain.
    *
    * @static
@@ -498,18 +498,18 @@ class SyntheseChasse {
     let courbes = graphique.series
         .filter((/** @type {any} */ se) => se.userOptions.chasseur && se.visible)
         .map((/** @type {any} */ se) => se.userOptions.data),
-      moyenne = SyntheseChasse.moyenne(courbes),
-      serieMoyenne = graphique.get("o_moyenneChasseurs"),
       serieTendance = graphique.get("o_tendanceMoyenne");
-    if (serieMoyenne) serieMoyenne.setData(moyenne, false);
     if (serieTendance)
-      serieTendance.setData(courbes.length ? SyntheseChasse.tendance(moyenne) : [], false);
+      serieTendance.setData(
+        courbes.length ? SyntheseChasse.tendance(SyntheseChasse.moyenne(courbes)) : [],
+        false,
+      );
     graphique.redraw();
   }
   /**
    * Options Highcharts des graphiques de la période : terrain, nourriture et
-   * pertes de chaque chasse ; terrain du joueur, des autres chasseurs et leur
-   * moyenne ; nourriture selon le terrain ; terrain selon la difficulté par cm² ;
+   * pertes de chaque chasse ; terrain du joueur, des autres chasseurs et la
+   * tendance de leur moyenne ; nourriture selon le terrain ; terrain selon la difficulté par cm² ;
    * pertes par M cm² dans le temps ; armée. Les autres chasseurs : toujours au
    * graphique du terrain, sinon si demandé.
    *
@@ -637,9 +637,11 @@ class SyntheseChasse {
           data: terrain,
           chasseur: true,
           color: COULEUR_JOUEUR,
+          // même pointillé que les autres chasseurs : seule la couleur les distingue
+          dashStyle: TRAITS_AUTRES[0],
           lineWidth: 2,
           zIndex: 5,
-          marker: { enabled: terrain.length <= 40, radius: 3 },
+          marker: { enabled: false },
         },
         ...tous.map((/** @type {any} */ a) => ({
           name: a.joueur,
@@ -700,14 +702,16 @@ class SyntheseChasse {
           },
         ],
       },
-      // le joueur en vert, les autres en pointillés, leur moyenne en rouge,
-      // les deux tendances du même trait ; un clic dans la légende cache ou
-      // montre un chasseur, et la moyenne et sa tendance suivent
+      // chaque chasseur en pointillés, de sa couleur (le joueur en vert) ; les
+      // deux tendances en tirets, la sienne en vert, celle de la moyenne des
+      // chasseurs affichés en rouge (recalculée à chaque clic dans la légende)
       {
         chart: { type: "line", ...cadre(320) },
-        title: titre("Terrain chassé à chaque chasse : toi, les autres chasseurs et leur moyenne"),
+        title: titre(
+          "Terrain chassé à chaque chasse : toi, les autres chasseurs et la tendance de leur moyenne",
+        ),
         subtitle: {
-          text: "Les autres chasseurs : leurs chasses étirées sur les tiennes, de la première à la dernière. Clic sur un nom de la légende : le cacher ou le montrer.",
+          text: "Les autres chasseurs : leurs chasses étirées sur les tiennes, de la première à la dernière. Clic sur un nom de la légende : le cacher ou le montrer ; la tendance de la moyenne suit les chasseurs affichés.",
           align: "left",
           style: { fontSize: "11px", color: ENCRE_GRAPHIQUE },
         },
@@ -736,15 +740,6 @@ class SyntheseChasse {
         },
         series: [
           ...chasseurs,
-          {
-            id: "o_moyenneChasseurs",
-            name: "Moyenne des chasseurs",
-            data: moyenneChasseurs,
-            color: COULEUR_MOYENNE,
-            lineWidth: 2,
-            zIndex: 4,
-            marker: { enabled: false },
-          },
           {
             id: "o_tendanceMoyenne",
             name: "Tendance de la moyenne",

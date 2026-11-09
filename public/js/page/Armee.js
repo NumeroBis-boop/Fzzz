@@ -475,13 +475,17 @@ class PageArmee {
   deplacer(e, avant, iT, iD, suivi, essai = 1, relu = false) {
     let jeton = () => ({ [$("#t").attr("name")]: $("#t").val() }),
       lieu = { [LIEU_ARMEE.TERRAIN]: "tdc", [LIEU_ARMEE.DOME]: "dome", [LIEU_ARMEE.LOGE]: "loge" },
-      // nombre de l'unité attendu à destination ; pour « tout en loge », TdC et dôme vides
-      cible = e.toutEnLoge ? 0 : avant[lieu[e.vers]].unite[e.i] + e.nb,
+      // les unités pondues arrivent en loge pendant le replacement (journal du
+      // 09/11/2026) : un déplacement se compte au terrain ou au dôme, jamais en loge
+      versLoge = !e.toutEnLoge && e.vers == LIEU_ARMEE.LOGE,
+      compte = e.toutEnLoge ? "" : lieu[versLoge ? e.de : e.vers],
+      // nombre de l'unité attendu là ; pour « tout en loge », TdC et dôme vides
+      cible = e.toutEnLoge ? 0 : avant[compte].unite[e.i] + (versLoge ? -e.nb : e.nb),
       fait = (l) =>
         !!l &&
         (e.toutEnLoge
           ? l.tdc.getSommeUnite() + l.dome.getSommeUnite() == 0
-          : l[lieu[e.vers]].unite[e.i] == cible),
+          : l[compte].unite[e.i] == cible),
       envoi = e.toutEnLoge
         ? $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
         : $.post("/Armee.php", {
@@ -507,7 +511,10 @@ class PageArmee {
           ? null
           : e.toutEnLoge
             ? e
-            : { ...e, nb: cible - relus[lieu[e.vers]].unite[e.i] };
+            : {
+                ...e,
+                nb: (versLoge ? 1 : -1) * (relus[compte].unite[e.i] - cible),
+              };
         if (
           !reste ||
           essai >= ESSAIS_DEPLACEMENT ||

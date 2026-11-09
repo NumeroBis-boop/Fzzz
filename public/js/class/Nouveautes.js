@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.96.0",
+    notes: [
+      "Préférences : cinq nouveaux onglets, Reine, Classement (page d'une alliance), Chat, Forum et Compte, chacun avec « Rétablir l'affichage d'origine » et une case par ajout. Toutes cochées : rien ne change tant que vous ne décochez pas.",
+    ],
+  },
+  {
     version: "1.95.12",
     notes: [
       "Préférences : une case aussi pour chaque ajout des onglets Général (menus « Carte » et « Coûts », info-bulles de la barre d'infos, jauge du TdC, radar, style des champs, encadrés rapprochés, notes de version), Ressources, Laboratoire, Messagerie et Page membre. Toutes cochées : rien ne change tant que vous ne décochez pas.",

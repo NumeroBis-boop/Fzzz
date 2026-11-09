@@ -33,15 +33,14 @@ class PageAlliance {
     // (rendu async sur certaines variantes de la page). Si aucun des deux
     // n'existe — page sans UI alliance, mobile, ou DOM atypique —, on skip
     // proprement plutôt que de crasher sur `observe(undefined)`.
-    if ($("#tabMembresAlliance").length) {
+    let afficher = () => {
       this.traitementMembre();
-      this.carte();
-      this.ongletCarte();
-    } else if ($("#alliance").length) {
+      if (Utils.affichage("membresCarte")) this.carte().ongletCarte();
+    };
+    if ($("#tabMembresAlliance").length) afficher();
+    else if ($("#alliance").length) {
       let observer = new MutationObserver((mutationsList) => {
-        this.traitementMembre();
-        this.carte();
-        this.ongletCarte();
+        afficher();
         observer.disconnect();
       });
       observer.observe($("#alliance")[0], { childList: true });
@@ -55,25 +54,9 @@ class PageAlliance {
    * @method traitementMembre
    */
   traitementMembre() {
-    $("#tabMembresAlliance td:eq(5)").css("white-space", "nowrap");
-    $(".simulateur table[class='ligne_paire'] tr:eq(0) td:eq(1)").append(
-      ` (${$("img[alt='Actif']").length})`,
-    );
-    $(".simulateur table[class='ligne_paire'] tr:eq(0) td:eq(3)").append(
-      ` (${$("img[alt='Vacances']").length})`,
-    );
-    $(".simulateur table[class='ligne_paire'] tr:eq(1) td:eq(1)").append(
-      ` (${$("img[alt='Inactif depuis 3 jours']").length})`,
-    );
-    $(".simulateur table[class='ligne_paire'] tr:eq(1) td:eq(3)").append(
-      ` (${$("img[alt='Bannie']").length})`,
-    );
-    $(".simulateur table[class='ligne_paire'] tr:eq(2) td:eq(1)").append(
-      ` (${$("img[alt='Inactif depuis 10 jours']").length})`,
-    );
-    $(".simulateur table[class='ligne_paire'] tr:eq(2) td:eq(3)").append(
-      ` (${$("img[alt='Colonisé']").length})`,
-    );
+    let tableau = Utils.affichage("membresTableau");
+    if (tableau) $("#tabMembresAlliance td:eq(5)").css("white-space", "nowrap");
+    if (Utils.affichage("membresEtats")) this.compterEtats();
     // ajout des totaux de l'alliance
     let tmpJoueurs = {};
     $("#tabMembresAlliance tr:gt(0)").each((i, elt) => {
@@ -88,7 +71,9 @@ class PageAlliance {
         rang: $(elt).find("td:eq(2)").text().trim().replace(/\//g, "-"),
       });
       this._gradesNatifs[pseudo] = tmpJoueurs[pseudo].rang;
-      Joueur.epeesPortee(tmpJoueurs[pseudo], $(elt).find("td:eq(4)"), $(elt).find("td:eq(6)"));
+      if (Utils.affichage("membresEpees"))
+        Joueur.epeesPortee(tmpJoueurs[pseudo], $(elt).find("td:eq(4)"), $(elt).find("td:eq(6)"));
+      if (!tableau) return;
       $(elt).find("td:eq(3)").addClass("o_allPseudo");
       $(elt).find("td:eq(4)").addClass("o_allEpeeG");
       $(elt).find("td:eq(5)").addClass("o_allTerrain");
@@ -104,6 +89,7 @@ class PageAlliance {
     });
     this._alliance.joueurs = tmpJoueurs;
     Joueur.activerLiensAttaque();
+    if (!tableau) return this;
 
     $("#tabMembresAlliance").append(
       `<tfoot class='${Object.keys(this._alliance.joueurs).length % 2 ? "ligne_paire" : ""}'><tr class='gras centre'><td colspan='12'>Terrain : <span id='totalTerrain'>${numeral(this._alliance.calculTerrain()).format()}</span> cm² | Fourmilière : ${numeral(this._alliance.calculFourmiliere()).format()} | Technologie : ${numeral(this._alliance.calculTechnologie()).format()}.</td></tr></tfoot>`,
@@ -115,6 +101,26 @@ class PageAlliance {
 
     this.tableauAvecCarteCache();
     return this;
+  }
+  /**
+   * Nombre de membres par état, à côté de chaque libellé de l'encadré du jeu.
+   *
+   * @private
+   * @method compterEtats
+   */
+  compterEtats() {
+    [
+      [0, 1, "Actif"],
+      [0, 3, "Vacances"],
+      [1, 1, "Inactif depuis 3 jours"],
+      [1, 3, "Bannie"],
+      [2, 1, "Inactif depuis 10 jours"],
+      [2, 3, "Colonisé"],
+    ].forEach(([ligne, colonne, etat]) =>
+      $(`.simulateur table[class='ligne_paire'] tr:eq(${ligne}) td:eq(${colonne})`).append(
+        ` (${$(`img[alt='${etat}']`).length})`,
+      ),
+    );
   }
   /**
    * Variante de tableau() qui utilise le cache local de la Carte de l'alliance

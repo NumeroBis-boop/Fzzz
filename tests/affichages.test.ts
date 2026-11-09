@@ -96,6 +96,11 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       "chatSmileys",
       "forumSection",
       "menuRapide",
+      "membresEtats",
+      "membresEpees",
+      "membresTableau",
+      "membresFloods",
+      "membresCarte",
     ])
       expect(lues.has(c)).toBe(true);
   });

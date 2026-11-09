@@ -64,6 +64,7 @@
     [/^\/messagerie\.php$/i, "Messagerie"],
     [/^\/commerce\.php$/i, "Convois"],
     [/^\/membre\.php$/i, "Membre"],
+    [/^\/alliance\.php\?Membres/i, "Membre", true],
     [/^\/reine\.php$/i, "Reine"],
     [/^\/classementalliance\.php$/i, "Classement"],
     [/^\/(alliance|chat)\.php$/i, "Chat", true],

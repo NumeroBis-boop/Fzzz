@@ -23,12 +23,15 @@ describe("pages des nouveaux onglets", () => {
     expect(originePage("/chat.php", "Chat")).toBe(true);
   });
 
-  test("alliance.php : chat sans paramètre, forum avec forum_menu, page Membres sans onglet", () => {
+  test("alliance.php : chat sans paramètre, forum avec forum_menu, Membres avec « Page membre »", () => {
     expect(originePage("/alliance.php", "Chat")).toBe(true);
     expect(originePage("/alliance.php?forum_menu", "Forum")).toBe(true);
     expect(originePage("/alliance.php?forum_menu", "Chat")).toBe(false);
+    expect(originePage("/alliance.php?Membres", "Membre")).toBe(true);
     expect(originePage("/alliance.php?Membres", "Chat")).toBe(false);
     expect(originePage("/alliance.php?Membres", "Forum")).toBe(false);
+    // et la page d'un membre reste sur le même onglet
+    expect(originePage("/Membre.php?Pseudo=X", "Membre")).toBe(true);
   });
 
   test("l'onglet d'une autre page ne change rien", () => {

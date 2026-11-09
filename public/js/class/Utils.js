@@ -163,6 +163,15 @@ const AFFICHAGES_FZZZ = {
   profilRetour: "Lignes « Retour le » et « Rapport » (attaque lancée maintenant vers ce joueur)",
   profilTrajet: "Hors Compte+ : ligne « Temps de trajet »",
   profilSurveiller: "Lien « Surveiller ce joueur » (boîte radar)",
+  membresEtats:
+    "Membres de l'alliance : nombre de membres par état (actifs, vacances, inactifs, bannis, colonisés)",
+  membresEpees:
+    "Membres de l'alliance : épées de portée à côté du terrain, quand le jeu n'en affiche pas",
+  membresTableau:
+    "Membres de l'alliance : tableau triable, vues « Standard » et « Temps de trajet », recherche, totaux sous le tableau",
+  membresFloods:
+    "Membres de l'alliance : vue « Floods et chasses en cours » (colonnes et info-bulle de l'évolution du TdC)",
+  membresCarte: "Membres de l'alliance : « Carte de l'alliance » (menu Alliance → Carte)",
   evolutionEnCours:
     "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
   retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",

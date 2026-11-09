@@ -118,8 +118,18 @@ const ONGLETS_PARAMETRE = [
   {
     id: "Membre",
     titre: "Page membre",
-    affichages: ["profilPartages", "profilRetour", "profilTrajet", "profilSurveiller"],
-    origine: "pages des membres",
+    affichages: [
+      "profilPartages",
+      "profilRetour",
+      "profilTrajet",
+      "profilSurveiller",
+      "membresEtats",
+      "membresEpees",
+      "membresTableau",
+      "membresFloods",
+      "membresCarte",
+    ],
+    origine: "page d'un membre et page Membres de l'alliance",
   },
   {
     id: "Reine",

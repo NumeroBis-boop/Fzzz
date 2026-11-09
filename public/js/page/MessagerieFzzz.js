@@ -69,6 +69,9 @@ class MessagerieFzzz {
         e.preventDefault();
         ExportRapports.exporter($(e.currentTarget).data("quoi"), $(e.currentTarget));
       });
+    // rappel d'export en cours (rôle Chasseur) : le bouton à cliquer, encadré
+    if (typeof RappelExport != "undefined" && RappelExport.aRappeler())
+      $("#o_partageAlliance button[data-quoi='chasse']").addClass("o_synchroPret");
   }
   /**
    * Catégorie d'une ligne de conversation, ou null.

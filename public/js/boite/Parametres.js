@@ -27,10 +27,12 @@ const ONGLETS_PARAMETRE = [
       "menuCouts",
       "styleFormulaires",
       "nouveautes",
+      "rappelExport",
     ],
     origine:
       "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts ; l'encadré Extension OUAF reste, pour revenir ici",
   },
+  { id: "Role", titre: "Rôle", affichages: [] },
   {
     id: "Ressources",
     titre: "Ressources",
@@ -182,6 +184,7 @@ class BoiteParametre extends Boite {
       "uniteAntisondeTerrainType",
       "uniteAntisondeDomeType",
       "vueMembres",
+      "role",
       "replacerArmeeAuto",
       "ratioRecolte",
       "alertePonte",
@@ -200,6 +203,7 @@ class BoiteParametre extends Boite {
         .tabs({ activate: () => this.css().ajusterTaille() })
         .removeClass("ui-widget");
       this.ongletGeneral()
+        .ongletRole()
         .ongletRessources()
         .ongletArmee()
         .ongletAttaque()
@@ -651,6 +655,18 @@ class BoiteParametre extends Boite {
     $("#o_tabsParametreMembre").append(
       `<form>${this.cases("Membre")}${monProfil.parametre["vueMembres"].getForm("Vue par défaut de la page Membres de l'alliance")}</form>`,
     );
+    return this;
+  }
+  /**
+   * Rôle du joueur dans l'alliance ; les réglages par défaut le suivront.
+   *
+   * @method ongletRole
+   */
+  ongletRole() {
+    $("#o_tabsParametreRole").append(`<form>
+        ${monProfil.parametre["role"].getForm("Ton rôle dans l'alliance")}
+        <p class='left o_aideParam'>Chasseur : rappel « Export des chasses à faire » à partir du mercredi et du dimanche 22h (heure du serveur), jusqu'à ce que tu exportes tes chasses depuis la messagerie (case dans l'onglet Général).</p>
+      </form>`);
     return this;
   }
   /**

@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.97.0",
+    notes: [
+      "Préférences → Rôle : choisis ton rôle dans l'alliance (passeur, grenier ou chasseur).",
+      "Chasseur : à partir du mercredi et du dimanche 22h (heure du serveur), un bandeau « Export des chasses à faire » mène à la messagerie, où « Exporter mes chasses » est encadré, jusqu'à ce que tu exportes tes chasses. La croix le masque une heure ; case dans l'onglet Général.",
+    ],
+  },
+  {
     version: "1.96.3",
     notes: [
       "Lanceur de Flood : « Flooder + partager » et « Flooder » sont en vert, la couleur du TdC (les floods partent toujours sur le terrain de chasse), comme « Lancer + partager » vers le TdC.",

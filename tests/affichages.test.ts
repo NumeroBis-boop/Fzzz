@@ -101,6 +101,7 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       "membresTableau",
       "membresFloods",
       "membresCarte",
+      "rappelExport",
     ])
       expect(lues.has(c)).toBe(true);
   });

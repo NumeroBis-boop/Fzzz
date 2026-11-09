@@ -1441,6 +1441,7 @@ class ExportRapports {
         ...TOAST_INFO,
         text: `Aucun nouveau ${type == "chasse" ? "rapport de chasse" : "RC"} à exporter dans la liste de la messagerie.`,
       });
+      if (type == "chasse" && typeof RappelExport != "undefined") RappelExport.noterExport();
       return Promise.resolve();
     }
     let lues = [],
@@ -1522,6 +1523,9 @@ class ExportRapports {
               parConversation[id] = (parConversation[id] || []).concat("|");
             });
             ExportRapports.memoriser(type, parConversation);
+            // une conversation illisible : à refaire, le rappel reste
+            if (type == "chasse" && !echecs && typeof RappelExport != "undefined")
+              RappelExport.noterExport();
             let sansRC = lues.filter(
                 (c) => !parConversation[c.id] && !bilanDates.conversations.has(c.id),
               ).length,

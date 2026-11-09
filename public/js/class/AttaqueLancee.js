@@ -404,6 +404,7 @@ class AttaqueLancee {
         listeAttaque.push({ cible: ligne.cible, exp: ligne.arrivee });
         return;
       }
+      if (!Utils.affichage("arriveeRenforts")) return;
       $(ligne.elt)
         .nextAll("script")
         .first()

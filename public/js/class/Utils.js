@@ -106,13 +106,37 @@ const AFFICHAGES_FZZZ = {
     "Boutons « Exporter mes chasses » et « Exporter mes RC » (Google Sheet de l'alliance)",
   messagerieRanger:
     "Rangement des messages dans les dossiers Commerce, Chasse, Combat et Conversation à l'ouverture",
-  trajet: "Temps de trajet",
+  lancerPartager: "Bouton « Lancer + partager » (page d'attaque)",
+  sonder: "Boutons « Sonder » et « Synchro sonde » (page d'attaque)",
+  synchroniser:
+    "Bouton « Synchroniser » : compte à rebours pour une arrivée à la minute pleine (page d'attaque)",
+  couleurAttaquer:
+    "Couleur du bouton « Attaquer » du jeu selon le lieu visé : vert terrain, orange dôme, rouge loge",
+  trajet: "Ligne « Temps de trajet » (page d'attaque)",
+  retourArmee: "Ligne « Votre armée rentrera le … (RC : …) » (page d'attaque)",
+  statArmee:
+    "Info-bulle des statistiques de l'armée choisie (vie, attaque, défense, nombre) au survol du tableau des unités (page d'attaque)",
+  lanceurFlood: "Bloc « Lanceur de Flood » (page d'attaque)",
   ennemisFiltre:
     "Bloc « Filtrer la liste » de la page Ennemies (filtre, « Charger toutes les pages », « Afficher tous les joueurs »)",
+  ennemisTemps: "Colonne « Temps » (temps de trajet) de la page Ennemies",
   syntheseChasses: "Synthèse des chasses en cours",
   lanceurChasse: "Lanceur de chasses",
+  armeeMiseEnPage:
+    "Mise en page allégée : textes d'aide du jeu retirés, « Déplacer son armée » resserré, noms courts TdC / Dôme / Loge, blocs à égale distance",
+  armeeTotalUnites: "Nombre total d'unités dans le titre « Troupes en Garnison »",
+  replacerArmee: "Bouton « Replacer l'armée »",
+  armeeHof: "Ligne « Temps HOF » et « Temps relatif » sous les troupes",
+  armeeStatistiques:
+    "Dépliant « Statistiques » sous les troupes (vie, attaque, défense ; HB et AB)",
+  armeeAttaquesRestantes:
+    "Nombre d'attaques en cours et d'attaques restantes dans le titre « Attaque(s) en cours »",
   listeAttaques: "Liste des attaques en cours (page Armée)",
   floodsRecus: "Floods en cours sur moi",
+  armeeFleches: "Hors Compte+ : flèches pour déplacer une troupe d'un lieu à l'autre",
+  armeeLignes: "Hors Compte+ : lignes Vie, Attaque, Défense et Consommation par lieu",
+  arriveeRenforts:
+    "Hors Compte+ : heure d'arrivée sous les renforts de la liste « Attaque(s) en cours » du jeu (pages Armée et d'attaque)",
   profilPartages: "Chasses, floods et évolution du TdC partagés",
 };
 

@@ -109,6 +109,15 @@ describe("lecture des rapports", () => {
     // plus d'une heure après l'heure du serveur : l'heure d'un joueur en avance, refusée
     expect(lire(`ExportRapports.date("09/11/26 à 23h00")`)).toBe("");
     expect(lire(`ExportRapports.date("Aujourd'hui à 10h30")`)).toBe("2026-11-09 10:30");
+    // jour de la semaine (liste des conversations du jeu) : ce jour-là dans la semaine écoulée ;
+    // le jour même à une heure à venir : celui de la semaine d'avant (horloge : lundi 09/11 10:00)
+    expect(lire(`ExportRapports.date("samedi 23h35")`)).toBe("2026-11-07 23:35");
+    expect(lire(`ExportRapports.date("Saturday 11:35 PM")`)).toBe("2026-11-07 23:35");
+    expect(lire(`ExportRapports.date("lundi 09h00")`)).toBe("2026-11-09 09:00");
+    expect(lire(`ExportRapports.date("lundi 23h00")`)).toBe("2026-11-02 23:00");
+    // espaces autour des « / » ; date et heure collées (saut de ligne lu sans espace) : illisible
+    expect(lire(`ExportRapports.date("07 / 11 / 26 23h35")`)).toBe("2026-11-07 23:35");
+    expect(lire(`ExportRapports.date("07/11/2623h35")`)).toBe("");
     // rien de reconnaissable, ou impossible : vide
     expect(lire(`ExportRapports.date("il y a 3 heures")`)).toBe("");
     expect(lire(`ExportRapports.date("Nov 7 2026 at 13:07 PM")`)).toBe("");
@@ -352,6 +361,20 @@ describe("lecture d'une conversation", () => {
     );
     const messages = await lire<Promise<any[]>>(`ExportRapports.messages(5)`);
     expect(messages[0].date).toBe(DATE);
+  });
+
+  test("messagerie sur téléphone : date et heure sur deux lignes, lues séparément", () => {
+    // page de Staffie (09/11/2026) : « 07/11/26 » puis « 23h35 » sous elle
+    const ligne = (cellules: string) =>
+      `$(${JSON.stringify(`<table><tr id="message_1">${cellules}<td class="message">${chasse(1).replace(/\n/g, "<br/>")}</td></tr></table>`)}).find("tr")[0]`;
+    expect(
+      lire(`ExportRapports.dateDe(${ligne(`<td class="expe">07/11/26<br>23h35</td>`)})`),
+    ).toEqual({ date: "2026-11-07 23:35", entete: "07/11/26 23h35" });
+    expect(
+      lire(
+        `ExportRapports.dateDe(${ligne(`<td><span>07/11/26</span><span>23h35</span></td>`)}).date`,
+      ),
+    ).toBe("2026-11-07 23:35");
   });
 
   test("date ailleurs dans la ligne du message ; sans date lisible : RC laissé de côté, en-tête gardé", async () => {

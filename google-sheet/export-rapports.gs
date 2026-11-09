@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-09.2";
+var VERSION_SCRIPT = "2026-11-09.3";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -374,6 +374,23 @@ var TITRES_COMPARAISON = [
   "Nourriture rapportée",
   "Nourriture par multi-chasse",
 ];
+var MOYENNE_DES_CHASSEURS = "Moyenne des chasseurs";
+// tableau des chasseurs de l'onglet « Statistiques », celui de la synthèse de
+// l'extension : titre affiché, colonne de la comparaison
+var COLONNES_TABLEAU_CHASSEURS = [
+  ["Chasseur", "Chasseur"],
+  ["Terrain chassé (cm²)", "Terrain chassé (cm²)"],
+  ["Terrain / multi-chasse", "Terrain par multi-chasse (cm²)"],
+  ["Pertes", "Fourmis perdues"],
+  ["Pertes / M cm² chassé", "Pertes par M cm² chassé"],
+  ["Nourriture rapportée", "Nourriture rapportée"],
+  ["Nourriture / multi-chasse", "Nourriture par multi-chasse"],
+];
+// chiffres du résumé où être sous la moyenne des chasseurs est mieux ; couleurs
+// de l'écart (mieux, moins bien), celles de la synthèse de l'extension
+var RESUME_MOINS_EST_MIEUX = ["Fourmis perdues", "Pertes par M cm² chassé"];
+var COULEUR_ECART_MIEUX = "#2e7d32";
+var COULEUR_ECART_MOINS_BIEN = "#b03a2e";
 // blocs de l'onglet « Statistiques », côte à côte à partir de la colonne D,
 // séparés par une colonne vide
 var COLONNE_STATISTIQUES = 4;
@@ -399,7 +416,12 @@ var TITRES_CHASSES = [
   "Nourriture",
 ];
 var BLOCS_STATISTIQUES = [
-  { nom: "resume", titre: "Résumé", largeur: 2 },
+  { nom: "resume", titre: "Résumé", largeur: 3 },
+  {
+    nom: "comparaison",
+    titre: "Chasseurs de la période",
+    largeur: COLONNES_TABLEAU_CHASSEURS.length,
+  },
   { nom: "armee", titre: "Armée (hors bonus)", largeur: 4 },
   { nom: "chasses", titre: "Chasses", largeur: TITRES_CHASSES.length + UNITES.length },
   { nom: "joueurs", titre: "Chasseurs", largeur: 1 },
@@ -823,7 +845,50 @@ function comparaisonChasseurs(parJoueur) {
   return {
     titres: TITRES_COMPARAISON,
     lignes: lignes,
-    moyenne: ["Moyenne des chasseurs"].concat(moyenne),
+    moyenne: [MOYENNE_DES_CHASSEURS].concat(moyenne),
+  };
+}
+
+// résumé de l'onglet avec l'écart de chaque chiffre à la moyenne des chasseurs
+// de la période (chacun compte autant), en %, au dixième, comme la synthèse ;
+// vide s'ils sont moins de deux
+function ecartsDuResume(s) {
+  var c = s.comparaison;
+  return s.resume.map(function (l) {
+    var m = c.lignes.length >= 2 ? c.moyenne[c.titres.indexOf(l[0])] : "";
+    return [
+      l[0],
+      l[1],
+      typeof l[1] == "number" && typeof m == "number" && m > 0
+        ? arrondi(((l[1] - m) / m) * 100, 1)
+        : "",
+    ];
+  });
+}
+
+// tableau des chasseurs de la période, comme dans la synthèse : du plus grand
+// terrain chassé au plus petit, puis leur moyenne
+function tableauChasseurs(c) {
+  var k = function (titre) {
+      return c.titres.indexOf(titre);
+    },
+    terrain = k("Terrain chassé (cm²)"),
+    ligne = function (l) {
+      return COLONNES_TABLEAU_CHASSEURS.map(function (colonne) {
+        return l[k(colonne[1])];
+      });
+    },
+    lignes = c.lignes
+      .slice()
+      .sort(function (a, b) {
+        return (Number(b[terrain]) || 0) - (Number(a[terrain]) || 0);
+      })
+      .map(ligne);
+  return {
+    titres: COLONNES_TABLEAU_CHASSEURS.map(function (colonne) {
+      return colonne[0];
+    }),
+    lignes: lignes.length ? lignes.concat([ligne(c.moyenne)]) : [],
   };
 }
 
@@ -1134,7 +1199,11 @@ function STATS_OUAF(parametres) {
     s = message ? null : statistiques(tables, joueur, jours[0], jours[1], fuseau, true),
     vide = { titres: [], lignes: [] },
     blocs = {
-      resume: { titres: ["Indicateur", "Valeur"], lignes: s ? s.resume : [[message, ""]] },
+      resume: {
+        titres: ["Indicateur", "Valeur", "Écart à la moyenne des chasseurs"],
+        lignes: s ? ecartsDuResume(s) : [[message, "", ""]],
+      },
+      comparaison: s ? tableauChasseurs(s.comparaison) : vide,
       armee: s ? s.armee : vide,
       chasses: s ? s.chasses : vide,
       joueurs: {
@@ -1202,6 +1271,14 @@ function autresDuBloc(table, joueur, s) {
       }),
     );
   return { titres: noms, lignes: lignes };
+}
+
+// lettres d'une colonne (1 : A, 27 : AA), pour une formule de mise en forme conditionnelle
+function lettresColonne(n) {
+  var lettres = "";
+  for (; n > 0; n = Math.floor((n - 1) / 26))
+    lettres = String.fromCharCode(65 + ((n - 1) % 26)) + lettres;
+  return lettres;
 }
 
 // change dès qu'une ligne est ajoutée, retirée ou modifiée dans « BDD chasse » ;
@@ -1275,9 +1352,50 @@ function creerStatistiques(classeur) {
   f.getRange(3, colonne("armee", 3), donnees, 1).setNumberFormat("0.0");
   f.getRange(3, titreChasses("Date"), donnees, 1).setNumberFormat("dd/mm hh:mm");
   f.getRange(3, titreChasses("Difficulté / cm²"), donnees, 1).setNumberFormat("0.00");
+  // écarts du résumé en %, signés ; mieux que la moyenne des chasseurs en vert,
+  // moins bien en rouge (au-dessus, sauf pour les pertes), comme la synthèse
+  var cEcart = colonne("resume", 2),
+    lignesEcart = function (moinsEstMieux) {
+      return resume
+        .map(function (l, i) {
+          return RESUME_MOINS_EST_MIEUX.indexOf(l[0]) >= 0 == moinsEstMieux
+            ? f.getRange(3 + i, cEcart)
+            : null;
+        })
+        .filter(Boolean);
+    },
+    couleurEcart = function (plages, positif, couleur) {
+      var regle = SpreadsheetApp.newConditionalFormatRule();
+      return (positif ? regle.whenNumberGreaterThan(0) : regle.whenNumberLessThan(0))
+        .setFontColor(couleur)
+        .setRanges(plages)
+        .build();
+    },
+    cTableau = colonne("comparaison"),
+    tableau = f.getRange(3, cTableau, donnees, COLONNES_TABLEAU_CHASSEURS.length),
+    nom = "$" + lettresColonne(cTableau) + "3";
+  f.getRange(3, cEcart, resume.length, 1).setNumberFormat('+0.0" %";-0.0" %";0.0" %"');
+  // tableau des chasseurs : le joueur de la case B3 en gras, la moyenne en italique
+  f.setConditionalFormatRules([
+    couleurEcart(lignesEcart(false), true, COULEUR_ECART_MIEUX),
+    couleurEcart(lignesEcart(false), false, COULEUR_ECART_MOINS_BIEN),
+    couleurEcart(lignesEcart(true), true, COULEUR_ECART_MOINS_BIEN),
+    couleurEcart(lignesEcart(true), false, COULEUR_ECART_MIEUX),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied("=LOWER(TRIM(" + nom + "))=LOWER(TRIM($B$3))")
+      .setBold(true)
+      .setRanges([tableau])
+      .build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied("=" + nom + '="' + MOYENNE_DES_CHASSEURS + '"')
+      .setItalic(true)
+      .setRanges([tableau])
+      .build(),
+  ]);
   f.setColumnWidth(1, 110);
   f.setColumnWidth(2, 110);
   f.setColumnWidth(c0, 200);
+  f.setColumnWidth(cEcart, 200);
   f.hideColumns(cJoueurs);
   // titres en ligne 2, valeurs dessous ; première plage : l'axe horizontal
   var plage = function (titre, n) {

@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.3",
+    notes: [
+      "Synthèse : sous « Pertes » et « Pertes / M cm² », un écart au-dessus de la moyenne des chasseurs est en rouge (plus de pertes, c'est moins bien), en dessous en vert.",
+      "Google Sheet, onglet « Statistiques » : l'écart de chaque chiffre à la moyenne des chasseurs et le tableau des chasseurs de la période, comme dans la Synthèse (la personne qui gère le fichier recolle le script, le redéploie et recrée l'onglet).",
+    ],
+  },
+  {
     version: "1.95.2",
     notes: [
       "Armée : une unité pondue pendant le replacement ne fausse plus le nouvel essai quand le jeu ignore un déplacement (il restait 2 unités en dôme au lieu de 1).",

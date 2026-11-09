@@ -519,7 +519,7 @@ describe("onglet « Statistiques » du fichier (STATS_OUAF)", () => {
       [123],
     ]) as unknown[][];
   // colonne de départ de chaque bloc (à partir de D : 0)
-  const blocs = { resume: 0, armee: 3, chasses: 8, joueurs: 36, autres: 38 };
+  const blocs = { resume: 0, comparaison: 4, armee: 12, chasses: 17, joueurs: 45, autres: 47 };
 
   test("mêmes résultats que la synthèse de l'extension, blocs côte à côte", () => {
     const o = sortie(
@@ -529,8 +529,36 @@ describe("onglet « Statistiques » du fichier (STATS_OUAF)", () => {
     );
     const s = calcul();
     expect(o[0]![blocs.resume]).toBe("Résumé");
-    expect(o[1]!.slice(blocs.resume, blocs.resume + 2)).toEqual(["Indicateur", "Valeur"]);
+    expect(o[1]!.slice(blocs.resume, blocs.resume + 3)).toEqual([
+      "Indicateur",
+      "Valeur",
+      "Écart à la moyenne des chasseurs",
+    ]);
     expect(o.slice(2, 2 + s.resume.length).map((l) => l.slice(0, 2))).toEqual(s.resume);
+    // écart à la moyenne d'Alpha, Bravo et Charlie, en % au dixième : 7 chasses
+    // contre 3,7 (+89,2 %), 46 667 pertes par M cm² contre 49 444,7 (-5,6 %)…
+    expect(o.slice(2, 2 + s.resume.length).map((l) => l[2])).toEqual([
+      89.2, 50, 132.8, 96.3, -5.6, 141.9, 117.2,
+    ]);
+    // tableau des chasseurs, celui de la synthèse : du plus grand terrain au
+    // plus petit, puis leur moyenne
+    expect(o[0]![blocs.comparaison]).toBe("Chasseurs de la période");
+    expect(o.slice(1, 6).map((l) => l.slice(blocs.comparaison, blocs.comparaison + 7))).toEqual([
+      [
+        "Chasseur",
+        "Terrain chassé (cm²)",
+        "Terrain / multi-chasse",
+        "Pertes",
+        "Pertes / M cm² chassé",
+        "Nourriture rapportée",
+        "Nourriture / multi-chasse",
+      ],
+      ["Alpha", 45000, 15000, 2100, 46667, 354000, 118000],
+      ["Bravo", 12000, 6000, 1100, 91667, 80000, 40000],
+      ["Charlie", 1000, 1000, 10, 10000, 5000, 5000],
+      ["Moyenne des chasseurs", 19333.3, 7333.3, 1070, 49444.7, 146333.3, 54333.3],
+    ]);
+    expect(o[6]![blocs.comparaison]).toBe("");
     expect(o[0]![blocs.armee]).toBe("Armée (hors bonus)");
     expect(o.slice(2, 6).map((l) => l.slice(blocs.armee, blocs.armee + 4))).toEqual(s.armee.lignes);
     expect(o[0]![blocs.chasses]).toBe("Chasses");
@@ -551,6 +579,21 @@ describe("onglet « Statistiques » du fichier (STATS_OUAF)", () => {
     // tableau rectangulaire (exigé par le tableur), rien après les autres chasseurs
     expect(new Set(o.map((l) => l.length)).size).toBe(1);
     expect(o[0]).toHaveLength(blocs.autres + 3);
+  });
+
+  test("seul chasseur de la période : pas d'écart, son tableau et la moyenne (lui)", () => {
+    const seul = donnees().chasse.filter((l, i) => i == 0 || String(l[1]).toLowerCase() == "alpha");
+    const o = sortie("Alpha", "2026-11-01", "2026-11-07", seul);
+    expect(o.slice(2, 9).every((l) => l[blocs.resume + 2] === "")).toBe(true);
+    expect(o.slice(2, 5).map((l) => l.slice(blocs.comparaison, blocs.comparaison + 2))).toEqual([
+      ["Alpha", 45000],
+      ["Moyenne des chasseurs", 45000],
+      ["", ""],
+    ]);
+    // aucun joueur choisi : message, ni écart ni tableau
+    const vide = sortie("", "2026-11-01", "2026-11-07");
+    expect(vide[2]!.slice(0, 3)).toEqual(["Choisis un joueur (case B3).", "", ""]);
+    expect(vide.slice(1, 4).map((l) => l[blocs.comparaison])).toEqual(["", "", ""]);
   });
 
   test("liste des joueurs de la case « Joueur » : les chasseurs du fichier, sans doublon de casse", () => {
@@ -770,23 +813,89 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
     // aucune formule ne doit dépendre du séparateur
     for (const formule of Object.values(s.formules) as string[])
       expect(formule).not.toMatch(/[,;]/);
-    // liste de la case B3 : colonne des chasseurs du résultat (AN = 40), cachée
+    // liste de la case B3 : colonne des chasseurs du résultat (AW = 49), cachée
     const liste = s.validations.find((v: any) => v.r == 3 && v.c == 2).regle;
-    expect(liste.plage).toEqual({ r: 3, c: 40, nl: 998, nc: 1 });
-    expect(s.cachees).toEqual([40]);
-    // jusqu'au bloc des autres chasseurs (AP = 42), un par autre chasseur du fichier
-    expect(s.getMaxColumns()).toBeGreaterThanOrEqual(44);
+    expect(liste.plage).toEqual({ r: 3, c: 49, nl: 998, nc: 1 });
+    expect(s.cachees).toEqual([49]);
+    // jusqu'au bloc des autres chasseurs (AY = 51), un par autre chasseur du fichier
+    expect(s.getMaxColumns()).toBeGreaterThanOrEqual(53);
     expect(s.validations.find((v: any) => v.r == 4 && v.c == 2).regle.date).toBe(true);
-    // entiers, sauf la variation de l'armée en % (une décimale), la date de
-    // retour (N = 14) et la difficulté par cm² (W = 23)
+    // entiers, sauf l'écart du résumé (F = 6, en % signé), la variation de
+    // l'armée en % (S = 19, une décimale), la date de retour (W = 23) et la
+    // difficulté par cm² (AF = 32)
     expect(s.formats["3,5"]).toBe("#,##0");
-    expect(s.formats["3,10"]).toBe("0.0");
-    expect(s.formats["3,14"]).toBe("dd/mm hh:mm");
-    expect(s.formats["3,23"]).toBe("0.00");
-    // bloc des chasses à partir de L (12) : Chasse, Retour, Date, Expéditions,
-    // Terrain (P = 16), Tendance, Moyenne des chasseurs, Tendance de la moyenne,
-    // Pertes (T = 20), Pertes / M cm² (U = 21), Moyenne, Difficulté / cm² (W = 23),
-    // Nourriture (X = 24), unités (Y = 25) ; titres en ligne 2
+    expect(s.formats["3,6"]).toBe('+0.0" %";-0.0" %";0.0" %"');
+    expect(s.formats["3,19"]).toBe("0.0");
+    expect(s.formats["3,23"]).toBe("dd/mm hh:mm");
+    expect(s.formats["3,32"]).toBe("0.00");
+    expect(s.largeurs[6]).toBe(200);
+    // écart du résumé (F, lignes 3 à 9) : mieux que la moyenne en vert, moins
+    // bien en rouge ; pour les pertes (lignes 6 et 7), au-dessus est moins bien
+    const regles = s.reglesConditionnelles;
+    expect(
+      regles
+        .slice(0, 4)
+        .map((r: any) => [r.condition, r.couleur, r.plages.map((p: any) => [p.r, p.c])]),
+    ).toEqual([
+      [
+        [">", 0],
+        "#2e7d32",
+        [
+          [3, 6],
+          [4, 6],
+          [5, 6],
+          [8, 6],
+          [9, 6],
+        ],
+      ],
+      [
+        ["<", 0],
+        "#b03a2e",
+        [
+          [3, 6],
+          [4, 6],
+          [5, 6],
+          [8, 6],
+          [9, 6],
+        ],
+      ],
+      [
+        [">", 0],
+        "#b03a2e",
+        [
+          [6, 6],
+          [7, 6],
+        ],
+      ],
+      [
+        ["<", 0],
+        "#2e7d32",
+        [
+          [6, 6],
+          [7, 6],
+        ],
+      ],
+    ]);
+    // tableau des chasseurs (H = 8, 7 colonnes) : le joueur de B3 en gras, la
+    // moyenne en italique ; formules sans séparateur d'arguments
+    const tableau = { r: 3, c: 8, nl: 998, nc: 7 };
+    expect(regles.slice(4)).toEqual([
+      {
+        condition: ["formule", "=LOWER(TRIM($H3))=LOWER(TRIM($B$3))"],
+        gras: true,
+        plages: [tableau],
+      },
+      {
+        condition: ["formule", '=$H3="Moyenne des chasseurs"'],
+        italique: true,
+        plages: [tableau],
+      },
+    ]);
+    // bloc des chasses à partir de U (21) : Chasse, Retour, Date (W = 23),
+    // Expéditions, Terrain (Y = 25), Tendance, Moyenne des chasseurs, Tendance
+    // de la moyenne (AB = 28), Pertes (AC = 29), Pertes / M cm² (AD = 30),
+    // Moyenne, Difficulté / cm² (AF = 32), Nourriture (AG = 33), unités (AH =
+    // 34) ; titres en ligne 2
     expect(
       s.graphiques.map((g: any) => [
         g.type,
@@ -798,52 +907,52 @@ describe("création de l'onglet « Statistiques » (adresse du script ouverte)",
         "COMBO",
         "Terrain (barres), nourriture et pertes (courbes, échelle log) de chaque chasse",
         [
-          [12, 1],
-          [16, 1],
-          [24, 1],
-          [20, 1],
+          [21, 1],
+          [25, 1],
+          [33, 1],
+          [29, 1],
         ],
       ],
       [
         "LINE",
         "Terrain chassé à chaque chasse : toi, les autres chasseurs (étirés sur tes chasses) et la tendance de leur moyenne",
         [
-          [12, 1],
-          [16, 2],
-          [19, 1],
-          [42, 3],
+          [21, 1],
+          [25, 2],
+          [28, 1],
+          [51, 3],
         ],
       ],
       [
         "SCATTER",
         "Nourriture selon le terrain chassé (un point par chasse)",
         [
-          [16, 1],
-          [24, 1],
+          [25, 1],
+          [33, 1],
         ],
       ],
       [
         "SCATTER",
         "Terrain chassé selon la difficulté par cm² (un point par chasse)",
         [
-          [23, 1],
-          [16, 1],
+          [32, 1],
+          [25, 1],
         ],
       ],
       [
         "LINE",
         "Pertes par M cm² de chaque chasse dans le temps, et leur moyenne",
         [
-          [14, 1],
-          [21, 2],
+          [23, 1],
+          [30, 2],
         ],
       ],
       [
         "AREA",
         "Armée envoyée à chaque chasse (unités, hors bonus)",
         [
-          [12, 1],
-          [25, 14],
+          [21, 1],
+          [34, 14],
         ],
       ],
     ]);

@@ -177,8 +177,10 @@ describe("affichage", () => {
     const html = lire<string>(`SyntheseChasse.html(${json(STATS)})`);
     expect(html).toContain("Synthèse de DoggyBag du 01/11/2026 au 07/11/2026");
     // écart à la moyenne des trois chasseurs de la période (DoggyBag, Alpha,
-    // Bravo) : 2 chasses contre 1,7 en moyenne, 20 000 cm² contre 10 333,3…
-    const plus = "o_syntheseEcartPlus";
+    // Bravo) : 2 chasses contre 1,7 en moyenne, 20 000 cm² contre 10 333,3… ;
+    // plus de pertes que la moyenne : moins bien, en rouge
+    const plus = "o_syntheseEcartMieux",
+      moinsBien = "o_syntheseEcartMoinsBien";
     expect(lire(`SyntheseChasse.cartes(${json(STATS)})`)).toEqual([
       { libelle: "Chasses", texte: "2", classe: "", detail: "+17,6 %", classeDetail: plus },
       { libelle: "Multi-chasses", texte: "2", classe: "", detail: "+17,6 %", classeDetail: plus },
@@ -189,13 +191,19 @@ describe("affichage", () => {
         detail: "+93,5 %",
         classeDetail: plus,
       },
-      { libelle: "Pertes", texte: "1 000", classe: "", detail: "+106,9 %", classeDetail: plus },
+      {
+        libelle: "Pertes",
+        texte: "1 000",
+        classe: "",
+        detail: "+106,9 %",
+        classeDetail: moinsBien,
+      },
       {
         libelle: "Pertes / M cm² chassé",
         texte: "50 000",
         classe: "",
         detail: "+12,5 %",
-        classeDetail: plus,
+        classeDetail: moinsBien,
       },
       {
         libelle: "Nourriture rapportée",
@@ -216,7 +224,7 @@ describe("affichage", () => {
       "Sous chaque chiffre : l'écart avec la moyenne des 3 chasseurs de la période",
     );
     expect(html).toContain(
-      "<span>Terrain chassé</span><b>20 000 cm²</b><small class='o_syntheseEcartPlus'>+93,5 %</small>",
+      "<span>Terrain chassé</span><b>20 000 cm²</b><small class='o_syntheseEcartMieux'>+93,5 %</small>",
     );
     // première chasse : 10 000 JSN et 2 000 artilleuses ; puis l'effet en % de
     // chaque chasse (600 JSN mortes et 100 artilleuses devenues d'élite sur
@@ -272,15 +280,21 @@ describe("affichage", () => {
       expect(html).not.toContain(absent);
   });
 
-  test("écart à la moyenne : au-dessus en vert, en dessous en rouge, rien sans autre chasseur", () => {
+  test("écart à la moyenne : mieux en vert, moins bien en rouge (sous la moyenne pour les pertes), rien sans autre chasseur", () => {
     const s = JSON.parse(json(STATS));
     const k = (t: string) => s.comparaison.titres.indexOf(t);
     s.comparaison.moyenne[k("Chasses (RC)")] = 4;
     s.comparaison.moyenne[k("Multi-chasses")] = 2;
     s.comparaison.moyenne[k("Fourmis perdues")] = 0;
+    s.comparaison.moyenne[k("Pertes par M cm² chassé")] = 100000;
     const cartes = lire<any[]>(`SyntheseChasse.cartes(${json(s)})`);
     // 2 contre 4 : -50,0 % en rouge ; égal : 0,0 % sans couleur ; moyenne nulle : pas d'écart
-    expect([cartes[0].detail, cartes[0].classeDetail]).toEqual(["-50,0 %", "o_syntheseEcartMoins"]);
+    expect([cartes[0].detail, cartes[0].classeDetail]).toEqual([
+      "-50,0 %",
+      "o_syntheseEcartMoinsBien",
+    ]);
+    // pertes : 50 000 par M cm² contre 100 000, deux fois moins : en vert
+    expect([cartes[4].detail, cartes[4].classeDetail]).toEqual(["-50,0 %", "o_syntheseEcartMieux"]);
     expect([cartes[1].detail, cartes[1].classeDetail]).toEqual(["0,0 %", ""]);
     expect([cartes[3].detail, cartes[3].classeDetail]).toEqual(["", ""]);
     // seul chasseur de la période, ou script au format 4 : chiffres sans écart

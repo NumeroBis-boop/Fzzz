@@ -58,7 +58,8 @@ class PageLaboratoire {
         if (html) this._armee.chargeData(html);
       }
       // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
-      this.titleBouclier().titleArmes().fdfArmes();
+      if (Utils.affichage("laboInfobulles")) this.titleBouclier().titleArmes();
+      this.fdfArmes();
     });
     // Rentabilité de l'étable à pucerons, aussi sous Communication avec les animaux
     let $communication = $(".ligneAmelioration").filter((i, elt) =>
@@ -71,8 +72,8 @@ class PageLaboratoire {
     // <a>Retour</a> juste après "Je confirme", et la 2nde le déplace en même
     // temps que le warning sous le tableau récap. Sinon en C+ le Retour
     // resterait orphelin à sa position d'injection.
-    Utils.confirmationAnnuler("laboratoire.php");
-    Utils.tableauEvolution("Recherche", "Laboratoire");
+    if (Utils.affichage("retourAnnuler")) Utils.confirmationAnnuler("laboratoire.php");
+    if (Utils.affichage("evolutionEnCours")) Utils.tableauEvolution("Recherche", "Laboratoire");
     // Après un clic qui recharge la page (rechercher, annuler et sa
     // confirmation, redirections du jeu) : même position à l'écran
     Utils.garderPosition("fzzz_positionLaboratoire");

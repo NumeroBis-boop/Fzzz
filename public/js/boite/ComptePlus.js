@@ -449,7 +449,7 @@ class BoiteComptePlus {
             numeral(tooltipConso.find("td:eq(8)").text()).value() &&
         Utils.ouvrieres > Utils.terrain
       )
-        $("#boite_info_tdc .jauge").addClass("highlight_error");
+        $("#boite_info_tdc .jauge").toggleClass("highlight_error", Utils.affichage("jaugeTdc"));
     }
   }
   /**

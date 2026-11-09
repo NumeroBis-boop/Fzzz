@@ -63,11 +63,44 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       "armeeFleches",
       "armeeLignes",
       "arriveeRenforts",
+      "rapprocherEncadres",
+      "radar",
+      "jaugeTdc",
+      "infobulleRessources",
+      "menuCarte",
+      "menuCouts",
+      "nouveautes",
+      "chassesAnnulerTout",
+      "affectationOuvrieres",
+      "ressourcesMax",
+      "chassesRetour",
+      "evolutionEnCours",
+      "retourAnnuler",
+      "coutsDeveloppement",
+      "laboInfobulles",
+      "messagerieCompacte",
+      "messagerieMiseEnForme",
+      "messagerieSmileys",
+      "profilRetour",
+      "profilTrajet",
+      "profilSurveiller",
     ])
       expect(lues.has(c)).toBe(true);
   });
 
   test("toute clé déclarée a sa case dans un onglet des Préférences", () => {
     expect(declarees.filter((c) => !dansOnglets.has(c))).toEqual([]);
+  });
+
+  test("règle CSS coupée par sa case : classe o_sans_<clé> posée dès le chargement", () => {
+    const css = readFileSync(join(JS, "..", "css", "outiiil.css"), "utf8"),
+      dansCss = new Set([...css.matchAll(/o_sans_(\w+)/g)].map((m) => m[1]!)),
+      amorce =
+        /\[([^\]]*)\]\.forEach\(\(cle\) =>\s*document\.documentElement\.classList\.toggle\("o_sans_"/.exec(
+          lire("bootstrap.js"),
+        ),
+      posees = [...amorce![1]!.matchAll(/"(\w+)"/g)].map((m) => m[1]!);
+    expect([...dansCss].sort()).toEqual([...posees].sort());
+    expect(posees.filter((c) => !declarees.includes(c))).toEqual([]);
   });
 });

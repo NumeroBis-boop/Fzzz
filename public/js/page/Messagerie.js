@@ -22,7 +22,7 @@ class PageMessagerie {
   executer() {
     // ajout des boutons pour les nouveaux messages
     if (!Utils.comptePlus) this.plus(0);
-    this.couleurMessage();
+    if (Utils.affichage("messagerieCouleurs")) this.couleurMessage();
     // Fzzz : couleurs des convois et conversations, bouton de copie, rangement
     MessagerieFzzz.boutonsPartage();
     MessagerieFzzz.decorer();
@@ -38,6 +38,17 @@ class PageMessagerie {
    */
   plus(id) {
     let champsReponse = id != 0 ? "champ_reponse_" + id : "message_envoi";
+    if (Utils.affichage("messagerieMiseEnForme")) this.miseEnForme(id, champsReponse);
+    if (Utils.affichage("messagerieSmileys")) this.smileys(id, champsReponse);
+    return this;
+  }
+  /**
+   * Hors Compte+ : couleur et boutons de mise en forme du message à écrire.
+   *
+   * @private
+   * @method miseEnForme
+   */
+  miseEnForme(id, champsReponse) {
     $("#smileySuivant" + id).after(` <span style='cursor:pointer;position:relative;top:3px;'>
             <span style="position:relative;top:-4px"><input id="o_colorMess${champsReponse}" type="color" name="couleur" value="${monProfil.parametre["couleurMessagerie"].valeur}"/></span>
             <img onclick='miseEnForme("${champsReponse}","gras");' title='Gras' src='images/BBCode/bold.png'>
@@ -61,6 +72,14 @@ class PageMessagerie {
       if (color != "#000000")
         $(idChamps).val("[color=" + color + "]" + $(idChamps).val() + "[/color]");
     });
+  }
+  /**
+   * Hors Compte+ : listes de smileys et flèches pour passer de l'une à l'autre.
+   *
+   * @private
+   * @method smileys
+   */
+  smileys(id, champsReponse) {
     // Ajoute des emoticones
     $("#listeSmiley2" + id).html(LISTESMILEY1.replace(/message/g, champsReponse));
     $("#listeSmiley3" + id).html(LISTESMILEY2.replace(/message/g, champsReponse));

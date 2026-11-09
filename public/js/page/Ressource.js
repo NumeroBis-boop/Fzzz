@@ -62,11 +62,11 @@ class PageRessource {
     // Sauvegarde les chasses en cours et ajoute les boutons max recolte
     if (!Utils.comptePlus) this.plus();
     // Affectation automatique des ouvrières (tous comptes)
-    this.affectation();
+    if (Utils.affichage("affectationOuvrieres")) this.affectation();
     // Fzzz : synthèse des chasses en cours par minute d'impact
     this.syntheseChasses();
     // Bouton "Annuler toutes les chasses" si au moins une est en cours
-    this.boutonAnnulerChasses();
+    if (Utils.affichage("chassesAnnulerTout")) this.boutonAnnulerChasses();
     // annulation d'une chasse, lancement : même position à l'écran après rechargement
     Utils.garderPosition("fzzz_positionRessources");
     return this;
@@ -386,12 +386,14 @@ class PageRessource {
    */
   plus() {
     // Ajout des boutons pour l'affectation max
-    $("#RecolteNourriture").after(
-      "<a title='Affecter un maximum d’ouvrière à la nourriture' class='button_max' onclick='javascript:maxNourriture();' href='#max'><img class='o_vAlign' width='23' height='23' src='images/bouton/fleche_haut.gif'/></a>",
-    );
-    $("#RecolteMateriaux").after(
-      "<a title='Affecter un maximum d’ouvrière aux matériaux' class='button_max' onclick='javascript:maxMateriaux();' href='#max'><img class='o_vAlign' width='23' height='23' src='images/bouton/fleche_haut.gif'/></a>",
-    );
+    if (Utils.affichage("ressourcesMax")) {
+      $("#RecolteNourriture").after(
+        "<a title='Affecter un maximum d’ouvrière à la nourriture' class='button_max' onclick='javascript:maxNourriture();' href='#max'><img class='o_vAlign' width='23' height='23' src='images/bouton/fleche_haut.gif'/></a>",
+      );
+      $("#RecolteMateriaux").after(
+        "<a title='Affecter un maximum d’ouvrière aux matériaux' class='button_max' onclick='javascript:maxMateriaux();' href='#max'><img class='o_vAlign' width='23' height='23' src='images/bouton/fleche_haut.gif'/></a>",
+      );
+    }
     // Hors C+ le formulaire du jeu envoie chasser toute l'armée du terrain de
     // chasse : on la mémorise pour la compter tant qu'elle est dehors. Elle
     // est relue juste avant l'envoi (elle a pu bouger depuis le chargement de
@@ -410,7 +412,8 @@ class PageRessource {
         .finally(() => formChasse[0].requestSubmit(bouton || undefined));
     });
     // Affichage du retour des chasses
-    let listeChasse = new Array();
+    let listeChasse = new Array(),
+      retour = Utils.affichage("chassesRetour");
     $("span[id^=chasse_]").each((i, elt) => {
       listeChasse.push({
         quantite: numeral($(elt).parent().text().split("conquérir")[1].split("cm²")[0]).value(),
@@ -419,6 +422,7 @@ class PageRessource {
           "s",
         ),
       });
+      if (!retour) return;
       $(elt)
         .parent()
         .next()

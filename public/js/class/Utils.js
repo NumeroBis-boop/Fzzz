@@ -97,6 +97,16 @@ if (typeof $ != "undefined" && $.fn && $.fn.dataTable) {
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",
   journal: "Boîte « Journal » sous « Extension OUAF » (étapes et erreurs à copier)",
+  rapprocherEncadres: "Encadrés « S5 pseudo » et Compte+ rapprochés dans la colonne de gauche",
+  radar: "Boîte radar des joueurs et alliances surveillés (Compte+ : dans l'encart Compte+ du jeu)",
+  jaugeTdc: "Jauge du TdC en rouge dans la barre d'infos quand du terrain est découvert",
+  infobulleRessources:
+    "Info-bulles Nourriture et Matériaux de la barre d'infos : capacité de l'entrepôt et place libre",
+  menuCarte: "Entrée « Carte » dans le menu Alliance",
+  menuCouts: "Entrée « Coûts » dans le menu Fourmilière",
+  styleFormulaires:
+    "Style des champs du jeu : cases à cocher et boutons radio alignés, champs nombre élargis, boutons inactifs grisés",
+  nouveautes: "Notification des nouveautés après une mise à jour",
   rentabilite:
     "Bandeaux « rentabilité du niveau supérieur » (et Étable à pucerons dans Construction)",
   messagerieCouleurs: "Couleurs des titres par type de message",
@@ -106,6 +116,11 @@ const AFFICHAGES_FZZZ = {
     "Boutons « Exporter mes chasses » et « Exporter mes RC » (Google Sheet de l'alliance)",
   messagerieRanger:
     "Rangement des messages dans les dossiers Commerce, Chasse, Combat et Conversation à l'ouverture",
+  messagerieCompacte: "Liste compacte : un message par ligne, titre coupé (en entier au survol)",
+  messagerieNonLus: "Pastille bleue « ● » devant les messages non lus",
+  messagerieMiseEnForme:
+    "Hors Compte+ : couleur et boutons de mise en forme (gras, italique, lien, pseudo…) pour écrire",
+  messagerieSmileys: "Hors Compte+ : listes de smileys et flèches pour passer de l'une à l'autre",
   lancerPartager: "Bouton « Lancer + partager » (page d'attaque)",
   sonder: "Boutons « Sonder » et « Synchro sonde » (page d'attaque)",
   synchroniser:
@@ -124,6 +139,11 @@ const AFFICHAGES_FZZZ = {
   ennemisTemps: "Colonne « Temps » (temps de trajet) de la page Ennemies",
   syntheseChasses: "Synthèse des chasses en cours",
   lanceurChasse: "Lanceur de chasses",
+  chassesAnnulerTout: "Bouton « Annuler toutes les chasses »",
+  affectationOuvrieres:
+    "Affectation des ouvrières préparée à l'ouverture : choix « Ratio », ligne « Répartition » et champs préremplis",
+  ressourcesMax: "Hors Compte+ : flèches « max » à côté des champs Nourriture et Matériaux",
+  chassesRetour: "Hors Compte+ : « Retour le … » sous chaque chasse en cours",
   armeeMiseEnPage:
     "Mise en page allégée : textes d'aide du jeu retirés, « Déplacer son armée » resserré, noms courts TdC / Dôme / Loge, blocs à égale distance",
   armeeTotalUnites: "Nombre total d'unités dans le titre « Troupes en Garnison »",
@@ -140,6 +160,15 @@ const AFFICHAGES_FZZZ = {
   arriveeRenforts:
     "Hors Compte+ : heure d'arrivée sous les renforts de la liste « Attaque(s) en cours » du jeu (pages Armée et d'attaque)",
   profilPartages: "Chasses, floods et évolution du TdC partagés",
+  profilRetour: "Lignes « Retour le » et « Rapport » (attaque lancée maintenant vers ce joueur)",
+  profilTrajet: "Hors Compte+ : ligne « Temps de trajet »",
+  profilSurveiller: "Lien « Surveiller ce joueur » (boîte radar)",
+  evolutionEnCours:
+    "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
+  retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",
+  coutsDeveloppement: "Courbes « Coûts & temps de développement » (lien #cout de Construction)",
+  laboBordures: "Lignes de Construction et du Laboratoire sans bordure",
+  laboInfobulles: "Info-bulles de rentabilité sur les titres « Bouclier Thoracique » et « Armes »",
 };
 
 // Fzzz : couleur des titres de la messagerie par type de message, réglable
@@ -171,7 +200,18 @@ const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800, 43200, 5760
 // « Rétablir l'affichage d'origine » d'un onglet des préférences (+ id de l'onglet)
 const CLE_ORIGINE = "fzzz_origine_";
 // affichages qui ne dépendent pas de la page courante : coupés avec leur onglet
-const AFFICHAGES_ONGLET = { horloge: "General", journal: "General" };
+const AFFICHAGES_ONGLET = {
+  horloge: "General",
+  journal: "General",
+  rapprocherEncadres: "General",
+  radar: "General",
+  jaugeTdc: "General",
+  infobulleRessources: "General",
+  menuCarte: "General",
+  menuCouts: "General",
+  styleFormulaires: "General",
+  nouveautes: "General",
+};
 // « me le rappeler plus tard » : alerte de ponte muette jusqu'à cette date (ms)
 const CLE_ALERTE_PONTE_MUETTE = "fzzz_alertePonteMuette";
 // fin de la file de ponte lue sur la page Reine : {fin (ms, horloge du PC), lu (ms)}

@@ -593,13 +593,17 @@ const DATEPICKER_OPTION = {
           new BoiteJournal().afficher();
         // Boite radar
         let boiteRadar = new BoiteRadar();
-        if (!origineGenerale) boiteRadar.afficher();
+        if (!origineGenerale && Utils.affichage("radar")) boiteRadar.afficher();
 
         // Onglet "Carte" dans le menu d'alliance — injecté sur toutes les pages
         // tant que le joueur a une alliance (présence du lien Membres = preuve).
         // Lien réel vers ?Membres#carte : sur cette page, PageAlliance intercepte
         // le clic pour un toggle client-side ; depuis ailleurs, navigation normale.
-        if (!origineGenerale && $("#menuAlliance .boutonMembres").length) {
+        if (
+          !origineGenerale &&
+          Utils.affichage("menuCarte") &&
+          $("#menuAlliance .boutonMembres").length
+        ) {
           $("#menuAlliance .boutonMembres")
             .parent()
             .after(
@@ -612,7 +616,15 @@ const DATEPICKER_OPTION = {
         // construction.php (#cout) ; PageConstruction intercepte le hash pour
         // masquer la simulation native et n'afficher que les courbes. Classe
         // `boutonDescription` réutilisée pour le look graphique cohérent.
-        if (!origineGenerale && $("#menuFourmiliere").length && !$("#o_ongletCouts").length) {
+        // sans les courbes (Préférences → Laboratoire), l'entrée ne mènerait à rien
+        if (
+          !origineGenerale &&
+          Utils.affichage("menuCouts") &&
+          Utils.affichage("coutsDeveloppement") &&
+          !Utils.origine("Laboratoire") &&
+          $("#menuFourmiliere").length &&
+          !$("#o_ongletCouts").length
+        ) {
           $("#menuFourmiliere").append(
             `<li><a id='o_ongletCouts' class='boutonDescription' href='construction.php#cout'><span></span>Coûts</a></li>`,
           );
@@ -624,15 +636,16 @@ const DATEPICKER_OPTION = {
         if (versionVue !== VERSION) {
           // vue dès l'affichage : la notification ne revient pas à chaque page
           localStorage.setItem(LAST_SEEN_VERSION_KEY, VERSION);
-          $.toast({
-            heading: `${NOM_EXTENSION} mise à jour`,
-            text: Nouveautes.html(versionVue, VERSION),
-            hideAfter: false,
-            allowToastClose: true,
-            showHideTransition: "slide",
-            position: { top: 30, right: 100 },
-            icon: "info",
-          });
+          if (Utils.affichage("nouveautes"))
+            $.toast({
+              heading: `${NOM_EXTENSION} mise à jour`,
+              text: Nouveautes.html(versionVue, VERSION),
+              hideAfter: false,
+              allowToastClose: true,
+              showHideTransition: "slide",
+              position: { top: 30, right: 100 },
+              icon: "info",
+            });
         }
 
         // Enrichit les tooltips Nourriture / Matériaux du bandeau d'info avec la capacité
@@ -647,9 +660,10 @@ const DATEPICKER_OPTION = {
         // de script main-world.
         // On réutilise les classes du widget jQuery UI tooltip + warning-tooltip de la
         // page pour hériter automatiquement de leur style (couleur, bordure, ombre).
+        const infobulles = !origineGenerale && Utils.affichage("infobulleRessources");
         const $tip = $(
           `<div id='o_boiteInfoTooltip' class='ui-tooltip ui-corner-all ui-widget-shadow ui-widget ui-widget-content warning-tooltip' role='tooltip' style='position:absolute;display:none;z-index:99999;pointer-events:none;'><div class='ui-tooltip-content'></div></div>`,
-        ).appendTo("body");
+        ).appendTo(infobulles ? "body" : []);
         // Capacité d'entrepôt = 500 + 1200 × 2^niveau (formule identique pour
         // Nourriture et Matériaux, vérifiée sur s1/s2/s3/test via la table de
         // référence toolzzz.fr/couts.php). On préfère la formule au ratio
@@ -661,7 +675,7 @@ const DATEPICKER_OPTION = {
           if (type === "Matériaux") return monProfil.niveauConstruction[2];
           return undefined;
         };
-        $(origineGenerale ? [] : ".tooltip_boite_info").each(function () {
+        $(infobulles ? ".tooltip_boite_info" : []).each(function () {
           const $td = $(this);
           const original = $td.attr("title") || $td.attr("data-tooltip-original-title");
           if (!original || !/rempli à \d+\s*%/.test(original)) return;

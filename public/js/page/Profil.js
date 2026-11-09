@@ -61,21 +61,24 @@ class PageProfil {
     // si on consulte un profil différent du sien
     if (!this._profil.estJoueurCourant()) {
       // si on a pas de compte+ on affiche le temps de trajet
-      !Utils.comptePlus && this.plus();
+      if (!Utils.comptePlus && Utils.affichage("profilTrajet")) this.plus();
       // Affichage du retour dynamique
-      $(".boite_membre:first div:first table").append(
-        `<tr><td class='right'>Retour le :</td><td id='o_tempsRetour'>${Horloge.clic().add(monProfil.getTempsParcours2(this._profil), "s").format("D MMM à HH[h]mm[m]ss[s]")}</td></tr><tr><td class='right'>Rapport :</td><td id='o_tempsRetourRapport'>${Utils.roundMinute(monProfil.getTempsParcours2(this._profil), Horloge.clic()).format("D MMM à HH[h]mm")}</td></tr>`,
-      );
-      Utils.incrementTime(
-        monProfil.getTempsParcours2(this._profil),
-        "o_tempsRetour",
-        "o_tempsRetourRapport",
-      );
+      if (Utils.affichage("profilRetour")) {
+        $(".boite_membre:first div:first table").append(
+          `<tr><td class='right'>Retour le :</td><td id='o_tempsRetour'>${Horloge.clic().add(monProfil.getTempsParcours2(this._profil), "s").format("D MMM à HH[h]mm[m]ss[s]")}</td></tr><tr><td class='right'>Rapport :</td><td id='o_tempsRetourRapport'>${Utils.roundMinute(monProfil.getTempsParcours2(this._profil), Horloge.clic()).format("D MMM à HH[h]mm")}</td></tr>`,
+        );
+        Utils.incrementTime(
+          monProfil.getTempsParcours2(this._profil),
+          "o_tempsRetour",
+          "o_tempsRetourRapport",
+        );
+      }
     }
 
     // Ajout de l'option pour ajouter au radar + un lien vers AntLeaks (s4 seulement)
     // (https://antleaks.guics.st) avec le pseudo dans le chemin — outil community
     // pour consulter l'historique public d'un joueur Fourmizzz.
+    if (!Utils.affichage("profilSurveiller")) return this;
     let antleaksUrl = `https://antleaks.guics.st/player/${encodeURIComponent(this._profil.pseudo)}`;
     $(".boite_membre:eq(1) table tr td:eq(0)").append(
       `${Utils.comptePlus ? "<br/>" : ""}- <span id='o_surveiller' class='cursor gras'>${this._boiteRadar.joueurs.hasOwnProperty(this._profil.pseudo) ? "Supprimer la surveillance" : "Surveiller ce joueur"}</span>${Utils.antleaksDisponible ? `<br/>- <a class='gras' href='${antleaksUrl}' target='_blank' rel='noopener'>Voir sur AntLeaks</a>` : ""}`,

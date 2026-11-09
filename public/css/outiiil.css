@@ -116,31 +116,31 @@
   clear: both;
 }
 /* form */
-html:not(.o_origineGenerale) input[type="button"][disabled],
-html:not(.o_origineGenerale) button[disabled] {
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) input[type="button"][disabled],
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) button[disabled] {
   color: #c0c0c0;
 }
-html:not(.o_origineGenerale) input[type="checkbox"],
-html:not(.o_origineGenerale) input[type="radio"],
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) input[type="checkbox"],
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) input[type="radio"],
 .o_vAlign {
   vertical-align: middle;
   position: relative;
   bottom: 1px;
 }
-html:not(.o_origineGenerale) input[type="radio"] {
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) input[type="radio"] {
   bottom: 2px;
 }
-html:not(.o_origineGenerale) input[type="number"] {
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) input[type="number"] {
   width: 175px;
 }
-html:not(.o_origineGenerale) select {
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) select {
   font-size: 1em;
 }
-html:not(.o_origineGenerale) textarea {
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) textarea {
   -moz-box-sizing: border-box;
 }
-html:not(.o_origineGenerale) input:required,
-html:not(.o_origineGenerale) select:required {
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) input:required,
+html:not(.o_origineGenerale):not(.o_sans_styleFormulaires) select:required {
   box-shadow: none;
 }
 
@@ -1216,7 +1216,7 @@ html:not(.o_originePage) input[id^="input_cout_nourriture"] {
 }
 
 /* Page contruction Labo */
-html:not(.o_originePage) .ligneAmelioration {
+html:not(.o_originePage):not(.o_sans_laboBordures) .ligneAmelioration {
   border: none !important;
 }
 
@@ -1997,7 +1997,9 @@ html:not(.o_desactivee) center > div > #tabMembresAlliance {
 /* messages non lus : le jeu colore leur titre en bleu, ce que les couleurs
  * ci-dessus masquent ; une pastille bleue le rappelle (disparaît à la lecture,
  * quand le jeu retire .nbr_mess_non_lus_conv) */
-html:not(.o_originePage) tr.en_tete_message:has(.nbr_mess_non_lus_conv) .intitule_message::before {
+html:not(.o_originePage):not(.o_sans_messagerieNonLus)
+  tr.en_tete_message:has(.nbr_mess_non_lus_conv)
+  .intitule_message::before {
   content: "● ";
   color: #0000aa;
   font-style: normal;
@@ -2037,17 +2039,17 @@ html:not(.o_originePage) #selection_toutes_checkbox {
   width: 70%;
 }
 /* Fzzz : liste des messages compactée (une ligne par message, titre tronqué) */
-html:not(.o_originePage) tr.en_tete_message > td {
+html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td {
   height: auto !important;
   padding-top: 1px !important;
   padding-bottom: 1px !important;
   line-height: 1.25 !important;
   vertical-align: middle !important;
 }
-html:not(.o_originePage) tr.en_tete_message > td.td_objet {
+html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td.td_objet {
   white-space: nowrap;
 }
-html:not(.o_originePage) tr.en_tete_message .intitule_message {
+html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message .intitule_message {
   display: inline-block;
   max-width: calc(100% - 7.5em);
   overflow: hidden;
@@ -2055,8 +2057,8 @@ html:not(.o_originePage) tr.en_tete_message .intitule_message {
   white-space: nowrap;
   vertical-align: bottom;
 }
-html:not(.o_originePage) tr.en_tete_message > td.td_participants,
-html:not(.o_originePage) tr.en_tete_message > td.td_coche {
+html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td.td_participants,
+html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td.td_coche {
   white-space: nowrap;
 }
 /* Fzzz : boutons « Analyser » sous les rapports de la messagerie */
@@ -2594,15 +2596,15 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
     box-sizing: border-box;
   }
   /* messagerie : titres sur plusieurs lignes, la liste ne dépasse plus l'écran */
-  html:not(.o_originePage) tr.en_tete_message > td.td_objet {
+  html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td.td_objet {
     white-space: normal;
   }
-  html:not(.o_originePage) tr.en_tete_message .intitule_message {
+  html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message .intitule_message {
     display: inline;
     max-width: none;
     white-space: normal;
   }
-  html:not(.o_originePage) tr.en_tete_message > td.td_participants {
+  html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td.td_participants {
     white-space: normal;
   }
   html:not(.o_originePage) tr.en_tete_message > td.td_coche img.o_copierRapport {

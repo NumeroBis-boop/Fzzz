@@ -58,7 +58,11 @@ class Dock {
       $boite = $(this._html);
     if ($cplus.length) {
       // désactivée : les encadrés du jeu restent à leur place d'origine
-      if ($cplus.is("#boiteComptePlus") && !this._desactivee)
+      if (
+        $cplus.is("#boiteComptePlus") &&
+        !this._desactivee &&
+        Utils.affichage("rapprocherEncadres")
+      )
         Dock.rapprocher($("#boiteInfo")[0], $cplus[0]);
       $boite.insertAfter($cplus);
       Dock.suivre($cplus[0], $boite[0], () => ECART_ENCADRES);

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.12",
+    notes: [
+      "Préférences : une case aussi pour chaque ajout des onglets Général (menus « Carte » et « Coûts », info-bulles de la barre d'infos, jauge du TdC, radar, style des champs, encadrés rapprochés, notes de version), Ressources, Laboratoire, Messagerie et Page membre. Toutes cochées : rien ne change tant que vous ne décochez pas.",
+    ],
+  },
+  {
     version: "1.95.11",
     notes: [
       "Lanceur de Flood : « Flooder + partager » et « Flooder » passent à gauche. À leur droite, « Calculer le TdC à l'impact » donne ton TdC et celui de la cible à l'arrivée d'un flood lancé maintenant (floods et chasses partagés, plus tes propres attaques et chasses en cours), avec l'écart à maintenant ; une cible hors portée à l'impact est signalée en rouge.",

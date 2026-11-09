@@ -42,6 +42,11 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     formats: {} as Record<string, string>,
     validations: [] as { r: number; c: number; nl: number; nc: number; regle: any }[],
     graphiques: [] as any[],
+    // mise en forme conditionnelle : condition, couleur, gras, italique, plages
+    reglesConditionnelles: [] as any[],
+    setConditionalFormatRules: (r: any[]) => {
+      f.reglesConditionnelles = r;
+    },
     largeurs: {} as Record<number, number>,
     cachees: [] as number[],
     setColumnWidth: (c: number, l: number) => {
@@ -156,9 +161,27 @@ export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Euro
       };
     return b;
   };
+  const regleConditionnelle = (): any => {
+    const v: any = {},
+      b: any = {
+        whenNumberGreaterThan: (x: number) => ((v.condition = [">", x]), b),
+        whenNumberLessThan: (x: number) => ((v.condition = ["<", x]), b),
+        whenFormulaSatisfied: (x: string) => ((v.condition = ["formule", x]), b),
+        setFontColor: (c: string) => ((v.couleur = c), b),
+        setBold: (x: boolean) => ((v.gras = x), b),
+        setItalic: (x: boolean) => ((v.italique = x), b),
+        setRanges: (p: any[]) => ((v.plages = p.map((x) => x.adresse)), b),
+        build: () => v,
+      };
+    return b;
+  };
   const ctx: any = {
     console: { warn: (m: string) => avertissements.push(m) },
-    SpreadsheetApp: { getActiveSpreadsheet: () => classeur, newDataValidation: regle },
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => classeur,
+      newDataValidation: regle,
+      newConditionalFormatRule: regleConditionnelle,
+    },
     // formats utilisés par le script : jour ou minute d'une date dans le fuseau du fichier
     Utilities: {
       formatDate: (d: Date, tz: string, format: string) => {

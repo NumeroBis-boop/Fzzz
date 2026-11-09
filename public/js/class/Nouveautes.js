@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.6",
+    notes: [
+      "Export des chasses et des RC : dates lues aussi en toutes lettres, en français ou en anglais (« 7 nov. 2026 à 21h07 », « Nov 7 2026 at 9:07 PM ») ; l'heure exportée est toujours celle du serveur, même pour un joueur qui voit l'heure de chez lui.",
+    ],
+  },
+  {
     version: "1.95.5",
     notes: [
       "Export des chasses et des RC : la date des rapports est lue même écrite autrement (année absente, « 21:07 », « aujourd'hui », « hier ») ; un rapport dont la date reste illisible n'est plus envoyé sans date : le message le dit et cite la date lue.",

@@ -25,6 +25,7 @@ function ouvrir(reglages: object) {
   page.lire(`(() => {
     localStorage.setItem("outiiil_parametre", JSON.stringify({ reserveFlood: 0, reserveFloodAuto: false, ...${JSON.stringify(reglages)} }));
     localStorage.setItem("fzzz_reserveEnPlus", "1");
+    localStorage.setItem("fzzz_methodeDegressive", "1");
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
     document.body.innerHTML = '<span id="quantite_tdc">100000</span><table class="simulateur"></table>';
     window.p = Object.create(PageAttaquer.prototype);

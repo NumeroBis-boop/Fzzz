@@ -7,6 +7,10 @@
 const CLE_RECHERCHE_EN_COURS = "fzzz_rechercheEnCours";
 // présent : reserveFlood compte les unités gardées en plus des antisondes (voir getParametre)
 const CLE_RESERVE_EN_PLUS = "fzzz_reserveEnPlus";
+// « Optimisée », ancien défaut de la méthode de flood, passée en Dégressive une fois
+const CLE_METHODE_DEGRESSIVE = "fzzz_methodeDegressive";
+const METHODE_FLOOD_OPTIMISEE = 1;
+const METHODE_FLOOD_DEGRESSIVE = 3;
 
 /**
  * Classe pour creer et gérer un joueur
@@ -105,7 +109,7 @@ class Joueur {
       "methodeFlood",
       "Méthode de flood",
       "select",
-      1,
+      METHODE_FLOOD_DEGRESSIVE,
       METHODE_FLOOD,
     );
     this._parametre["floodAttaques"] = new Parametre(
@@ -563,6 +567,17 @@ class Joueur {
           localStorage.setItem("outiiil_parametre", JSON.stringify(this._parametre));
         }
         localStorage.setItem(CLE_RESERVE_EN_PLUS, "1");
+      }
+      // méthode par défaut devenue Dégressive (règle du mainteneur) : tous les
+      // réglages étant enregistrés ensemble, « Optimisée », l'ancien défaut, l'est
+      // souvent sans avoir été choisie ; elle passe en Dégressive une fois par
+      // navigateur, Standard et Uniforme restent
+      if (!localStorage.getItem(CLE_METHODE_DEGRESSIVE)) {
+        if (data && data.methodeFlood == METHODE_FLOOD_OPTIMISEE) {
+          this._parametre["methodeFlood"].valeur = METHODE_FLOOD_DEGRESSIVE;
+          localStorage.setItem("outiiil_parametre", JSON.stringify(this._parametre));
+        }
+        localStorage.setItem(CLE_METHODE_DEGRESSIVE, "1");
       }
     } catch (e) {
       /* stockage indisponible : rien n'est enregistré non plus */

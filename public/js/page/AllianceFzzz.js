@@ -239,14 +239,7 @@ class AllianceFzzz {
         dernier = vars[vars.length - 1],
         // on ne s'attaque pas soi-même
         moi = pseudo.toLowerCase() == String(monProfil.pseudo).toLowerCase(),
-        secondes = moi ? null : tempsTrajet(pseudo),
-        // minute du RC de cette attaque, comme les dates des floods partagés
-        arrivee = secondes != null ? Utils.roundMinute(secondes, ouverture) : null,
-        minute = arrivee ? arrivee.format("YYYY-MM-DD HH:mm") : null,
-        // TdC qu'elle trouverait : après la dernière variation de sa minute ou d'avant
-        // (à minute égale, comme dans la simulation, ordre d'envoi : les floods
-        // partagés d'abord) ; -1 : la ligne « Actuellement »
-        atteinte = minute ? vars.reduce((a, v, j) => (v.date <= minute ? j : a), -1) : null;
+        arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, tempsTrajet(pseudo), ouverture);
       cellule(r, n - k)
         .attr(
           "data-order",
@@ -269,28 +262,17 @@ class AllianceFzzz {
         .attr("data-order", final)
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
-      let tdc = terrain,
-        surligner = (j) => (j === atteinte ? " class='o_allInfoAttaque'" : ""),
-        lignes = [
-          `<tr class='gras'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Lanceur → cible</td></tr>`,
-          `<tr${surligner(-1)}><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
-        ];
-      vars.forEach((v, j) => {
-        tdc += v.delta;
-        lignes.push(
-          `<tr${surligner(j)}><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td></tr>`,
-        );
-      });
-      let note = moi
-          ? ""
-          : arrivee
-            ? `Surligné : TdC à l'arrivée d'une attaque lancée à l'ouverture de la page (${arrivee.format("DD/MM HH[h]mm")}).`
-            : "TdC à l'arrivée d'une attaque : temps de trajet inconnu (vue « Temps de trajet »).",
-        html = `<div class='gras'>${Utils.echapper(pseudo)}</div>${
-          vars.length
-            ? `<table cellspacing='0'>${lignes.join("")}</table>${note ? `<div class='o_note'>${note}</div>` : ""}`
-            : "<em>Aucune variation partagée en cours.</em>"
-        }`;
+      let html = `<div class='gras'>${Utils.echapper(pseudo)}</div>${
+        vars.length
+          ? `<table cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "gras")}</table>` +
+            PartageChasses.noteArrivee(
+              arrivee,
+              moi
+                ? ""
+                : "TdC à l'arrivée d'une attaque : temps de trajet inconnu (vue « Temps de trajet »).",
+            )
+          : "<em>Aucune variation partagée en cours.</em>"
+      }`;
       // souris : au survol ; écran tactile (pas de survol) : au toucher de la ligne
       if (tactile)
         $tr.on("click", (e) => {

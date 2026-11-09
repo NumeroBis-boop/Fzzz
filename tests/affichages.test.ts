@@ -40,8 +40,30 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       ),
     );
     expect([...lues].filter((c) => !declarees.includes(c))).toEqual([]);
-    // les ajouts de 1.88 à 1.95 qui n'avaient pas de case
-    for (const c of ["messagerieExport", "messagerieRanger", "ennemisFiltre", "convoisColonnes"])
+    // les ajouts qui n'avaient pas de case (1.95.7, puis pages d'attaque et Armée en 1.95.10)
+    for (const c of [
+      "messagerieExport",
+      "messagerieRanger",
+      "ennemisFiltre",
+      "convoisColonnes",
+      "lancerPartager",
+      "sonder",
+      "synchroniser",
+      "couleurAttaquer",
+      "retourArmee",
+      "statArmee",
+      "lanceurFlood",
+      "ennemisTemps",
+      "armeeMiseEnPage",
+      "armeeTotalUnites",
+      "replacerArmee",
+      "armeeHof",
+      "armeeStatistiques",
+      "armeeAttaquesRestantes",
+      "armeeFleches",
+      "armeeLignes",
+      "arriveeRenforts",
+    ])
       expect(lues.has(c)).toBe(true);
   });
 

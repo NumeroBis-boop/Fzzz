@@ -153,7 +153,7 @@ class PageAttaquer {
             );
             if (!nouvelles.length) return;
             nouvelles.each((i, tr) => vus.add($(tr).children("td").eq(1).text().trim()));
-            PageAttaquer.tempsEnnemis(nouvelles);
+            if (Utils.affichage("ennemisTemps")) PageAttaquer.tempsEnnemis(nouvelles);
             $corps.append(nouvelles);
             ajoutes += nouvelles.length;
             page++;
@@ -228,18 +228,16 @@ class PageAttaquer {
     if ($("#tabChoixArmee").length) {
       // récupération de l'armée
       this._armee = new Armee({ unite: this.extraitArmee() });
-      this.majStatistique(this._armee);
-      // ajoute event
-      $("input[id^=unite]").on("input", (e) => {
-        this.majStatistique();
-      });
+      if (Utils.affichage("statArmee")) {
+        this.majStatistique(this._armee);
+        $("input[id^=unite]").on("input", () => this.majStatistique());
+      }
       this.ajouterBoutons();
       // on recupére le profil du joueur pour les coordonnées
       this._cible.getProfil().then((data) => {
         this._cible.chargerProfil(data);
         this.activerBoutons();
-        // ajoute des outils de floods
-        this.formulaireFlood();
+        if (Utils.affichage("lanceurFlood")) this.formulaireFlood();
       });
     }
     if (!Utils.comptePlus) this.plus();
@@ -307,14 +305,29 @@ class PageAttaquer {
     const titreSonder = `Envoie tout de suite la sonde réglée dans Préférences → Attaque (par défaut 1 Jeune Soldate Naine), vers le lieu de sonde des préférences ou, à défaut, celui de la liste. Couleur : vert terrain, orange dôme, rouge loge.`;
     const titreSynchroSonde = `Prépare la sonde dans le formulaire et affiche le compte à rebours jusqu'à la minute pleine. À zéro, c'est à toi de cliquer sur Sonder.`;
     const titreSync = `Affiche le compte à rebours, au dixième de seconde et en heure du serveur + latence, jusqu'au moment où l'attaque arrivera sur une minute pleine (utile pour synchroniser plusieurs attaques avec des alliés). À zéro, c'est à toi de cliquer sur le bouton du jeu.`;
+    let sonder = Utils.affichage("sonder"),
+      synchroniser = Utils.affichage("synchroniser"),
+      boutons =
+        (Utils.affichage("lancerPartager")
+          ? `<button type="button" id="o_lancerPartager" class="o_button" title="${Utils.echapper(titrePartager)}" disabled>Lancer + partager</button>`
+          : "") +
+        (sonder
+          ? `<button type="button" id="o_sonder" class="o_button" title="${Utils.echapper(titreSonder)}" disabled>Sonder</button>`
+          : "") +
+        (synchroniser
+          ? `<button type="button" id="o_synchro" class="o_button f_info" title="${Utils.echapper(titreSync)}" disabled>Synchroniser</button>`
+          : "") +
+        (sonder
+          ? `<button type="button" id="o_synchroSonde" class="o_button f_info" title="${Utils.echapper(titreSynchroSonde)}" disabled>Synchro sonde</button>`
+          : "");
     $("input[name='ChoixArmee']")
       .first()
       .after(
-        `<div id="o_btnLancer"><button type="button" id="o_lancerPartager" class="o_button" title="${Utils.echapper(titrePartager)}" disabled>Lancer + partager</button><button type="button" id="o_sonder" class="o_button" title="${Utils.echapper(titreSonder)}" disabled>Sonder</button><button type="button" id="o_synchro" class="o_button f_info" title="${Utils.echapper(titreSync)}" disabled>Synchroniser</button><button type="button" id="o_synchroSonde" class="o_button f_info" title="${Utils.echapper(titreSynchroSonde)}" disabled>Synchro sonde</button></div>${Utils.affichage("trajet") ? `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">…</span></p>` : ""}<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">…</span> (RC : <span id="o_retourArmeeRC" class="gras">…</span>).</p>`,
+        `${boutons ? `<div id="o_btnLancer">${boutons}</div>` : ""}${Utils.affichage("trajet") ? `<p class="centre reduce">Temps de trajet : <span id="o_tempsTrajet" class="gras">…</span></p>` : ""}${Utils.affichage("retourArmee") ? `<p class="centre reduce ligne_paire">Votre armée rentrera le <span id="o_retourArmee" class="gras">…</span> (RC : <span id="o_retourArmeeRC" class="gras">…</span>).</p>` : ""}`,
       );
     // ligne du compte à rebours réservée dès l'affichage : la lancer ne
     // décale pas le reste de la page
-    if (!$("#o_syncA").length)
+    if ((synchroniser || sonder) && !$("#o_syncA").length)
       $("#formulaireChoixArmee fieldset:eq(1)").append(
         "<p id='o_syncA' class='centre o_syncReserve'>&nbsp;</p>",
       );
@@ -377,7 +390,11 @@ class PageAttaquer {
   majCouleurs() {
     let colorer = ($b, lieu) => $b.removeClass("o_lieu1 o_lieu2 o_lieu3").addClass("o_lieu" + lieu);
     colorer(
-      $("input[name='ChoixArmee']:first, #o_lancerPartager"),
+      $(
+        Utils.affichage("couleurAttaquer")
+          ? "input[name='ChoixArmee']:first, #o_lancerPartager"
+          : "#o_lancerPartager",
+      ),
       parseInt($("#lieu").val()) || LIEU_JEU_TERRAIN,
     );
     let lieuSonde = this.lieuSonde();

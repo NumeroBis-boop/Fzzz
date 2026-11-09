@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.10",
+    notes: [
+      "Page d'un membre, tableau « Évolution du TdC » : la ligne du TdC qu'il aurait à l'arrivée d'une attaque lancée à l'ouverture de la page (votre Vitesse d'attaque) est surlignée, comme dans la page Membres.",
+      "Préférences : une case pour chaque ajout de la page d'attaque (« Lancer + partager », « Sonder », « Synchroniser », couleur du bouton « Attaquer », ligne de retour, info-bulle de l'armée, Lanceur de Flood), de la liste des Ennemies (colonne « Temps ») et de la page Armée (mise en page, « Replacer l'armée », temps HOF, Statistiques, nombres dans les titres, ajouts hors Compte+). Toutes cochées : rien ne change tant que vous ne décochez pas.",
+    ],
+  },
+  {
     version: "1.95.9",
     notes: [
       "Alliance → Membres, vue « Floods et chasses en cours » : les colonnes « Prochaine variation » et « TdC (estimé) » deviennent « Date dernier mouvement » (dernier flood ou dernière chasse en cours) et « Variation totale de TdC » (gain ou perte après tous les mouvements).",

@@ -66,41 +66,48 @@ class PageArmee {
     // Fzzz : floods partagés en cours sur le joueur
     PartageChasses.afficherArmee();
     // Affichage du nombre d'attaque restante
-    $("h3:eq(2)").append(
-      ` ${this._nbAttaque}, reste : ${monProfil.niveauRecherche[6] + 1 - this._nbAttaque}.</p>`,
-    );
+    if (Utils.affichage("armeeAttaquesRestantes"))
+      $("h3:eq(2)").append(
+        ` ${this._nbAttaque}, reste : ${monProfil.niveauRecherche[6] + 1 - this._nbAttaque}.</p>`,
+      );
     // Affichage du nombre total d'unité
-    $("h3:first").append(
-      ` (${numeral(this._armeeTdc.getSommeUnite() + this._armeeDome.getSommeUnite() + this._armeeLoge.getSommeUnite()).format()})</p>`,
-    );
+    if (Utils.affichage("armeeTotalUnites"))
+      $("h3:first").append(
+        ` (${numeral(this._armeeTdc.getSommeUnite() + this._armeeDome.getSommeUnite() + this._armeeLoge.getSommeUnite()).format()})</p>`,
+      );
     // Bouton antisonde
-    $(".simulateur:not(.o_blocAttaques):first tr:eq(0)").after(
-      `<tr><td colspan="10" class='right'><button id='o_replaceArmee' class='o_button f_success'>Replacer l'armée</button></td></tr>`,
-    );
-    $("#o_replaceArmee").click(() => {
-      this.replacerArmee();
-      return false;
-    });
+    if (Utils.affichage("replacerArmee")) {
+      $(".simulateur:not(.o_blocAttaques):first tr:eq(0)").after(
+        `<tr><td colspan="10" class='right'><button id='o_replaceArmee' class='o_button f_success'>Replacer l'armée</button></td></tr>`,
+      );
+      $("#o_replaceArmee").click(() => {
+        this.replacerArmee();
+        return false;
+      });
+    }
 
     if (!Utils.comptePlus) this.plus();
     AttaqueLancee.afficherTableaux();
     // Affichage du temps Hof de votre armée
-    $(".simulateur:not(.o_blocAttaques):first").append(
-      "<tr class='o_ligneHof'><td colspan=10>Temps <span class='gras' title='Hall Of Fame' >HOF : " +
-        Utils.shortcutTime(
-          this._armeeTdc.getTemps(0) + this._armeeDome.getTemps(0) + this._armeeLoge.getTemps(0),
-        ) +
-        "</span>, Temps relatif : <span class='gras'>" +
-        Utils.shortcutTime(
-          this._armeeTdc.getTemps(monProfil.getTDP()) +
-            this._armeeDome.getTemps(monProfil.getTDP()) +
-            this._armeeLoge.getTemps(monProfil.getTDP()),
-        ) +
-        "</span></td></tr>",
-    );
+    if (Utils.affichage("armeeHof"))
+      $(".simulateur:not(.o_blocAttaques):first").append(
+        "<tr class='o_ligneHof'><td colspan=10>Temps <span class='gras' title='Hall Of Fame' >HOF : " +
+          Utils.shortcutTime(
+            this._armeeTdc.getTemps(0) + this._armeeDome.getTemps(0) + this._armeeLoge.getTemps(0),
+          ) +
+          "</span>, Temps relatif : <span class='gras'>" +
+          Utils.shortcutTime(
+            this._armeeTdc.getTemps(monProfil.getTDP()) +
+              this._armeeDome.getTemps(monProfil.getTDP()) +
+              this._armeeLoge.getTemps(monProfil.getTDP()),
+          ) +
+          "</span></td></tr>",
+      );
     // Affichage des statistiques detaillés
-    this.afficherStatistique();
-    this.alleger();
+    if (Utils.affichage("armeeStatistiques")) this.afficherStatistique();
+    if (Utils.affichage("armeeMiseEnPage")) this.alleger();
+    // bloc des floods reçus à la largeur des troupes, même sans la mise en page allégée
+    $(window).on("resize", PageArmee.calerLargeurs);
     // Auto-replacer : déclenché en sortie de flood (flag sessionStorage) ou par le param utilisateur.
     let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
     if (floodFlag) sessionStorage.removeItem("outiiil_floodPuisReplacer");
@@ -118,6 +125,7 @@ class PageArmee {
         .then(() => this.replacerArmee(true));
     else if (
       monProfil.parametre["replacerArmeeAuto"].valeur &&
+      $("#o_replaceArmee").length &&
       this.uniteTransferables() &&
       this.placementPrevu()
     ) {
@@ -659,14 +667,16 @@ class PageArmee {
     let $bouton = $("#o_replaceArmee").closest("tr").detach(),
       $hof = $actuelle.find(".o_ligneHof").detach(),
       $stat = $("#o_statArmee").closest("tr").detach();
-    $nouvelle = $(document.importNode($nouvelle[0], true)).addClass("o_blocArmee");
+    let miseEnPage = Utils.affichage("armeeMiseEnPage");
+    $nouvelle = $(document.importNode($nouvelle[0], true)).toggleClass("o_blocArmee", miseEnPage);
     $actuelle.replaceWith($nouvelle);
     $nouvelle.find("tr:eq(0)").after($bouton);
     $nouvelle.append($hof, $stat);
     this.recupererArmee();
-    $nouvelle.find("h3:first").append(` (${numeral(this.uniteTransferables()).format()})`);
+    if (Utils.affichage("armeeTotalUnites"))
+      $nouvelle.find("h3:first").append(` (${numeral(this.uniteTransferables()).format()})`);
     if (!Utils.comptePlus) this.flechesEtLignes();
-    this.libellesCourts((n) => $nouvelle[0].contains(n));
+    if (miseEnPage) this.libellesCourts((n) => $nouvelle[0].contains(n));
     PageArmee.calerLargeurs();
     return true;
   }
@@ -691,6 +701,21 @@ class PageArmee {
    * @method flechesEtLignes
    */
   flechesEtLignes() {
+    if (Utils.affichage("armeeFleches")) this.fleches();
+    if (!Utils.affichage("armeeLignes")) return;
+    // Affichage des infos sur l'armée selon son placement
+    this.afficherLigneVie();
+    this.afficherLigneAttaque();
+    this.afficherLigneDefense();
+    this.afficherLigneConsommation();
+  }
+  /**
+   * Hors Compte+ : flèches de déplacement d'une troupe vers le lieu voisin.
+   *
+   * @private
+   * @method fleches
+   */
+  fleches() {
     $(".simulateur:not(.o_blocAttaques) td").each((i, elt) => {
       if (/^[0-9,]+$/.test($(elt).text().replace(/ /g, ""))) {
         let info = $(elt).find("span").attr("id").replace(/\(|\)/g, "");
@@ -739,11 +764,6 @@ class PageArmee {
         }
       }
     });
-    // Affichage des infos sur l'armée selon son placement
-    this.afficherLigneVie();
-    this.afficherLigneAttaque();
-    this.afficherLigneDefense();
-    this.afficherLigneConsommation();
   }
   /**
    * Affiche les informations supplémentaires sur la vie des armées.
@@ -871,7 +891,6 @@ class PageArmee {
     $("#o_attaquesLancees").addClass("o_blocArmee");
     $(".simulateur:not(.o_blocAttaques):first").addClass("o_blocArmee");
     $deplacer.addClass("o_blocArmee");
-    $(window).on("resize", PageArmee.calerLargeurs);
     // textes raccourcis : largeurs recalculées (blocs épinglé et des floods)
     $(window).trigger("resize");
     $(".o_blocArmee").each((i, bloc) => {

@@ -109,7 +109,7 @@ function infobulle(pseudo: string) {
       $tr = $i.find("tr");
     return {
       lignes: $tr.map((i, l) => $(l).children().first().text()).get(),
-      surlignee: $tr.index($i.find("tr.o_allInfoAttaque")),
+      surlignee: $tr.index($i.find("tr.o_ligneArrivee")),
       note: $i.find(".o_note").text(),
       texte: $i.text(),
     };

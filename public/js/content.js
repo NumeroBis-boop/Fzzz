@@ -789,8 +789,10 @@ const DATEPICKER_OPTION = {
               break;
             case uri == "/ennemie.php" && location.search == "":
               PageAttaquer.ajouterFiltreEnnemis();
-              $("#tabEnnemie tr:eq(0) th:eq(5)").after("<th class='centre'>Temps</th>");
-              PageAttaquer.tempsEnnemis($("#tabEnnemie tr:gt(0)"));
+              if (Utils.affichage("ennemisTemps")) {
+                $("#tabEnnemie tr:eq(0) th:eq(5)").after("<th class='centre'>Temps</th>");
+                PageAttaquer.tempsEnnemis($("#tabEnnemie tr:gt(0)"));
+              }
               break;
             default:
               break;

@@ -94,7 +94,8 @@ async function ouvrir() {
     let trajets = new Map(${JSON.stringify(MEMBRES.map(([p, , s]) => [p, s]))});
     AllianceFzzz.installer(() => Promise.resolve(), false, (p) => trajets.get(p));
     heure += 5 * 60000;
-    reponse(${JSON.stringify(PARTAGES)});
+    // vue « Floods » décochée : le forum n'est pas lu
+    if (reponse) reponse(${JSON.stringify(PARTAGES)});
   })()`);
   await new Promise((r) => setTimeout(r, 30));
 }
@@ -195,5 +196,22 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     expect(gamma.surlignee).toBe(-1);
     expect(gamma.texte).toContain("Aucune variation partagée en cours.");
     expect(gamma.note).toBe("");
+  });
+});
+
+describe("page Membres, vue « Floods et chasses en cours » décochée", () => {
+  test("ni colonnes ni bouton, la vue par défaut « Floods » devient « Standard », aucun partage lu", async () => {
+    page.lire(`localStorage.setItem("fzzz_affichage_membresFloods", "0")`);
+    await ouvrir();
+    page.lire(`localStorage.removeItem("fzzz_affichage_membresFloods")`);
+    expect(
+      page.lire(`$("#tabMembresAlliance th.o_allCol0, #tabMembresAlliance td.o_allCol0").length`),
+    ).toBe(0);
+    expect(page.lire(`$(".o_allVue").map((i, a) => a.dataset.vue).get()`)).toEqual([
+      "reset",
+      "trajet",
+    ]);
+    expect(page.lire(`$(".o_allVueActive").data("vue")`)).toBe("reset");
+    expect(page.lire(`$("#o_allInfobulle").length`)).toBe(0);
   });
 });

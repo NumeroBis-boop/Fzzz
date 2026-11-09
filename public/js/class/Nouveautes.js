@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.96.1",
+    notes: [
+      "Préférences → Page membre : l'onglet couvre aussi la page Membres de l'alliance. « Rétablir l'affichage d'origine » s'y applique, et une case pour le nombre de membres par état, les épées de portée, le tableau triable (vues « Standard » et « Temps de trajet »), la vue « Floods et chasses en cours » et la Carte de l'alliance.",
+    ],
+  },
+  {
     version: "1.96.0",
     notes: [
       "Préférences : cinq nouveaux onglets, Reine, Classement (page d'une alliance), Chat, Forum et Compte, chacun avec « Rétablir l'affichage d'origine » et une case par ajout. Toutes cochées : rien ne change tant que vous ne décochez pas.",

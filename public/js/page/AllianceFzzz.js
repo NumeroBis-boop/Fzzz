@@ -35,17 +35,20 @@ class AllianceFzzz {
    */
   static colonnes() {
     let $t = $("#tabMembresAlliance");
-    $t.find("thead tr").append(
-      ALLIANCE_COLONNES_FZZZ.map((c, i) => `<th class='o_allCol${i}'>${c}</th>`).join(""),
-    );
+    AllianceFzzz.avecFloods = Utils.affichage("membresFloods");
+    if (AllianceFzzz.avecFloods)
+      $t.find("thead tr").append(
+        ALLIANCE_COLONNES_FZZZ.map((c, i) => `<th class='o_allCol${i}'>${c}</th>`).join(""),
+      );
     // rang : largeur au plus juste (le libellé ne passe plus sur toute la ligne)
     $t.find("thead th:eq(2)").addClass("o_allRang");
     $t.find("tbody tr").each((i, tr) => $(tr).find("td:eq(2)").addClass("o_allRang"));
-    $t.find("tbody tr").each((i, tr) => {
-      $(tr).append(
-        `<td class='o_allVar o_allCol0' data-order='${ALLIANCE_SANS_MOUVEMENT}'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allFinal o_allCol2' data-order='0'></td>`,
-      );
-    });
+    if (AllianceFzzz.avecFloods)
+      $t.find("tbody tr").each((i, tr) => {
+        $(tr).append(
+          `<td class='o_allVar o_allCol0' data-order='${ALLIANCE_SANS_MOUVEMENT}'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allFinal o_allCol2' data-order='0'></td>`,
+        );
+      });
     // ligne des totaux (pied fusionné sur toutes les colonnes) déplacée sous le
     // tableau : l'extension Responsive de DataTables plante sur un pied fusionné
     // dès qu'on masque ou affiche une colonne
@@ -72,7 +75,8 @@ class AllianceFzzz {
       ouverture = Horloge.clic(),
       // nombre de colonnes lu dans les réglages : columns() sans sélecteur plante en 1.10.16
       n = api.settings()[0].aoColumns.length,
-      k = ALLIANCE_COLONNES_FZZZ.length,
+      // colonnes de la vue « Floods et chasses en cours », sans elles si sa case est décochée
+      k = AllianceFzzz.avecFloods === false ? 0 : ALLIANCE_COLONNES_FZZZ.length,
       fzzz = [...Array(k).keys()].map((i) => n - k + i),
       trajet = avecTrajet ? [9, 10] : [],
       // colonne de numérotation du jeu (1, 2, 3…) : masquée dans toutes les vues
@@ -111,7 +115,7 @@ class AllianceFzzz {
     $boutons.prepend(
       `<a class='dt-button o_allVue' data-vue='reset' href='#'><span>Standard</span></a>
        <a class='dt-button o_allVue' data-vue='trajet' href='#'><span>Temps de trajet</span></a>
-       <a class='dt-button o_allVue' data-vue='floods' href='#'><span>Floods et chasses en cours</span></a>`,
+       ${k ? `<a class='dt-button o_allVue' data-vue='floods' href='#'><span>Floods et chasses en cours</span></a>` : ""}`,
     );
     $boutons.find(".o_allVue").on("click", (e) => {
       e.preventDefault();
@@ -140,40 +144,44 @@ class AllianceFzzz {
     // coordonnées sont en cache : sinon il faudrait les lire), ou celle qui
     // suit une synchronisation des temps de trajet
     let parDefaut = VUES_MEMBRES[parseInt(monProfil.parametre["vueMembres"].valeur) || 0],
-      initiale = parDefaut == "trajet" && !avecTrajet ? "reset" : parDefaut;
+      initiale =
+        (parDefaut == "trajet" && !avecTrajet) || (parDefaut == "floods" && !k)
+          ? "reset"
+          : parDefaut;
     try {
       initiale = sessionStorage.getItem(CLE_VUE_APRES_SYNCHRO) || initiale;
       sessionStorage.removeItem(CLE_VUE_APRES_SYNCHRO);
     } catch (e) {}
     // largeur commune : celle de la vue la plus large, pour que l'encart ne
     // change pas de taille d'une vue à l'autre (les colonnes se répartissent)
-    let fixerLargeur = () => {
-      // écran étroit (mobile) : le tableau défile dans son cadre, pas de largeur fixe
-      if (window.matchMedia && window.matchMedia("(max-width: 760px)").matches) return;
-      let $t = $("#tabMembresAlliance"),
-        $w = $("#tabMembresAlliance_wrapper"),
-        vue = courante,
-        max = 0;
-      $w.css("width", "");
-      $t.addClass("o_allMesure");
-      ["reset", "trajet", "floods"].forEach((v) => {
-        for (let i = 0; i < n; i++) api.column(i).visible(vues[v](i), false);
-        max = Math.max(max, $t.outerWidth());
-      });
-      $t.removeClass("o_allMesure");
-      $w.css("width", max + "px");
-      // second passage à la largeur fixée : une vue dont le contenu déborde
-      // (rang à largeur fixe, en-têtes) agrandit la largeur commune
-      ["reset", "trajet", "floods"].forEach((v) => {
-        for (let i = 0; i < n; i++) api.column(i).visible(vues[v](i), false);
-        max = Math.max(max, $t.outerWidth());
-      });
-      // jamais plus large que le cadre de la page : les colonnes se resserrent
-      let cadre = $w.parent().closest("#centre, center, div").innerWidth();
-      if (cadre) max = Math.min(max, cadre);
-      $w.css("width", max + "px");
-      appliquer(vue);
-    };
+    let vuesAffichees = k ? VUES_MEMBRES : VUES_MEMBRES.filter((v) => v != "floods"),
+      fixerLargeur = () => {
+        // écran étroit (mobile) : le tableau défile dans son cadre, pas de largeur fixe
+        if (window.matchMedia && window.matchMedia("(max-width: 760px)").matches) return;
+        let $t = $("#tabMembresAlliance"),
+          $w = $("#tabMembresAlliance_wrapper"),
+          vue = courante,
+          max = 0;
+        $w.css("width", "");
+        $t.addClass("o_allMesure");
+        vuesAffichees.forEach((v) => {
+          for (let i = 0; i < n; i++) api.column(i).visible(vues[v](i), false);
+          max = Math.max(max, $t.outerWidth());
+        });
+        $t.removeClass("o_allMesure");
+        $w.css("width", max + "px");
+        // second passage à la largeur fixée : une vue dont le contenu déborde
+        // (rang à largeur fixe, en-têtes) agrandit la largeur commune
+        vuesAffichees.forEach((v) => {
+          for (let i = 0; i < n; i++) api.column(i).visible(vues[v](i), false);
+          max = Math.max(max, $t.outerWidth());
+        });
+        // jamais plus large que le cadre de la page : les colonnes se resserrent
+        let cadre = $w.parent().closest("#centre, center, div").innerWidth();
+        if (cadre) max = Math.min(max, cadre);
+        $w.css("width", max + "px");
+        appliquer(vue);
+      };
     AllianceFzzz._fixerLargeur = fixerLargeur;
     appliquer(initiale);
     fixerLargeur();

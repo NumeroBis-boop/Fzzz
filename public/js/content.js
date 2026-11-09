@@ -599,9 +599,12 @@ const DATEPICKER_OPTION = {
         // tant que le joueur a une alliance (présence du lien Membres = preuve).
         // Lien réel vers ?Membres#carte : sur cette page, PageAlliance intercepte
         // le clic pour un toggle client-side ; depuis ailleurs, navigation normale.
+        // sans la carte (Préférences → Page membre), l'entrée ne mènerait à rien
         if (
           !origineGenerale &&
           Utils.affichage("menuCarte") &&
+          Utils.affichage("membresCarte") &&
+          !Utils.origine("Membre") &&
           $("#menuAlliance .boutonMembres").length
         ) {
           $("#menuAlliance .boutonMembres")

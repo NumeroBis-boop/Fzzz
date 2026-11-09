@@ -40,7 +40,7 @@ var ONGLETS_CAMPS = ["BDD attaques", "BDD défenses"];
 var HAUTEUR_LIGNE = 21;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "2026-11-09.3";
+var VERSION_SCRIPT = "2026-11-09.4";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -355,10 +355,24 @@ var STATS_JOURS_MAX = 3 * 366;
 // lecture de moins vaut mieux que quelques textes de trop
 var ECART_LECTURE_RC = 20;
 // couleurs des graphiques, celles de la synthèse de l'extension : le joueur en
-// vert, la moyenne des chasseurs en rouge, les autres chasseurs dans cet ordre
+// vert, la moyenne des chasseurs en rouge, les autres chasseurs dans cet ordre,
+// puis une nuance de chacun, plus claire ou plus foncée (demande du mainteneur)
 var COULEUR_JOUEUR = "#008300";
 var COULEUR_MOYENNE = "#e34948";
-var COULEURS_AUTRES_CHASSEURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
+var COULEURS_AUTRES_CHASSEURS = [
+  "#2a78d6",
+  "#eb6834",
+  "#1baf7a",
+  "#eda100",
+  "#e87ba4",
+  "#6250d6",
+  "#65a8ff",
+  "#9f3600",
+  "#066c49",
+  "#9d6a06",
+  "#b54d77",
+  "#8c84fe",
+];
 var COULEUR_NOURRITURE = "#eb6834";
 var COULEUR_PERTES = "#6250d6";
 var COULEUR_ENCRE = "#52514e";
@@ -451,22 +465,8 @@ function statistiques(tables, joueur, debut, fin, fuseau, autres) {
     pertes = somme(miennes, "pertes"),
     nourriture = somme(miennes, "nourriture"),
     // moyenne des pertes par million de cm² des chasses (chacune compte autant)
-    ratios = groupes
-      .filter(function (g) {
-        return g.terrain > 0;
-      })
-      .map(function (g) {
-        return g.pertes / g.terrain;
-      }),
-    moyenne = ratios.length
-      ? Math.round(
-          (ratios.reduce(function (a, b) {
-            return a + b;
-          }, 0) /
-            ratios.length) *
-            1e6,
-        )
-      : "",
+    // pertes par M cm² de la période : celles du résumé (total ÷ total)
+    moyenne = parMillion(pertes, terrain),
     terrains = groupes.map(function (g) {
       return g.terrain;
     }),
@@ -1404,16 +1404,21 @@ function creerStatistiques(classeur) {
     chasses = plage("Chasse"),
     premiere = resume.length + 5,
     // couleurs de la synthèse de l'extension : chaque chasseur en pointillés, le
-    // joueur en vert, les autres dans les autres couleurs ; les tendances en
-    // tirets, celle du joueur en vert, celle de la moyenne des chasseurs en rouge
+    // joueur en vert, les autres dans les autres couleurs (un autre pointillé
+    // quand elles sont épuisées) ; les tendances en tirets, celle du joueur en
+    // vert, celle de la moyenne des chasseurs en rouge
     trait = [10, 5],
     pointilles = [2, 3],
+    autresPointilles = [pointilles, [6, 3, 2, 3], [12, 3, 2, 3]],
     seriesAutres = {};
   for (var k = 0; k < nAutres; k++)
     seriesAutres[3 + k] = {
       color: COULEURS_AUTRES_CHASSEURS[k % COULEURS_AUTRES_CHASSEURS.length],
       lineWidth: 2,
-      lineDashStyle: pointilles,
+      lineDashStyle:
+        autresPointilles[
+          Math.floor(k / COULEURS_AUTRES_CHASSEURS.length) % autresPointilles.length
+        ],
     };
   seriesAutres[0] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: pointilles };
   seriesAutres[1] = { color: COULEUR_JOUEUR, lineWidth: 2, lineDashStyle: trait };
@@ -1474,7 +1479,8 @@ function creerStatistiques(classeur) {
     },
     {
       type: Charts.ChartType.LINE,
-      titre: "Pertes par M cm² de chaque chasse dans le temps, et leur moyenne",
+      titre:
+        "Pertes par M cm² de chaque chasse dans le temps, et la moyenne de la période (pertes totales ÷ terrain total)",
       plages: [plage("Date"), plage("Pertes / M cm²", 2)],
       options: {
         series: {

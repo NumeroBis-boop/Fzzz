@@ -21,11 +21,25 @@ const COULEURS_CHASSEURS = [
   "#e34948",
 ];
 // le joueur en vert, la moyenne des chasseurs en rouge (choix du mainteneur) ;
-// les autres chasseurs dans les autres couleurs, toujours en pointillés, avec
-// un autre pointillé au-delà de six (mêmes couleurs que l'onglet du Sheet)
+// les autres chasseurs dans les autres couleurs, puis une nuance de chacune au-delà
+// de six (demande du mainteneur), toujours en pointillés, un autre pointillé
+// au-delà de douze (mêmes couleurs que l'onglet du Sheet)
 const COULEUR_JOUEUR = "#008300";
 const COULEUR_MOYENNE = "#e34948";
-const COULEURS_AUTRES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
+const COULEURS_AUTRES = [
+  "#2a78d6",
+  "#eb6834",
+  "#1baf7a",
+  "#eda100",
+  "#e87ba4",
+  "#6250d6",
+  "#65a8ff",
+  "#9f3600",
+  "#066c49",
+  "#9d6a06",
+  "#b54d77",
+  "#8c84fe",
+];
 const TRAITS_AUTRES = ["ShortDot", "ShortDashDot", "LongDashDot"];
 // les deux tendances (joueur et moyenne) : même trait
 const TRAIT_TENDANCE = "LongDash";
@@ -656,7 +670,8 @@ class SyntheseChasse {
       ],
       moyenneChasseurs = SyntheseChasse.moyenne(chasseurs.map((c) => c.data)),
       pertes = SyntheseChasse.colonne(s, "Pertes / M cm²"),
-      moyennePertes = SyntheseChasse.colonne(s, "Moyenne (pertes / M cm²)")[0],
+      // celle de la carte : pertes totales ÷ terrain total (demande du mainteneur)
+      moyennePertes = SyntheseChasse.resume(s, "Pertes par M cm² chassé"),
       dates = SyntheseChasse.colonne(s, "Date");
     return [
       // terrain en colonnes (axe de gauche), nourriture et pertes en courbes,
@@ -801,7 +816,10 @@ class SyntheseChasse {
         chart: { type: "line", ...cadre(280) },
         title: titre("Pertes par M cm² de chaque chasse dans le temps"),
         subtitle: {
-          text: moyennePertes == null ? "" : `Moyenne : ${entier(moyennePertes)} (tirets)`,
+          text:
+            moyennePertes == null
+              ? ""
+              : `Moyenne de la période : ${entier(moyennePertes)} (tirets, le chiffre de la carte)`,
           align: "left",
           style: { fontSize: "11px", color: ENCRE_GRAPHIQUE },
         },

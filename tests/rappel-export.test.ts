@@ -3,8 +3,10 @@ import { creerPage } from "./harnais";
 
 /**
  * Rappel « Export des chasses à faire » (rôle Chasseur, 1.97.0) : à partir du
- * mercredi et du dimanche 22h, heure du serveur, jusqu'à l'export des chasses.
- * Aucune requête au jeu : un bandeau avec un lien vers la messagerie.
+ * mercredi et du dimanche 22h, heure du serveur, jusqu'à l'export des chasses ;
+ * un export des 24 h d'avant compte (1.97.1 : deux exports par semaine, le jeu
+ * supprime les conversations lues au bout de 7 jours). Aucune requête au jeu :
+ * un bandeau avec un lien vers la messagerie.
  */
 const page = creerPage(
   [
@@ -71,6 +73,39 @@ describe("rappel : rôle Chasseur seulement, jusqu'à l'export", () => {
     regler("2026-11-15 21:59");
     expect(aRappeler()).toBe(false);
     regler("2026-11-15 22:00");
+    expect(aRappeler()).toBe(true);
+  });
+
+  const exporterA = (quand: string) => {
+    regler(quand);
+    page.lire(`RappelExport.noterExport()`);
+  };
+
+  test("export dans les 24 h avant le rendez-vous : il compte", () => {
+    profil(3);
+    exporterA("2026-11-11 21:50");
+    expect(aRappeler()).toBe(false);
+    regler("2026-11-11 22:30");
+    expect(aRappeler()).toBe(false);
+    // le rendez-vous suivant demande son propre export
+    regler("2026-11-15 22:00");
+    expect(aRappeler()).toBe(true);
+    profil(3);
+    exporterA("2026-11-10 22:00");
+    regler("2026-11-11 22:00");
+    expect(aRappeler()).toBe(false);
+    profil(3);
+    exporterA("2026-11-10 21:59");
+    regler("2026-11-11 22:00");
+    expect(aRappeler()).toBe(true);
+  });
+
+  test("deux exports par semaine : un export juste après dimanche 22h ne vaut pas pour mercredi", () => {
+    profil(3);
+    exporterA("2026-11-08 22:05");
+    regler("2026-11-11 21:59");
+    expect(aRappeler()).toBe(false);
+    regler("2026-11-11 22:00");
     expect(aRappeler()).toBe(true);
   });
 

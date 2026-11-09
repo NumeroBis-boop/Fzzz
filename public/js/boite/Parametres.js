@@ -665,7 +665,7 @@ class BoiteParametre extends Boite {
   ongletRole() {
     $("#o_tabsParametreRole").append(`<form>
         ${monProfil.parametre["role"].getForm("Ton rôle dans l'alliance")}
-        <p class='left o_aideParam'>Chasseur : rappel « Export des chasses à faire » à partir du mercredi et du dimanche 22h (heure du serveur), jusqu'à ce que tu exportes tes chasses depuis la messagerie (case dans l'onglet Général).</p>
+        <p class='left o_aideParam'>Chasseur : rappel « Export des chasses à faire » à partir du mercredi et du dimanche 22h (heure du serveur), jusqu'à ce que tu exportes tes chasses depuis la messagerie ; un export fait dans les 24 h d'avant compte. Deux exports par semaine : le jeu supprime les conversations lues au bout de 7 jours. Case dans l'onglet Général.</p>
       </form>`);
     return this;
   }

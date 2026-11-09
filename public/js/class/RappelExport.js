@@ -2,10 +2,14 @@
  * RappelExport.js
  **********************************************************************/
 
-// rendez-vous d'export des chasses (règle du mainteneur) : mercredi et dimanche
-// à 22h, heure du serveur ; jours de moment().day()
+// deux exports des chasses par semaine (règle du mainteneur) : le jeu supprime
+// les conversations lues au bout de 7 jours. Rendez-vous le mercredi et le
+// dimanche à 22h, heure du serveur ; jours de moment().day()
 const RAPPEL_EXPORT_JOURS = [3, 0];
 const RAPPEL_EXPORT_HEURE = 22;
+// seule la fréquence compte : un export des 24 h d'avant vaut pour le rendez-vous
+// (au pire 5 jours entre deux exports sans rappel, 2 avant la suppression)
+const HEURES_EXPORT_AVANT_RDV = 24;
 // dernier export des chasses mené au bout (ms, horloge du serveur)
 const CLE_EXPORT_CHASSES_FAIT = "fzzz_exportChassesFait";
 // la croix masque le rappel jusqu'à cette heure (ms)
@@ -15,8 +19,9 @@ const MINUTES_MASQUAGE_RAPPEL = 60;
 /**
  * Rappel « Export des chasses à faire » pour le rôle Chasseur : un bandeau
  * sous le menu à partir du mercredi et du dimanche 22h, jusqu'à l'export des
- * chasses (bouton de la messagerie). Aucune requête au jeu : le joueur ouvre
- * la messagerie et clique (règlement du s5 : pas d'export sans son clic).
+ * chasses (bouton de la messagerie), sauf export dans les 24 h d'avant. Aucune
+ * requête au jeu : le joueur ouvre la messagerie et clique (règlement du s5 :
+ * pas d'export sans son clic).
  *
  * @class RappelExport
  */
@@ -64,7 +69,7 @@ class RappelExport {
       rdv = RappelExport.dernier(Horloge.serveur());
     return (
       !!rdv &&
-      lire(CLE_EXPORT_CHASSES_FAIT) < rdv.valueOf() &&
+      lire(CLE_EXPORT_CHASSES_FAIT) < rdv.valueOf() - HEURES_EXPORT_AVANT_RDV * 3600000 &&
       lire(CLE_RAPPEL_EXPORT_MASQUE) < Horloge.maintenant()
     );
   }

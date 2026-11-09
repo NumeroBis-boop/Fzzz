@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.97.1",
+    notes: [
+      "Rappel « Export des chasses à faire » : un export fait dans les 24 h avant le mercredi ou le dimanche 22h compte, le bandeau ne revient plus juste après. Il en faut deux par semaine : le jeu supprime les conversations lues au bout de 7 jours.",
+    ],
+  },
+  {
     version: "1.97.0",
     notes: [
       "Préférences → Rôle : choisis ton rôle dans l'alliance (passeur, grenier ou chasseur).",

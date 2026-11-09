@@ -184,6 +184,24 @@ describe("export : date des rapports", () => {
     expect(lire(`LECTURES`)).toEqual([13]);
     expect(fichier.cles("BDD chasse")).toHaveLength(4);
   });
+
+  test("conversation aux RC datés et sans date : les datés envoyés, elle relue ensuite sans doublon", async () => {
+    messagerie({
+      11: {
+        titre: CHASSES[11].titre,
+        html:
+          message(101, chasse(1)) +
+          `<tr id="message_102"><td class="expe">Fourmizzz il y a 3 heures</td><td class="message">${chasse(2)}</td></tr>`,
+      },
+    });
+    await exporter("chasse");
+    expect(fichier.cles("BDD chasse")).toHaveLength(1);
+    lire(`LECTURES.length = 0`);
+    await exporter("chasse");
+    expect(lire(`LECTURES`)).toEqual([11]);
+    expect(dernierMessage()).toContain("(1 déjà présente)");
+    expect(fichier.cles("BDD chasse")).toHaveLength(1);
+  });
 });
 
 describe("export : clics répétés et pages rechargées", () => {

@@ -1338,6 +1338,10 @@ class ExportRapports {
             Promise.resolve(),
           )
           .then(() => {
+            // RC sans date lisible : sa conversation reste à relire (clé « | »)
+            bilanDates.conversations.forEach((id) => {
+              parConversation[id] = (parConversation[id] || []).concat("|");
+            });
             ExportRapports.memoriser(type, parConversation);
             let sansRC = lues.filter(
                 (c) => !parConversation[c.id] && !bilanDates.conversations.has(c.id),

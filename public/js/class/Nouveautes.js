@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.96.2",
+    notes: [
+      "Lanceur de Flood : la méthode par défaut devient « Dégressive ». Si « Optimisée » (l'ancien défaut) était enregistrée, elle passe en Dégressive ; « Standard » et « Uniforme » restent. Elle se change dans Préférences → Attaque, « Méthode de flood par défaut ».",
+    ],
+  },
+  {
     version: "1.96.1",
     notes: [
       "Préférences → Page membre : l'onglet couvre aussi la page Membres de l'alliance. « Rétablir l'affichage d'origine » s'y applique, et une case pour le nombre de membres par état, les épées de portée, le tableau triable (vues « Standard » et « Temps de trajet »), la vue « Floods et chasses en cours » et la Carte de l'alliance.",

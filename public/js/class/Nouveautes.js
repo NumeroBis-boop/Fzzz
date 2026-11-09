@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.95.2",
+    notes: [
+      "Armée : une unité pondue pendant le replacement ne fausse plus le nouvel essai quand le jeu ignore un déplacement (il restait 2 unités en dôme au lieu de 1).",
+    ],
+  },
+  {
     version: "1.95.1",
     notes: [
       "Synthèse, terrain chassé à chaque chasse : tous les chasseurs en pointillés, une couleur chacun (toi en vert) ; plus de courbe moyenne, seulement sa tendance (rouge), qui suit les chasseurs affichés ; ta tendance en vert ; les tendances en tirets, différents des pointillés.",

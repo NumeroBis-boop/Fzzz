@@ -2459,17 +2459,21 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
 #o_allInfobulle .o_allInfoCible {
   font-style: italic;
 }
-/* TdC à l'arrivée d'une attaque lancée à l'ouverture de la page */
-#o_allInfobulle tr.o_allInfoAttaque td {
+/* TdC à l'arrivée d'une attaque lancée à l'ouverture de la page (page
+   Membres, page d'un membre) */
+#o_allInfobulle tr.o_ligneArrivee > td,
+#o_chassesPartagees tr.o_ligneArrivee > td {
   font-weight: bold;
   background: #fff8d6;
   border-top: 1px solid #8b7440;
   border-bottom: 1px solid #8b7440;
 }
-#o_allInfobulle tr.o_allInfoAttaque td:first-child {
+#o_allInfobulle tr.o_ligneArrivee > td:first-child,
+#o_chassesPartagees tr.o_ligneArrivee > td:first-child {
   border-left: 1px solid #8b7440;
 }
-#o_allInfobulle tr.o_allInfoAttaque td:last-child {
+#o_allInfobulle tr.o_ligneArrivee > td:last-child,
+#o_chassesPartagees tr.o_ligneArrivee > td:last-child {
   border-right: 1px solid #8b7440;
 }
 #o_chassesPartagees .o_allInfoCible {

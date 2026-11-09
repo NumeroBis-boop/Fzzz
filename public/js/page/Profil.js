@@ -44,8 +44,20 @@ class PageProfil {
       -1,
     ])[0];
     this._profil.terrain = numeral($(".tableau_score tr:eq(1) td:eq(1)").text()).value();
-    // Fzzz : chasses partagées par ce joueur (forum de l'alliance)
-    PartageChasses.afficherProfil(this._profil.pseudo, this._profil.terrain);
+    // Fzzz : chasses partagées par ce joueur (forum de l'alliance) ; temps de
+    // trajet des lignes « Retour le » et « Rapport »
+    let soi = this._profil.estJoueurCourant(),
+      connu = this._profil.x !== -1 && this._profil.y !== -1 && monProfil.niveauRecherche[6] >= 0;
+    PartageChasses.afficherProfil(
+      this._profil.pseudo,
+      this._profil.terrain,
+      soi
+        ? null
+        : {
+            secondes: connu ? monProfil.getTempsParcours2(this._profil) : null,
+            depart: Horloge.clic(),
+          },
+    );
     // si on consulte un profil différent du sien
     if (!this._profil.estJoueurCourant()) {
       // si on a pas de compte+ on affiche le temps de trajet

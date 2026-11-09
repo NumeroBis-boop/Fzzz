@@ -1115,6 +1115,67 @@ class PartageChasses {
     return lignes;
   }
   /**
+   * Ligne d'une chronologie où se trouve le TdC qu'une attaque lancée à
+   * `depart` trouverait : son arrivée est ramenée à la minute du RC, comme les
+   * dates des floods partagés, et une variation de la même minute passe avant
+   * elle (ordre d'envoi, comme dans simuler).
+   *
+   * @static
+   * @method arriveeAttaque
+   * @param {Array} vars chronologie(), dans l'ordre
+   * @param {Number|null} secondes temps de trajet à ma Vitesse d'attaque (null : inconnu)
+   * @param {Object} depart heure du lancement (moment)
+   * @return {{minute: Object, ligne: Number}|null} ligne : indice dans vars, -1 avant toute variation
+   */
+  static arriveeAttaque(vars, secondes, depart) {
+    if (secondes == null) return null;
+    let minute = Utils.roundMinute(secondes, depart),
+      cle = minute.format("YYYY-MM-DD HH:mm");
+    return { minute, ligne: vars.reduce((a, v, j) => (v.date <= cle ? j : a), -1) };
+  }
+  /**
+   * Lignes du tableau du TdC après chaque variation (info-bulle de la page
+   * Membres, page d'un membre), la ligne `surlignee` mise en évidence.
+   *
+   * @static
+   * @method lignesEvolution
+   * @param {Number} terrain TdC actuel
+   * @param {Array} vars chronologie()
+   * @param {Number|null} surlignee indice dans vars, -1 : « Actuellement », null : aucune
+   * @param {String} classeEntete classe de la ligne d'en-tête
+   * @return {String} HTML des lignes
+   */
+  static lignesEvolution(terrain, vars, surlignee, classeEntete) {
+    let tdc = terrain,
+      classe = (/** @type {Number} */ j) => (j === surlignee ? " class='o_ligneArrivee'" : ""),
+      lignes = [
+        `<tr class='${classeEntete}'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Lanceur → cible</td></tr>`,
+        `<tr${classe(-1)}><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
+      ];
+    vars.forEach((v, j) => {
+      tdc += v.delta;
+      lignes.push(
+        `<tr${classe(j)}><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td></tr>`,
+      );
+    });
+    return lignes.join("");
+  }
+  /**
+   * Note sous ce tableau : heure d'arrivée de l'attaque, sinon `siInconnue`.
+   *
+   * @static
+   * @method noteArrivee
+   * @param {{minute: Object, ligne: Number}|null} arrivee arriveeAttaque()
+   * @param {String} siInconnue texte sans temps de trajet ("" : pas de note)
+   * @return {String} HTML
+   */
+  static noteArrivee(arrivee, siInconnue) {
+    let texte = arrivee
+      ? `Surligné : TdC à l'arrivée d'une attaque lancée à l'ouverture de la page (${arrivee.minute.format("DD/MM HH[h]mm")}).`
+      : siInconnue;
+    return texte ? `<div class='o_note'>${texte}</div>` : "";
+  }
+  /**
    * Sens d'une variation de la chronologie : « lanceur → cible » pour un
    * flood, « Chasse » pour une chasse (HTML échappé).
    *
@@ -1212,12 +1273,17 @@ class PartageChasses {
   }
   /**
    * Page membre : chasses et floods partagés du joueur consulté, et évolution
-   * de son TdC (unités envoyées et prise estimée à l'impact pour chaque flood).
+   * de son TdC (unités envoyées et prise estimée à l'impact pour chaque flood),
+   * où est surlignée la ligne du TdC à l'arrivée d'une attaque lancée à
+   * l'ouverture de la page.
    *
    * @static
    * @method afficherProfil
+   * @param {String} pseudo
+   * @param {Number} terrain
+   * @param {{secondes: Number|null, depart: Object}|null} [attaque] trajet vers lui et heure d'ouverture (null : son propre profil)
    */
-  static afficherProfil(pseudo, terrain) {
+  static afficherProfil(pseudo, terrain, attaque = null) {
     if (!Utils.affichage("profilPartages")) return;
     // chasses du joueur affiché (et les miennes, qui comptent pour mes floods) ;
     // floods de tous les membres : à chaque affichage, une correction faite dans
@@ -1249,22 +1315,18 @@ class PartageChasses {
           };
         let synthese = "";
         if (vars.length && terrain > 0) {
-          let tdc = terrain,
-            lignes = [
-              `<tr class='o_partageEntete'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Lanceur → cible</td></tr>`,
-              `<tr><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
-            ];
-          vars.forEach((v) => {
-            tdc += v.delta;
-            lignes.push(
-              `<tr><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td></tr>`,
-            );
-          });
+          let arrivee = attaque
+            ? PartageChasses.arriveeAttaque(vars, attaque.secondes, attaque.depart)
+            : null;
           synthese =
             "<div class='o_partageSeparation'></div>" +
             `<div class='o_partageSynthese'>` +
             `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
-              <table class='centre' cellspacing='0'>${lignes.join("")}</table>` +
+              <table class='centre' cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "o_partageEntete")}</table>` +
+            PartageChasses.noteArrivee(
+              arrivee,
+              attaque ? "TdC à l'arrivée d'une attaque : temps de trajet inconnu." : "",
+            ) +
             "</div>";
         }
         let unitesFloods = floods.reduce((t, v) => t + (v.unites || 0), 0),

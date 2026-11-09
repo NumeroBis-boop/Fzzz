@@ -2789,6 +2789,31 @@ html:not(.o_desactivee) #tabMembresAlliance.o_allMesure .o_allCol2 {
   margin-left: 0;
   margin-right: 0;
 }
+/* Lanceur de Flood : boutons à gauche ; TdC à l'impact sous « Mon Terrain »
+   et la cible, à droite des boutons (au-dessus d'eux sur téléphone) */
+#o_prepaFlood .o_floodBoutons {
+  text-align: left;
+  margin: 4px 0;
+}
+#o_simulationFlood .o_floodBoutonsCase {
+  text-align: left;
+  vertical-align: top;
+  padding: 4px 0;
+}
+#o_simulationFlood .o_floodImpact,
+#o_simulationFlood .o_floodImpactInfo {
+  vertical-align: top;
+  text-align: center;
+}
+#o_simulationFlood .o_tdcImpact {
+  font-weight: bold;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+#o_simulationFlood .o_floodHorsPortee {
+  color: var(--fzzz-erreur);
+  font-weight: bold;
+}
 /* unités gardées au flood (lanceur, multi-flood, préférences) : une ligne
    par unité ; chaque ligne passe à la ligne sur téléphone */
 .o_gardees {

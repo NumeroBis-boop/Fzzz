@@ -56,6 +56,7 @@ const ONGLETS_PARAMETRE = [
       "retourArmee",
       "statArmee",
       "lanceurFlood",
+      "floodImpact",
       "ennemisFiltre",
       "ennemisTemps",
     ],

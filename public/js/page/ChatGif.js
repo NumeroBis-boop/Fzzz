@@ -7,9 +7,8 @@
 // GIF envoyés par le joueur avec [img]…[/img], le plus récent en premier
 const CLE_MES_GIF = "fzzz_mesGif";
 const MES_GIF_MAX = 60;
-// dernière lecture du sujet de l'alliance ; relu au clic au-delà d'une heure
+// dernière lecture du sujet de l'alliance, montrée quand le forum ne répond pas
 const CLE_GIF_ALLIANCE = "fzzz_gifAlliance";
-const DUREE_GIF_ALLIANCE = 3600000;
 // adresse utilisable telle quelle dans [img]…[/img]
 const ADRESSE_IMAGE = /^https?:\/\/[^\s[\]<>"'`]+$/i;
 
@@ -21,8 +20,9 @@ const ADRESSE_IMAGE = /^https?:\/\/[^\s[\]<>"'`]+$/i;
  * le message, que le joueur envoie lui-même ; le jeu affiche l'image à tous,
  * avec ou sans l'extension.
  *
- * Requêtes : la lecture du sujet de l'alliance, au clic, au plus une fois par
- * heure (« Relire » pour forcer).
+ * Requêtes : le sujet de l'alliance est lu à l'ouverture de la page (une
+ * lecture, permise par les règles s5 : rien de périodique), de nouveau à
+ * l'ouverture du panneau si elle a échoué, et par « Relire ».
  *
  * @class ChatGif
  */
@@ -185,20 +185,16 @@ class ChatGif {
     }
   }
   /**
-   * GIF de l'alliance : la dernière lecture si elle a moins d'une heure, sinon
-   * le sujet du forum.
+   * GIF de l'alliance lus dans le sujet du forum, avec une liste des sujets
+   * relue (le sujet a pu être créé depuis) ; la lecture est gardée pour le cas
+   * où le forum ne répond pas.
    *
    * @static
    * @method gifAlliance
-   * @param {Boolean} [relire] lire le forum même avec une lecture récente
    * @return {Promise<{gifs: Array<String>, ignores: Number, absent?: Boolean, date: Number}>}
    */
-  static gifAlliance(relire = false) {
-    let lue = ChatGif._lue(),
-      age = lue ? Horloge.maintenant() - lue.date : -1;
-    if (lue && !relire && age >= 0 && age < DUREE_GIF_ALLIANCE) return Promise.resolve(lue);
-    // « Relire » : sujet peut-être créé depuis la dernière liste des sujets
-    return PartageChasses.sujets(!relire)
+  static gifAlliance() {
+    return PartageChasses.sujets()
       .then((sujets) =>
         sujets.gifAlliance
           ? PartageChasses._xajax("callGetTopic", sujets.gifAlliance).then((data) =>
@@ -213,6 +209,27 @@ class ChatGif {
         } catch (e) {}
         return lecture;
       });
+  }
+  /**
+   * Lecture du sujet de l'alliance pour cette page : celle lancée à son
+   * ouverture, sinon (échec, « Relire ») une nouvelle.
+   *
+   * @private
+   * @static
+   * @param {Boolean} relire
+   * @return {Promise<any>}
+   */
+  static _lecture(relire) {
+    let $panneau = $("#o_gifPanneau"),
+      lecture = !relire && $panneau.data("o_lecture");
+    if (lecture) return lecture;
+    lecture = ChatGif.gifAlliance();
+    $panneau.data("o_lecture", lecture);
+    // l'erreur est montrée à l'ouverture du panneau, qui relira
+    lecture.catch(() => {
+      if ($panneau.data("o_lecture") === lecture) $panneau.removeData("o_lecture");
+    });
+    return lecture;
   }
   /**
    * Écrit [img]adresse[/img] à la place du curseur, séparé du texte voisin.
@@ -279,6 +296,8 @@ class ChatGif {
     $bouton.before(document.createTextNode(" "));
     if ($formulaire.length) $panneau.appendTo($formulaire);
     else $panneau.insertAfter($bouton);
+    // lu dès l'ouverture de la page : la liste est à jour au premier clic
+    if (sections.alliance) ChatGif._lecture(false);
     $bouton.on("click", (e) => {
       // pas de mise en forme si le bouton est tombé dans un élément cliquable du jeu
       e.preventDefault();
@@ -410,7 +429,7 @@ class ChatGif {
   static afficherAlliance(relire) {
     let $zone = $("#o_gifPanneau .o_gifAlliance");
     $zone.html(`<p class="reduce o_gifNote">Lecture du forum…</p>`);
-    return ChatGif.gifAlliance(relire).then(
+    return ChatGif._lecture(relire).then(
       (r) => ChatGif._montrerAlliance($zone, r),
       (e) => {
         let absente = e && e.message == "absente",

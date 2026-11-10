@@ -194,9 +194,9 @@ const AFFICHAGES_FZZZ = {
     "Hors Compte+ : boutons de mise en forme (taille, gras, italique, lien, pseudo…)",
   chatSmileys: "Hors Compte+ : listes de smileys et flèches pour passer de l'une à l'autre",
   chatMesGif:
-    "Bouton « GIF » du chat d'alliance, liste « Mes GIF » : les GIF que tu as envoyés avec [img]",
+    "Bouton « GIF » des chats (alliance et général), liste « Mes GIF » : les GIF que tu as envoyés avec [img]",
   chatGifAlliance:
-    "Bouton « GIF » du chat d'alliance, liste « GIF de l'alliance » : ceux du sujet du même nom du forum caché",
+    "Bouton « GIF » des chats (alliance et général), liste « GIF de l'alliance » : ceux du sujet du même nom du forum caché",
   forumSection:
     "Bouton pour créer la section cachée du partage des chasses, quand elle n'existe pas encore",
   menuRapide:

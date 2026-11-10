@@ -1512,7 +1512,7 @@ html:not(.o_originePage) #color {
 }
 /* chat d'alliance : bouton « GIF » et ses listes (ChatGif) */
 #o_gifBouton {
-  margin-left: 10px;
+  margin-left: 6px;
 }
 #o_gifPanneau {
   box-sizing: border-box;

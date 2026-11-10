@@ -135,11 +135,12 @@ describe("TdC à l'impact : calcul", () => {
   });
 });
 
-// lanceur ouvert sur Cible (100 000 cm²), moi à 60 000 cm², 1 h de trajet
-function ouvrir() {
+// lanceur ouvert sur Cible (100 000 cm²), moi à 60 000 cm², 1 h de trajet ;
+// auto : option « TdC à l'impact dès l'ouverture » cochée
+function ouvrir(auto = false) {
   page.lire(`(() => {
     localStorage.clear();
-    localStorage.setItem("outiiil_parametre", JSON.stringify({ reserveFlood: 0, reserveFloodAuto: false, methodeFlood: 0 }));
+    localStorage.setItem("outiiil_parametre", JSON.stringify({ reserveFlood: 0, reserveFloodAuto: false, methodeFlood: 0, floodImpactAuto: ${auto} }));
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
     monProfil.getTempsParcours2 = () => 3600;
     document.body.innerHTML = '<span id="quantite_tdc">60000</span><table class="simulateur"></table>';
@@ -156,7 +157,8 @@ function ouvrir() {
     AttaqueLancee.extraireLignes = () => [{ cible: "Cible", id: 9 }];
     AttaqueLancee.charger = () => [{ id: 9, cible: "Cible", lieu: "Terrain de Chasse", arrivee: moment("2026-11-09 10:44:30", "YYYY-MM-DD HH:mm:ss").valueOf(), unite: { "Jeune Soldate Naine": 4000 }, terrainDepart: 100000, terrainCible: 96000, terrainConnu: 100000 }];
     AttaqueLancee.pourPartage = (a) => ({ ...a.capture });
-    PartageChasses.charger = () => Promise.resolve(${JSON.stringify(PARTAGES)});
+    window.lectures = 0;
+    PartageChasses.charger = () => (lectures++, Promise.resolve(${JSON.stringify(PARTAGES)}));
     $.get = () => Promise.resolve("<html></html>");
     p.formulaireFlood();
   })()`);
@@ -238,6 +240,60 @@ describe("TdC à l'impact : lanceur de flood", () => {
     expect(texte(".o_floodHorsPortee")).toBe(
       "Hors portée à l'impact : le flood ne prendrait rien.",
     );
+  });
+
+  test("option « dès l'ouverture » : lu sans clic, mis dans les champs, flood recalculé", async () => {
+    ouvrir(true);
+    const avant = page.lire<number>(`preparations`);
+    await attendre();
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([64700, 91000]);
+    expect(page.lire<number>(`preparations`)).toBe(avant + 1);
+    expect(texte(".o_floodImpactInfo")).toBe("TdC à l'impact (09/11 11h01) · Relire");
+    // au lancement, le forum garde le TdC de la cible connu au lancement
+    page.lire(`$("#o_lanceFlood").click()`);
+    expect(page.lire(`AttaqueLancee.contexteFlood.terrain`)).toBe(100000);
+  });
+
+  test("option : un champ non touché suit l'impact, une valeur tapée est gardée", async () => {
+    ouvrir(true);
+    // tapé avant la fin de la lecture : gardé
+    page.lire(`$("#o_floodTDCB").spinner("value", 98000)`);
+    await attendre();
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([64700, 98000]);
+    // 30 min plus tard, l'impact passe après le flood de Beta sur moi (11h30)
+    page.lire(`heure += 30 * 60000; p.afficherImpact();`);
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([62700, 98000]);
+    // ma propre valeur dans « Mon Terrain » : elle reste quand l'impact change
+    page.lire(
+      `$("#o_floodTDCA").spinner("value", 50000); heure -= 30 * 60000; p.afficherImpact();`,
+    );
+    expect(page.lire(`$("#o_floodTDCA").spinner("value")`)).toBe(50000);
+    // un clic sur la valeur à l'impact : le champ la reprend et la suit de nouveau
+    page.lire(
+      `$(".o_tdcImpact[data-champ='o_floodTDCB']").click(); heure += 30 * 60000; p.afficherImpact(); heure -= 30 * 60000;`,
+    );
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(91000);
+  });
+
+  test("option décochée (par défaut) : rien n'est lu à l'ouverture", async () => {
+    ouvrir();
+    await attendre();
+    expect(page.lire<number>(`lectures`)).toBe(0);
+    expect(texte(".o_floodImpact")).toBe("Calculer le TdC à l'impact");
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([60000, 100000]);
+    expect(
+      page.lire(
+        `(() => { localStorage.removeItem("outiiil_parametre"); return new Joueur({ pseudo: "X" }).getParametre().parametre.floodImpactAuto.valeur; })()`,
+      ),
+    ).toBe(false);
   });
 
   test("case décochée : ni lien ni lignes, boutons sous le tableau", () => {

@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.100.0",
+    notes: [
+      "Lanceur de Flood : option « TdC à l'impact dès l'ouverture » dans Préférences → Attaque (décochée par défaut). Cochée, le TdC à l'impact est calculé sans clic à l'ouverture de la page d'attaque et mis dans « Mon Terrain » et le champ de la cible : le flood est calculé au TdC à l'impact. Une valeur que tu tapes est gardée.",
+      "Chat : le bouton « GIF » est aussi sur le chat général. Correction : avec le Compte+, il pouvait se retrouver caché dans la liste des couleurs du jeu ; il est au bout de la ligne d'« Envoyer » et passe à la ligne sur téléphone au lieu d'élargir la page.",
+    ],
+  },
+  {
     version: "1.99.0",
     notes: [
       "Page Membres (info-bulle de la vue « Floods et chasses en cours ») et page d'un membre : après le pseudo, « à portée le 10/11 à 12h45 », l'heure à partir de laquelle tu pourras le flooder d'après les floods et chasses partagés (son TdC et le tien). Sinon « déjà à portée », avec « jusqu'au … » s'il doit en sortir, ou « hors de portée ».",

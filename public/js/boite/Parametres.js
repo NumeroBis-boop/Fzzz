@@ -148,7 +148,14 @@ const ONGLETS_PARAMETRE = [
   {
     id: "Chat",
     titre: "Chat",
-    affichages: ["chatCiter", "chatCouleur", "chatMiseEnForme", "chatSmileys"],
+    affichages: [
+      "chatCiter",
+      "chatCouleur",
+      "chatMiseEnForme",
+      "chatSmileys",
+      "chatMesGif",
+      "chatGifAlliance",
+    ],
     origine: "chat de l'alliance",
   },
   { id: "Forum", titre: "Forum", affichages: ["forumSection"], origine: "forum de l'alliance" },

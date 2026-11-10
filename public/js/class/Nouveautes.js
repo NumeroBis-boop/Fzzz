@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.100.3",
+    notes: [
+      "Chat, bouton « GIF » : un clic sur le titre « Mes GIF » ou « GIF de l'alliance » replie ou déplie sa liste, qui reste comme tu l'as laissée. Le bouton « Relire » disparaît : la liste de l'alliance est relue à chaque ouverture de la page du chat.",
+      "Page Armée : « Replacer l'armée » est plus rapide, environ 1 à 2 s au lieu de 4 à 7 s : une courte pause entre deux déplacements évite que le jeu en ignore un.",
+    ],
+  },
+  {
     version: "1.100.2",
     notes: [
       "Chat : la liste « GIF de l'alliance » est relue à chaque ouverture de la page du chat. Un GIF ajouté au sujet du forum apparaît sans cliquer sur « Relire », qui reste pour une page laissée ouverte.",

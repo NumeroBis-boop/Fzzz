@@ -260,7 +260,7 @@ class CommerceFzzz {
           (e) => {
             let raison =
               e.message == "absente"
-                ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » introuvable"
+                ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » inexistante ou cachée à ton grade"
                 : Utils.echapper(e.message);
             etatLigne(c, "forum", raison);
             surveillerAnnulation(c);
@@ -306,7 +306,7 @@ class CommerceFzzz {
       (e) => {
         let raison =
           e.message == "absente"
-            ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » introuvable"
+            ? "section « " + FORUM_SECTIONS_CHASSES[0] + " » inexistante ou cachée à ton grade"
             : Utils.echapper(e.message);
         convois.forEach((c) => etatLigne(c, "non", "forum illisible, état inconnu"));
         toast(

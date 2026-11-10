@@ -120,6 +120,17 @@ describe("« + partager » et annulation", () => {
     expect(p.lire("PARTAGES")).toEqual([5]);
     expect(p.lire(`AttaqueLancee.charger()[0].partager`)).toBeUndefined();
   });
+  test("partage refusé par le forum : marque retirée de ces floods seulement", () => {
+    captures(`[
+      { id: 5, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur}, partager: true },
+      { id: 6, cible: "A", lieu: "Terrain de Chasse", unite: {}, arrivee: ${futur}, partager: true },
+    ]`);
+    p.lire("AttaqueLancee.oublierPartage([5])");
+    expect(p.lire(`AttaqueLancee.charger().map((a) => [a.id, !!a.partager])`)).toEqual([
+      [5, false],
+      [6, true],
+    ]);
+  });
   test("marque posée à l'enregistrement", () => {
     captures("[]");
     p.lire(`AttaqueLancee.enregistrer("C", "Terrain de Chasse", { x: 10 }, { partager: true })`);

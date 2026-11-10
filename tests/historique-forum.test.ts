@@ -109,6 +109,8 @@ describe("floods passés vers l'historique", () => {
       "callGetTopic",
       "envoiNouveauSujet Historique Floods 1 | DoggyBag",
       "envoiEditTopic Floods | DoggyBag",
+      // relecture : le forum ne signale pas une écriture refusée
+      "callGetTopic",
     ]);
     expect(message("Historique Floods 1 | DoggyBag")).toBe(PASSE);
     expect(message("Floods | DoggyBag")).toBe(

@@ -420,7 +420,7 @@ class ChatGif {
         $zone.empty();
         if (lue) ChatGif._montrerAlliance($zone, lue);
         $zone.prepend(
-          `<p class="reduce red o_gifNote">${absente ? `Section « ${FORUM_SECTIONS_CHASSES[0]} » introuvable dans le forum de l'alliance.` : `Forum de l'alliance illisible${lue ? " : dernière lecture affichée" : ""}.`}</p>`,
+          `<p class="reduce red o_gifNote">${absente ? SECTION_INTROUVABLE : `Forum de l'alliance illisible${lue ? " : dernière lecture affichée" : ""}.`}</p>`,
         );
       },
     );

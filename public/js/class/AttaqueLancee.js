@@ -384,6 +384,18 @@ class AttaqueLancee {
       .finally(() => (AttaqueLancee.partageEnCours = null)));
   }
   /**
+   * Floods dont le forum a refusé le partage : plus repris à chaque page.
+   *
+   * @param {Array<Number>} ids numéros d'attaque
+   */
+  static oublierPartage(ids) {
+    let liste = AttaqueLancee.charger();
+    liste.forEach((a) => {
+      if (ids.includes(a.id)) delete a.partager;
+    });
+    AttaqueLancee.sauvegarder(liste);
+  }
+  /**
    * Heure d'arrivée arrondie à la minute, avec la date si ce n'est pas
    * aujourd'hui (rendu calqué sur le natif C+).
    */

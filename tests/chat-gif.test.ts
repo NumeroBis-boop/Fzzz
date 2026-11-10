@@ -55,7 +55,7 @@ const envoyer = (message: string) => lire(`ChatGif.noterEnvoi(${JSON.stringify(m
 const ouvrirChat = (chemin = "/alliance.php", cases: Record<string, boolean> = {}) =>
   lire(`(() => {
     history.replaceState(null, "", ${JSON.stringify(chemin)});
-    ["chatCiter", "chatCouleur", "chatMiseEnForme", "chatSmileys"].forEach((c) =>
+    ["chatCiter", "chatCouleur", "chatMiseEnForme", "chatSmileys", "chatSmileysAlliance"].forEach((c) =>
       localStorage.setItem("fzzz_affichage_" + c, "0"));
     Object.entries(${JSON.stringify(cases)}).forEach(([c, oui]) =>
       localStorage.setItem("fzzz_affichage_" + c, oui ? "1" : "0"));
@@ -399,5 +399,139 @@ describe("bouton « GIF » du chat d'alliance", () => {
       `$("#message").val(${JSON.stringify(`[img]${GIF1}[/img]`)}); $("input[name='Envoyer']").click()`,
     );
     expect(mesGif()).toEqual([]);
+  });
+});
+
+/**
+ * Bouton « Smileys » (1.101.0, demande du mainteneur) : à côté de « GIF », les
+ * images du premier message du sujet caché « Smileys de l'alliance », lues à
+ * l'ouverture de la page avec la liste des sujets déjà lue pour les GIF.
+ */
+describe("bouton « Smileys » : sujet « Smileys de l'alliance »", () => {
+  const SMILEY1 = "https://i.postimg.cc/abc/colley-32.png";
+  const SMILEY2 = "https://i.postimg.cc/def/ouaf.gif";
+  const smileys = () =>
+    lire<string[]>(
+      `$("#o_smileysPanneau .o_smileyChoix img").map((i, e) => e.getAttribute("src")).get()`,
+    );
+  const appels = () => lire<string[]>(`FORUM.appels.slice()`);
+  const rouvrir = (cases: Record<string, boolean>) => {
+    lire(`$("#o_gifBouton, #o_gifPanneau, #o_smileysBouton, #o_smileysPanneau").remove()`);
+    ouvrirChat("/alliance.php", cases);
+  };
+  const SEULS_SMILEYS = { chatMesGif: false, chatGifAlliance: false, chatSmileysAlliance: true };
+
+  test("sujet repéré par son titre comme celui des GIF, le plus ancien s'il y en a deux", async () => {
+    sujet("12", "smileys de l’Alliance");
+    sujet("8", "Smileys de l'alliance");
+    sujet("4", "GIF de l'alliance");
+    const s = await lire<Promise<any>>(`PartageChasses.sujets()`);
+    expect([s.gifAlliance, s.smileysAlliance]).toEqual(["4", "8"]);
+  });
+
+  test("« Smileys OUAF » juste après « GIF », même aspect ; seul sans les GIF ; sans case, rien", () => {
+    lire(`$("input[name='Envoyer']").addClass("bouton_jeu")`);
+    ouvrirChat("/alliance.php", {
+      chatMesGif: true,
+      chatGifAlliance: false,
+      chatSmileysAlliance: true,
+    });
+    expect(lire(`$("#o_gifBouton").nextAll("input").first().attr("id")`)).toBe("o_smileysBouton");
+    expect(
+      lire(`[$("#o_smileysBouton").val(), $("#o_smileysBouton").hasClass("bouton_jeu")]`),
+    ).toEqual(["Smileys OUAF", true]);
+    rouvrir(SEULS_SMILEYS);
+    expect(lire(`[$("#o_gifBouton").length, $("#o_smileysBouton").length]`)).toEqual([0, 1]);
+    rouvrir({ chatMesGif: true, chatGifAlliance: true, chatSmileysAlliance: false });
+    expect(lire(`$("#o_smileysBouton").length`)).toBe(0);
+  });
+
+  test("chat en Compte+ : « Smileys » suit « GIF » après la ligne insécable du jeu, jamais dans la liste des couleurs", () => {
+    const LIGNE = `<span class="sur_une_ligne"><strong id="boutonCouleur">A</strong><span id="barreJeu"><img onclick="miseEnForme('message','gras');" src="images/BBCode/bold.png"/><img onclick="miseEnForme('message','ally');" src="images/BBCode/groupe.gif"/></span></span><div id="listeCouleur0" style="display: none"><img src="images/BBCode/000000.gif" onClick="changerCookieCouleur('000000');"/></div>`;
+    lire(
+      `$("input[name='Envoyer']").nextAll().remove(); $("#formulaireChat").append(${JSON.stringify(LIGNE)})`,
+    );
+    ouvrirChat("/chat.php", {
+      chatMesGif: true,
+      chatGifAlliance: false,
+      chatSmileysAlliance: true,
+    });
+    expect(
+      lire(
+        `[$(".sur_une_ligne").next().attr("id"), $("#o_gifBouton").next().attr("id"), $("#o_smileysBouton")[0].previousSibling.nodeValue, $(".sur_une_ligne #o_smileysBouton, #listeCouleur0 #o_smileysBouton").length]`,
+      ),
+    ).toEqual(["o_gifBouton", "o_smileysBouton", " ", 0]);
+    expect(lire(`$("#formulaireChat").children().slice(-2).map((i, e) => e.id).get()`)).toEqual([
+      "o_gifPanneau",
+      "o_smileysPanneau",
+    ]);
+  });
+
+  test("lus dès l'ouverture avec les GIF : une lecture de la liste des sujets, une par sujet", async () => {
+    sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
+    sujet("8", "Smileys de l'alliance", `<img src="${SMILEY1}"/> ${SMILEY2}`);
+    ouvrirChat("/alliance.php", {
+      chatMesGif: false,
+      chatGifAlliance: true,
+      chatSmileysAlliance: true,
+    });
+    await attendre();
+    expect(appels()).toEqual(["callGetForum", "callGetTopic", "callGetTopic"]);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(smileys()).toEqual([SMILEY1, SMILEY2]);
+    expect(appels()).toHaveLength(3);
+  });
+
+  test("un clic met le smiley au curseur, le panneau reste ouvert ; ouvrir l'un ferme l'autre", async () => {
+    sujet("8", "Smileys de l'alliance", `<img src="${SMILEY1}"/><img src="${SMILEY2}"/>`);
+    ouvrirChat("/alliance.php", {
+      chatMesGif: true,
+      chatGifAlliance: false,
+      chatSmileysAlliance: true,
+    });
+    lire(`(() => { let c = $("#message")[0]; c.value = "Ouaf"; c.setSelectionRange(4, 4); })()`);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    lire(`$(".o_smileyChoix").first().click(); $(".o_smileyChoix").last().click()`);
+    expect(lire(`$("#message").val()`)).toBe(`Ouaf [img]${SMILEY1}[/img] [img]${SMILEY2}[/img]`);
+    expect(
+      lire(`[$("#o_smileysPanneau").prop("hidden"), $("#o_smileysBouton").attr("aria-expanded")]`),
+    ).toEqual([false, "true"]);
+    lire(`$("#o_gifBouton").click()`);
+    expect(
+      lire(
+        `[$("#o_gifPanneau").prop("hidden"), $("#o_smileysPanneau").prop("hidden"), $("#o_smileysBouton").attr("aria-expanded")]`,
+      ),
+    ).toEqual([false, true, "false"]);
+    lire(`$("#o_smileysBouton").click()`);
+    expect(
+      lire(`[$("#o_gifPanneau").prop("hidden"), $("#o_smileysPanneau").prop("hidden")]`),
+    ).toEqual([true, false]);
+  });
+
+  test("pas de sujet : la consigne ; forum illisible : la dernière lecture, avec un avertissement", async () => {
+    ouvrirChat("/alliance.php", SEULS_SMILEYS);
+    await attendre();
+    // sans liste de GIF, la liste des sujets est lue pour les smileys
+    expect(appels()).toEqual(["callGetForum"]);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(lire<string>(`$("#o_smileysPanneau").text()`)).toContain(
+      "Pas de sujet « Smileys de l'alliance » dans la section « BDD partagée cachée » du forum. Crée-le et mets les adresses des smileys dans son premier message",
+    );
+    sujet("8", "Smileys de l'alliance", `<img src="${SMILEY1}"/>`);
+    rouvrir(SEULS_SMILEYS);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(smileys()).toEqual([SMILEY1]);
+    lire(`FORUM.echoue = true`);
+    rouvrir(SEULS_SMILEYS);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(lire<string>(`$("#o_smileysPanneau").text()`)).toContain(
+      "Forum de l'alliance illisible : dernière lecture affichée.",
+    );
+    expect(smileys()).toEqual([SMILEY1]);
   });
 });

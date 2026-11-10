@@ -20,8 +20,9 @@ const HISTORIQUE_MAX_CARACTERES = 15000;
 // l'adresse du script qui reçoit les rapports exportés et la liste des joueurs
 // qui l'utilisent (ExportRapports.lireReglage)
 const TITRE_EXPORT_SHEET = "Export Google Sheet";
-// sujet où l'alliance tient à la main sa liste de GIF pour le chat (ChatGif)
+// sujets où l'alliance tient à la main ses listes de GIF et de smileys pour le chat (ChatGif)
 const TITRE_GIF_ALLIANCE = "GIF de l'alliance";
+const TITRE_SMILEYS_ALLIANCE = "Smileys de l'alliance";
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
@@ -249,7 +250,7 @@ class PartageChasses {
       // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse ;
       // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
       // sujets.exportSheet : sujet de l'adresse du Google Sheet ;
-      // sujets.gifAlliance : sujet des GIF de l'alliance
+      // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance
       let sujets = { liste: [], historiques: [] },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
         normaliser = (/** @type {String} */ t) =>
@@ -280,12 +281,16 @@ class PartageChasses {
             (!sujets.exportSheet || Number(idSujet) < Number(sujets.exportSheet))
           )
             sujets.exportSheet = idSujet;
-          if (
-            normaliser(titre) == normaliser(TITRE_GIF_ALLIANCE) &&
-            idSujet &&
-            (!sujets.gifAlliance || Number(idSujet) < Number(sujets.gifAlliance))
-          )
-            sujets.gifAlliance = idSujet;
+          for (let [cle, titreListe] of [
+            ["gifAlliance", TITRE_GIF_ALLIANCE],
+            ["smileysAlliance", TITRE_SMILEYS_ALLIANCE],
+          ])
+            if (
+              normaliser(titre) == normaliser(titreListe) &&
+              idSujet &&
+              (!sujets[cle] || Number(idSujet) < Number(sujets[cle]))
+            )
+              sujets[cle] = idSujet;
           if (h && idSujet)
             sujets.historiques.push({
               type: h[1],

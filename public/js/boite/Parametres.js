@@ -155,6 +155,7 @@ const ONGLETS_PARAMETRE = [
       "chatSmileys",
       "chatMesGif",
       "chatGifAlliance",
+      "chatSmileysAlliance",
     ],
     origine: "chat de l'alliance",
   },

@@ -197,6 +197,8 @@ const AFFICHAGES_FZZZ = {
     "Bouton « GIF » des chats (alliance et général), liste « Mes GIF » : les GIF que tu as envoyés avec [img]",
   chatGifAlliance:
     "Bouton « GIF » des chats (alliance et général), liste « GIF de l'alliance » : ceux du sujet du même nom du forum caché",
+  chatSmileysAlliance:
+    "Bouton « Smileys » des chats (alliance et général) : les smileys du sujet « Smileys de l'alliance » du forum caché",
   forumSection:
     "Bouton pour créer la section cachée du partage des chasses, quand elle n'existe pas encore",
   menuRapide:

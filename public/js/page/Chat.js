@@ -27,8 +27,9 @@ class PageChat {
     let sections = {
       mes: Utils.affichage("chatMesGif"),
       alliance: Utils.affichage("chatGifAlliance"),
+      smileys: Utils.affichage("chatSmileysAlliance"),
     };
-    if (sections.mes || sections.alliance) ChatGif.installer(sections);
+    if (sections.mes || sections.alliance || sections.smileys) ChatGif.installer(sections);
     if (!Utils.affichage("chatCouleur")) return this;
     // Couleur du texte, ajoutée au message à l'envoi
     this.couleur();

@@ -42,24 +42,39 @@ const PARTAGES = {
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
 // attaque : {secondes} vers Alpha, ou null (son propre profil)
-async function afficher(attaque: { secondes: number | null } | null) {
+async function afficher(attaque: { secondes: number | null } | null, terrain = 200000) {
   page.lire(`(() => {
     localStorage.clear();
     document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>150000</span><div class='boite_membre'>Action</div>";
     PartageChasses.charger = () => Promise.resolve(${JSON.stringify(PARTAGES)});
     let a = ${JSON.stringify(attaque)};
-    PartageChasses.afficherProfil("Alpha", 200000, a && { secondes: a.secondes, depart: Horloge.clic() });
+    PartageChasses.afficherProfil("Alpha", ${terrain}, a && { secondes: a.secondes, depart: Horloge.clic() });
   })()`);
   await new Promise((r) => setTimeout(r, 20));
-  return page.lire<{ lignes: string[]; surlignee: number; note: string }>(`(() => {
+  return page.lire<{ lignes: string[]; surlignee: number; note: string; titre: string }>(`(() => {
     let $t = $("#o_chassesPartagees .o_partageSynthese table tr");
     return {
+      titre: $("#o_chassesPartagees .o_partageSynthese .o_partageTitre").text(),
       lignes: $t.map((i, l) => $(l).children().first().text()).get(),
       surlignee: $t.index($t.filter(".o_ligneArrivee")),
       note: $("#o_chassesPartagees .o_partageSynthese .o_note").text(),
     };
   })()`);
 }
+
+describe("page d'un membre : « à portée » après le titre", () => {
+  test("mon TdC 150 000 (portée de 75 000 à 449 999) : déjà à portée, ou heure d'entrée", async () => {
+    expect(espaces((await afficher({ secondes: 4500 })).titre)).toBe(
+      "Évolution du TdC de Alpha déjà à portée",
+    );
+    // 460 000, puis 450 000 (10h30), 451 500 (chasse de 11h30), 446 500 (12h00)
+    expect(espaces((await afficher({ secondes: 4500 }, 460000)).titre)).toBe(
+      "Évolution du TdC de Alpha à portée le 09/11 à 12h00",
+    );
+    // son propre profil : pas de mention
+    expect(espaces((await afficher(null)).titre)).toBe("Évolution du TdC de Alpha");
+  });
+});
 
 describe("page d'un membre : TdC à l'arrivée d'une attaque lancée à l'ouverture", () => {
   test("ligne surlignée d'après le temps de trajet, note avec l'heure du RC", async () => {

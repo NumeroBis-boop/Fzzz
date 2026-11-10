@@ -2538,6 +2538,18 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_a
 #o_allInfobulle .o_allInfoCible {
   font-style: italic;
 }
+/* « à portée le … » après le pseudo (page Membres, page d'un membre) */
+.o_portee {
+  font-weight: normal;
+}
+.o_porteeHeure {
+  padding: 0 4px;
+  border: 1px solid #8b7440;
+  border-radius: 3px;
+  background: #fff8d6;
+  font-weight: bold;
+  white-space: nowrap;
+}
 /* TdC à l'arrivée d'une attaque lancée à l'ouverture de la page (page
    Membres, page d'un membre) */
 #o_allInfobulle tr.o_ligneArrivee > td,

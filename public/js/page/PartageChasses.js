@@ -1187,6 +1187,65 @@ class PartageChasses {
     return lignes.join("");
   }
   /**
+   * Quand `pseudo` est à ma portée (je peux le flooder : Utils.aPortee de son
+   * TdC face au mien), d'après les mouvements partagés à venir, les siens et
+   * les miens. L'état est pris à la fin de chaque minute : deux floods de la
+   * même minute ne laissent pas un instant pour lancer.
+   *
+   * @static
+   * @method portee
+   * @param {Object} sim simuler()
+   * @param {String} pseudo
+   * @param {Number} terrain son TdC actuel
+   * @param {Number} monTerrain mon TdC actuel
+   * @return {{deja: Boolean, date: String|null}|null} deja : à portée maintenant, `date` (« AAAA-MM-JJ HH:mm ») étant alors celle où il en sort, sinon celle où il y entre (null : jamais) ; null pour moi ou un TdC inconnu
+   */
+  static portee(sim, pseudo, terrain, monTerrain) {
+    let p = pseudo.toLowerCase(),
+      m = String(monProfil.pseudo || "").toLowerCase();
+    if (p == m || !(terrain > 0) || !(monTerrain > 0)) return null;
+    let lui = terrain,
+      moi = monTerrain,
+      deja = Utils.aPortee(lui, moi),
+      evts = sim.evenements;
+    for (let i = 0; i < evts.length; i++) {
+      let e = evts[i],
+        variation = (/** @type {String} */ joueur) =>
+          e.type == "chasse"
+            ? e.joueur == joueur
+              ? e.prise
+              : 0
+            : (e.lanceur.toLowerCase() == joueur ? e.prise : 0) -
+              (e.cible.toLowerCase() == joueur ? e.prise : 0);
+      lui += variation(p);
+      moi += variation(m);
+      if (i + 1 < evts.length && evts[i + 1].date == e.date) continue;
+      if (Utils.aPortee(lui, moi) != deja) return { deja, date: e.date };
+    }
+    return { deja, date: null };
+  }
+  /**
+   * Mention écrite après le pseudo : « à portée le 10/11 à 12h45 », « déjà à
+   * portée (jusqu'au …) » ou « hors de portée », l'heure mise en évidence.
+   *
+   * @static
+   * @method mentionPortee
+   * @param {{deja: Boolean, date: String|null}|null} portee portee()
+   * @return {String} HTML ("" sans portée connue)
+   */
+  static mentionPortee(portee) {
+    if (!portee) return "";
+    let heure = portee.date
+        ? `<span class='o_porteeHeure'>${moment(portee.date, "YYYY-MM-DD HH:mm").format("DD/MM [à] HH[h]mm")}</span>`
+        : "",
+      texte = portee.deja
+        ? `déjà à portée${heure ? ` jusqu'au ${heure}` : ""}`
+        : heure
+          ? `à portée le ${heure}`
+          : "hors de portée";
+    return ` <span class='o_portee'>${texte}</span>`;
+  }
+  /**
    * Note sous ce tableau : heure d'arrivée de l'attaque, sinon `siInconnue`.
    *
    * @static
@@ -1347,7 +1406,7 @@ class PartageChasses {
           synthese =
             "<div class='o_partageSeparation'></div>" +
             `<div class='o_partageSynthese'>` +
-            `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}</h3>
+            `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}${attaque ? PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, Utils.terrain)) : ""}</h3>
               <table class='centre' cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "o_partageEntete")}</table>` +
             PartageChasses.noteArrivee(
               arrivee,

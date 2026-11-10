@@ -102,7 +102,13 @@ async function ouvrir() {
 
 // info-bulle d'un membre : lignes du tableau, ligne surlignée, note
 function infobulle(pseudo: string) {
-  return page.lire<{ lignes: string[]; surlignee: number; note: string; texte: string }>(`(() => {
+  return page.lire<{
+    lignes: string[];
+    surlignee: number;
+    note: string;
+    texte: string;
+    entete: string;
+  }>(`(() => {
     let api = $("#tabMembresAlliance").DataTable(),
       r = api.rows()[0].find((r) => $(api.cell(r, 3).node()).text().trim() == ${JSON.stringify(pseudo)});
     $(api.row(r).node()).trigger("mouseenter");
@@ -113,6 +119,7 @@ function infobulle(pseudo: string) {
       surlignee: $tr.index($i.find("tr.o_ligneArrivee")),
       note: $i.find(".o_note").text(),
       texte: $i.text(),
+      entete: $i.children().first().text(),
     };
   })()`);
 }
@@ -180,6 +187,22 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     expect(epsilon.surlignee).toBe(2);
     expect(espaces(epsilon.note)).toContain("(09/11 10h30)");
     expect(infobulle("Eta").surlignee).toBe(2);
+  });
+
+  test("info-bulle : « à portée » après le pseudo, d'après son TdC et le mien", async () => {
+    await ouvrir();
+    // moi : 100 000, puis 110 000 après mon flood de 10h30 (portée dès 55 000)
+    expect(espaces(infobulle("Gamma").entete)).toBe("Gamma déjà à portée jusqu'au 09/11 à 10h30");
+    expect(espaces(infobulle("Alpha").entete)).toBe("Alpha déjà à portée");
+    expect(espaces(infobulle("Moi").entete)).toBe("Moi");
+    expect(
+      page.lire(`(() => {
+        let api = $("#tabMembresAlliance").DataTable(),
+          r = api.rows()[0].find((r) => $(api.cell(r, 3).node()).text().trim() == "Gamma");
+        $(api.row(r).node()).trigger("mouseenter");
+        return $("#o_allInfobulle > div").first().find(".o_porteeHeure").text();
+      })()`),
+    ).toBe("09/11 à 10h30");
   });
 
   test("info-bulle : rien de surligné pour soi, ni sans temps de trajet", async () => {

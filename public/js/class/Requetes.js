@@ -25,6 +25,8 @@
  * automatiques (forum, profils, Reine…). Après l'une d'elles, les lectures
  * attendent PAUSE_APRES_ACTION : les étapes suivantes d'un enchaînement
  * (flood, chasses espacées, replacement) passent sans attendre derrière elles.
+ * Une lecture qui fait partie d'un tel enchaînement (relecture de la page Armée
+ * pendant un replacement) le dit avec l'option `action: true` de $.ajax.
  */
 const REQUETES_ACTION = [
   { url: /\/ennemie\.php\?(Attaquer|annuler)=/i },
@@ -93,7 +95,7 @@ const PAUSE_APRES_ACTION = 2500;
     if (!versLeJeu(url)) return ajaxOriginal.call(this, options);
     // les callbacks sont appelés une seule fois, sur le résultat final, et pas à
     // chaque essai refusé
-    let { success, error, complete, context, ...requete } = options,
+    let { success, error, complete, context, action, ...requete } = options,
       differe = $.Deferred(),
       appeler = (f, args) => {
         if (f) [].concat(f).forEach((g) => g.apply(context || requete, args));
@@ -124,7 +126,7 @@ const PAUSE_APRES_ACTION = 2500;
           },
         );
       });
-    (estAction(requete) ? actions : lectures).push(() => envoyer(1));
+    (action || estAction(requete) ? actions : lectures).push(() => envoyer(1));
     suivante();
     return differe.promise();
   };

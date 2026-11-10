@@ -545,3 +545,22 @@ describe("lanceur : dans la boîte (page: false)", () => {
     lire(`$("#o_tabsChasse4").remove()`);
   });
 });
+
+describe("lanceur : « Envoyer + partager » sur la page Ressources", () => {
+  test("l'ordre de partage est posé, puis la page est relue sans renvoyer de formulaire", () => {
+    creerLanceur();
+    lire(`
+      sessionStorage.clear();
+      window.relue = 0;
+      PageRessource.recharger = () => window.relue++;
+      lanceur._armee.envoyerChasse = (terrain, nombre, indice, intervalle, fin) => { window.fin = fin; };
+      $("#o_chasseEnvoyerPartager").trigger("click");
+    `);
+    expect(lire(`Number(sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES)) > Date.now()`)).toBe(
+      true,
+    );
+    // fin des envois (toutes lancées ou une refusée) : nouvelle lecture de la page
+    lire(`window.fin(9, 9)`);
+    expect(lire(`window.relue`)).toBe(1);
+  });
+});

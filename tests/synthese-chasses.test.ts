@@ -127,3 +127,54 @@ describe("partage depuis une autre page (boîte Chasse)", () => {
     expect(html).toContain("chasse_12");
   });
 });
+
+describe("partage demandé par « Envoyer + partager » (page rechargée après les envois)", () => {
+  // ordre : échéance (ms, horloge du PC) posée au clic, ou null
+  function recharger(ordre: number | null, pageRessources = true) {
+    lire(`(() => {
+      var monProfil = new Joueur({ pseudo: "Test", niveauRecherche: [15, 8, 10, 0, 0, 8, 0, 0, 0, 0], niveauConstruction: new Array(13).fill(0) });
+      window.monProfil = monProfil;
+      $("#o_syntheseChasses").remove();
+      if (${!pageRessources}) $("#boite_tdc").attr("id", "boite_tdc_cachee");
+      sessionStorage.clear();
+      if (${ordre !== null}) sessionStorage.setItem(CLE_PARTAGE_CHASSES_APRES, String(${ordre}));
+      window.toasts = []; window.partages = [];
+      $.toast = (t) => toasts.push(t.text);
+      PartageChasses.partager = (groupes) => partages.push(groupes.length);
+      PartageChasses.recalerChasses = () => {};
+      new PageRessource(null).syntheseChasses();
+      $("#boite_tdc_cachee").attr("id", "boite_tdc");
+    })()`);
+    return {
+      toasts: lire<string[]>(`toasts.slice()`),
+      partages: lire<number[]>(`partages.slice()`),
+      ordre: lire<string | null>(`sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES)`),
+    };
+  }
+
+  test("ordre dans les temps : partage des chasses en cours", () => {
+    expect(recharger(Date.now() + 60000)).toEqual({ toasts: [], partages: [2], ordre: null });
+  });
+
+  test("ordre échu (page rechargée trop tard) : un message au lieu d'un partage muet", () => {
+    const r = recharger(Date.now() - 1000);
+    expect(r.partages).toEqual([]);
+    expect(r.ordre).toBeNull();
+    expect(r.toasts).toHaveLength(1);
+    expect(r.toasts[0]).toContain("Chasses non partagées");
+    expect(r.toasts[0]).toContain("« Partager mes chasses avec la");
+  });
+
+  test("page qui n'est pas la page Ressources (connexion, erreur) : l'ordre reste", () => {
+    const echeance = Date.now() + 60000;
+    expect(recharger(echeance, false)).toEqual({
+      toasts: [],
+      partages: [],
+      ordre: String(echeance),
+    });
+  });
+
+  test("sans ordre : ni partage ni message", () => {
+    expect(recharger(null)).toEqual({ toasts: [], partages: [], ordre: null });
+  });
+});

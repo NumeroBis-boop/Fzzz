@@ -7,8 +7,9 @@
 // GIF envoyés par le joueur avec [img]…[/img], le plus récent en premier
 const CLE_MES_GIF = "fzzz_mesGif";
 const MES_GIF_MAX = 60;
-// dernière lecture du sujet de l'alliance, montrée quand le forum ne répond pas
+// dernières lectures des sujets de l'alliance, montrées quand le forum ne répond pas
 const CLE_GIF_ALLIANCE = "fzzz_gifAlliance";
+const CLE_SMILEYS_ALLIANCE = "fzzz_smileysAlliance";
 // listes du panneau repliées par le joueur : {mes: true, alliance: true}
 const CLE_GIF_REPLIEES = "fzzz_gifRepliees";
 // adresse utilisable telle quelle dans [img]…[/img]
@@ -18,13 +19,14 @@ const ADRESSE_IMAGE = /^https?:\/\/[^\s[\]<>"'`]+$/i;
  * Bouton « GIF » des chats d'alliance et général, deux listes : « Mes GIF »
  * (ceux que le joueur a envoyés avec la balise [img] du jeu, gardés dans son
  * navigateur) et « GIF de l'alliance » (premier message du sujet caché
- * TITRE_GIF_ALLIANCE, tenu à la main). Un clic écrit [img]adresse[/img] dans
- * le message, que le joueur envoie lui-même ; le jeu affiche l'image à tous,
- * avec ou sans l'extension.
+ * TITRE_GIF_ALLIANCE, tenu à la main) ; à côté, le bouton « Smileys » et les
+ * images du sujet TITRE_SMILEYS_ALLIANCE. Un clic écrit [img]adresse[/img]
+ * dans le message, que le joueur envoie lui-même ; le jeu affiche l'image à
+ * tous, avec ou sans l'extension.
  *
- * Requêtes : le sujet de l'alliance est lu à l'ouverture de la page (une
- * lecture, permise par les règles s5 : rien de périodique), et de nouveau à
- * l'ouverture du panneau si elle a échoué.
+ * Requêtes : les sujets de l'alliance sont lus à l'ouverture de la page (une
+ * lecture chacun et une de la liste des sujets, permises par les règles s5 :
+ * rien de périodique), et de nouveau à l'ouverture du panneau si elle a échoué.
  *
  * @class ChatGif
  */
@@ -174,32 +176,67 @@ class ChatGif {
     return { gifs, ignores: horsJeu.length - gifs.length };
   }
   /**
+   * Liste de l'alliance « gif » ou « smileys » : son panneau, son sujet du
+   * forum et ses textes.
+   *
    * @private
    * @static
+   * @param {String} type "gif" ou "smileys"
+   */
+  static _liste(type) {
+    return type == "smileys"
+      ? {
+          panneau: "#o_smileysPanneau",
+          zone: ".o_smileysAlliance",
+          sujet: "smileysAlliance",
+          titre: TITRE_SMILEYS_ALLIANCE,
+          cle: CLE_SMILEYS_ALLIANCE,
+          nom: "smileys",
+          image: "le smiley",
+          ce: "ce smiley",
+        }
+      : {
+          panneau: "#o_gifPanneau",
+          zone: ".o_gifAlliance",
+          sujet: "gifAlliance",
+          titre: TITRE_GIF_ALLIANCE,
+          cle: CLE_GIF_ALLIANCE,
+          nom: "GIF",
+          image: "le GIF",
+          ce: "ce GIF",
+        };
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} [type] "gif" ou "smileys"
    * @return {any} dernière lecture du sujet pour cette alliance, ou null
    */
-  static _lue() {
+  static _lue(type = "gif") {
     try {
-      let lue = JSON.parse(localStorage.getItem(CLE_GIF_ALLIANCE) || "null");
+      let lue = JSON.parse(localStorage.getItem(ChatGif._liste(type).cle) || "null");
       return lue && lue.alliance == Utils.alliance && Array.isArray(lue.gifs) ? lue : null;
     } catch (e) {
       return null;
     }
   }
   /**
-   * GIF de l'alliance lus dans le sujet du forum, avec une liste des sujets
-   * relue (le sujet a pu être créé depuis) ; la lecture est gardée pour le cas
-   * où le forum ne répond pas.
+   * Images d'une liste de l'alliance lues dans son sujet du forum ; la lecture
+   * est gardée pour le cas où le forum ne répond pas.
    *
    * @static
-   * @method gifAlliance
+   * @method lireAlliance
+   * @param {String} type "gif" ou "smileys"
+   * @param {Boolean} [listeRecente] liste des sujets lue il y a moins d'une
+   *   minute acceptée ; sinon relue (le sujet a pu être créé depuis)
    * @return {Promise<{gifs: Array<String>, ignores: Number, absent?: Boolean, date: Number}>}
    */
-  static gifAlliance() {
-    return PartageChasses.sujets()
+  static lireAlliance(type, listeRecente = false) {
+    let liste = ChatGif._liste(type);
+    return PartageChasses.sujets(listeRecente)
       .then((sujets) =>
-        sujets.gifAlliance
-          ? PartageChasses._xajax("callGetTopic", sujets.gifAlliance).then((data) =>
+        sujets[liste.sujet]
+          ? PartageChasses._xajax("callGetTopic", sujets[liste.sujet]).then((data) =>
               ChatGif.lireListe(data),
             )
           : { gifs: [], ignores: 0, absent: true },
@@ -207,24 +244,40 @@ class ChatGif {
       .then((r) => {
         let lecture = { ...r, date: Horloge.maintenant(), alliance: Utils.alliance };
         try {
-          localStorage.setItem(CLE_GIF_ALLIANCE, JSON.stringify(lecture));
+          localStorage.setItem(liste.cle, JSON.stringify(lecture));
         } catch (e) {}
         return lecture;
       });
   }
   /**
-   * Lecture du sujet de l'alliance pour cette page : celle lancée à son
+   * @static
+   * @method gifAlliance
+   * @return {Promise<{gifs: Array<String>, ignores: Number, absent?: Boolean, date: Number}>}
+   */
+  static gifAlliance() {
+    return ChatGif.lireAlliance("gif");
+  }
+  /**
+   * Lecture d'une liste de l'alliance pour cette page : celle lancée à son
    * ouverture, sinon (échec) une nouvelle.
    *
    * @private
    * @static
+   * @param {String} [type] "gif" ou "smileys"
+   * @param {Promise<any>|null} [apres] lecture des GIF de la page : la liste des
+   *   sujets qu'elle vient de lire sert aussi aux smileys
    * @return {Promise<any>}
    */
-  static _lecture() {
-    let $panneau = $("#o_gifPanneau"),
+  static _lecture(type = "gif", apres = null) {
+    let $panneau = $(ChatGif._liste(type).panneau),
       lecture = $panneau.data("o_lecture");
     if (lecture) return lecture;
-    lecture = ChatGif.gifAlliance();
+    lecture = apres
+      ? apres.then(
+          () => ChatGif.lireAlliance(type, true),
+          () => ChatGif.lireAlliance(type),
+        )
+      : ChatGif.lireAlliance(type);
     $panneau.data("o_lecture", lecture);
     // l'erreur est montrée à l'ouverture du panneau, qui relira
     lecture.catch(() => {
@@ -259,52 +312,58 @@ class ChatGif {
     return true;
   }
   /**
-   * Bouton « GIF » sous le formulaire du chat d'alliance.
+   * Boutons « GIF » et « Smileys » au bout de la ligne d'« Envoyer » du chat,
+   * leurs panneaux sous le formulaire.
    *
    * @static
    * @method installer
-   * @param {{mes: Boolean, alliance: Boolean}} sections listes cochées dans les Préférences
+   * @param {{mes: Boolean, alliance: Boolean, smileys?: Boolean}} sections listes cochées dans les Préférences
    */
   static installer(sections) {
     let $champ = $("#message"),
       $formulaire = $("#formulaireChat");
-    if (!$champ.length || $("#o_gifBouton").length) return;
-    // même bouton que « Envoyer » et « Actualiser » du jeu (maintainer request),
-    // au bout de leur ligne : après les boutons de mise en forme, ceux du jeu
-    // (Compte+ : images dans un span) ou le groupe de ceux de l'extension,
-    // sinon à la fin du formulaire. Les images des couleurs du jeu
-    // (#listeCouleur0, caché, en fin de formulaire) ne sont pas un repère.
-    let $bouton = $(
-        `<input type="button" id="o_gifBouton" value="GIF" aria-expanded="false" aria-controls="o_gifPanneau"/>`,
-      ).addClass($("input[name='Envoyer']").attr("class") || ""),
-      $panneau = $(`<div id="o_gifPanneau" hidden></div>`),
-      $dernier = $formulaire.find("[onclick*='miseEnForme']").last(),
-      $parent = $dernier.parent(),
-      $ancre = $dernier.closest(".o_group_bouton_chat");
-    if (!$ancre.length)
-      $ancre =
-        !$parent.is($formulaire) && $parent.children("[onclick*='miseEnForme']").length > 1
-          ? $parent
-          : $dernier;
-    // ligne insécable du jeu : le bouton la suit, pour passer à la ligne sur
-    // téléphone au lieu d'élargir la page
-    let $ligne = $ancre.closest(".sur_une_ligne", $formulaire[0]);
-    if ($ligne.length) $ancre = $ligne;
-    if ($ancre.length) $bouton.insertAfter($ancre);
-    else if ($formulaire.length) $bouton.appendTo($formulaire);
-    else $bouton.insertAfter($champ);
-    // espace avant : le navigateur peut passer à la ligne avant le bouton
-    $bouton.before(document.createTextNode(" "));
-    if ($formulaire.length) $panneau.appendTo($formulaire);
-    else $panneau.insertAfter($bouton);
-    // lu dès l'ouverture de la page : la liste est à jour au premier clic
-    if (sections.alliance) ChatGif._lecture();
-    $bouton.on("click", (e) => {
-      // pas de mise en forme si le bouton est tombé dans un élément cliquable du jeu
-      e.preventDefault();
-      e.stopPropagation();
-      ChatGif.basculer(sections);
-    });
+    if (!$champ.length || $("#o_gifBouton, #o_smileysBouton").length) return;
+    let $ancre = ChatGif._ancre($formulaire),
+      // même bouton que « Envoyer » et « Actualiser » du jeu (maintainer request)
+      classe = $("input[name='Envoyer']").attr("class") || "",
+      ajouter = (
+        /** @type {String} */ id,
+        /** @type {String} */ libelle,
+        /** @type {String} */ panneau,
+      ) => {
+        let $bouton = $(
+            `<input type="button" id="${id}" aria-expanded="false" aria-controls="${panneau}"/>`,
+          )
+            .attr("value", libelle)
+            .addClass(classe),
+          $panneau = $(`<div id="${panneau}" hidden></div>`);
+        if ($ancre.length) $bouton.insertAfter($ancre);
+        else if ($formulaire.length) $bouton.appendTo($formulaire);
+        else $bouton.insertAfter($champ);
+        // espace avant : le navigateur peut passer à la ligne avant le bouton
+        $bouton.before(document.createTextNode(" "));
+        $ancre = $bouton;
+        if ($formulaire.length) $panneau.appendTo($formulaire);
+        else $panneau.insertAfter($bouton);
+        // pas de mise en forme si le bouton est tombé dans un élément cliquable du jeu
+        return $bouton.on("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      },
+      lectureGif = null;
+    if (sections.mes || sections.alliance) {
+      ajouter("o_gifBouton", "GIF", "o_gifPanneau").on("click", () => ChatGif.basculer(sections));
+      // lu dès l'ouverture de la page : la liste est à jour au premier clic
+      if (sections.alliance) lectureGif = ChatGif._lecture();
+    }
+    if (sections.smileys) {
+      ajouter("o_smileysBouton", `Smileys ${Utils.alliance}`.trim(), "o_smileysPanneau").on(
+        "click",
+        () => ChatGif.basculerSmileys(),
+      );
+      ChatGif._lecture("smileys", lectureGif);
+    }
     if (!sections.mes) return;
     // lu avant l'envoi par le jeu, comme la couleur du texte (PageChat.parserMessage)
     let noter = () => ChatGif.noterEnvoi(String($champ.val() || ""));
@@ -314,6 +373,41 @@ class ChatGif {
     $("input[name='Envoyer']").on("click.o_gif", noter);
   }
   /**
+   * Place des boutons : au bout de la ligne d'« Envoyer », après les boutons
+   * de mise en forme, ceux du jeu (Compte+ : images dans un span) ou le groupe
+   * de ceux de l'extension. Les images des couleurs du jeu (#listeCouleur0,
+   * caché, en fin de formulaire) ne sont pas un repère.
+   *
+   * @private
+   * @static
+   * @param {any} $formulaire
+   * @return {any} jQuery ; vide : à la fin du formulaire
+   */
+  static _ancre($formulaire) {
+    let $dernier = $formulaire.find("[onclick*='miseEnForme']").last(),
+      $parent = $dernier.parent(),
+      $ancre = $dernier.closest(".o_group_bouton_chat");
+    if (!$ancre.length)
+      $ancre =
+        !$parent.is($formulaire) && $parent.children("[onclick*='miseEnForme']").length > 1
+          ? $parent
+          : $dernier;
+    // ligne insécable du jeu : les boutons la suivent, pour passer à la ligne
+    // sur téléphone au lieu d'élargir la page
+    let $ligne = $ancre.closest(".sur_une_ligne", $formulaire[0]);
+    return $ligne.length ? $ligne : $ancre;
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} panneau
+   * @param {String} bouton
+   */
+  static _fermer(panneau, bouton) {
+    $(panneau).prop("hidden", true);
+    $(bouton).attr("aria-expanded", "false");
+  }
+  /**
    * @static
    * @method basculer
    * @param {{mes: Boolean, alliance: Boolean}} sections
@@ -321,9 +415,26 @@ class ChatGif {
   static basculer(sections) {
     let $panneau = $("#o_gifPanneau"),
       ouvrir = $panneau.prop("hidden");
+    if (ouvrir) ChatGif._fermer("#o_smileysPanneau", "#o_smileysBouton");
     $panneau.prop("hidden", !ouvrir);
     $("#o_gifBouton").attr("aria-expanded", String(ouvrir));
     if (ouvrir) ChatGif.dessiner(sections);
+  }
+  /**
+   * Panneau des smileys de l'alliance ; celui des GIF se ferme.
+   *
+   * @static
+   * @method basculerSmileys
+   */
+  static basculerSmileys() {
+    let $panneau = $("#o_smileysPanneau"),
+      ouvrir = $panneau.prop("hidden");
+    if (ouvrir) ChatGif._fermer("#o_gifPanneau", "#o_gifBouton");
+    $panneau.prop("hidden", !ouvrir);
+    $("#o_smileysBouton").attr("aria-expanded", String(ouvrir));
+    if (!ouvrir) return;
+    $panneau.html(`<div class="o_smileysAlliance"></div>`);
+    ChatGif.afficherAlliance("smileys");
   }
   /**
    * @static
@@ -423,39 +534,71 @@ class ChatGif {
     return $grille;
   }
   /**
+   * Petites icônes des smileys de l'alliance.
+   *
+   * @static
+   * @method grilleSmileys
+   * @param {Array<String>} adresses
+   * @return {any} jQuery
+   */
+  static grilleSmileys(adresses) {
+    let $grille = $(`<div class="o_smileysGrille"></div>`);
+    adresses.forEach((adresse, i) => {
+      let $choix = $(
+        `<button type="button" class="o_smileyChoix" title="Mettre ce smiley dans le message"><img loading="lazy" alt=""/></button>`,
+      );
+      $choix.find("img").attr({ src: adresse, alt: `Smiley ${i + 1}` });
+      $choix.on("click", (e) => {
+        e.preventDefault();
+        ChatGif.choisir(adresse, "smileys");
+      });
+      $grille.append($choix);
+    });
+    return $grille;
+  }
+  /**
+   * Image mise dans le message ; le panneau des GIF se ferme, celui des
+   * smileys reste ouvert (souvent plusieurs à la suite).
+   *
    * @static
    * @method choisir
    * @param {String} adresse
+   * @param {String} [type] "gif" ou "smileys"
    */
-  static choisir(adresse) {
+  static choisir(adresse, type = "gif") {
     let champ = /** @type {HTMLInputElement} */ ($("#message")[0]);
     if (!champ) return;
     if (!ChatGif.inserer(champ, adresse)) {
       $.toast({
         ...TOAST_WARNING,
-        text: `Message trop long pour y ajouter ce GIF (${numeral(champ.maxLength).format()} caractères au plus).`,
+        text: `Message trop long pour y ajouter ${ChatGif._liste(type).ce} (${numeral(champ.maxLength).format()} caractères au plus).`,
       });
       return;
     }
-    $("#o_gifPanneau").prop("hidden", true);
-    $("#o_gifBouton").attr("aria-expanded", "false");
+    if (type == "gif") ChatGif._fermer("#o_gifPanneau", "#o_gifBouton");
   }
   /**
    * @static
    * @method afficherAlliance
+   * @param {String} [type] "gif" ou "smileys"
    */
-  static afficherAlliance() {
-    let $zone = $("#o_gifPanneau .o_gifAlliance");
+  static afficherAlliance(type = "gif") {
+    let liste = ChatGif._liste(type),
+      $zone = $(`${liste.panneau} ${liste.zone}`);
     $zone.html(`<p class="reduce o_gifNote">Lecture du forum…</p>`);
-    return ChatGif._lecture().then(
-      (r) => ChatGif._montrerAlliance($zone, r),
+    return ChatGif._lecture(type).then(
+      (r) => ChatGif._montrerAlliance($zone, r, type),
       (e) => {
         let absente = e && e.message == "absente",
-          lue = ChatGif._lue();
+          lue = ChatGif._lue(type);
         if (typeof Journal != "undefined")
-          Journal.erreur("GIF", "sujet des GIF de l'alliance illisible", e && e.message);
+          Journal.erreur(
+            type == "smileys" ? "Smileys" : "GIF",
+            `sujet des ${liste.nom} de l'alliance illisible`,
+            e && e.message,
+          );
         $zone.empty();
-        if (lue) ChatGif._montrerAlliance($zone, lue);
+        if (lue) ChatGif._montrerAlliance($zone, lue, type);
         $zone.prepend(
           `<p class="reduce red o_gifNote">${absente ? SECTION_INTROUVABLE : `Forum de l'alliance illisible${lue ? " : dernière lecture affichée" : ""}.`}</p>`,
         );
@@ -467,23 +610,26 @@ class ChatGif {
    * @static
    * @param {any} $zone
    * @param {{gifs: Array<String>, ignores: Number, absent?: Boolean}} r
+   * @param {String} [type] "gif" ou "smileys"
    */
-  static _montrerAlliance($zone, r) {
+  static _montrerAlliance($zone, r, type = "gif") {
+    let liste = ChatGif._liste(type);
     $zone.empty();
     if (r.absent) {
       $zone.append(
-        `<p class="reduce o_gifNote">Pas de sujet « ${TITRE_GIF_ALLIANCE} » dans la section « ${FORUM_SECTIONS_CHASSES[0]} » du forum. Crée-le et mets les adresses des GIF dans son premier message (n'y réponds pas : le premier message ne serait plus modifiable).</p>`,
+        `<p class="reduce o_gifNote">Pas de sujet « ${liste.titre} » dans la section « ${FORUM_SECTIONS_CHASSES[0]} » du forum. Crée-le et mets les adresses des ${liste.nom} dans son premier message (n'y réponds pas : le premier message ne serait plus modifiable).</p>`,
       );
       return;
     }
-    if (r.gifs.length) $zone.append(ChatGif.grille(r.gifs));
+    if (r.gifs.length)
+      $zone.append(type == "smileys" ? ChatGif.grilleSmileys(r.gifs) : ChatGif.grille(r.gifs));
     else
       $zone.append(
-        `<p class="reduce o_gifNote">Aucune adresse d'image dans le premier message du sujet « ${TITRE_GIF_ALLIANCE} ».</p>`,
+        `<p class="reduce o_gifNote">Aucune adresse d'image dans le premier message du sujet « ${liste.titre} ».</p>`,
       );
     if (r.ignores)
       $zone.append(
-        `<p class="reduce o_gifNote">${numeral(r.ignores).format()} lien${r.ignores > 1 ? "s" : ""} du sujet ne mène${r.ignores > 1 ? "nt" : ""} pas à une image : l'adresse doit finir par .gif, .webp, .png ou .jpg (clic droit sur le GIF, « Copier l'adresse de l'image »).</p>`,
+        `<p class="reduce o_gifNote">${numeral(r.ignores).format()} lien${r.ignores > 1 ? "s" : ""} du sujet ne mène${r.ignores > 1 ? "nt" : ""} pas à une image : l'adresse doit finir par .gif, .webp, .png ou .jpg (clic droit sur ${liste.image}, « Copier l'adresse de l'image »).</p>`,
       );
   }
 }

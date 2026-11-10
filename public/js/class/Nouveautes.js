@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.0",
+    notes: [
+      "Chat : bouton « Smileys OUAF » à côté de « GIF ». Il montre les smileys du premier message du sujet « Smileys de l'alliance » du forum caché (à créer, avec les adresses des images). Un clic met le smiley dans ton message ; le panneau reste ouvert pour en ajouter d'autres. Une case dans Préférences → Chat.",
+    ],
+  },
+  {
     version: "1.100.3",
     notes: [
       "Chat, bouton « GIF » : un clic sur le titre « Mes GIF » ou « GIF de l'alliance » replie ou déplie sa liste, qui reste comme tu l'as laissée. Le bouton « Relire » disparaît : la liste de l'alliance est relue à chaque ouverture de la page du chat.",

@@ -229,6 +229,9 @@ class AllianceFzzz {
       connus[cellule(r, 3).text().trim()] = numeral(cellule(r, 5).text()).value() || 0;
     });
     let sim = PartageChasses.simuler(d, connus),
+      monPseudo = String(monProfil.pseudo || "").toLowerCase(),
+      monTerrain =
+        Object.entries(connus).find(([p]) => p.toLowerCase() == monPseudo)?.[1] || Utils.terrain,
       tactile = window.matchMedia && window.matchMedia("(hover: none)").matches,
       // infobulle près du pointeur, sans sortir de l'écran (mobile)
       placer = (x, y) => {
@@ -270,7 +273,7 @@ class AllianceFzzz {
         .attr("data-order", final)
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
-      let html = `<div class='gras'>${Utils.echapper(pseudo)}</div>${
+      let html = `<div class='gras'>${Utils.echapper(pseudo)}${PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, monTerrain))}</div>${
         vars.length
           ? `<table cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "gras")}</table>` +
             PartageChasses.noteArrivee(

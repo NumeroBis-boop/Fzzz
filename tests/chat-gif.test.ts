@@ -5,7 +5,7 @@ import { creerPage } from "./harnais";
  * GIF du chat d'alliance (1.98.0) : « Mes GIF », ceux que le joueur a envoyés
  * avec la balise [img] du jeu (gardés dans le navigateur), et « GIF de
  * l'alliance », ceux du premier message du sujet caché « GIF de l'alliance »
- * (lu au clic, gardé une heure). Un clic écrit [img]adresse[/img] dans le
+ * (lu à l'ouverture de la page). Un clic écrit [img]adresse[/img] dans le
  * message : le joueur l'envoie lui-même, le jeu affiche le GIF à tous.
  */
 const page = creerPage(
@@ -148,27 +148,57 @@ describe("« GIF de l'alliance » : premier message du sujet caché", () => {
     expect(s.liste.map((t: any) => t.id)).toEqual(["5"]);
   });
 
-  test("lu au clic, gardé une heure ; « Relire » force la lecture", async () => {
+  const lectures = () => lire<string[]>(`FORUM.appels`).filter((a) => a == "callGetTopic").length;
+  const premierGif = () => lire<string>(`$(".o_gifAlliance .o_gifChoix img").attr("src")`);
+
+  test("lu dès l'ouverture de la page, sans clic ; le panneau s'en sert ; « Relire » relit", async () => {
     sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
-    const lectures = () => lire<string[]>(`FORUM.appels`).filter((a) => a == "callGetTopic").length;
-    expect((await lire<Promise<any>>(`ChatGif.gifAlliance()`)).gifs).toEqual([GIF1]);
-    lire(`FORUM.sujets[0].messages = [${JSON.stringify(`<img src="${GIF2}"/>`)}]`);
-    lire(`heure += 59 * 60000`);
-    expect((await lire<Promise<any>>(`ChatGif.gifAlliance()`)).gifs).toEqual([GIF1]);
+    ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: true });
+    await attendre();
     expect(lectures()).toBe(1);
-    lire(`heure += 2 * 60000`);
-    expect((await lire<Promise<any>>(`ChatGif.gifAlliance()`)).gifs).toEqual([GIF2]);
+    // sujet modifié pendant que la page reste ouverte : « Relire »
+    lire(`FORUM.sujets[0].messages = [${JSON.stringify(`<img src="${GIF2}"/>`)}]`);
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
+    expect(premierGif()).toBe(GIF1);
+    lire(`$("#o_gifBouton").click(); $("#o_gifBouton").click()`);
+    await attendre();
+    expect(lectures()).toBe(1);
+    lire(`$(".o_gifRelire").click()`);
+    await attendre();
+    expect(premierGif()).toBe(GIF2);
     expect(lectures()).toBe(2);
-    await lire(`ChatGif.gifAlliance(true)`);
+    // page rouverte (chat général compris) : relue tout de suite
+    lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
+    ouvrirChat("/chat.php", { chatMesGif: false, chatGifAlliance: true });
+    await attendre();
     expect(lectures()).toBe(3);
   });
 
-  test("lecture d'une autre alliance : pas reprise", async () => {
+  test("liste décochée : rien lu à l'ouverture", async () => {
+    sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
+    ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: false });
+    await attendre();
+    expect(lire(`FORUM.appels`)).toEqual([]);
+  });
+
+  test("lecture de l'ouverture échouée : refaite à l'ouverture du panneau", async () => {
+    sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
+    lire(`FORUM.echoue = true`);
+    ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: true });
+    await attendre();
+    lire(`FORUM.echoue = false`);
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
+    expect(premierGif()).toBe(GIF1);
+  });
+
+  test("dernière lecture d'une autre alliance : jamais montrée", async () => {
     sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
     await lire(`ChatGif.gifAlliance()`);
+    expect(lire(`ChatGif._lue().gifs`)).toEqual([GIF1]);
     lire(`$("#tag_alliance").text("AUTRE")`);
-    await lire(`ChatGif.gifAlliance()`);
-    expect(lire<string[]>(`FORUM.appels`).filter((a) => a == "callGetTopic").length).toBe(2);
+    expect(lire(`ChatGif._lue()`)).toBeNull();
   });
 
   test("pas de sujet : la consigne ; forum illisible : la dernière lecture, avec un avertissement", async () => {
@@ -181,8 +211,11 @@ describe("« GIF de l'alliance » : premier message du sujet caché", () => {
     sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
     await lire(`ChatGif.afficherAlliance(true)`);
     expect(lire(`$(".o_gifAlliance .o_gifChoix img").attr("src")`)).toBe(GIF1);
-    lire(`FORUM.echoue = true; heure += 2 * 3600000`);
-    await lire(`ChatGif.afficherAlliance(false)`);
+    // page rouverte, forum illisible
+    lire(`FORUM.echoue = true; $("#o_gifBouton, #o_gifPanneau").remove()`);
+    ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: true });
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
     expect(lire<string>(`$(".o_gifAlliance").text()`)).toContain(
       "Forum de l'alliance illisible : dernière lecture affichée.",
     );

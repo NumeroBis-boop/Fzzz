@@ -32,13 +32,14 @@ const page = creerPage(
        "<select name='ChoixUnite' id='ChoixUnite'>" + COURTS.map(([nom], k) => "<option value='unite" + (k + 1) + "'>" + nom + "</option>").join("") + "</select></form></div>";
    }
    // modes : normal ; rafale (action juste après une autre ignorée, comme le
-   // journal du 08/11) ; retard (réponse au dernier déplacement d'avant lui) ;
+   // journal du 08/11) ; trop vite (action ignorée moins de 300 ms après la
+   // précédente, sur l'horloge simulée : 100 ms par requête) ; retard (réponse au dernier déplacement d'avant lui) ;
    // dôme refusé ; loge refusée (« tout en loge » sans effet) ; moitié (le
    // premier déplacement n'en fait que la moitié) ; ponte (une JSN pondue
    // arrive en loge avant chaque requête, comme le journal du 09/11), seule ou
    // avec rafale
    function installerServeur(etat, mode, postes) {
-     let s = (window.serveur = { etat, mode, jeton: 0, requetes: [], derniere: "lecture" }),
+     let s = (window.serveur = { etat, mode, jeton: 0, requetes: [], derniere: "lecture", finAction: -1e9, prioritaires: [] }),
        lieu = { 1: "tdc", 2: "dome", 3: "loge" },
        copie = () => JSON.parse(JSON.stringify(s.etat)),
        reponse = (affiche, message) => pageArmee(affiche, "j" + ++s.jeton, message),
@@ -46,16 +47,25 @@ const page = creerPage(
          if (s.mode.includes("ponte")) s.etat.loge[0]++;
        },
        ignoree = () => {
-         let rafale = s.mode.includes("rafale") && s.derniere == "action";
+         let rafale = s.mode.includes("rafale") && s.derniere == "action",
+           tropVite = s.mode.includes("trop vite") && horloge - s.finAction < 300;
          s.derniere = "action";
-         return rafale;
+         s.finAction = horloge;
+         return rafale || tropVite;
        };
      window.toasts = [];
      window.notes = [];
+     // horloge simulée : chaque requête dure 100 ms, chaque pause compte
+     window.horloge = 0;
+     window.pauses = [];
+     PageArmee.instant = () => horloge;
+     PageArmee.attendre = (ms) => { pauses.push(ms); horloge += ms; return Promise.resolve(); };
+     $.ajax = (o) => { s.prioritaires.push(!!o.action); return $.get(o.url, o.data); };
      $.toast = (o) => toasts.push(o);
      Journal.info = (src, m, d) => notes.push(["info", src, m, d]);
      Journal.erreur = (src, m, d) => notes.push(["erreur", src, m, d]);
      $.get = (url, data) => {
+       horloge += 100;
        s.requetes.push(["GET", url, data || null]);
        pondre();
        if (!data) {
@@ -70,6 +80,7 @@ const page = creerPage(
        return Promise.resolve(reponse(copie()));
      };
      $.post = (url, d) => {
+       horloge += 100;
        s.requetes.push(["POST", url, d]);
        pondre();
        let avant = copie(),
@@ -94,7 +105,14 @@ type Requete = [string, string, Record<string, any> | null];
 const DEPART: Lieux = { tdc: [120, 5, 0], dome: [0, 0, 0], loge: [500, 300, 0] };
 
 /** Page Armée affichée, armée lue, replacement prévu (JSN, `terrain` en TdC et `dome` en dôme) et lancé. */
-async function replacer(mode: string, depart: Lieux = DEPART, terrain = 2, dome = 2, postes = 2) {
+async function replacer(
+  mode: string,
+  depart: Lieux = DEPART,
+  terrain = 2,
+  dome = 2,
+  postes = 2,
+  auto = false,
+) {
   page.lire(`(() => {
     localStorage.setItem("outiiil_parametre", JSON.stringify({ uniteAntisondeTerrain: ${terrain}, uniteAntisondeDome: ${dome}, uniteAntisondeTerrainType: 1, uniteAntisondeDomeType: 1 }));
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
@@ -102,13 +120,14 @@ async function replacer(mode: string, depart: Lieux = DEPART, terrain = 2, dome 
     installerServeur(${JSON.stringify(depart)}, ${JSON.stringify(mode)}, ${postes});
     window.p = Object.create(PageArmee.prototype);
     p.recupererArmee();
-    window.fin = p.placementPrevu()();
+    window.fin = p.placementPrevu()(${auto});
   })()`);
   await page.lire(`fin`);
   return {
     toasts: page.lire(`toasts.map((t) => [t.icon, t.text])`) as [string, string][],
     notes: page.lire(`notes`) as string[][],
     requetes: page.lire(`serveur.requetes`) as Requete[],
+    pauses: page.lire(`pauses`) as number[],
     armee: page.lire(
       `[p._armeeTdc.unite[0], p._armeeDome.unite[0], p._armeeLoge.unite[0], p.uniteTransferables()]`,
     ),
@@ -187,7 +206,20 @@ describe("replacement vérifié déplacement par déplacement", () => {
     expect(r.toasts).toEqual([REUSSI]);
     expect(envois(r)).toEqual(["tout en loge", [3, 2, 4], [2, 1, 2]]);
     expect(r.requetes.map((q) => q[2]?.t)).toEqual(["j0", "j1", "j2"]);
-    expect(r.notes).toEqual([]);
+    // chaque replacement noté avec la durée de chaque requête, pour régler les pauses
+    expect(r.notes).toEqual([
+      [
+        "info",
+        "Replacement de l'armée",
+        "Armée placée",
+        "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 400 ms\n" +
+          "0,00 s tout en loge (0,10 s) → TdC 0, dôme 0, autres hors loge 0\n" +
+          "0,50 s 4 Jeune Soldate Naine loge → dôme (0,10 s) → TdC 0, dôme 4, autres hors loge 0\n" +
+          "1,00 s 2 Jeune Soldate Naine dôme → TdC (0,10 s) → TdC 2, dôme 2, autres hors loge 0\n" +
+          "fin à 1,10 s",
+      ],
+    ]);
+    expect(r.pauses).toEqual([400, 400]);
     expect(r.armee).toEqual([2, 2, 616, 925]);
     // flèches refaites dans le tableau : attribut du jeton à jour aussi
     expect(page.lire(`[$("#t").val(), $("#t").attr("value")]`)).toEqual(["j3", "j3"]);
@@ -220,16 +252,20 @@ describe("replacement vérifié déplacement par déplacement", () => {
         "info",
         "Replacement de l'armée",
         "Armée placée après relecture de la page",
-        "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine\n" +
-          "tout en loge → TdC 0, dôme 0, autres hors loge 0\n" +
-          "4 Jeune Soldate Naine loge → dôme → TdC 0, dôme 0, autres hors loge 0\n" +
-          "  page relue → TdC 0, dôme 0, autres hors loge 0\n" +
-          "4 Jeune Soldate Naine loge → dôme → TdC 0, dôme 4, autres hors loge 0\n" +
-          "2 Jeune Soldate Naine dôme → TdC → TdC 0, dôme 4, autres hors loge 0\n" +
-          "  page relue → TdC 0, dôme 4, autres hors loge 0\n" +
-          "2 Jeune Soldate Naine dôme → TdC → TdC 2, dôme 2, autres hors loge 0",
+        "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 400 ms\n" +
+          "0,00 s tout en loge (0,10 s) → TdC 0, dôme 0, autres hors loge 0\n" +
+          "0,50 s 4 Jeune Soldate Naine loge → dôme (0,10 s) → TdC 0, dôme 0, autres hors loge 0\n" +
+          "1,60 s page relue (0,10 s) → TdC 0, dôme 0, autres hors loge 0\n" +
+          "1,70 s 4 Jeune Soldate Naine loge → dôme (0,10 s) → TdC 0, dôme 4, autres hors loge 0\n" +
+          "2,20 s 2 Jeune Soldate Naine dôme → TdC (0,10 s) → TdC 0, dôme 4, autres hors loge 0\n" +
+          "3,30 s page relue (0,10 s) → TdC 0, dôme 4, autres hors loge 0\n" +
+          "3,40 s 2 Jeune Soldate Naine dôme → TdC (0,10 s) → TdC 2, dôme 2, autres hors loge 0\n" +
+          "fin à 3,50 s",
       ],
     ]);
+    // relecture 1 s après le déplacement ignoré, dans l'enchaînement (devant les lectures en attente)
+    expect(r.pauses).toEqual([400, 1000, 400, 1000]);
+    expect(page.lire(`serveur.prioritaires`)).toEqual([true, true]);
     expect(r.armee).toEqual([2, 2, 616, 925]);
   });
 
@@ -261,7 +297,7 @@ describe("replacement vérifié déplacement par déplacement", () => {
       [2, 1, 1],
       [2, 3, 3112],
     ]);
-    expect(r.notes).toEqual([]);
+    expect(r.notes.map((n) => n[2])).toEqual(["Armée placée"]);
   });
 
   test("cas du journal du 09/11 : action ignorée, ponte avant la relecture, tout ce qui manque renvoyé", async () => {
@@ -332,5 +368,29 @@ describe("replacement vérifié déplacement par déplacement", () => {
       ],
     ]);
     expect(r.notes.map((n) => n[0])).toEqual(["erreur"]);
+  });
+
+  test("jeu qui ignore un déplacement trop rapproché : la pause l'évite, rien n'est relu", async () => {
+    const r = await replacer("trop vite");
+    expect(r.toasts).toEqual([REUSSI]);
+    expect(envois(r)).toEqual(["tout en loge", [3, 2, 4], [2, 1, 2]]);
+    expect(r.notes.map((n) => n[2])).toEqual(["Armée placée"]);
+  });
+
+  test("version TEST : pause de 400, 700 puis 1 000 ms à tour de rôle, notée ; replacement après un flood noté", async () => {
+    const pausesDe = async (auto = false) => {
+      const r = await replacer("normal", DEPART, 2, 2, 2, auto);
+      return [r.pauses, r.notes[0]![3]!.split("\n")[0]];
+    };
+    expect(await pausesDe()).toEqual([
+      [400, 400],
+      "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 400 ms",
+    ]);
+    expect((await pausesDe())[0]).toEqual([700, 700]);
+    expect(await pausesDe(true)).toEqual([
+      [1000, 1000],
+      "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 1 000 ms ; après un flood",
+    ]);
+    expect((await pausesDe())[0]).toEqual([400, 400]);
   });
 });

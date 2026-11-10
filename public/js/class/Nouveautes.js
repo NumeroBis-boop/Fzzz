@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.98.0",
+    notes: [
+      "Chat d'alliance : bouton « GIF ». « Mes GIF » garde dans ton navigateur les GIF que tu envoies avec [img]adresse du GIF[/img] ; « GIF de l'alliance » montre ceux du premier message du sujet « GIF de l'alliance » du forum caché. Un clic met le GIF dans ton message, tu l'envoies toi-même ; tous les membres le voient, même sans l'extension. Une case pour chaque liste dans Préférences → Chat.",
+    ],
+  },
+  {
     version: "1.97.2",
     notes: [
       "Convois : les convois arrivés ne sont plus recopiés dans les sujets « Historique Convois » du forum, ils sont seulement retirés du sujet « Convois | pseudo ». Les sujets « Historique Convois » déjà créés ne servent plus : ils peuvent être supprimés à la main.",

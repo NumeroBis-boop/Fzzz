@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.2",
+    notes: [
+      "Correction : un flood d'un autre membre hors de portée à l'impact comptait quand même 20 % sur la page Armée (« Floods en cours sur … »), dans le TdC à l'impact du lanceur de Flood et sur la page d'un membre. Comme la page Membres, ces calculs connaissent maintenant le TdC de chaque membre et les chasses des joueurs liés par des floods.",
+    ],
+  },
+  {
     version: "1.101.1",
     notes: [
       "Chat : le panneau « Smileys OUAF » se ferme après le choix d'un smiley, comme celui des GIF.",

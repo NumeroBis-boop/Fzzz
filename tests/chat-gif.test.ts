@@ -483,22 +483,28 @@ describe("bouton « Smileys » : sujet « Smileys de l'alliance »", () => {
     expect(appels()).toHaveLength(3);
   });
 
-  test("un clic met le smiley au curseur, le panneau reste ouvert ; ouvrir l'un ferme l'autre", async () => {
+  test("un clic met le smiley au curseur et ferme le panneau, comme les GIF ; ouvrir l'un ferme l'autre", async () => {
     sujet("8", "Smileys de l'alliance", `<img src="${SMILEY1}"/><img src="${SMILEY2}"/>`);
     ouvrirChat("/alliance.php", {
       chatMesGif: true,
       chatGifAlliance: false,
       chatSmileysAlliance: true,
     });
+    const etat = () =>
+      lire(`[$("#o_smileysPanneau").prop("hidden"), $("#o_smileysBouton").attr("aria-expanded")]`);
     lire(`(() => { let c = $("#message")[0]; c.value = "Ouaf"; c.setSelectionRange(4, 4); })()`);
     lire(`$("#o_smileysBouton").click()`);
     await attendre();
-    lire(`$(".o_smileyChoix").first().click(); $(".o_smileyChoix").last().click()`);
+    expect(etat()).toEqual([false, "true"]);
+    lire(`$(".o_smileyChoix").first().click()`);
+    expect(etat()).toEqual([true, "false"]);
+    // un autre : panneau rouvert, ajouté à la suite
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    lire(`$(".o_smileyChoix").last().click()`);
     expect(lire(`$("#message").val()`)).toBe(`Ouaf [img]${SMILEY1}[/img] [img]${SMILEY2}[/img]`);
-    expect(
-      lire(`[$("#o_smileysPanneau").prop("hidden"), $("#o_smileysBouton").attr("aria-expanded")]`),
-    ).toEqual([false, "true"]);
-    lire(`$("#o_gifBouton").click()`);
+    expect(etat()).toEqual([true, "false"]);
+    lire(`$("#o_smileysBouton").click(); $("#o_gifBouton").click()`);
     expect(
       lire(
         `[$("#o_gifPanneau").prop("hidden"), $("#o_smileysPanneau").prop("hidden"), $("#o_smileysBouton").attr("aria-expanded")]`,

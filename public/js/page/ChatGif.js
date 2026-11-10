@@ -187,6 +187,7 @@ class ChatGif {
     return type == "smileys"
       ? {
           panneau: "#o_smileysPanneau",
+          bouton: "#o_smileysBouton",
           zone: ".o_smileysAlliance",
           sujet: "smileysAlliance",
           titre: TITRE_SMILEYS_ALLIANCE,
@@ -197,6 +198,7 @@ class ChatGif {
         }
       : {
           panneau: "#o_gifPanneau",
+          bouton: "#o_gifBouton",
           zone: ".o_gifAlliance",
           sujet: "gifAlliance",
           titre: TITRE_GIF_ALLIANCE,
@@ -557,8 +559,7 @@ class ChatGif {
     return $grille;
   }
   /**
-   * Image mise dans le message ; le panneau des GIF se ferme, celui des
-   * smileys reste ouvert (souvent plusieurs à la suite).
+   * Image mise dans le message, puis son panneau se ferme.
    *
    * @static
    * @method choisir
@@ -566,16 +567,17 @@ class ChatGif {
    * @param {String} [type] "gif" ou "smileys"
    */
   static choisir(adresse, type = "gif") {
-    let champ = /** @type {HTMLInputElement} */ ($("#message")[0]);
+    let champ = /** @type {HTMLInputElement} */ ($("#message")[0]),
+      liste = ChatGif._liste(type);
     if (!champ) return;
     if (!ChatGif.inserer(champ, adresse)) {
       $.toast({
         ...TOAST_WARNING,
-        text: `Message trop long pour y ajouter ${ChatGif._liste(type).ce} (${numeral(champ.maxLength).format()} caractères au plus).`,
+        text: `Message trop long pour y ajouter ${liste.ce} (${numeral(champ.maxLength).format()} caractères au plus).`,
       });
       return;
     }
-    if (type == "gif") ChatGif._fermer("#o_gifPanneau", "#o_gifBouton");
+    ChatGif._fermer(liste.panneau, liste.bouton);
   }
   /**
    * @static

@@ -7,6 +7,9 @@
 // section du forum d'alliance qui sert de stockage partagé (premier nom : celui
 // créé par l'extension ; les anciens noms restent reconnus)
 const FORUM_SECTIONS_CHASSES = ["BDD partagée cachée", "Fzzz-Chasses", "Fzzz_Chasses"];
+// le forum ne liste que les sections que le grade du joueur voit : une section
+// cachée à son grade est introuvable comme une section qui n'existe pas
+const SECTION_INTROUVABLE = `Section « ${FORUM_SECTIONS_CHASSES[0]} » introuvable : elle n'existe pas encore, ou ton grade ne la voit pas. Demande à un chef.`;
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
 // actions passées : sujets « Historique Chasses N | pseudo » (et Floods),
@@ -189,7 +192,8 @@ class PartageChasses {
    *
    * @static
    * @method trouverSection
-   * @return {Promise<String>} rejetée avec Error("absente") si la section n'existe pas
+   * @return {Promise<String>} rejetée avec Error("absente") si la section n'est pas
+   *   dans la liste (inexistante, ou cachée au grade du joueur)
    */
   static trouverSection() {
     if (PartageChasses.idSection) return Promise.resolve(PartageChasses.idSection);
@@ -545,9 +549,49 @@ class PartageChasses {
                   "envoiNouveauSujet",
                   `<xjxquery><q>cat=${PartageChasses.idSection}&${q}&type=normal&question=&reponse[]=&reponse[]=&reponse[]=</q></xjxquery>`,
                 )
-          ).then(() => nouvelles.length);
+          )
+            .then(() =>
+              PartageChasses._verifierPartage(
+                type,
+                idSujet,
+                nouvelles.filter((e) => toutes.includes(e)),
+                cle,
+              ),
+            )
+            .then(() => nouvelles.length);
         });
       });
+    });
+  }
+  /**
+   * Relit le forum après l'écriture d'un partage : il ne signale pas une
+   * écriture refusée (grade sans droit d'écrire dans la section, premier
+   * message bloqué par une réponse). Sujet créé : il doit être dans la liste ;
+   * sujet modifié : les entrées écrites doivent y être.
+   *
+   * @private
+   * @static
+   * @param {String} type "Chasses" ou "Floods"
+   * @param {String|undefined} idSujet sujet modifié, absent s'il a été créé
+   * @param {Array} ecrites entrées nouvelles écrites dans le sujet
+   * @param {(e: any) => String} cle entrée sans numéro d'attaque
+   * @return {Promise} rejetée avec Error("non créé") ou Error("non modifié")
+   */
+  static _verifierPartage(type, idSujet, ecrites, cle) {
+    let pseudo = monProfil.pseudo,
+      refus = (/** @type {String} */ code) =>
+        Promise.reject(Object.assign(new Error(code), { titre: `${type} | ${pseudo}` }));
+    if (!idSujet)
+      return PartageChasses.sujets().then((sujets) =>
+        sujets[`${type} | ${pseudo.toLowerCase()}`] ? undefined : refus("non créé"),
+      );
+    if (!ecrites.length) return Promise.resolve();
+    return PartageChasses.lireSujet(idSujet).then((d) => {
+      let relues = type == "Chasses" ? d.chasses : d.floods,
+        ids = relues.filter((e) => e.id).map((e) => e.id),
+        cles = relues.map(cle);
+      if (ecrites.some((e) => !(e.id ? ids.includes(e.id) : cles.includes(cle(e)))))
+        return refus("non modifié");
     });
   }
   /**
@@ -701,16 +745,25 @@ class PartageChasses {
             : `Ces ${libelle}s étaient déjà partagé${accord(2)}.`,
         }),
       )
-      .catch((e) =>
+      .catch((e) => {
+        let code = e && e.message;
         $.toast({
           ...TOAST_ERROR,
           hideAfter: 10000,
           text:
-            e && e.message == "absente"
-              ? `Le forum de l'alliance n'a pas encore de section « ${FORUM_SECTIONS_CHASSES[0]} » : un chef peut la créer d'un clic depuis la page Forum (bouton ${NOM_EXTENSION}).`
-              : `Partage impossible : le forum de l'alliance n'a pas pu être lu ou modifié.`,
-        }),
-      )
+            code == "absente"
+              ? SECTION_INTROUVABLE
+              : code == "non créé"
+                ? `Partage non enregistré : le sujet « ${e.titre} » n'apparaît pas dans le forum après l'envoi. Ton grade n'a peut-être pas le droit d'écrire dans la section « ${FORUM_SECTIONS_CHASSES[0]} » : demande à un chef.`
+                : code == "non modifié"
+                  ? `Partage non enregistré : le sujet « ${e.titre} » n'a pas été modifié. Si quelqu'un y a répondu, son premier message n'est plus modifiable (un chef peut supprimer la réponse) ; sinon, ton grade n'a peut-être pas le droit d'y écrire : demande à un chef.`
+                  : `Partage impossible : le forum de l'alliance n'a pas pu être lu ou modifié.`,
+        });
+        // refus du forum : un nouvel essai à chaque page n'y changerait rien
+        // (le bouton Partager de la liste des attaques reste)
+        if (type == "Floods" && ["absente", "non créé", "non modifié"].includes(code))
+          AttaqueLancee.oublierPartage(entrees.map((x) => x.id));
+      })
       .finally(() => $bouton && $bouton.prop("disabled", false));
   }
   /**

@@ -151,28 +151,30 @@ describe("« GIF de l'alliance » : premier message du sujet caché", () => {
   const lectures = () => lire<string[]>(`FORUM.appels`).filter((a) => a == "callGetTopic").length;
   const premierGif = () => lire<string>(`$(".o_gifAlliance .o_gifChoix img").attr("src")`);
 
-  test("lu dès l'ouverture de la page, sans clic ; le panneau s'en sert ; « Relire » relit", async () => {
+  test("lu dès l'ouverture de la page, sans clic ; le panneau s'en sert ; plus de « Relire »", async () => {
     sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
     ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: true });
     await attendre();
     expect(lectures()).toBe(1);
-    // sujet modifié pendant que la page reste ouverte : « Relire »
+    // sujet modifié pendant que la page reste ouverte : vu à la prochaine ouverture
     lire(`FORUM.sujets[0].messages = [${JSON.stringify(`<img src="${GIF2}"/>`)}]`);
     lire(`$("#o_gifBouton").click()`);
     await attendre();
     expect(premierGif()).toBe(GIF1);
+    expect(
+      lire(`$("#o_gifPanneau button").filter((i, b) => /relire/i.test(b.textContent)).length`),
+    ).toBe(0);
     lire(`$("#o_gifBouton").click(); $("#o_gifBouton").click()`);
     await attendre();
     expect(lectures()).toBe(1);
-    lire(`$(".o_gifRelire").click()`);
-    await attendre();
-    expect(premierGif()).toBe(GIF2);
-    expect(lectures()).toBe(2);
     // page rouverte (chat général compris) : relue tout de suite
     lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
     ouvrirChat("/chat.php", { chatMesGif: false, chatGifAlliance: true });
     await attendre();
-    expect(lectures()).toBe(3);
+    expect(lectures()).toBe(2);
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
+    expect(premierGif()).toBe(GIF2);
   });
 
   test("liste décochée : rien lu à l'ouverture", async () => {
@@ -208,8 +210,12 @@ describe("« GIF de l'alliance » : premier message du sujet caché", () => {
     expect(lire<string>(`$(".o_gifAlliance").text()`)).toContain(
       "Pas de sujet « GIF de l'alliance » dans la section « BDD partagée cachée »",
     );
+    // sujet créé, page rouverte : ses GIF
     sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
-    await lire(`ChatGif.afficherAlliance(true)`);
+    lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
+    ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: true });
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
     expect(lire(`$(".o_gifAlliance .o_gifChoix img").attr("src")`)).toBe(GIF1);
     // page rouverte, forum illisible
     lire(`FORUM.echoue = true; $("#o_gifBouton, #o_gifPanneau").remove()`);
@@ -259,6 +265,47 @@ describe("bouton « GIF » du chat d'alliance", () => {
       `$("#message").val(${JSON.stringify(`[img]${GIF1}[/img]`)}); $("input[name='Envoyer']").click()`,
     );
     expect(mesGif()).toEqual([GIF1, GIF2]);
+  });
+
+  test("titres « Mes GIF » et « GIF de l'alliance » dépliables, état gardé par liste", async () => {
+    envoyer(`[img]${GIF2}[/img]`);
+    sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
+    ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: true });
+    const etat = () =>
+      lire<[string, boolean][]>(
+        `$("#o_gifPanneau details.o_gifSection").map((i, d) => [[d.querySelector("summary").textContent, d.open]]).get()`,
+      );
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
+    expect(etat()).toEqual([
+      ["Mes GIF", true],
+      ["GIF de l'alliance", true],
+    ]);
+    // un clic sur le titre replie sa liste ; panneau rouvert, puis page rouverte : toujours repliée
+    lire(`$("#o_gifPanneau summary").first().click()`);
+    await attendre();
+    lire(`$("#o_gifBouton").click(); $("#o_gifBouton").click()`);
+    await attendre();
+    expect(etat()).toEqual([
+      ["Mes GIF", false],
+      ["GIF de l'alliance", true],
+    ]);
+    lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
+    ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: true });
+    lire(`$("#o_gifBouton").click()`);
+    await attendre();
+    expect(etat()).toEqual([
+      ["Mes GIF", false],
+      ["GIF de l'alliance", true],
+    ]);
+    // dépliée : ses GIF ; l'autre liste repliée puis dépliée de même
+    lire(`$("#o_gifPanneau summary").first().click()`);
+    await attendre();
+    expect(etat()[0]).toEqual(["Mes GIF", true]);
+    expect(lire(`$(".o_gifMes .o_gifChoix img").attr("src")`)).toBe(GIF2);
+    lire(`$("#o_gifPanneau summary").last().click()`);
+    await attendre();
+    expect(etat()[1]).toEqual(["GIF de l'alliance", false]);
   });
 
   test("chaque case retire sa liste ; sans case, pas de bouton ; chat général : aussi", () => {

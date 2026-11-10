@@ -9,6 +9,8 @@ const CLE_MES_GIF = "fzzz_mesGif";
 const MES_GIF_MAX = 60;
 // dernière lecture du sujet de l'alliance, montrée quand le forum ne répond pas
 const CLE_GIF_ALLIANCE = "fzzz_gifAlliance";
+// listes du panneau repliées par le joueur : {mes: true, alliance: true}
+const CLE_GIF_REPLIEES = "fzzz_gifRepliees";
 // adresse utilisable telle quelle dans [img]…[/img]
 const ADRESSE_IMAGE = /^https?:\/\/[^\s[\]<>"'`]+$/i;
 
@@ -21,8 +23,8 @@ const ADRESSE_IMAGE = /^https?:\/\/[^\s[\]<>"'`]+$/i;
  * avec ou sans l'extension.
  *
  * Requêtes : le sujet de l'alliance est lu à l'ouverture de la page (une
- * lecture, permise par les règles s5 : rien de périodique), de nouveau à
- * l'ouverture du panneau si elle a échoué, et par « Relire ».
+ * lecture, permise par les règles s5 : rien de périodique), et de nouveau à
+ * l'ouverture du panneau si elle a échoué.
  *
  * @class ChatGif
  */
@@ -212,16 +214,15 @@ class ChatGif {
   }
   /**
    * Lecture du sujet de l'alliance pour cette page : celle lancée à son
-   * ouverture, sinon (échec, « Relire ») une nouvelle.
+   * ouverture, sinon (échec) une nouvelle.
    *
    * @private
    * @static
-   * @param {Boolean} relire
    * @return {Promise<any>}
    */
-  static _lecture(relire) {
+  static _lecture() {
     let $panneau = $("#o_gifPanneau"),
-      lecture = !relire && $panneau.data("o_lecture");
+      lecture = $panneau.data("o_lecture");
     if (lecture) return lecture;
     lecture = ChatGif.gifAlliance();
     $panneau.data("o_lecture", lecture);
@@ -297,7 +298,7 @@ class ChatGif {
     if ($formulaire.length) $panneau.appendTo($formulaire);
     else $panneau.insertAfter($bouton);
     // lu dès l'ouverture de la page : la liste est à jour au premier clic
-    if (sections.alliance) ChatGif._lecture(false);
+    if (sections.alliance) ChatGif._lecture();
     $bouton.on("click", (e) => {
       // pas de mise en forme si le bouton est tombé dans un élément cliquable du jeu
       e.preventDefault();
@@ -331,23 +332,41 @@ class ChatGif {
    */
   static dessiner(sections) {
     let $panneau = $("#o_gifPanneau").empty();
-    if (sections.mes) {
-      let $section = $(
-        `<div class="o_gifSection o_gifMes"><p class="o_gifTitre gras">Mes GIF</p></div>`,
-      ).appendTo($panneau);
-      ChatGif._montrerMes($section);
-    }
+    if (sections.mes)
+      ChatGif._montrerMes(
+        ChatGif._section("mes", "Mes GIF").addClass("o_gifMes").appendTo($panneau),
+      );
     if (sections.alliance) {
-      let $section = $(`<div class="o_gifSection">
-          <p class="o_gifTitre gras">GIF de l'alliance <button type="button" class="o_gifRelire reduce">Relire</button></p>
-          <div class="o_gifAlliance"></div>
-        </div>`).appendTo($panneau);
-      $section.find(".o_gifRelire").on("click", (e) => {
-        e.preventDefault();
-        ChatGif.afficherAlliance(true);
-      });
-      ChatGif.afficherAlliance(false);
+      ChatGif._section("alliance", "GIF de l'alliance")
+        .append(`<div class="o_gifAlliance"></div>`)
+        .appendTo($panneau);
+      ChatGif.afficherAlliance();
     }
+  }
+  /**
+   * Liste dépliable du panneau (titre cliquable), repliée si le joueur l'a
+   * laissée repliée.
+   *
+   * @private
+   * @static
+   * @param {String} cle "mes" ou "alliance"
+   * @param {String} titre
+   * @return {any} jQuery
+   */
+  static _section(cle, titre) {
+    let $section = $(
+      `<details class="o_gifSection"><summary class="o_gifTitre gras"></summary></details>`,
+    );
+    $section.find("summary").text(titre);
+    $section.prop("open", !Utils.lireStockage(CLE_GIF_REPLIEES)[cle]);
+    $section.on("toggle", () => {
+      let repliees = Utils.lireStockage(CLE_GIF_REPLIEES);
+      repliees[cle] = !$section.prop("open");
+      try {
+        localStorage.setItem(CLE_GIF_REPLIEES, JSON.stringify(repliees));
+      } catch (e) {}
+    });
+    return $section;
   }
   /**
    * @private
@@ -424,12 +443,11 @@ class ChatGif {
   /**
    * @static
    * @method afficherAlliance
-   * @param {Boolean} relire
    */
-  static afficherAlliance(relire) {
+  static afficherAlliance() {
     let $zone = $("#o_gifPanneau .o_gifAlliance");
     $zone.html(`<p class="reduce o_gifNote">Lecture du forum…</p>`);
-    return ChatGif._lecture(relire).then(
+    return ChatGif._lecture().then(
       (r) => ChatGif._montrerAlliance($zone, r),
       (e) => {
         let absente = e && e.message == "absente",

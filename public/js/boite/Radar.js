@@ -210,6 +210,10 @@ class BoiteRadar {
       Object.keys(this._alliances).length ||
       this._separateurs.length
     ) {
+      // vue radar choisie la dernière fois : il prend la place du tableau de
+      // l'encart (sans radar affiché, le tableau reste : encart jamais vide)
+      if (localStorage.getItem("outiiil_boiteActive") == "R")
+        $("#boiteComptePlus .contenu_boite_compte_plus table:eq(0)").css("display", "none");
       // Modification de la boite compte plus pour faire apparaitre la boite radar
       $("#boiteComptePlus .titre_colonne_cliquable").replaceWith(() => {
         return `<div class='titre_colonne_cliquable'>${IMG_FLECHE} <span class='titre_compte_plus'>${TITRE_SYNTHESE}</span> ${IMG_FLECHE}</div>`;

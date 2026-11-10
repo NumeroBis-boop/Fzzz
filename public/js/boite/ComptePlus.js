@@ -363,7 +363,8 @@ class BoiteComptePlus {
    * @method afficher
    */
   afficher() {
-    let visible = localStorage.getItem("outiiil_boiteActive");
+    // tableau toujours visible ici : seul le radar le cache, quand il
+    // s'affiche à sa place (BoiteRadar.afficher, vue « R » choisie)
     if (!Utils.comptePlus) {
       // Ajout du contenue : à la place de l'encadré du jeu, ou (s'il n'y en a
       // pas) sous l'encadré « S5 pseudo »
@@ -373,9 +374,7 @@ class BoiteComptePlus {
       $("#boiteComptePlus").replaceWith(
         "<div id='boiteComptePlus' class='boite_compte_plus'><div class='titre_colonne_cliquable'><span class='titre_compte_plus'>" +
           TITRE_SYNTHESE +
-          "</span></div><div class='contenu_boite_compte_plus'><table " +
-          (visible == null || visible == "C" ? "" : "style='display:none'") +
-          ">" +
+          "</span></div><div class='contenu_boite_compte_plus'><table>" +
           // Ligne ponte
           "<tr class='lien' title='Aller sur Reine'><td><a href='Reine.php'><div style='position:relative;height:27px;padding-left:5px;'><div class='mini_icone_ponte'/><div id='o_resteUnite' class='o_labelBoite'></div><div id='o_tempsUnite' class='o_labelTempsBoite'></div><div id='o_progressUnite'/></div></a></td></tr>" +
           // Ligne construction
@@ -430,10 +429,7 @@ class BoiteComptePlus {
           },
         })
         .data("ui-autocomplete");
-    } else
-      visible == null || visible == "C"
-        ? ""
-        : $("#boiteComptePlus .contenu_boite_compte_plus table:eq(0)").css("display", "none");
+    }
     // Effet highlight si du terrain est découvert : on parse un tooltip
     // injecté en script-tag à côté de #tableau_boite_info (forme `content: ... })`).
     // Sur mobile, ce bandeau natif peut être absent ou rendu différemment ;

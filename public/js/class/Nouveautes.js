@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.1",
+    notes: [
+      "Chat : le panneau « Smileys OUAF » se ferme après le choix d'un smiley, comme celui des GIF.",
+    ],
+  },
+  {
     version: "1.101.0",
     notes: [
       "Chat : bouton « Smileys OUAF » à côté de « GIF ». Il montre les smileys du premier message du sujet « Smileys de l'alliance » du forum caché (à créer, avec les adresses des images). Un clic met le smiley dans ton message ; le panneau reste ouvert pour en ajouter d'autres. Une case dans Préférences → Chat.",

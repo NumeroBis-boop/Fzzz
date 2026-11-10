@@ -228,7 +228,7 @@ describe("bouton « GIF » du chat d'alliance", () => {
     expect(mesGif()).toEqual([GIF1, GIF2]);
   });
 
-  test("chaque case retire sa liste ; sans case, pas de bouton ; chat général : rien", () => {
+  test("chaque case retire sa liste ; sans case, pas de bouton ; chat général : aussi", () => {
     const titres = () =>
       lire<string[]>(`$(".o_gifTitre").map((i, e) => e.firstChild.textContent.trim()).get()`);
     ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: false });
@@ -242,7 +242,7 @@ describe("bouton « GIF » du chat d'alliance", () => {
     ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: false });
     expect(lire(`$("#o_gifBouton").length`)).toBe(0);
     ouvrirChat("/chat.php", { chatMesGif: true, chatGifAlliance: true });
-    expect(lire(`$("#o_gifBouton").length`)).toBe(0);
+    expect(lire(`$("#o_gifBouton").length`)).toBe(1);
   });
 
   test("bouton comme « Envoyer », au bout de sa ligne : après les boutons de mise en forme ; listes sous le formulaire", () => {
@@ -281,17 +281,33 @@ describe("bouton « GIF » du chat d'alliance", () => {
         `<a id="lienAlly" href="#" onclick="miseEnForme('message','ally'); return false;"><img src="images/BBCode/groupe.gif"/></a>`,
       )[1],
     ).toBe("lienAlly");
-    // icône dans un élément sans attribut onclick (clic ajouté par script) :
-    // juste après l'icône, et un clic sur GIF ne le déclenche pas
-    place(`<span id="sansAttribut"><img src="images/BBCode/groupe.gif"/></span>`);
-    lire(
-      `$("#sansAttribut").on("click", () => (window.CLIC_JEU = true)); $("#o_gifBouton").click()`,
-    );
+    // chat du jeu en Compte+ (chat.php, 10/11/2026) : images de mise en forme
+    // dans un span d'une ligne insécable, puis la liste des couleurs, cachée,
+    // faite d'autres images BBCode : le bouton suit la ligne, jamais dans la liste
+    const COULEURS = `<div id="listeCouleur0" class="listeCouleur" style="display: none"><img src="images/BBCode/000000.gif" id="000000" onClick="changerCookieCouleur('000000');"/><img src="images/BBCode/084c08.gif" id="084c08" onClick="changerCookieCouleur('084c08');"/></div>`;
+    expect(
+      place(
+        `<span class="sur_une_ligne"><span id="smileySuivant0"></span><strong id="boutonCouleur">A</strong><span id="barreJeu" style="cursor: pointer;position:relative;top:3px"><img onclick="miseEnForme('message','gras');" src="images/BBCode/bold.png"/><img onclick="miseEnForme('message','img');" src="images/BBCode/picture.png"/><img onclick="miseEnForme('message','ally');" src="images/BBCode/groupe.gif"/></span></span>${COULEURS}`,
+      ),
+    ).toEqual(["INPUT/button/GIF/bouton_jeu", "sur_une_ligne", "o_gifPanneau"]);
+    // après la ligne insécable du jeu, pas dedans, une espace avant lui : il
+    // passe à la ligne sur téléphone au lieu d'élargir la page
+    expect(
+      lire(
+        `[$("#o_gifBouton").parent().attr("id"), $("#listeCouleur0 #o_gifBouton, .sur_une_ligne #o_gifBouton").length, $("#o_gifBouton")[0].previousSibling.nodeValue]`,
+      ),
+    ).toEqual(["formulaireChat", 0, " "]);
+    // sans boutons de mise en forme, avec la liste des couleurs : à la fin du formulaire
+    expect(place(COULEURS)[1]).toBe("listeCouleur0");
+    // seul bouton dans un élément cliquable : juste après lui, et un clic sur
+    // GIF ne déclenche pas cet élément
+    place(`<span id="cliquable"><img onclick="miseEnForme('message','ally');"/></span>`);
+    lire(`$("#cliquable").on("click", () => (window.CLIC_JEU = true)); $("#o_gifBouton").click()`);
     expect(
       lire(
         `[$("#o_gifBouton").parent().attr("id"), window.CLIC_JEU === true, $("#o_gifPanneau").prop("hidden")]`,
       ),
-    ).toEqual(["sansAttribut", false, false]);
+    ).toEqual(["cliquable", false, false]);
     // sans boutons de mise en forme : à la fin du formulaire, avant les listes
     expect(place(``)[1]).toBe("Envoyer");
     expect(lire(`$("#o_gifPanneau").prev().attr("id")`)).toBe("o_gifBouton");

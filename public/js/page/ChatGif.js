@@ -14,12 +14,12 @@ const DUREE_GIF_ALLIANCE = 3600000;
 const ADRESSE_IMAGE = /^https?:\/\/[^\s[\]<>"'`]+$/i;
 
 /**
- * Bouton « GIF » du chat d'alliance, deux listes : « Mes GIF » (ceux que le
- * joueur a envoyés avec la balise [img] du jeu, gardés dans son navigateur) et
- * « GIF de l'alliance » (premier message du sujet caché TITRE_GIF_ALLIANCE,
- * tenu à la main). Un clic écrit [img]adresse[/img] dans le message, que le
- * joueur envoie lui-même ; le jeu affiche l'image à tous les membres, avec ou
- * sans l'extension.
+ * Bouton « GIF » des chats d'alliance et général, deux listes : « Mes GIF »
+ * (ceux que le joueur a envoyés avec la balise [img] du jeu, gardés dans son
+ * navigateur) et « GIF de l'alliance » (premier message du sujet caché
+ * TITRE_GIF_ALLIANCE, tenu à la main). Un clic écrit [img]adresse[/img] dans
+ * le message, que le joueur envoie lui-même ; le jeu affiche l'image à tous,
+ * avec ou sans l'extension.
  *
  * Requêtes : la lecture du sujet de l'alliance, au clic, au plus une fois par
  * heure (« Relire » pour forcer).
@@ -253,18 +253,30 @@ class ChatGif {
     if (!$champ.length || $("#o_gifBouton").length) return;
     // même bouton que « Envoyer » et « Actualiser » du jeu (maintainer request),
     // au bout de leur ligne : après les boutons de mise en forme, ceux du jeu
-    // (Compte+) ou ceux de l'extension, sinon à la fin du formulaire
+    // (Compte+ : images dans un span) ou le groupe de ceux de l'extension,
+    // sinon à la fin du formulaire. Les images des couleurs du jeu
+    // (#listeCouleur0, caché, en fin de formulaire) ne sont pas un repère.
     let $bouton = $(
         `<input type="button" id="o_gifBouton" value="GIF" aria-expanded="false" aria-controls="o_gifPanneau"/>`,
       ).addClass($("input[name='Envoyer']").attr("class") || ""),
       $panneau = $(`<div id="o_gifPanneau" hidden></div>`),
-      $dernier = $formulaire.find("[onclick*='miseEnForme'], img[src*='BBCode/']").last(),
-      $groupe = $dernier.closest(".o_group_bouton_chat"),
-      $cliquable = $dernier.closest("[onclick], a", $formulaire[0]),
-      $ancre = $groupe.length ? $groupe : $cliquable.length ? $cliquable : $dernier;
+      $dernier = $formulaire.find("[onclick*='miseEnForme']").last(),
+      $parent = $dernier.parent(),
+      $ancre = $dernier.closest(".o_group_bouton_chat");
+    if (!$ancre.length)
+      $ancre =
+        !$parent.is($formulaire) && $parent.children("[onclick*='miseEnForme']").length > 1
+          ? $parent
+          : $dernier;
+    // ligne insécable du jeu : le bouton la suit, pour passer à la ligne sur
+    // téléphone au lieu d'élargir la page
+    let $ligne = $ancre.closest(".sur_une_ligne", $formulaire[0]);
+    if ($ligne.length) $ancre = $ligne;
     if ($ancre.length) $bouton.insertAfter($ancre);
     else if ($formulaire.length) $bouton.appendTo($formulaire);
     else $bouton.insertAfter($champ);
+    // espace avant : le navigateur peut passer à la ligne avant le bouton
+    $bouton.before(document.createTextNode(" "));
     if ($formulaire.length) $panneau.appendTo($formulaire);
     else $panneau.insertAfter($bouton);
     $bouton.on("click", (e) => {

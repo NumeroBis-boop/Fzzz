@@ -15,6 +15,13 @@ const LIEU_ARMEE = { TERRAIN: 1, DOME: 2, LOGE: 3 };
 const CHOIX_UNITE_JEU = [1, 2, 3, 4, 5, 6, 14, 7, 8, 9, 10, 13, 11, 12];
 // envois d'un même déplacement que le jeu n'a pas fait, relecture de la page entre deux
 const ESSAIS_DEPLACEMENT = 3;
+// le jeu ignore parfois un déplacement envoyé juste après un autre (journaux des
+// 08 et 10/11/2026) : pause entre deux déplacements. Version TEST : valeurs
+// essayées à tour de rôle, une par replacement, notées dans le journal pour la régler
+const PAUSES_DEPLACEMENTS = [400, 700, 1000];
+const CLE_ESSAI_PAUSE = "fzzz_essaiPauseArmee";
+// pause avant de relire la page quand la réponse ne montre pas le déplacement
+const PAUSE_RELECTURE = 1000;
 
 class PageArmee {
   constructor(boiteComptePlus) {
@@ -225,7 +232,7 @@ class PageArmee {
       return this;
     }
     let placer = this.placementPrevu();
-    if (placer) this.lancerReplacement(placer);
+    if (placer) this.lancerReplacement(() => placer(auto));
     else if (!auto) $.toast({ ...TOAST_INFO, text: "Votre armée est déjà placée correctement." });
     return this;
   }
@@ -290,7 +297,7 @@ class PageArmee {
     let etapes = autres
       ? [{ toutEnLoge: true }, ...PageArmee.mouvements(vide, vide, cibleTdc, cibleDome)]
       : PageArmee.mouvements(this._armeeTdc.unite, this._armeeDome.unite, cibleTdc, cibleDome);
-    return () => this.replacer(iT, t, iD, d, etapes);
+    return (auto = false) => this.replacer(iT, t, iD, d, etapes, auto);
   }
   /**
    * Déplacements pour passer de `tdc` et `dome` (unités par indice, le reste
@@ -434,9 +441,10 @@ class PageArmee {
    * @param {Integer} iD indice dans Armee.unite de l'antisonde en dôme
    * @param {Integer} dome unités attendues en dôme à la fin
    * @param {Array<Object>} deplacements {toutEnLoge: true} ou {i, de, vers, nb}
+   * @param {Boolean} [auto] replacement enchaîné à un flood
    * @return {Promise}
    */
-  replacer(iT, terrain, iD, dome, deplacements) {
+  replacer(iT, terrain, iD, dome, deplacements, auto = false) {
     let etapes = deplacements.filter((e) => e.toutEnLoge || e.nb > 0),
       suivi = [],
       depart = {
@@ -444,31 +452,102 @@ class PageArmee {
         relu: false,
       };
     if (!etapes.length) return Promise.resolve();
+    let pause = PageArmee.pauseEntreDeplacements();
+    this._debutReplacement = PageArmee.instant();
     return etapes
       .reduce(
-        (suite, e) =>
-          suite.then((r) => (r.echec ? r : this.deplacer(e, r.lieux, iT, iD, suivi, 1, r.relu))),
+        (suite, e, k) =>
+          suite.then((r) =>
+            r.echec
+              ? r
+              : (k ? PageArmee.attendre(pause) : Promise.resolve()).then(() =>
+                  this.deplacer(e, r.lieux, iT, iD, suivi, 1, r.relu),
+                ),
+          ),
         Promise.resolve(depart),
       )
       .then((r) => {
         let ecarts = PageArmee.ecartsPlacement(r.lieux, iT, terrain, iD, dome),
           detail =
-            `attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]}\n` +
-            suivi.join("\n");
+            `attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]} ; ` +
+            `pause entre déplacements ${numeral(pause).format()} ms${auto ? " ; après un flood" : ""}\n` +
+            suivi.join("\n") +
+            `\nfin à ${this.tempsReplacement(PageArmee.instant())}`;
         if (ecarts.length)
           Journal.erreur("Replacement de l'armée", "Armée pas placée comme prévu", detail);
-        else if (r.relu)
-          Journal.info("Replacement de l'armée", "Armée placée après relecture de la page", detail);
+        else
+          Journal.info(
+            "Replacement de l'armée",
+            r.relu ? "Armée placée après relecture de la page" : "Armée placée",
+            detail,
+          );
         return this.finReplacement(r.html, iT, terrain, iD, dome, ecarts);
       })
       .catch(() => this.echecReplacement());
   }
   /**
+   * Pause entre deux déplacements pour ce replacement, prise à tour de rôle
+   * dans PAUSES_DEPLACEMENTS (version TEST).
+   *
+   * @static
+   * @method pauseEntreDeplacements
+   * @return {Number} ms
+   */
+  static pauseEntreDeplacements() {
+    let k = 0;
+    try {
+      k = (parseInt(localStorage.getItem(CLE_ESSAI_PAUSE)) || 0) % PAUSES_DEPLACEMENTS.length;
+      localStorage.setItem(CLE_ESSAI_PAUSE, String(k + 1));
+    } catch (e) {}
+    return PAUSES_DEPLACEMENTS[k];
+  }
+  /**
+   * @static
+   * @method attendre
+   * @param {Number} ms
+   * @return {Promise<void>}
+   */
+  static attendre(ms) {
+    return new Promise((fin) => setTimeout(fin, ms));
+  }
+  /**
+   * Horloge des durées du journal (monotone : un réglage de l'heure du PC
+   * pendant le replacement ne la fausse pas).
+   *
+   * @static
+   * @method instant
+   * @return {Number} ms
+   */
+  static instant() {
+    return performance.now();
+  }
+  /**
+   * @method tempsReplacement
+   * @param {Number} t instant (PageArmee.instant)
+   * @return {String} secondes depuis le début du replacement, « 1,25 s »
+   */
+  tempsReplacement(t) {
+    return `${Utils.decimal((t - this._debutReplacement) / 1000, 2)} s`;
+  }
+  /**
+   * Ligne du journal d'une requête du replacement : départ, durée, garnison reçue.
+   *
+   * @method ligneSuivi
+   * @param {Number} parti instant de la requête
+   * @param {String} libelle
+   * @param {String} html réponse du jeu
+   * @return {String}
+   */
+  ligneSuivi(parti, libelle, html, iT, iD) {
+    return `${this.tempsReplacement(parti)} ${libelle} (${Utils.decimal((PageArmee.instant() - parti) / 1000, 2)} s) → ${PageArmee.etatGarnison(html, iT, iD)}`;
+  }
+  /**
    * Un déplacement, vérifié dans la réponse du jeu. Le jeu ignore parfois une
    * action envoyée juste après une autre (journal du 08/11/2026 : la première
    * d'une suite passe toujours, les suivantes pas toujours) : quand la réponse
-   * ne la montre pas, la page est relue (après la pause des lectures, voir
-   * Requetes.js) et ce qui manque est renvoyé, ESSAIS_DEPLACEMENT fois en tout.
+   * ne la montre pas, la page est relue après PAUSE_RELECTURE, avant les
+   * lectures en attente, et ce qui manque est renvoyé, ESSAIS_DEPLACEMENT fois
+   * en tout.
    *
    * @method deplacer
    * @param {Object} e {toutEnLoge: true} ou {i, de, vers, nb}
@@ -494,6 +573,7 @@ class PageArmee {
         (e.toutEnLoge
           ? l.tdc.getSommeUnite() + l.dome.getSommeUnite() == 0
           : l[compte].unite[e.i] == cible),
+      parti = PageArmee.instant(),
       envoi = e.toutEnLoge
         ? $.get("/Armee.php", { deplacement: LIEU_ARMEE.LOGE, ...jeton() })
         : $.post("/Armee.php", {
@@ -507,30 +587,36 @@ class PageArmee {
     return Promise.resolve(envoi).then((html) => {
       PageArmee.reprendreJeton(html);
       let lieux = PageArmee.garnisonDe(html);
-      suivi.push(`${PageArmee.libelleEtape(e)} → ${PageArmee.etatGarnison(html, iT, iD)}`);
+      suivi.push(this.ligneSuivi(parti, PageArmee.libelleEtape(e), html, iT, iD));
       if (fait(lieux)) return { html, lieux, relu, echec: false };
-      return Promise.resolve($.get("/Armee.php")).then((page) => {
-        PageArmee.reprendreJeton(page);
-        let relus = PageArmee.garnisonDe(page);
-        suivi.push(`  page relue → ${PageArmee.etatGarnison(page, iT, iD)}`);
-        if (fait(relus)) return { html: page, lieux: relus, relu: true, echec: false };
-        // déjà fait en partie : seulement ce qui manque
-        let reste = !relus
-          ? null
-          : e.toutEnLoge
-            ? e
-            : {
-                ...e,
-                nb: (versLoge ? 1 : -1) * (relus[compte].unite[e.i] - cible),
-              };
-        if (
-          !reste ||
-          essai >= ESSAIS_DEPLACEMENT ||
-          (!reste.toutEnLoge && !(reste.nb > 0 && relus[lieu[e.de]].unite[e.i] >= reste.nb))
-        )
-          return { html: page, lieux: relus || avant, relu: true, echec: true };
-        return this.deplacer(reste, relus, iT, iD, suivi, essai + 1, true);
-      });
+      let relue = 0;
+      return PageArmee.attendre(PAUSE_RELECTURE)
+        .then(() => {
+          relue = PageArmee.instant();
+          return $.ajax({ url: "/Armee.php", action: true });
+        })
+        .then((page) => {
+          PageArmee.reprendreJeton(page);
+          let relus = PageArmee.garnisonDe(page);
+          suivi.push(this.ligneSuivi(relue, "page relue", page, iT, iD));
+          if (fait(relus)) return { html: page, lieux: relus, relu: true, echec: false };
+          // déjà fait en partie : seulement ce qui manque
+          let reste = !relus
+            ? null
+            : e.toutEnLoge
+              ? e
+              : {
+                  ...e,
+                  nb: (versLoge ? 1 : -1) * (relus[compte].unite[e.i] - cible),
+                };
+          if (
+            !reste ||
+            essai >= ESSAIS_DEPLACEMENT ||
+            (!reste.toutEnLoge && !(reste.nb > 0 && relus[lieu[e.de]].unite[e.i] >= reste.nb))
+          )
+            return { html: page, lieux: relus || avant, relu: true, echec: true };
+          return this.deplacer(reste, relus, iT, iD, suivi, essai + 1, true);
+        });
     });
   }
   /**

@@ -760,10 +760,11 @@ class PageAttaquer {
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
   }
   /**
-   * Lit les floods et chasses partagés, mes chasses (Ressources.php) et mes
-   * attaques en cours (liste du jeu de cette page, qui fait foi pour moi),
-   * puis affiche les TdC à l'impact ; ils suivent ensuite l'heure d'arrivée
-   * minute par minute, sans nouvelle requête.
+   * Lit les floods et chasses partagés (avec les TdC des membres :
+   * PartageChasses.completer), mes chasses (Ressources.php) et mes attaques en
+   * cours (liste du jeu de cette page, qui fait foi pour moi), puis affiche les
+   * TdC à l'impact ; ils suivent ensuite l'heure d'arrivée minute par minute,
+   * sans nouvelle requête.
    *
    * @private
    * @method lireImpact
@@ -773,8 +774,9 @@ class PageAttaquer {
     $("#o_simulationFlood .o_floodImpactLire")
       .removeClass("souligne cursor o_floodImpactLire")
       .text("Lecture des partages…");
+    let suivis = [monProfil.pseudo, this._cible.pseudo];
     this._lectureImpact = Promise.all([
-      PartageChasses.charger([this._cible.pseudo, monProfil.pseudo]),
+      PartageChasses.charger(suivis),
       Promise.resolve($.get(location.origin + "/Ressources.php"))
         .then((html) => PageRessource.lireChasses(Utils.parseHtml(String(html))))
         .catch(() => null),
@@ -797,9 +799,18 @@ class PageAttaquer {
                 terrain: g.terrain,
               }))
             : null;
-        this._simImpact = PartageChasses.simuler(
+        return PartageChasses.completer(
           PageAttaquer.avecMesMouvements(d, monProfil.pseudo, mesFloods, mesChasses),
-          { [monProfil.pseudo]: Utils.terrain, [this._cible.pseudo]: this._cible.terrain },
+          suivis,
+        );
+      })
+      .then(({ d, tdc }) => {
+        this._simImpact = PartageChasses.simuler(
+          d,
+          PartageChasses.tdcConnus(tdc, {
+            [monProfil.pseudo]: Utils.terrain,
+            [this._cible.pseudo]: this._cible.terrain,
+          }),
           this._ouverture,
         );
         this._minuteImpact = null;

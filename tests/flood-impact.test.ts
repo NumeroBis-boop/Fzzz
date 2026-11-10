@@ -296,6 +296,39 @@ describe("TdC à l'impact : lanceur de flood", () => {
     ).toBe(false);
   });
 
+  test("flood d'un autre membre hors portée à l'impact : il ne compte pas (TdC lu sur la page Membres)", async () => {
+    ouvrir();
+    // moi à 130 008, ma chasse de +40 433 (Ressources, 10h20), trois floods de
+    // Lanceur (232 643 sur la page Membres) sur moi à 10h30 : le 3e est hors
+    // portée (moi 109 083, lui 294 001) ; compté à 20 %, j'étais à 87 267
+    const membres = `<table id="tabMembresAlliance"><tr><th>Pseudo</th></tr><tr><td></td><td></td><td></td><td><a>Lanceur</a></td><td></td><td>232 643</td></tr></table>`;
+    const floods = [39002, 31202, 24961].map((unites, i) => ({
+      date: "2026-11-09 10:30",
+      cible: "Moi",
+      unites,
+      terrain: unites,
+      tdcCible: 130008,
+      id: 101 + i,
+      lanceur: "Lanceur",
+    }));
+    page.lire(`(() => {
+      $("#quantite_tdc").text("130008");
+      p._cible.terrain = 81824;
+      AttaqueLancee.extraireLignes = () => [];
+      window.aPartager = PageRessource.aPartager;
+      PageRessource.aPartager = () => [{ impact: moment("2026-11-09 10:20", "YYYY-MM-DD HH:mm"), terrain: 40433 }];
+      PartageChasses.charger = (de, avecFloods = true) => Promise.resolve({ chasses: {}, floods: avecFloods ? ${JSON.stringify(floods)} : [] });
+      $.get = (url) => Promise.resolve(String(url).includes("alliance.php?Membres") ? ${JSON.stringify(membres)} : "<html></html>");
+      $(".o_floodImpactLire").click();
+    })()`);
+    await attendre();
+    page.lire(`PageRessource.aPartager = aPartager`);
+    expect(page.lire(`$(".o_tdcImpact").map((i, e) => e.dataset.valeur).get()`)).toEqual([
+      "109083",
+      "81824",
+    ]);
+  });
+
   test("case décochée : ni lien ni lignes, boutons sous le tableau", () => {
     page.lire(`localStorage.setItem("fzzz_affichage_floodImpact", "0")`);
     ouvrir();

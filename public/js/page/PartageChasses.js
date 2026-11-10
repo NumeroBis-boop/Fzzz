@@ -1049,14 +1049,15 @@ class PartageChasses {
    * @static
    * @method charger
    * @param {Array|null} chassesDe pseudos dont lire les chasses (null : tous)
+   * @param {Boolean} [avecFloods] false : les chasses seulement
    * @return {Promise<Object>} {chasses: {pseudo minuscule: [...]}, floods: [... avec lanceur]}
    */
-  static charger(chassesDe = null) {
+  static charger(chassesDe = null, avecFloods = true) {
     return PartageChasses.sujets(true).then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
         liste = sujets.liste.filter(
           (t) =>
-            t.type == "Floods" ||
+            (avecFloods && t.type == "Floods") ||
             (t.type == "Chasses" && (!voulus || voulus.includes(t.pseudo.toLowerCase()))),
         ),
         d = { chasses: {}, floods: [] },
@@ -1075,6 +1076,134 @@ class PartageChasses {
               ).then(() => lirePaquet(k + 4));
       return lirePaquet(0).then(() => d);
     });
+  }
+  /**
+   * Joueurs que des floods partagés relient aux joueurs suivis, même de proche
+   * en proche (lanceur d'un flood sur l'un d'eux, cible d'un de leurs floods,
+   * et ainsi de suite) : les TdC des autres joueurs ne changent pas les leurs.
+   *
+   * @static
+   * @method relies
+   * @param {Array} floods
+   * @param {Array<String>} suivis
+   * @return {Array<String>} pseudos en minuscules, sans les joueurs suivis
+   */
+  static relies(floods, suivis) {
+    let depart = suivis.map((p) => String(p).toLowerCase()),
+      groupe = new Set(depart),
+      ajout = true;
+    while (ajout) {
+      ajout = false;
+      floods.forEach((f) => {
+        let l = String(f.lanceur).toLowerCase(),
+          c = String(f.cible).toLowerCase();
+        if (groupe.has(l) != groupe.has(c)) {
+          groupe.add(l);
+          groupe.add(c);
+          ajout = true;
+        }
+      });
+    }
+    return [...groupe].filter((p) => !depart.includes(p));
+  }
+  /**
+   * Ajoute aux partages lus pour suivre des joueurs ce que la page Membres
+   * utilise aussi : les chasses des joueurs reliés et les TdC actuels des
+   * membres. Sans le TdC du lanceur, un flood d'un autre joueur sur un joueur
+   * suivi ne pouvait pas être jugé hors portée et comptait 20 %.
+   *
+   * @static
+   * @method completer
+   * @param {Object} d charger(suivis), mes mouvements compris s'il y a lieu
+   * @param {Array<String>} suivis
+   * @return {Promise<{d: Object, tdc: Object}>} tdc : {pseudo: TdC} des membres ({} sans joueur relié)
+   */
+  static completer(d, suivis) {
+    let relies = PartageChasses.relies(d.floods, suivis);
+    if (!relies.length) return Promise.resolve({ d, tdc: {} });
+    let manquants = relies.filter((p) => !d.chasses[p]);
+    return Promise.all([
+      manquants.length
+        ? PartageChasses.charger(manquants, false).catch(() => ({ chasses: {} }))
+        : { chasses: {} },
+      PartageChasses.tdcMembres(),
+    ]).then(([lu, tdc]) => {
+      let chasses = { ...d.chasses };
+      manquants.forEach((p) => {
+        if (lu.chasses[p]) chasses[p] = lu.chasses[p];
+      });
+      return { d: { ...d, chasses }, tdc };
+    });
+  }
+  /**
+   * TdC actuels des membres, gardés une minute comme les lectures du forum :
+   * page Membres du jeu, ou, si son tableau n'y est pas (le jeu peut le
+   * remplir après coup, comme le forum), page de l'alliance au classement.
+   *
+   * @static
+   * @method tdcMembres
+   * @return {Promise<Object>} {pseudo: TdC} ; {} si aucune n'est lisible
+   */
+  static tdcMembres() {
+    let lire = (adresse, colonnePseudo, colonneTerrain) =>
+      Promise.resolve($.get(location.origin + adresse)).then(
+        (html) => {
+          let tdc = PartageChasses.lireTdcMembres(
+            Utils.parseHtml(String(html)),
+            colonnePseudo,
+            colonneTerrain,
+          );
+          // page de connexion, ou tableau absent : rien n'est gardé
+          if (!Object.keys(tdc).length) throw new Error(`${adresse} : tableau des membres absent`);
+          return tdc;
+        },
+        (xhr) => {
+          throw new Error(`${adresse} : HTTP ${xhr && xhr.status}`);
+        },
+      );
+    return PartageChasses._enCache("tdcMembres", true, () =>
+      lire("/alliance.php?Membres", 3, 5).catch((e) =>
+        Utils.alliance
+          ? lire("/classementAlliance.php?alliance=" + encodeURIComponent(Utils.alliance), 2, 4)
+          : Promise.reject(e),
+      ),
+    ).catch((e) => {
+      if (typeof Journal != "undefined")
+        Journal.erreur("TdC des membres", String((e && e.message) || e));
+      return {};
+    });
+  }
+  /**
+   * TdC des membres, où ceux lus sur la page ouverte (plus frais) les remplacent.
+   *
+   * @static
+   * @method tdcConnus
+   * @param {Object} membres tdcMembres()
+   * @param {Object} page {pseudo: TdC} ; un TdC absent ou nul ne remplace rien
+   * @return {Object} {pseudo: TdC}, pour simuler()
+   */
+  static tdcConnus(membres, page) {
+    let connus = { ...membres };
+    for (let p in page) if (p && page[p] > 0) connus[p] = page[p];
+    return connus;
+  }
+  /**
+   * @static
+   * @method lireTdcMembres
+   * @param {Object} $page page Membres ou page de l'alliance au classement (jQuery)
+   * @param {Number} colonnePseudo 3 sur la page Membres, 2 au classement
+   * @param {Number} colonneTerrain 5 sur la page Membres, 4 au classement
+   * @return {Object} {pseudo: TdC}
+   */
+  static lireTdcMembres($page, colonnePseudo, colonneTerrain) {
+    let tdc = {};
+    $page.find("#tabMembresAlliance tr").each((i, tr) => {
+      let $cases = $(tr).children("td"),
+        pseudo = $cases.eq(colonnePseudo).text().trim(),
+        terrain = numeral($cases.eq(colonneTerrain).text()).value();
+      if (pseudo && terrain > 0) tdc[pseudo] = terrain;
+    });
+    return tdc;
   }
   /**
    * Rejoue dans l'ordre d'arrivée les chasses et floods partagés à venir, en
@@ -1353,7 +1482,8 @@ class PartageChasses {
   /**
    * Armee.php : floods en cours sur le joueur, au-dessus de « Troupes en
    * Garnison » : unités envoyées et TdC qu'ils prendront à l'impact
-   * (simulation avec le TdC actuel du joueur et ses chasses partagées).
+   * (simulation avec les TdC actuels des membres et les chasses partagées du
+   * joueur et des joueurs reliés, comme la page Membres).
    *
    * @static
    * @method afficherArmee
@@ -1372,8 +1502,10 @@ class PartageChasses {
         .first();
     if (!moi || !$titre.length) return;
     let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
-    PartageChasses.enFile(() => PartageChasses.charger([moi]))
-      .then((d) => {
+    PartageChasses.enFile(() =>
+      PartageChasses.charger([moi]).then((d) => PartageChasses.completer(d, [moi])),
+    )
+      .then(({ d, tdc }) => {
         // mes floods publiés ou retirés, y compris depuis un autre appareil
         PartageChasses.recalerFloods(
           d.floods
@@ -1382,7 +1514,10 @@ class PartageChasses {
           AttaqueLancee.idsAffiches(),
         );
         AttaqueLancee.majPartages();
-        let sim = PartageChasses.simuler(d, { [moi]: Utils.terrain }),
+        let sim = PartageChasses.simuler(
+            d,
+            PartageChasses.tdcConnus(tdc, { [moi]: Utils.terrain }),
+          ),
           recus = PartageChasses.chronologie(sim, moi).filter(
             (v) => v.flood && v.delta <= 0 && v.cible.toLowerCase() == moi.toLowerCase(),
           ),
@@ -1428,14 +1563,16 @@ class PartageChasses {
    */
   static afficherProfil(pseudo, terrain, attaque = null) {
     if (!Utils.affichage("profilPartages")) return;
-    // chasses du joueur affiché (et les miennes, qui comptent pour mes floods) ;
+    // chasses du joueur affiché, les miennes et celles des joueurs reliés ;
     // floods de tous les membres : à chaque affichage, une correction faite dans
     // le forum est prise en compte
-    PartageChasses.charger([pseudo, monProfil.pseudo])
-      .then((d) => {
-        let connus = { [pseudo]: terrain };
-        if (monProfil.pseudo && Utils.terrain) connus[monProfil.pseudo] = Utils.terrain;
-        let sim = PartageChasses.simuler(d, connus),
+    let suivis = monProfil.pseudo ? [pseudo, monProfil.pseudo] : [pseudo];
+    PartageChasses.charger(suivis)
+      .then((d) => PartageChasses.completer(d, suivis))
+      .then(({ d, tdc }) => {
+        let page = { [pseudo]: terrain };
+        if (monProfil.pseudo) page[monProfil.pseudo] = Utils.terrain;
+        let sim = PartageChasses.simuler(d, PartageChasses.tdcConnus(tdc, page)),
           vars = PartageChasses.chronologie(sim, pseudo),
           chasses = vars.filter((v) => !v.flood),
           floods = vars.filter((v) => v.flood),

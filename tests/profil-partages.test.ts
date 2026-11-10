@@ -47,6 +47,8 @@ async function afficher(attaque: { secondes: number | null } | null, terrain = 2
     localStorage.clear();
     document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>150000</span><div class='boite_membre'>Action</div>";
     PartageChasses.charger = () => Promise.resolve(${JSON.stringify(PARTAGES)});
+    // pages Membres et classement illisibles : TdC des autres lanceurs inconnus
+    $.get = () => Promise.resolve("<html></html>");
     let a = ${JSON.stringify(attaque)};
     PartageChasses.afficherProfil("Alpha", ${terrain}, a && { secondes: a.secondes, depart: Horloge.clic() });
   })()`);

@@ -206,19 +206,8 @@ describe("replacement vérifié déplacement par déplacement", () => {
     expect(r.toasts).toEqual([REUSSI]);
     expect(envois(r)).toEqual(["tout en loge", [3, 2, 4], [2, 1, 2]]);
     expect(r.requetes.map((q) => q[2]?.t)).toEqual(["j0", "j1", "j2"]);
-    // chaque replacement noté avec la durée de chaque requête, pour régler les pauses
-    expect(r.notes).toEqual([
-      [
-        "info",
-        "Replacement de l'armée",
-        "Armée placée",
-        "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 400 ms\n" +
-          "0,00 s tout en loge (0,10 s) → TdC 0, dôme 0, autres hors loge 0\n" +
-          "0,50 s 4 Jeune Soldate Naine loge → dôme (0,10 s) → TdC 0, dôme 4, autres hors loge 0\n" +
-          "1,00 s 2 Jeune Soldate Naine dôme → TdC (0,10 s) → TdC 2, dôme 2, autres hors loge 0\n" +
-          "fin à 1,10 s",
-      ],
-    ]);
+    // rien au journal : il garde les replacements qui ont dû relire la page
+    expect(r.notes).toEqual([]);
     expect(r.pauses).toEqual([400, 400]);
     expect(r.armee).toEqual([2, 2, 616, 925]);
     // flèches refaites dans le tableau : attribut du jeton à jour aussi
@@ -297,7 +286,7 @@ describe("replacement vérifié déplacement par déplacement", () => {
       [2, 1, 1],
       [2, 3, 3112],
     ]);
-    expect(r.notes.map((n) => n[2])).toEqual(["Armée placée"]);
+    expect(r.notes).toEqual([]);
   });
 
   test("cas du journal du 09/11 : action ignorée, ponte avant la relecture, tout ce qui manque renvoyé", async () => {
@@ -374,23 +363,15 @@ describe("replacement vérifié déplacement par déplacement", () => {
     const r = await replacer("trop vite");
     expect(r.toasts).toEqual([REUSSI]);
     expect(envois(r)).toEqual(["tout en loge", [3, 2, 4], [2, 1, 2]]);
-    expect(r.notes.map((n) => n[2])).toEqual(["Armée placée"]);
+    expect(r.notes).toEqual([]);
   });
 
-  test("version TEST : pause de 400, 700 puis 1 000 ms à tour de rôle, notée ; replacement après un flood noté", async () => {
-    const pausesDe = async (auto = false) => {
-      const r = await replacer("normal", DEPART, 2, 2, 2, auto);
-      return [r.pauses, r.notes[0]![3]!.split("\n")[0]];
-    };
-    expect(await pausesDe()).toEqual([
-      [400, 400],
-      "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 400 ms",
-    ]);
-    expect((await pausesDe())[0]).toEqual([700, 700]);
-    expect(await pausesDe(true)).toEqual([
-      [1000, 1000],
-      "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 1 000 ms ; après un flood",
-    ]);
-    expect((await pausesDe())[0]).toEqual([400, 400]);
+  test("400 ms entre deux déplacements à chaque replacement ; replacement après un flood noté", async () => {
+    expect((await replacer("normal")).pauses).toEqual([400, 400]);
+    expect((await replacer("normal")).pauses).toEqual([400, 400]);
+    const r = await replacer("rafale", DEPART, 2, 2, 2, true);
+    expect(r.notes[0]![3]!.split("\n")[0]).toBe(
+      "attendu : TdC 2 Jeune Soldate Naine, dôme 2 Jeune Soldate Naine ; pause entre déplacements 400 ms ; après un flood",
+    );
   });
 });

@@ -15,11 +15,9 @@ const LIEU_ARMEE = { TERRAIN: 1, DOME: 2, LOGE: 3 };
 const CHOIX_UNITE_JEU = [1, 2, 3, 4, 5, 6, 14, 7, 8, 9, 10, 13, 11, 12];
 // envois d'un même déplacement que le jeu n'a pas fait, relecture de la page entre deux
 const ESSAIS_DEPLACEMENT = 3;
-// le jeu ignore parfois un déplacement envoyé juste après un autre (journaux des
-// 08 et 10/11/2026) : pause entre deux déplacements. Version TEST : valeurs
-// essayées à tour de rôle, une par replacement, notées dans le journal pour la régler
-const PAUSES_DEPLACEMENTS = [400, 700, 1000];
-const CLE_ESSAI_PAUSE = "fzzz_essaiPauseArmee";
+// le jeu ignore souvent un déplacement envoyé juste après un autre (journal du
+// 10/11/2026 : 3 sur 4) ; après 400 ms, aucun sur 9 (essais de 400, 700 et 1 000 ms)
+const PAUSE_DEPLACEMENTS = 400;
 // pause avant de relire la page quand la réponse ne montre pas le déplacement
 const PAUSE_RELECTURE = 1000;
 
@@ -452,7 +450,6 @@ class PageArmee {
         relu: false,
       };
     if (!etapes.length) return Promise.resolve();
-    let pause = PageArmee.pauseEntreDeplacements();
     this._debutReplacement = PageArmee.instant();
     return etapes
       .reduce(
@@ -460,7 +457,7 @@ class PageArmee {
           suite.then((r) =>
             r.echec
               ? r
-              : (k ? PageArmee.attendre(pause) : Promise.resolve()).then(() =>
+              : (k ? PageArmee.attendre(PAUSE_DEPLACEMENTS) : Promise.resolve()).then(() =>
                   this.deplacer(e, r.lieux, iT, iD, suivi, 1, r.relu),
                 ),
           ),
@@ -470,36 +467,16 @@ class PageArmee {
         let ecarts = PageArmee.ecartsPlacement(r.lieux, iT, terrain, iD, dome),
           detail =
             `attendu : TdC ${numeral(terrain).format()} ${NOM_UNITE[iT + 1]}, dôme ${numeral(dome).format()} ${NOM_UNITE[iD + 1]} ; ` +
-            `pause entre déplacements ${numeral(pause).format()} ms${auto ? " ; après un flood" : ""}\n` +
+            `pause entre déplacements ${numeral(PAUSE_DEPLACEMENTS).format()} ms${auto ? " ; après un flood" : ""}\n` +
             suivi.join("\n") +
             `\nfin à ${this.tempsReplacement(PageArmee.instant())}`;
         if (ecarts.length)
           Journal.erreur("Replacement de l'armée", "Armée pas placée comme prévu", detail);
-        else
-          Journal.info(
-            "Replacement de l'armée",
-            r.relu ? "Armée placée après relecture de la page" : "Armée placée",
-            detail,
-          );
+        else if (r.relu)
+          Journal.info("Replacement de l'armée", "Armée placée après relecture de la page", detail);
         return this.finReplacement(r.html, iT, terrain, iD, dome, ecarts);
       })
       .catch(() => this.echecReplacement());
-  }
-  /**
-   * Pause entre deux déplacements pour ce replacement, prise à tour de rôle
-   * dans PAUSES_DEPLACEMENTS (version TEST).
-   *
-   * @static
-   * @method pauseEntreDeplacements
-   * @return {Number} ms
-   */
-  static pauseEntreDeplacements() {
-    let k = 0;
-    try {
-      k = (parseInt(localStorage.getItem(CLE_ESSAI_PAUSE)) || 0) % PAUSES_DEPLACEMENTS.length;
-      localStorage.setItem(CLE_ESSAI_PAUSE, String(k + 1));
-    } catch (e) {}
-    return PAUSES_DEPLACEMENTS[k];
   }
   /**
    * @static

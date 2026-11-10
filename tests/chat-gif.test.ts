@@ -234,15 +234,67 @@ describe("bouton « GIF » du chat d'alliance", () => {
     ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: false });
     lire(`$("#o_gifBouton").click()`);
     expect(titres()).toEqual(["Mes GIF"]);
-    lire(`$("#o_gif").remove()`);
+    lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
     ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: true });
     lire(`$("#o_gifBouton").click()`);
     expect(titres()).toEqual(["GIF de l'alliance"]);
-    lire(`$("#o_gif").remove()`);
+    lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
     ouvrirChat("/alliance.php", { chatMesGif: false, chatGifAlliance: false });
-    expect(lire(`$("#o_gif").length`)).toBe(0);
+    expect(lire(`$("#o_gifBouton").length`)).toBe(0);
     ouvrirChat("/chat.php", { chatMesGif: true, chatGifAlliance: true });
-    expect(lire(`$("#o_gif").length`)).toBe(0);
+    expect(lire(`$("#o_gifBouton").length`)).toBe(0);
+  });
+
+  test("bouton comme « Envoyer », au bout de sa ligne : après les boutons de mise en forme ; listes sous le formulaire", () => {
+    const place = (barre: string) => {
+      lire(`(() => {
+        $("#o_gifBouton, #o_gifPanneau").remove();
+        $("input[name='Envoyer']").attr("class", "bouton_jeu").nextAll().remove();
+        $("#formulaireChat").append(${JSON.stringify(barre)});
+      })()`);
+      ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: true });
+      return lire<string[]>(`(() => {
+        let $b = $("#o_gifBouton"), $f = $("#formulaireChat");
+        return [$b.prop("tagName") + "/" + $b.attr("type") + "/" + $b.val() + "/" + $b.attr("class"),
+          $b.prev().attr("id") || $b.prev().attr("name") || $b.prev().attr("class") || "", $f.children().last().attr("id")];
+      })()`);
+    };
+    // Compte+ : boutons du jeu, puis un élément qui n'en est pas un
+    expect(
+      place(
+        `<span id="jeuB" onclick="miseEnForme('message','gras');">B</span><img id="jeuAlly" onclick="miseEnForme('message','ally');"/>`,
+      ),
+    ).toEqual(["INPUT/button/GIF/bouton_jeu", "jeuAlly", "o_gifPanneau"]);
+    // hors Compte+ : après le groupe de boutons de l'extension, pas dedans
+    expect(
+      place(
+        `<div class="o_group_bouton o_group_bouton_chat"><span id="o_msgAlly" onclick="miseEnForme('message','ally');"></span></div>`,
+      ),
+    ).toEqual([
+      "INPUT/button/GIF/bouton_jeu",
+      "o_group_bouton o_group_bouton_chat",
+      "o_gifPanneau",
+    ]);
+    // icône du jeu dans un lien cliquable : après le lien
+    expect(
+      place(
+        `<a id="lienAlly" href="#" onclick="miseEnForme('message','ally'); return false;"><img src="images/BBCode/groupe.gif"/></a>`,
+      )[1],
+    ).toBe("lienAlly");
+    // icône dans un élément sans attribut onclick (clic ajouté par script) :
+    // juste après l'icône, et un clic sur GIF ne le déclenche pas
+    place(`<span id="sansAttribut"><img src="images/BBCode/groupe.gif"/></span>`);
+    lire(
+      `$("#sansAttribut").on("click", () => (window.CLIC_JEU = true)); $("#o_gifBouton").click()`,
+    );
+    expect(
+      lire(
+        `[$("#o_gifBouton").parent().attr("id"), window.CLIC_JEU === true, $("#o_gifPanneau").prop("hidden")]`,
+      ),
+    ).toEqual(["sansAttribut", false, false]);
+    // sans boutons de mise en forme : à la fin du formulaire, avant les listes
+    expect(place(``)[1]).toBe("Envoyer");
+    expect(lire(`$("#o_gifPanneau").prev().attr("id")`)).toBe("o_gifBouton");
   });
 
   test("sans case « Mes GIF », un envoi n'est pas noté", () => {

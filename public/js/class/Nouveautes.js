@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.98.1",
+    notes: [
+      "Chat d'alliance : le bouton « GIF » est au bout de la ligne d'« Envoyer », après les boutons de mise en forme, avec le même aspect que « Envoyer » et « Actualiser ».",
+    ],
+  },
+  {
     version: "1.98.0",
     notes: [
       "Chat d'alliance : bouton « GIF ». « Mes GIF » garde dans ton navigateur les GIF que tu envoies avec [img]adresse du GIF[/img] ; « GIF de l'alliance » montre ceux du premier message du sujet « GIF de l'alliance » du forum caché. Un clic met le GIF dans ton message, tu l'envoies toi-même ; tous les membres le voient, même sans l'extension. Une case pour chaque liste dans Préférences → Chat.",

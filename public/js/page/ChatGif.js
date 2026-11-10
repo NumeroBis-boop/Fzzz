@@ -248,16 +248,29 @@ class ChatGif {
    * @param {{mes: Boolean, alliance: Boolean}} sections listes cochées dans les Préférences
    */
   static installer(sections) {
-    let $champ = $("#message");
-    if (!$champ.length || $("#o_gif").length) return;
-    let $bloc = $(`<div id="o_gif">
-        <button type="button" id="o_gifBouton" class="o_button" aria-expanded="false" aria-controls="o_gifPanneau">GIF</button>
-        <div id="o_gifPanneau" hidden></div>
-      </div>`);
-    if ($("#formulaireChat").length) $bloc.appendTo("#formulaireChat");
-    else $bloc.insertAfter($champ);
-    $("#o_gifBouton").on("click", (e) => {
+    let $champ = $("#message"),
+      $formulaire = $("#formulaireChat");
+    if (!$champ.length || $("#o_gifBouton").length) return;
+    // même bouton que « Envoyer » et « Actualiser » du jeu (maintainer request),
+    // au bout de leur ligne : après les boutons de mise en forme, ceux du jeu
+    // (Compte+) ou ceux de l'extension, sinon à la fin du formulaire
+    let $bouton = $(
+        `<input type="button" id="o_gifBouton" value="GIF" aria-expanded="false" aria-controls="o_gifPanneau"/>`,
+      ).addClass($("input[name='Envoyer']").attr("class") || ""),
+      $panneau = $(`<div id="o_gifPanneau" hidden></div>`),
+      $dernier = $formulaire.find("[onclick*='miseEnForme'], img[src*='BBCode/']").last(),
+      $groupe = $dernier.closest(".o_group_bouton_chat"),
+      $cliquable = $dernier.closest("[onclick], a", $formulaire[0]),
+      $ancre = $groupe.length ? $groupe : $cliquable.length ? $cliquable : $dernier;
+    if ($ancre.length) $bouton.insertAfter($ancre);
+    else if ($formulaire.length) $bouton.appendTo($formulaire);
+    else $bouton.insertAfter($champ);
+    if ($formulaire.length) $panneau.appendTo($formulaire);
+    else $panneau.insertAfter($bouton);
+    $bouton.on("click", (e) => {
+      // pas de mise en forme si le bouton est tombé dans un élément cliquable du jeu
       e.preventDefault();
+      e.stopPropagation();
       ChatGif.basculer(sections);
     });
     if (!sections.mes) return;

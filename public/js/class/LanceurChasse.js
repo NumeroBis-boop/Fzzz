@@ -440,7 +440,8 @@ class LanceurChasse {
           intervalle = this.$("#o_chasseInt").val() * 1000;
         let partager = this._sansPrefixe(e.currentTarget.id) == "o_chasseEnvoyerPartager";
         // sur la page Ressources : partage au rechargement qui suit la dernière
-        // chasse ; sans rechargement (page quittée en route), l'ordre expire
+        // chasse ; rechargée trop tard (page quittée en route), l'ordre expire
+        // et la page Ressources suivante le dit
         if (partager && this._page)
           try {
             sessionStorage.setItem(
@@ -455,7 +456,9 @@ class LanceurChasse {
           nbChasse,
           0,
           intervalle,
-          this._page ? undefined : (lancees, total) => this._finLancement(lancees, total, partager),
+          this._page
+            ? () => PageRessource.recharger()
+            : (lancees, total) => this._finLancement(lancees, total, partager),
         );
       } else
         $.toast({

@@ -85,13 +85,23 @@ class PageRessource {
    * @method syntheseChasses
    */
   syntheseChasses() {
-    let partagerMaintenant = false;
+    // page Ressources réelle (pas une page de connexion) : elle liste toutes
+    // les chasses, et l'ordre de partage reste pour elle
+    if (!$("#boite_tdc").length) return;
+    let ordre = null;
     try {
-      partagerMaintenant = Number(sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES)) > Date.now();
+      ordre = sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES);
       sessionStorage.removeItem(CLE_PARTAGE_CHASSES_APRES);
     } catch (e) {}
-    // page Ressources réelle (pas une page de connexion) : elle liste toutes les chasses
-    if (!$("#boite_tdc").length) return;
+    let partagerMaintenant = ordre != null && Number(ordre) > Date.now();
+    // rechargement trop tardif (page quittée pendant les envois, onglet en
+    // arrière-plan ralenti) : le joueur l'apprend au lieu d'un partage muet
+    if (ordre != null && !partagerMaintenant)
+      $.toast({
+        ...TOAST_WARNING,
+        hideAfter: 15000,
+        text: `Chasses non partagées : la page s'est rechargée trop tard après « Envoyer + partager ». Pour les partager, clique sur « Partager mes chasses avec la ${Utils.alliance || "l'alliance"} » dans la synthèse des chasses en cours.`,
+      });
     let chasses = PageRessource.lireChasses($(document));
     if (!chasses.length) {
       // chasses annulées ou arrivées : plus rien à garder dans le forum
@@ -320,6 +330,18 @@ class PageRessource {
     if (!chasses.length)
       return $.toast({ ...TOAST_WARNING, text: "Aucune chasse en cours : rien à partager." });
     PartageChasses.partager(PageRessource.aPartager(PageRessource.grouperChasses(chasses)), null);
+  }
+  /**
+   * Relit la page Ressources après les chasses lancées d'ici. Pas de
+   * location.reload() : une page affichée après un formulaire du jeu
+   * (ouvrières) serait renvoyée, après une confirmation du navigateur que le
+   * joueur peut refuser, et le partage demandé n'aurait pas lieu.
+   *
+   * @static
+   * @method recharger
+   */
+  static recharger() {
+    location.replace(location.origin + "/Ressources.php");
   }
   /**
    * Armée (ordre d'Armee.unite) d'après les unités nommées par le jeu

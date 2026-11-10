@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.3",
+    notes: [
+      "Correction : avec « Envoyer + partager » sur la page Ressources, le partage pouvait ne jamais se faire, sans aucun message (page relue trop tard, ou demande du navigateur de renvoyer un formulaire). La page est maintenant relue sans renvoyer de formulaire, et si le partage n'a pas pu se faire, un message le dit et indique le bouton « Partager mes chasses ».",
+    ],
+  },
+  {
     version: "1.101.2",
     notes: [
       "Correction : un flood d'un autre membre hors de portée à l'impact comptait quand même 20 % sur la page Armée (« Floods en cours sur … »), dans le TdC à l'impact du lanceur de Flood et sur la page d'un membre. Comme la page Membres, ces calculs connaissent maintenant le TdC de chaque membre et les chasses des joueurs liés par des floods.",

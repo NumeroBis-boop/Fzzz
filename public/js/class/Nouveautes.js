@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.100.1",
+    notes: [
+      "Correction : l'encart Compte+ pouvait rester vide (sans les pontes, constructions, recherches…) quand la vue radar avait été choisie et que le radar ne s'affichait plus. Le tableau n'est plus caché que par le radar affiché à sa place.",
+      "Partage des chasses et des floods : après l'envoi, le forum est relu. Si le sujet n'a pas été créé ou modifié (grade sans droit d'écriture, réponse qui bloque le premier message), un message rouge le dit au lieu d'annoncer le partage. « Section « BDD partagée cachée » introuvable » rappelle qu'elle peut exister mais être cachée à ton grade : demande à un chef.",
+    ],
+  },
+  {
     version: "1.100.0",
     notes: [
       "Lanceur de Flood : option « TdC à l'impact dès l'ouverture » dans Préférences → Attaque (décochée par défaut). Cochée, le TdC à l'impact est calculé sans clic à l'ouverture de la page d'attaque et mis dans « Mon Terrain » et le champ de la cible : le flood est calculé au TdC à l'impact. Une valeur que tu tapes est gardée.",

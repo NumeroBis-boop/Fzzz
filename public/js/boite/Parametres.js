@@ -183,6 +183,7 @@ class BoiteParametre extends Boite {
       "floodAttaques",
       "degressifBase",
       "degressifRegle",
+      "floodImpactAuto",
       "uniteAntisondeTerrain",
       "uniteAntisondeDome",
       "sondeUnite",
@@ -443,6 +444,7 @@ class BoiteParametre extends Boite {
         ${p["floodAttaques"].getForm("Nombre d'attaques proposées")}
         ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
         ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
+        ${p["floodImpactAuto"].getForm("TdC à l'impact dès l'ouverture", "<span class='o_aideParam'>sans clic, mis dans les champs ; une valeur tapée est gardée</span>")}
         <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(par défaut, modifiables à chaque attaque)</span></p>
         ${this._gardees.html()}
         <p class='o_titreParam'>Sonder</p>

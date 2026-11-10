@@ -211,6 +211,12 @@ class Joueur {
       0,
       ["Standard", "Temps de trajet", "Floods et chasses en cours"],
     );
+    this._parametre["floodImpactAuto"] = new Parametre(
+      "floodImpactAuto",
+      "TdC à l'impact dès l'ouverture du Lanceur de Flood",
+      "checkbox",
+      false,
+    );
     this._parametre["replacerArmeeAuto"] = new Parametre(
       "replacerArmeeAuto",
       "Signaler l'armée à replacer (ouverture d'Armée)",

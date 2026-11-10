@@ -719,8 +719,45 @@ class PageAttaquer {
           valeur = Number(e.currentTarget.dataset.valeur);
         $("#" + champ).spinner("value", valeur);
         if (champ == "o_floodTDCB") this._tdcImpactCible = valeur;
+        // valeur remise d'un clic : le champ suit de nouveau l'impact
+        if (this._impactAttendu) this._impactAttendu[champ] = valeur;
         this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
       });
+    // option : lu dès l'ouverture (une lecture des partages, comme un clic) et
+    // mis dans les champs, qui suivent l'impact tant que le joueur n'y touche pas
+    if (monProfil.parametre["floodImpactAuto"]?.valeur) {
+      this._impactAttendu = {
+        o_floodTDCA: $("#o_floodTDCA").spinner("value"),
+        o_floodTDCB: $("#o_floodTDCB").spinner("value"),
+      };
+      this.lireImpact();
+    }
+  }
+  /**
+   * Option « TdC à l'impact dès l'ouverture » : TdC à l'impact mis dans leurs
+   * champs, flood recalculé ; un champ changé par le joueur garde sa valeur.
+   *
+   * @private
+   * @method remplirImpact
+   * @param {Object} r tdcImpact()
+   */
+  remplirImpact(r) {
+    let change = false;
+    [
+      ["o_floodTDCA", r.moi.tdc],
+      ["o_floodTDCB", r.cible.tdc],
+    ].forEach(([champ, tdc]) => {
+      let $champ = $("#" + champ);
+      if (tdc == null || $champ.spinner("value") !== this._impactAttendu[champ]) return;
+      if ($champ.spinner("value") !== tdc) {
+        $champ.spinner("value", tdc);
+        change = true;
+      }
+      this._impactAttendu[champ] = tdc;
+      if (champ == "o_floodTDCB") this._tdcImpactCible = tdc;
+    });
+    if (change)
+      this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
   }
   /**
    * Lit les floods et chasses partagés, mes chasses (Ressources.php) et mes
@@ -806,6 +843,7 @@ class PageAttaquer {
           ? "<div class='o_floodHorsPortee'>Hors portée à l'impact : le flood ne prendrait rien.</div>"
           : ""),
     );
+    if (this._impactAttendu) this.remplirImpact(r);
   }
   /**
    * TdC de moi et de la cible à une minute d'impact, d'après une simulation

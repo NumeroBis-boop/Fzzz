@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.100.2",
+    notes: [
+      "Chat : la liste « GIF de l'alliance » est relue à chaque ouverture de la page du chat. Un GIF ajouté au sujet du forum apparaît sans cliquer sur « Relire », qui reste pour une page laissée ouverte.",
+    ],
+  },
+  {
     version: "1.100.1",
     notes: [
       "Correction : l'encart Compte+ pouvait rester vide (sans les pontes, constructions, recherches…) quand la vue radar avait été choisie et que le radar ne s'affichait plus. Le tableau n'est plus caché que par le radar affiché à sa place.",

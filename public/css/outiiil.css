@@ -1531,19 +1531,10 @@ html:not(.o_originePage) #color {
 }
 .o_gifTitre {
   margin: 6px 0 4px;
+  cursor: pointer;
 }
 .o_gifNote {
   margin: 2px 0 6px;
-}
-.o_gifRelire {
-  margin-left: 6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-weight: normal;
-  text-decoration: underline;
-  cursor: pointer;
 }
 .o_gifGrille {
   display: flex;

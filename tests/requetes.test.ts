@@ -4,8 +4,8 @@ import { creerPage } from "./harnais";
 // $.ajax d'origine simulé : chaque requête attend qu'on la termine à la main
 const page = creerPage(
   ["js/class/Requetes.js"],
-  `var envoyees = [], enAttente = [];
-   $.ajax = (o) => { let d = $.Deferred(); envoyees.push(o.url + (o.data ? " " + JSON.stringify(o.data) : "")); enAttente.push(d); return d.promise(); };
+  `var envoyees = [], enAttente = [], options = [];
+   $.ajax = (o) => { let d = $.Deferred(); envoyees.push(o.url + (o.data ? " " + JSON.stringify(o.data) : "")); options.push(Object.keys(o)); enAttente.push(d); return d.promise(); };
    function terminer() { enAttente.shift().resolve("ok", "success", {}); }`,
 );
 const attendre = (ms = 0) => new Promise((r) => setTimeout(r, ms));
@@ -33,6 +33,25 @@ describe("file des requêtes : actions du joueur d'abord", () => {
     page.lire(`terminer()`);
     await attendre();
     expect(page.lire(`envoyees.length`)).toBe(5);
+    page.lire(`terminer()`);
+  });
+  test("lecture d'un enchaînement (action: true) : devant les lectures en attente", async () => {
+    // fin de la requête du test précédent (jQuery résout ses promesses après un délai)
+    await attendre();
+    page.lire(`envoyees.length = 0; options.length = 0;
+      $.get("/Reine.php"); $.get("/Membre.php?Pseudo=C"); $.ajax({ url: "/Armee.php", action: true });`);
+    expect(page.lire(`envoyees.slice()`)).toEqual(["/Reine.php"]);
+    page.lire(`terminer()`);
+    await attendre();
+    expect(page.lire(`envoyees.slice()`)).toEqual(["/Reine.php", "/Armee.php"]);
+    // l'option reste dans la file, le jeu ne la reçoit pas
+    expect(page.lire(`options[1].includes("action")`)).toBe(false);
+    // comme après une action, les lectures attendent la pause
+    page.lire(`terminer()`);
+    await attendre(300);
+    expect(page.lire(`envoyees.length`)).toBe(2);
+    await attendre(2400);
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/Membre.php?Pseudo=C");
     page.lire(`terminer()`);
   });
   test("attaques, chasses, annulations reconnues comme actions", () => {

@@ -168,6 +168,7 @@ export default defineConfig({
           "js/page/Armee.js",
           "js/page/Attaquer.js",
           "js/page/Chat.js",
+          "js/page/ChatGif.js",
           "js/page/CommerceFzzz.js",
           "js/page/Commerce.js",
           "js/page/Compte.js",

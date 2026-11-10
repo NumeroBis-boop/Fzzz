@@ -94,6 +94,8 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       "chatCouleur",
       "chatMiseEnForme",
       "chatSmileys",
+      "chatMesGif",
+      "chatGifAlliance",
       "forumSection",
       "menuRapide",
       "membresEtats",

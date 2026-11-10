@@ -23,6 +23,14 @@ class PageChat {
     // fonction plus
     if (!Utils.comptePlus) this.plus();
     if (Utils.affichage("chatCiter")) this.afficheMessage();
+    // chat d'alliance seulement (alliance.php sans paramètre), Compte+ compris
+    if (location.pathname.toLowerCase() == "/alliance.php") {
+      let sections = {
+        mes: Utils.affichage("chatMesGif"),
+        alliance: Utils.affichage("chatGifAlliance"),
+      };
+      if (sections.mes || sections.alliance) ChatGif.installer(sections);
+    }
     if (!Utils.affichage("chatCouleur")) return this;
     // Couleur du texte, ajoutée au message à l'envoi
     this.couleur();

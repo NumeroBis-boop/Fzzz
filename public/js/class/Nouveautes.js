@@ -9,6 +9,15 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.106.0",
+    notes: [
+      "Page Armée : le replacement de l'armée passe toujours avant le chargement du bloc « Mes attaques en cours ». Après un flood, le bloc attend la fin du replacement ; si tu cliques sur « Replacer l'armée » pendant qu'il se charge, il se met en pause.",
+      "« Mes attaques en cours » : le titre indique le chargement (lectures faites, temps restant estimé).",
+      "« Mes attaques en cours » : plus de bouton « Retirer » ni « Retirer mes partages ». Un flood partagé ne quitte le forum que s'il est réellement annulé.",
+      "Smileys de l'alliance : la mention sous les smileys est retirée, le code de chaque smiley reste dans son info-bulle.",
+    ],
+  },
+  {
     version: "1.105.1",
     notes: [
       "Page Armée, « Mes attaques en cours » : pour une chasse dont le jeu ne détaille pas les troupes (compte sans Compte+), la colonne « Unités » affiche « — » au lieu de 0.",

@@ -33,6 +33,7 @@ const ONGLETS_PARAMETRE = [
       "toutes les pages : thème des fenêtres, styles des champs et cases, horloge, alerte de ponte, encadré Compte+ et radar, onglets Carte et Coûts des menus, infobulles des entrepôts ; l'encadré Extension OUAF reste, pour revenir ici",
   },
   { id: "Role", titre: "Rôle", affichages: [] },
+  { id: "Partage", titre: "Partage de données", affichages: [] },
   {
     id: "Ressources",
     titre: "Ressources",
@@ -215,6 +216,7 @@ class BoiteParametre extends Boite {
         .removeClass("ui-widget");
       this.ongletGeneral()
         .ongletRole()
+        .ongletPartage()
         .ongletRessources()
         .ongletArmee()
         .ongletAttaque()
@@ -679,6 +681,44 @@ class BoiteParametre extends Boite {
         ${monProfil.parametre["role"].getForm("Ton rôle dans l'alliance")}
         <p class='left o_aideParam'>Chasseur : rappel « Export des chasses à faire » à partir du mercredi et du dimanche 22h (heure du serveur), jusqu'à ce que tu exportes tes chasses depuis la messagerie ; un export fait dans les 24 h d'avant compte. Deux exports par semaine : le jeu supprime les conversations lues au bout de 7 jours. Case dans l'onglet Général.</p>
       </form>`);
+    return this;
+  }
+  /**
+   * Partage de données : une case par information relevée chaque jour pour le
+   * fichier de l'alliance (SuiviMembres), toutes cochées par défaut.
+   *
+   * @method ongletPartage
+   */
+  ongletPartage() {
+    let $onglet = $("#o_tabsParametrePartage").append(`<form>
+        <p class='left o_aideParam'>Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance, avec ton pseudo et la version de l'extension. L'adresse du fichier est lue dans le forum caché de l'alliance (sujet « ${TITRE_STATS_MEMBRES} ») : sans ce sujet, rien n'est relevé ni envoyé.</p>
+        <p class='o_titreParam'>Informations partagées <span class='o_aideParam'>(décochée : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas)</span></p>
+        ${DONNEES_PARTAGEES.map(
+          (d) =>
+            `<label class='o_affichageFzzz'><input type='checkbox' data-partage='${d.cle}' ${SuiviMembres.partage(d.cle) ? "checked" : ""}/> ${d.libelle}</label>`,
+        ).join("")}
+        <p class='left o_aideParam'>Réglage propre à ce navigateur. Un changement est envoyé à ta prochaine page.</p>
+        <p class='o_titreParam'>Envoi</p>
+        <p id='o_partageEtat' class='left small'></p>
+        <p class='left'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>
+      </form>`),
+      etat = (message = "") =>
+        $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume());
+    etat();
+    $onglet.find("input[data-partage]").on("change", (e) => {
+      SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
+      etat();
+    });
+    $onglet.find("#o_partageEnvoyer").on("click", (e) => {
+      e.preventDefault();
+      let $bouton = $(e.currentTarget).prop("disabled", true);
+      etat("Relevé et envoi en cours…");
+      SuiviMembres.lancer(true).then(() => {
+        $bouton.prop("disabled", false);
+        etat();
+        this.ajusterTaille();
+      });
+    });
     return this;
   }
   /**

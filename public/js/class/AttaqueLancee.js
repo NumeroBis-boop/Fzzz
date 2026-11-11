@@ -263,7 +263,8 @@ class AttaqueLancee {
   /**
    * Terrain estimé de la cible après une attaque : même règle que la
    * simulation de flood, une unité prend 1 de terrain, plafonné à 20 % du
-   * terrain de la cible avant l'attaque.
+   * terrain de la cible avant l'attaque. Le jeu applique cette règle quel que
+   * soit le lieu attaqué : le dôme et la loge pillent en plus des ressources.
    *
    * @param {Object} capture
    * @param {Integer|null} base terrain de la cible avant l'attaque
@@ -272,9 +273,6 @@ class AttaqueLancee {
   static estimerTerrain(capture, base) {
     capture.terrainDepart = base > 0 ? base : null;
     if (capture.terrainDepart === null) return (capture.terrainCible = null);
-    // dôme ou loge : un combat, le TdC de la cible ne change pas
-    if (["Dôme", "Loge"].includes(AttaqueLancee.zoneLieu(capture.lieu)))
-      return (capture.terrainCible = base);
     let nb = Object.values(capture.unite).reduce((somme, n) => somme + (n || 0), 0);
     return (capture.terrainCible = base - Math.min(nb, Math.floor(base * 0.2)));
   }
@@ -954,11 +952,11 @@ class AttaqueLancee {
     return unite;
   }
   /**
-   * Attaques au terrain de chasse affichées sans capture (lancées sur un autre
-   * appareil, ou capture perdue) : capture reconstituée avec les données du
-   * jeu (arrivée, lieu, troupes) et le TdC de la cible lu sur sa page joueur,
-   * une lecture par cible. Le départ est déduit du trajet : pour une même
-   * cible, l'ordre des arrivées est celui des lancements.
+   * Attaques (terrain, dôme ou loge) affichées sans capture (lancées sur un
+   * autre appareil, ou capture perdue) : capture reconstituée avec les données
+   * du jeu (arrivée, lieu, troupes) et le TdC de la cible lu sur sa page
+   * joueur, une lecture par cible. Le départ est déduit du trajet : pour une
+   * même cible, l'ordre des arrivées est celui des lancements.
    *
    * @static
    * @method reconstituer
@@ -969,7 +967,7 @@ class AttaqueLancee {
       (a) =>
         !a.capture &&
         a.ligne.cible &&
-        /terrain/i.test(a.ligne.lieuNatif || "") &&
+        AttaqueLancee.zoneLieu(a.ligne.lieuNatif) &&
         Object.keys(AttaqueLancee.uniteNatif(a.ligne.troupesNatif)).length,
     );
     if (!manquantes.length) return Promise.resolve([]);
@@ -1038,12 +1036,13 @@ class AttaqueLancee {
       : natif;
   }
   /**
-   * Fzzz : TdC que l'attaque prendra (règle des 20 %, estimée au lancement),
-   * « — » hors terrain de chasse, « ? » si le TdC de la cible était inconnu.
+   * Fzzz : TdC que l'attaque prendra (règle des 20 %, estimée au lancement,
+   * la même au terrain, au dôme et en loge), « — » si le lieu est inconnu,
+   * « ? » si le TdC de la cible était inconnu.
    */
   static priseEstimee(a) {
     let c = a.capture;
-    if (!/terrain/i.test(AttaqueLancee.lieu(a) || "")) return "—";
+    if (!AttaqueLancee.zoneLieu(AttaqueLancee.lieu(a))) return "—";
     if (!c || c.terrainDepart == null || c.terrainCible == null) return "?";
     let prise = c.terrainDepart - c.terrainCible,
       unites = Object.values(c.unite || {}).reduce((t, n) => t + (n || 0), 0);

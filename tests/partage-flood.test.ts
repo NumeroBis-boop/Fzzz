@@ -73,6 +73,18 @@ describe("attaque non capturée : reconstituée", () => {
     expect(p.lire("LECTURES")).toBe(1);
     expect(p.lire(`AttaqueLancee.charger().length`)).toBe(2);
   });
+  test("au dôme ou en loge aussi : le TdC est pris comme au terrain", async () => {
+    p.lire(`localStorage.clear(); LECTURES = 0;
+      var arrivee2 = moment().add(2, "h");
+      var ATT2 = ["Fourmilière", "Loge Impériale"].map((lieu, k) => ({ capture: null, ligne: { id: 10 + k, cible: "Io", lieuNatif: lieu,
+        arrivee: arrivee2.clone().add(k, "m"), troupesNatif: "30 000 Jeunes Soldates Naines" } }));
+      AttaqueLancee.reconstituer(ATT2);`);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(p.lire(`ATT2.map((a) => [a.capture.terrainDepart, a.capture.terrainCible])`)).toEqual([
+      [100000, 80000],
+      [80000, 64000],
+    ]);
+  });
 });
 
 describe("« + partager » et annulation", () => {

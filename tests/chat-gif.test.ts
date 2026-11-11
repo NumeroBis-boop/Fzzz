@@ -14,7 +14,12 @@ const page = creerPage(
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };
    var monProfil = { pseudo: "DoggyBag", couleur1: "#fff",
      parametre: { couleurChat: { valeur: "#000000", sauvegarde() {} } } };
-   var TOAST_INFO = {}, TOAST_WARNING = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};`,
+   var TOAST_INFO = {}, TOAST_WARNING = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {};
+   // packs de smileys du jeu, comme dans content.js
+   var LISTESMILEY1 = "<img src='images/smiley/ant_pouce.gif' onclick='addRaccourciSmiley(\\"message\\",\\"ant_pouce\\")'>",
+     LISTESMILEY2 = "", LISTESMILEY3 = "",
+     LISTESMILEY4 = "<img src='images/smiley/flower.gif' onclick='addRaccourciSmiley(\\"message\\",\\"flower\\")'>",
+     LISTESMILEY5 = "", LISTESMILEY6 = "";`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const attendre = () => new Promise((r) => setTimeout(r, 0));
@@ -502,7 +507,8 @@ describe("bouton « Smileys » : sujet « Smileys de l'alliance »", () => {
     lire(`$("#o_smileysBouton").click()`);
     await attendre();
     lire(`$(".o_smileyChoix").last().click()`);
-    expect(lire(`$("#message").val()`)).toBe(`Ouaf [img]${SMILEY1}[/img] [img]${SMILEY2}[/img]`);
+    // le code du smiley, comme ceux du jeu, une espace après lui pour la suite
+    expect(lire(`$("#message").val()`)).toBe("Ouaf {colley-32} {ouaf} ");
     expect(etat()).toEqual([true, "false"]);
     lire(`$("#o_smileysBouton").click(); $("#o_gifBouton").click()`);
     expect(
@@ -539,5 +545,286 @@ describe("bouton « Smileys » : sujet « Smileys de l'alliance »", () => {
       "Forum de l'alliance illisible : dernière lecture affichée.",
     );
     expect(smileys()).toEqual([SMILEY1]);
+  });
+
+  /**
+   * Codes {nom} et sections (1.103.0, demandes du mainteneur) : le sujet range
+   * ses smileys sous des titres (« Membres : », « Génériques : ») ; un clic
+   * écrit le code du smiley, comme pour ceux du jeu ({tongue}, {flower}), et
+   * le code devient [img]adresse[/img] quand le joueur envoie son message : le
+   * jeu ne connaît que ses propres codes.
+   */
+  const MEMBRE1 = "https://i.postimg.cc/aaa/Krokmou-1.png";
+  const MEMBRE2 = "https://i.postimg.cc/bbb/Sirius.png";
+  const GENERIQUE1 = "https://i.postimg.cc/ccc/chien-amoureux.png";
+  const GENERIQUE2 = "https://i.postimg.cc/ddd/ouaf.gif";
+  const SUJET =
+    `Smileys de l'alliance, à utiliser dans les chats et les messages<br/>` +
+    `<strong>Membres :</strong><br/>` +
+    `<img src="${MEMBRE1}"/> {sirius} <img src="${MEMBRE2}"/><br/><br/>` +
+    `Génériques&nbsp;:<br/>` +
+    `<img src="${GENERIQUE1}"/><br/>` +
+    `${GENERIQUE2}<br/>` +
+    `Crédits : dessins de l'alliance`;
+  const lireSmileys = (html: string) =>
+    lire<{ gifs: string[]; ignores: number; sections: any[] }>(
+      `ChatGif.lireSmileys(${JSON.stringify(html)})`,
+    );
+  const codes = (html: string) =>
+    lireSmileys(html).sections.map((s) => [s.titre, ...s.smileys.map((x: any) => x.nom)]);
+  const message = () => lire<string>(`$("#message").val()`);
+  const ENTREE = `$("#message").trigger($.Event("keypress", { which: 13, keyCode: 13 }))`;
+  const ENVOYER = `$("input[name='Envoyer']").click()`;
+  const envoi = (texte: string, par: string) => {
+    lire(`$("#message").val(${JSON.stringify(texte)})`);
+    lire(par);
+    return message();
+  };
+  const ouvrirSmileys = async (cases: Record<string, boolean> = SEULS_SMILEYS) => {
+    sujet("8", "Smileys de l'alliance", SUJET);
+    ouvrirChat("/alliance.php", cases);
+    await attendre();
+  };
+
+  test("sections : une ligne sans image qui finit par « : » titre les smileys qui la suivent", () => {
+    expect(lireSmileys(`<div class="messageForum">${SUJET}</div>`)).toEqual({
+      gifs: [MEMBRE1, MEMBRE2, GENERIQUE1, GENERIQUE2],
+      ignores: 0,
+      sections: [
+        {
+          titre: "Membres",
+          smileys: [
+            { nom: "krokmou-1", adresse: MEMBRE1 },
+            { nom: "sirius", adresse: MEMBRE2 },
+          ],
+        },
+        {
+          titre: "Génériques",
+          smileys: [
+            { nom: "chien-amoureux", adresse: GENERIQUE1 },
+            { nom: "ouaf", adresse: GENERIQUE2 },
+          ],
+        },
+      ],
+    });
+  });
+
+  test("smileys d'avant le premier titre : sans titre ; titre sans smiley, trop long ou suivi d'une image sur sa ligne : pas une section", () => {
+    const long = "Une très longue phrase d'introduction qui finit par deux points";
+    expect(
+      codes(
+        `<div class="messageForum"><img src="https://x.fr/a/un.png"/><br/>Vide :<br/>Chats :<br/>${long} :<br/>` +
+          `Bull : <img src="https://x.fr/a/deux.png"/><br/><div>Chiens :</div><img src="https://x.fr/a/trois.png"/></div>`,
+      ),
+    ).toEqual([
+      ["", "un"],
+      ["Chats", "deux"],
+      ["Chiens", "trois"],
+    ]);
+  });
+
+  test("codes : le {nom} écrit devant l'image, sinon le nom du fichier ; déjà pris (smiley du jeu ou de l'alliance) : numéroté", () => {
+    expect(
+      codes(
+        `<div class="messageForum">` +
+          `<img src="https://x.fr/a/Chien%20D%C3%A9tective.PNG"/>` +
+          `<img src="https://x.fr/b/tongue.png"/><img src="https://x.fr/c/flower.gif"/>` +
+          `{Ant_Pouce} <img src="https://x.fr/d/pouce-leve.png"/>` +
+          `<img src="https://x.fr/e/chien-detective.png"/>` +
+          `{Mon Chien !}<br/><img src="https://x.fr/f/1.png"/>` +
+          `{pas pour lui} et du texte <img src="https://x.fr/g/%21%21.png"/>` +
+          `<img src="https://x.fr/h/%21.png"/></div>`,
+      )[0],
+    ).toEqual([
+      "",
+      "chien-detective",
+      // {tongue} (premier pack) et {flower} (LISTESMILEY4) restent ceux du jeu
+      "tongue-2",
+      "flower-2",
+      "ant_pouce-2",
+      "chien-detective-2",
+      "mon-chien",
+      "smiley",
+      "smiley-2",
+    ]);
+  });
+
+  test("premier message seulement ; smileys du jeu et doublons écartés, liens qui ne sont pas des images comptés", () => {
+    const lu = lireSmileys(
+      `<div class="messageForum">Membres :<br/><img src="${MEMBRE1}"/><img src="images/smiley/smile.gif"/>` +
+        `<img src="https://s5.fourmizzz.fr/images/smiley/rire.gif"/><a href="https://x.fr/page">https://x.fr/pa...</a>` +
+        `<img src="${MEMBRE1}"/><a href="${MEMBRE2}">lien</a></div>` +
+        `<div class="messageForum">Autres :<br/><img src="https://x.fr/reponse.png"/></div>`,
+    );
+    expect([lu.gifs, lu.ignores, lu.sections.map((s) => s.titre)]).toEqual([
+      [MEMBRE1, MEMBRE2],
+      1,
+      ["Membres"],
+    ]);
+  });
+
+  test("panneau : les smileys sous les titres du sujet, dépliables comme les listes de GIF ; le code de chacun en info-bulle", async () => {
+    await ouvrirSmileys();
+    const sections = () =>
+      lire<[string, boolean, string[]][]>(
+        `$("#o_smileysPanneau details.o_gifSection").map((i, d) => [[d.querySelector("summary").textContent, d.open, $(d).find(".o_smileyChoix").map((j, b) => b.title).get()]]).get()`,
+      );
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(sections()).toEqual([
+      ["Membres", true, ["{krokmou-1}", "{sirius}"]],
+      ["Génériques", true, ["{chien-amoureux}", "{ouaf}"]],
+    ]);
+    expect(lire<string>(`$("#o_smileysPanneau").text()`)).toContain(
+      "Un clic écrit le code du smiley, par exemple {krokmou-1} : il devient son image quand tu envoies le message.",
+    );
+    // titre replié : gardé, panneau puis page rouverts
+    lire(`$("#o_smileysPanneau summary").first().click()`);
+    await attendre();
+    lire(`$("#o_smileysBouton").click(); $("#o_smileysBouton").click()`);
+    await attendre();
+    expect(sections().map((s) => s[1])).toEqual([false, true]);
+    rouvrir(SEULS_SMILEYS);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(sections().map((s) => s[1])).toEqual([false, true]);
+  });
+
+  test("sujet sans titre : une seule liste, sans titre ; titre piégé : affiché en texte", async () => {
+    sujet("8", "Smileys de l'alliance", `<img src="${SMILEY1}"/><img src="${SMILEY2}"/>`);
+    ouvrirChat("/alliance.php", SEULS_SMILEYS);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(
+      lire(
+        `[$("#o_smileysPanneau details").length, $("#o_smileysPanneau .o_smileysGrille").length]`,
+      ),
+    ).toEqual([0, 1]);
+    lire(
+      `FORUM.sujets[0].messages = [${JSON.stringify(`&lt;img src=x onerror=alert(1)&gt; :<br/><img src="${SMILEY1}"/>`)}]`,
+    );
+    rouvrir(SEULS_SMILEYS);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(
+      lire(`[$("#o_smileysPanneau summary").text(), $("#o_smileysPanneau summary img").length]`),
+    ).toEqual(["<img src=x onerror=alert(1)>", 0]);
+  });
+
+  test("à l'envoi (Entrée ou « Envoyer ») : les codes deviennent les images ; ceux du jeu et les autres accolades restent", async () => {
+    await ouvrirSmileys();
+    // casse, accents et espaces du code tapé ignorés, comme dans son nom
+    expect(envoi("Salut {sirius} {tongue} {flower} {inconnu} {Krokmou 1}!", ENTREE)).toBe(
+      `Salut [img]${MEMBRE2}[/img] {tongue} {flower} {inconnu} [img]${MEMBRE1}[/img]!`,
+    );
+    expect(envoi("{CHIEN-AMOUREUX}{ouaf}", ENVOYER)).toBe(
+      `[img]${GENERIQUE1}[/img][img]${GENERIQUE2}[/img]`,
+    );
+    // une autre touche n'envoie rien : le code reste
+    expect(
+      envoi("{sirius}", `$("#message").trigger($.Event("keypress", { which: 65, keyCode: 65 }))`),
+    ).toBe("{sirius}");
+    // envoyé deux fois (Entrée puis validation du formulaire) : même message
+    expect(envoi(`[img]${MEMBRE2}[/img]`, ENTREE)).toBe(`[img]${MEMBRE2}[/img]`);
+  });
+
+  test("formulaire validé sans touche ni clic vus (clavier d'un téléphone) : converti avant le jeu", async () => {
+    lire(
+      `document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><form id='formulaireChat'><input id='message' type='text'/><input type='submit' name='Envoyer' value='Envoyer'/></form>"`,
+    );
+    await ouvrirSmileys();
+    expect(
+      lire(`(() => {
+        let formulaire = document.getElementById("formulaireChat"), lu = null;
+        // le jeu lit le message à la validation
+        formulaire.addEventListener("submit", (e) => { e.preventDefault(); lu = $("#message").val(); });
+        $("#message").val("{sirius}");
+        formulaire.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        return lu;
+      })()`),
+    ).toBe(`[img]${MEMBRE2}[/img]`);
+  });
+
+  test("message trop long avec les images : smiley refusé au clic ; tapé à la main, l'envoi est retenu avec une notification", async () => {
+    await ouvrirSmileys();
+    lire(`$("#message").attr("maxlength", "60").val("Bonjour à tous")`);
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    // le code tiendrait, pas la balise qui le remplacera
+    lire(`$(".o_smileyChoix").first().click()`);
+    expect([message(), lire(`$("#o_smileysPanneau").prop("hidden")`)]).toEqual([
+      "Bonjour à tous",
+      false,
+    ]);
+    const retenu = (par: string) =>
+      lire(`(() => {
+        window.JEU = 0;
+        $("#message").val("{sirius} {sirius}").off(".jeu").on("keypress.jeu", () => JEU++);
+        $("input[name='Envoyer']").off(".jeu").on("click.jeu", () => JEU++);
+        let e = ${par};
+        return [e.isDefaultPrevented(), JEU, $("#message").val()];
+      })()`);
+    expect(
+      retenu(
+        `(() => { let e = $.Event("keypress", { which: 13, keyCode: 13 }); $("#message").trigger(e); return e; })()`,
+      ),
+    ).toEqual([true, 0, "{sirius} {sirius}"]);
+    expect(
+      retenu(
+        `(() => { let e = $.Event("click"); $("input[name='Envoyer']").trigger(e); return e; })()`,
+      ),
+    ).toEqual([true, 0, "{sirius} {sirius}"]);
+    const trop = `[img]${MEMBRE2}[/img] [img]${MEMBRE2}[/img]`.length - 60;
+    expect(lire<string[]>(`TOASTS`)).toEqual([
+      "Message trop long pour y ajouter ce smiley (60 caractères au plus).",
+      `Message trop long de ${trop} caractères avec les images de ses smileys : raccourcis-le avant de l'envoyer.`,
+      `Message trop long de ${trop} caractères avec les images de ses smileys : raccourcis-le avant de l'envoyer.`,
+    ]);
+    // raccourci : il part
+    expect(envoi("{sirius}", ENTREE)).toBe(`[img]${MEMBRE2}[/img]`);
+  });
+
+  test("« Mes GIF » : un smiley animé de l'alliance n'y va pas, un GIF du même message oui", async () => {
+    await ouvrirSmileys({ chatMesGif: true, chatGifAlliance: false, chatSmileysAlliance: true });
+    expect(envoi(`{ouaf} [img]${GIF1}[/img]`, ENVOYER)).toBe(
+      `[img]${GENERIQUE2}[/img] [img]${GIF1}[/img]`,
+    );
+    expect(mesGif()).toEqual([GIF1]);
+  });
+
+  test("case décochée : les codes ne sont pas convertis", async () => {
+    await ouvrirSmileys({ chatMesGif: true, chatGifAlliance: false, chatSmileysAlliance: false });
+    await lire(`ChatGif.lireAlliance("smileys")`);
+    expect(envoi("{sirius}", ENVOYER)).toBe("{sirius}");
+  });
+
+  test("forum illisible : les codes de la dernière lecture servent encore, celle d'une version sans sections comprise ; jamais ceux d'une autre alliance", async () => {
+    lire(
+      `localStorage.setItem("fzzz_smileysAlliance", JSON.stringify({ gifs: ${JSON.stringify([SMILEY1, SMILEY2])}, ignores: 0, date: 1, alliance: "OUAF" }))`,
+    );
+    lire(`FORUM.echoue = true`);
+    ouvrirChat("/alliance.php", SEULS_SMILEYS);
+    await attendre();
+    expect(envoi("{colley-32} {ouaf}", ENVOYER)).toBe(
+      `[img]${SMILEY1}[/img] [img]${SMILEY2}[/img]`,
+    );
+    lire(`$("#o_smileysBouton").click()`);
+    await attendre();
+    expect(lire(`$("#o_smileysPanneau .o_smileyChoix").map((i, b) => b.title).get()`)).toEqual([
+      "{colley-32}",
+      "{ouaf}",
+    ]);
+    lire(`$("#tag_alliance").text("AUTRE")`);
+    expect(envoi("{ouaf}", ENVOYER)).toBe("{ouaf}");
+  });
+
+  test("lecture gardée abîmée : smileys douteux écartés, rien d'injecté dans un message", () => {
+    lire(
+      `localStorage.setItem("fzzz_smileysAlliance", JSON.stringify({ gifs: [], alliance: "OUAF", sections: [
+        { titre: "x", smileys: [{ nom: "ok", adresse: ${JSON.stringify(SMILEY1)} }, { nom: "a]b", adresse: ${JSON.stringify(SMILEY2)} },
+          { nom: "c", adresse: "javascript:alert(1)" }, { nom: "d", adresse: "https://x.fr/a.png[/img][url=x]" }, null] }, "oups"] }))`,
+    );
+    expect(lire(`[...ChatGif.codes()]`)).toEqual([["ok", SMILEY1]]);
+    expect(lire(`ChatGif.convertir("{ok} {c} {d}")`)).toBe(`[img]${SMILEY1}[/img] {c} {d}`);
   });
 });

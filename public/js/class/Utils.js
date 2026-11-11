@@ -123,6 +123,8 @@ const AFFICHAGES_FZZZ = {
   messagerieMiseEnForme:
     "Hors Compte+ : couleur et boutons de mise en forme (gras, italique, lien, pseudo…) pour écrire",
   messagerieSmileys: "Hors Compte+ : listes de smileys et flèches pour passer de l'une à l'autre",
+  messagerieSmileysAlliance:
+    "Bouton « Smileys » des messages à écrire (nouveau message, réponses) : les smileys du sujet « Smileys de l'alliance » du forum caché, leurs codes {nom} remplacés par les images à l'envoi",
   lancerPartager: "Bouton « Lancer + partager » (page d'attaque)",
   sonder: "Boutons « Sonder » et « Synchro sonde » (page d'attaque)",
   synchroniser:
@@ -199,7 +201,7 @@ const AFFICHAGES_FZZZ = {
   chatGifAlliance:
     "Bouton « GIF » des chats (alliance et général), liste « GIF de l'alliance » : ceux du sujet du même nom du forum caché",
   chatSmileysAlliance:
-    "Bouton « Smileys » des chats (alliance et général) : les smileys du sujet « Smileys de l'alliance » du forum caché",
+    "Bouton « Smileys » des chats (alliance et général) : les smileys du sujet « Smileys de l'alliance » du forum caché, leurs codes {nom} remplacés par les images à l'envoi",
   forumSection:
     "Bouton pour créer la section cachée du partage des chasses, quand elle n'existe pas encore",
   menuRapide:

@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.103.0",
+    notes: [
+      "Smileys de l'alliance : ils s'écrivent comme ceux du jeu, avec un code entre accolades. Un clic sur un smiley écrit son code (par exemple {colley}), que tu peux aussi taper ; il devient son image quand tu envoies le message, visible de tous.",
+      "Smileys de l'alliance : ils sont rangés sous les titres écrits dans le sujet « Smileys de l'alliance » (« Membres », « Génériques »…).",
+      "Messagerie : bouton « Smileys OUAF » pour écrire un nouveau message ou une réponse. Une case dans Préférences → Messagerie.",
+    ],
+  },
+  {
     version: "1.102.0",
     notes: [
       "Page Membres de l'alliance : ta ligne est mise en surbrillance. Une case dans Préférences → Page membre.",

@@ -22,6 +22,7 @@ class PageMessagerie {
   executer() {
     // ajout des boutons pour les nouveaux messages
     if (!Utils.comptePlus) this.plus(0);
+    if (Utils.affichage("messagerieSmileysAlliance")) ChatGif.messagerie();
     if (Utils.affichage("messagerieCouleurs")) this.couleurMessage();
     // Fzzz : couleurs des convois et conversations, bouton de copie, rangement
     MessagerieFzzz.boutonsPartage();

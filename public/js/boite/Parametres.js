@@ -108,6 +108,7 @@ const ONGLETS_PARAMETRE = [
       "messagerieNonLus",
       "messagerieMiseEnForme",
       "messagerieSmileys",
+      "messagerieSmileysAlliance",
     ],
     origine: "messagerie",
   },

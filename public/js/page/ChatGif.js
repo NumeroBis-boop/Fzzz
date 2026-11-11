@@ -1096,9 +1096,6 @@ class ChatGif {
           .appendTo($zone);
       else $zone.append($grille);
     });
-    $zone.append(
-      `<p class="reduce o_gifNote">Un clic écrit le code du smiley, par exemple {${sections[0].smileys[0].nom}} : il devient son image quand tu envoies le message.</p>`,
-    );
   }
   /**
    * @private

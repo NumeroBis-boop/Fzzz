@@ -68,8 +68,6 @@ class PageArmee {
    */
   executer() {
     this.recupererArmee();
-    // Fzzz : floods partagés en cours sur le joueur
-    PartageChasses.afficherArmee();
     // Affichage du nombre d'attaque restante
     if (Utils.affichage("armeeAttaquesRestantes"))
       $("h3:eq(2)").append(
@@ -111,8 +109,6 @@ class PageArmee {
     // Affichage des statistiques detaillés
     if (Utils.affichage("armeeStatistiques")) this.afficherStatistique();
     if (Utils.affichage("armeeMiseEnPage")) this.alleger();
-    // bloc des floods reçus à la largeur des troupes, même sans la mise en page allégée
-    $(window).on("resize", PageArmee.calerLargeurs);
     // Auto-replacer : déclenché en sortie de flood (flag sessionStorage) ou par le param utilisateur.
     let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
     if (floodFlag) sessionStorage.removeItem("outiiil_floodPuisReplacer");
@@ -740,7 +736,6 @@ class PageArmee {
       $nouvelle.find("h3:first").append(` (${numeral(this.uniteTransferables()).format()})`);
     if (!Utils.comptePlus) this.flechesEtLignes();
     if (miseEnPage) this.libellesCourts((n) => $nouvelle[0].contains(n));
-    PageArmee.calerLargeurs();
     return true;
   }
   /**
@@ -954,7 +949,7 @@ class PageArmee {
     $("#o_attaquesLancees").addClass("o_blocArmee");
     $(".simulateur:not(.o_blocAttaques):first").addClass("o_blocArmee");
     $deplacer.addClass("o_blocArmee");
-    // textes raccourcis : largeurs recalculées (blocs épinglé et des floods)
+    // textes raccourcis : largeur du bloc épinglé recalculée
     $(window).trigger("resize");
     $(".o_blocArmee").each((i, bloc) => {
       for (let sens of ["previousSibling", "nextSibling"]) {
@@ -966,17 +961,6 @@ class PageArmee {
         }
       }
     });
-  }
-  /**
-   * Bloc « Floods en cours sur … » à la largeur du bloc « Troupes en garnison ».
-   *
-   * @static
-   * @method calerLargeurs
-   */
-  static calerLargeurs() {
-    let garnison = $(".simulateur:not(.o_blocAttaques):first")[0];
-    if (!garnison) return;
-    $("#o_floodsRecus").css("width", garnison.getBoundingClientRect().width + "px");
   }
   /**
    * Noms courts des lieux (TdC, Dôme, Loge) dans les textes et infobulles de

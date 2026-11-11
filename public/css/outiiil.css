@@ -1304,10 +1304,6 @@ h2:has(+ .o_nbUnite) {
 .o_attaquesLancees th {
   white-space: normal;
 }
-.o_attaquesLancees td.o_lieuAttaque {
-  width: 4em;
-  cursor: help;
-}
 .o_attaquesLancees td.o_attaqueActions > * {
   vertical-align: middle;
 }
@@ -2646,7 +2642,6 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   }
   /* valeurs (dates, cm²) sur une ligne : le tableau défile si besoin */
   #o_chassesPartagees td,
-  #o_floodsRecus td,
   .o_attaquesLancees td {
     white-space: nowrap;
   }
@@ -3102,10 +3097,11 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   border-color: #6d9aa3;
   color: #1d4f59;
 }
+/* « Annuler » en noir gras (demande du mainteneur) */
 #o_attaquesLancees .o_attaqueAnnuler a {
   padding: 0;
   border: 0;
-  color: #2e7d32 !important;
+  color: #000 !important;
   font-weight: bold;
 }
 #o_attaquesLancees .o_attaqueAnnuler a::before {

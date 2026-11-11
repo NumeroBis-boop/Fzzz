@@ -57,7 +57,6 @@ const ONGLETS_PARAMETRE = [
       "armeeHof",
       "armeeStatistiques",
       "armeeAttaquesRestantes",
-      "floodsRecus",
       "listeAttaques",
       "armeeFleches",
       "armeeLignes",

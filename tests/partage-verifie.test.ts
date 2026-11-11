@@ -130,6 +130,32 @@ describe("sujet existant", () => {
   });
 });
 
+describe("résultat rendu au bloc « Mes attaques en cours » (« Partagée ✓ », « Partager tous »)", () => {
+  const fait = (type: "Chasses" | "Floods", entrees: object[]) =>
+    lire<Promise<boolean>>(
+      `PartageChasses._avecBouton(null, ${JSON.stringify(type)}, ${JSON.stringify(entrees)})`,
+    );
+
+  test("vrai : écrit dans le forum, ou déjà partagé", async () => {
+    expect(await fait("Chasses", [CHASSE])).toBe(true);
+    expect(await fait("Chasses", [CHASSE])).toBe(true);
+    expect(
+      await lire(
+        `PartageChasses.partager([{ impact: moment("2026-11-10 13:00", "YYYY-MM-DD HH:mm"), terrain: 500 }], null)`,
+      ),
+    ).toBe(true);
+  });
+
+  test("faux : refus du forum, forum injoignable, rien à partager", async () => {
+    lire(`FORUM.refuse = (f) => f == "envoiNouveauSujet"`);
+    expect(await fait("Floods", [FLOOD])).toBe(false);
+    lire(`FORUM.refuse = () => false; FORUM.illisible = true`);
+    expect(await fait("Floods", [FLOOD])).toBe(false);
+    lire(`FORUM.illisible = false`);
+    expect(await fait("Floods", [])).toBe(false);
+  });
+});
+
 describe("section introuvable", () => {
   test("inexistante ou cachée au grade : le message le dit", async () => {
     lire(`FORUM.sections = ["Discussions"]`);

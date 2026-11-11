@@ -157,8 +157,8 @@ const AFFICHAGES_FZZZ = {
     "Dépliant « Statistiques » sous les troupes (vie, attaque, défense ; HB et AB)",
   armeeAttaquesRestantes:
     "Nombre d'attaques en cours et d'attaques restantes dans le titre « Attaque(s) en cours »",
-  listeAttaques: "Liste des attaques en cours (page Armée)",
-  floodsRecus: "Floods en cours sur moi",
+  listeAttaques:
+    "Bloc « Mes attaques en cours » (page Armée) : mes attaques, mes chasses et les floods partagés sur moi, avec la variation de mon TdC",
   armeeFleches: "Hors Compte+ : flèches pour déplacer une troupe d'un lieu à l'autre",
   armeeLignes: "Hors Compte+ : lignes Vie, Attaque, Défense et Consommation par lieu",
   arriveeRenforts:

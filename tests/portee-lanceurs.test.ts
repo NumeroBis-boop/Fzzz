@@ -15,12 +15,12 @@ import { creerPage } from "./harnais";
  * prend rien. Compté à 20 % (−21 816), il donnait 87 267.
  */
 const page = creerPage(
-  ["js/class/Utils.js", "js/page/PartageChasses.js"],
+  ["js/class/Utils.js", "js/page/PartageChasses.js", "js/class/AttaqueLancee.js"],
   `
   var heure = moment("2026-11-10 22:08:27", "YYYY-MM-DD HH:mm:ss").valueOf();
-  var Horloge = { maintenant: () => heure, serveur: () => moment(heure), clic: () => moment(heure) };
+  var Horloge = { maintenant: () => heure, serveur: () => moment(heure), clic: () => moment(heure), serveurA: () => moment(heure) };
   var monProfil = { pseudo: "Moi" };
-  var AttaqueLancee = { idsAffiches: () => [], majPartages: () => {} };
+  var TroupesDehors = { synchroniserAttaques: () => {} };
 `,
 );
 
@@ -81,16 +81,19 @@ function preparer(forum: object, membres: string, classement = ILLISIBLE) {
 }
 const attendre = () => new Promise((r) => setTimeout(r, 20));
 
+// bloc « Mes attaques en cours » de la page Armée, sans attaque à moi : variation
+// et TdC après de chaque flood partagé sur moi (la page Ressources, illisible
+// ici, laisse mes chasses à celles du forum)
 async function armee(forum: object = FORUM, membres = MEMBRES, classement = ILLISIBLE) {
   preparer(forum, membres, classement);
   page.lire(`(() => {
-    document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>130008</span><div id='centre'><table><tr><td><h3>Troupes en Garnison (3 792)</h3></td></tr></table></div>";
-    PartageChasses.afficherArmee();
+    document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>130008</span><div id='centre'></div>";
+    AttaqueLancee.afficherTableaux();
   })()`);
   await attendre();
   return page
     .lire<string[]>(
-      `$("#o_floodsRecus tbody tr").map((i, tr) => $(tr).children().eq(3).text()).get()`,
+      `$("#o_attaquesLancees tr.o_ligneRecue").map((i, tr) => $(tr).children().eq(4).text() + " | " + $(tr).children().eq(5).text()).get()`,
     )
     .map(espaces);
 }
@@ -98,10 +101,9 @@ async function armee(forum: object = FORUM, membres = MEMBRES, classement = ILLI
 describe("Armée : floods d'un autre membre sur moi", () => {
   test("le 3e flood de Lanceur est hors portée à l'impact : il ne prend rien", async () => {
     expect(await armee()).toEqual([
-      "−34 088 cm² (20 %)",
-      "−27 270 cm² (20 %)",
-      "0 cm² (hors portée)",
-      "−61 358 cm²",
+      "−34 088 (20 %) | 136 353",
+      "−27 270 (20 %) | 109 083",
+      "0 (hors portée) | 109 083",
     ]);
     // ma chasse lue avec les floods, puis les chasses de Lanceur seules
     expect(page.lire(`lus`)).toEqual([
@@ -118,29 +120,26 @@ describe("Armée : floods d'un autre membre sur moi", () => {
     };
     // 242 643 à 23h26 : −34 088 (moi 136 353, lui 276 731), puis moi sous 138 365,5
     expect(await armee(forum)).toEqual([
-      "−34 088 cm² (20 %)",
-      "0 cm² (hors portée)",
-      "0 cm² (hors portée)",
-      "−34 088 cm²",
+      "−34 088 (20 %) | 136 353",
+      "0 (hors portée) | 136 353",
+      "0 (hors portée) | 136 353",
     ]);
   });
 
   test("page Membres sans tableau : TdC lus sur la page de l'alliance au classement", async () => {
     expect(await armee(FORUM, MEMBRES_SANS_TABLEAU, CLASSEMENT)).toEqual([
-      "−34 088 cm² (20 %)",
-      "−27 270 cm² (20 %)",
-      "0 cm² (hors portée)",
-      "−61 358 cm²",
+      "−34 088 (20 %) | 136 353",
+      "−27 270 (20 %) | 109 083",
+      "0 (hors portée) | 109 083",
     ]);
     expect(page.lire(`[pagesMembres, pagesClassement]`)).toEqual([1, 1]);
   });
 
   test("aucune des deux pages lisible : TdC de Lanceur inconnu, chaque flood compte comme avant", async () => {
     expect(await armee(FORUM, ILLISIBLE, ILLISIBLE)).toEqual([
-      "−34 088 cm² (20 %)",
-      "−27 270 cm² (20 %)",
-      "−21 816 cm² (20 %)",
-      "−83 174 cm²",
+      "−34 088 (20 %) | 136 353",
+      "−27 270 (20 %) | 109 083",
+      "−21 816 (20 %) | 87 267",
     ]);
   });
 

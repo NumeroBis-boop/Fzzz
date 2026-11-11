@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.104.0",
+    notes: [
+      "Partage de données (nouvel onglet des Préférences) : une fois par jour, à ta première page, l'extension envoie au Google Sheet « Stats membres » de l'alliance tes TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron et Champignonnière. Tu es prévenu avant le premier envoi et tu choisis, case par case, ce que tu partages. Rien n'est envoyé tant que l'alliance n'a pas mis son fichier en place.",
+    ],
+  },
+  {
     version: "1.103.0",
     notes: [
       "Smileys de l'alliance : ils s'écrivent comme ceux du jeu, avec un code entre accolades. Un clic sur un smiley écrit son code (par exemple {colley}), que tu peux aussi taper ; il devient son image quand tu envoies le message, visible de tous.",

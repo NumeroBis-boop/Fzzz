@@ -675,9 +675,8 @@ describe("bouton « Smileys » : sujet « Smileys de l'alliance »", () => {
       ["Membres", true, ["{krokmou-1}", "{sirius}"]],
       ["Génériques", true, ["{chien-amoureux}", "{ouaf}"]],
     ]);
-    expect(lire<string>(`$("#o_smileysPanneau").text()`)).toContain(
-      "Un clic écrit le code du smiley, par exemple {krokmou-1} : il devient son image quand tu envoies le message.",
-    );
+    // pas de mention sous les smileys (règle du mainteneur) : le code est dans l'info-bulle
+    expect(lire<number>(`$("#o_smileysPanneau .o_gifNote").length`)).toBe(0);
     // titre replié : gardé, panneau puis page rouverts
     lire(`$("#o_smileysPanneau summary").first().click()`);
     await attendre();

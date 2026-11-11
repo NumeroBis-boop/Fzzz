@@ -9,8 +9,11 @@ import { creerPage } from "./harnais";
  * (liste du jeu), mes chasses (Ressources.php) et les floods partagés sur moi
  * (forum), dans l'ordre, avec la variation de mon TdC et mon TdC après chacun.
  * « Partager » pour mes floods et mes chasses ; « Annuler » annule l'ordre du
- * jeu, puis le partage du forum est retiré par la page rechargée. Le bloc
- * « Floods en cours sur … » n'existe plus. Joueurs inventés.
+ * jeu, puis le partage du forum est retiré par la page rechargée : un flood ne
+ * quitte le forum que s'il est réellement annulé (pas de bouton « Retirer »,
+ * 1.106.0). Le replacement de l'armée passe avant les lectures du bloc, dont
+ * l'avancement s'affiche dans le titre. Le bloc « Floods en cours sur … »
+ * n'existe plus. Joueurs inventés.
  */
 const page = creerPage(
   [
@@ -38,7 +41,9 @@ const page = creerPage(
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 // remis en place avant chaque test (un test les remplace)
-lire(`window.ORIGINE = { simuler: PartageChasses.simuler, erreur: console.error }`);
+lire(
+  `window.ORIGINE = { simuler: PartageChasses.simuler, erreur: console.error, charger: PartageChasses.charger, sujets: PartageChasses.sujets, lireSujet: PartageChasses.lireSujet, instant: performance.now }`,
+);
 const attendre = () => new Promise((r) => setTimeout(r, 20));
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
@@ -93,6 +98,7 @@ beforeEach(() => {
     window.FORUM = ${JSON.stringify(FORUM)};
     window.ECRITS = { floods: [], chasses: [], retraits: [], partage: true, illisible: false };
     PartageChasses.simuler = ORIGINE.simuler; console.error = ORIGINE.erreur;
+    PartageChasses.sujets = ORIGINE.sujets; PartageChasses.lireSujet = ORIGINE.lireSujet; performance.now = ORIGINE.instant;
     AttaqueLancee.recharger = () => JEU.rechargements++;
     PartageChasses.charger = (de = null, avecFloods = true) => {
       if (ECRITS.illisible) return Promise.reject(new Error("forum"));
@@ -102,7 +108,7 @@ beforeEach(() => {
     };
     PartageChasses.partagerFloods = (captures, $b) => { ECRITS.floods.push(captures.map((c) => c.id)); return Promise.resolve(true); };
     PartageChasses.partager = (groupes, $b) => { ECRITS.chasses.push(groupes.map((g) => g.impact.format("HH:mm") + " " + g.terrain)); return Promise.resolve(ECRITS.partage); };
-    PartageChasses.retirerFloods = (ids, $b, discret) => { ECRITS.retraits.push(ids); return Promise.resolve(); };
+    PartageChasses.retirerFloods = (ids) => { ECRITS.retraits.push(ids); return Promise.resolve(); };
     PageRessource.lireChasses = () => ${JSON.stringify(CHASSES)}.map(([h, terrain, jsn]) => ({
       impact: moment("2026-11-12 " + h, "YYYY-MM-DD HH:mm"), terrain, unites: { "Jeunes Soldates Naines": jsn }, duree: 3600, estime: false, pertes: 0 }));
     let lire = (url) => {
@@ -150,7 +156,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     expect(lignes()).toEqual([
       "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | Partagée ✓",
       "2 | 12/11 10h25 | Autre → moi | 30 000 | −20 600 (20 %) | 82 400 |",
-      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓Retirer",
+      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓",
       "4 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 91 400 | CopierPartager",
       "5 | 12/11 11h00 | Chasse | 500 | +1 000 | 92 400 | Partager",
     ]);
@@ -255,8 +261,19 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     ]);
     // Cible a perdu 7 777 avant mes floods : 60 000 − 7 777 = 52 223, mes 5 000 et 4 000 passent
     expect(lignes()[2]).toBe(
-      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓Retirer",
+      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓",
     );
+  });
+
+  test("mes attaques seules, ni chasse ni flood sur moi : le bloc reste, avec ses lignes", async () => {
+    lire(
+      `(() => { FORUM = { chasses: {}, floods: [] }; PageRessource.lireChasses = () => []; })()`,
+    );
+    await ouvrir();
+    expect(lignes()).toEqual([
+      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 105 000 | CopierPartager",
+      "2 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 109 000 | CopierPartager",
+    ]);
   });
 
   test("rien en cours : pas de bloc", async () => {
@@ -298,7 +315,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     await ouvrir([attaque(503, "Cible", 600)], []);
     // mon flood 501 du forum n'est plus dans la liste du jeu : il ne compte pas
     expect(lignes()).toEqual([
-      "1 | 12/11 10h10:00 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓RetirerAnnuler",
+      "1 | 12/11 10h10:00 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓Annuler",
       "2 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 105 000 | Partagée ✓",
       "3 | 12/11 10h25 | Autre → moi | 30 000 | −21 000 (20 %) | 84 000 |",
       "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 85 000 | Partager",
@@ -337,7 +354,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     );
     await ouvrir();
     expect(lignes()).toEqual([
-      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | 5 000 | ? | CopierPartagé ✓Retirer",
+      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | 5 000 | ? | CopierPartagé ✓",
       "2 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | 4 000 | ? | CopierPartager",
     ]);
     expect(lire(`ERREURS.length`)).toBe(1);
@@ -409,6 +426,301 @@ describe("« Partager » : floods et chasses", () => {
   });
 });
 
+describe("un flood ne quitte le forum que s'il est réellement annulé : pas de « Retirer »", () => {
+  test("ni bouton « Retirer » sur une ligne partagée, ni « Retirer mes partages » dans le titre", async () => {
+    await ouvrir();
+    expect(lire<string>(`$("#o_attaquesLancees").text()`)).not.toContain("Retirer");
+    expect(
+      lire(
+        `[$("#o_attaquesLancees .o_attaqueRetirer").length, $("#o_attaquesLanceesRetirerTout").length, typeof PartageChasses.mesFloodsForum]`,
+      ),
+    ).toEqual([0, 0, "undefined"]);
+    expect(
+      lire(`$("#o_attaquesLancees .o_attaquesEnTete button").map((i, b) => b.textContent).get()`),
+    ).toEqual(["Partager tous", "Tout annuler"]);
+  });
+
+  test("flood noté partagé ici mais absent du forum (retiré d'un autre appareil) : « Partager » revient", async () => {
+    lire(`localStorage.setItem("fzzz_floodsPartages", JSON.stringify({ 502: Date.now() }))`);
+    lire(`(() => {
+      localStorage.setItem("outiiil_attaquesLancees", "[]");
+      document.body.innerHTML = ${JSON.stringify(armee(...DEUX))};
+      AttaqueLancee.afficherTableaux();
+    })()`);
+    // avant la lecture du forum : l'état noté dans ce navigateur
+    expect(cases().map((l) => l[6])).toEqual(["CopierPartagerAnnuler", "CopierPartagé ✓Annuler"]);
+    await attendre();
+    expect(
+      cases()
+        .filter((l) => String(l[2]).startsWith("moi"))
+        .map((l) => l[6]),
+    ).toEqual(["CopierPartagé ✓Annuler", "CopierPartagerAnnuler"]);
+  });
+});
+
+describe("chargement : avancement dans le titre du bloc", () => {
+  const etat = () => lire<string | null>(`$("#o_attaquesLancees .o_attaquesChargement").text()`);
+  // lectures du forum et de la page Ressources terminées à la main ; horloge des durées simulée
+  const differer = () =>
+    lire(`(() => {
+      window.T = 0; performance.now = () => T;
+      window.FINIR = {};
+      let differe = (cle, valeur) => new Promise((r) => (FINIR[cle] = () => r(valeur)));
+      PartageChasses.charger = ORIGINE.charger;
+      PartageChasses.sujets = () => differe("liste", { liste: [
+        { type: "Floods", pseudo: "Autre", id: "1" }, { type: "Floods", pseudo: "Moi", id: "2" }, { type: "Chasses", pseudo: "Moi", id: "3" },
+        { type: "Chasses", pseudo: "Lassie", id: "4" } ] });
+      PartageChasses.lireSujet = (id) => differe("sujet" + id, id == "1"
+        ? { chasses: [], floods: [${JSON.stringify({ ...flood(700, "10:25", "Autre", "Moi", 30000), lanceur: undefined })}] }
+        : id == "3" ? { chasses: FORUM.chasses.moi, floods: [] } : { chasses: [], floods: [] });
+      let get = $.get;
+      $.get = (url) => String(url).endsWith("/Ressources.php") ? (JEU.lues.push("/Ressources.php"), differe("ressources", "<div id='boite_tdc'></div>")) : get(url);
+    })()`);
+  const finir = async (cle: string, temps: number) => {
+    lire(`T = ${temps}; FINIR[${JSON.stringify(cle)}]()`);
+    await attendre();
+  };
+
+  test("lectures faites sur lectures prévues, puis temps restant d'après leur durée moyenne ; retiré à la fin", async () => {
+    differer();
+    await ouvrir();
+    // page Ressources et liste des sujets du forum
+    expect(etat()).toBe("chargement 0 / 2");
+    // « TdC après » de mes attaques en attente
+    expect(cases().map((l) => l[5])).toEqual(["…", "…"]);
+    await finir("liste", 1000);
+    // 3 sujets à lire : les floods de chaque membre et mes chasses (pas celles de Lassie)
+    expect(etat()).toBe("chargement 1 / 5");
+    await finir("ressources", 2000);
+    // 2 lectures en 2 s, il en reste 3
+    expect(etat()).toBe("chargement 2 / 5, encore ≈ 3 s");
+    await finir("sujet1", 2500);
+    expect(etat()).toBe("chargement 3 / 5, encore ≈ 2 s");
+    await finir("sujet2", 3000);
+    await finir("sujet3", 3500);
+    // Autre me floode : ses chasses (liste des sujets relue) et la page Membres en plus
+    expect(etat()).toBe("chargement 6 / 7, encore ≈ 1 s");
+    await finir("liste", 4000);
+    expect(lire(`$("#o_attaquesLancees .o_attaquesChargement").length`)).toBe(0);
+    expect(cases().map((l) => l[5])).toEqual(["103 000", "82 400", "87 400", "91 400", "92 400"]);
+    expect(lire(`$("#o_attaquesLancees .o_attaquesCompte").text()`)).toBe("(5)");
+  });
+
+  test("replacement fini avant la fin du chargement : le titre repasse de l'attente à l'avancement", async () => {
+    differer();
+    lire(`window.FIN = null; AttaqueLancee.laisserPasser(new Promise((r) => (FIN = r)))`);
+    await ouvrir();
+    expect(etat()).toBe("en attente : le replacement de l'armée passe d'abord");
+    lire(`FIN()`);
+    await attendre();
+    expect(etat()).toBe("chargement 0 / 2");
+    for (const [cle, t] of [
+      ["liste", 100],
+      ["ressources", 200],
+      ["sujet1", 300],
+      ["sujet2", 400],
+      ["sujet3", 500],
+      ["liste", 600],
+    ] as [string, number][])
+      await finir(cle, t);
+    expect(lignes()).toHaveLength(5);
+  });
+
+  test("pages des cibles des attaques lancées ailleurs : comptées dans l'avancement", async () => {
+    const compte = await lire<Promise<string[]>>(`(() => {
+      let vus = [], suivi = { prevoir: (n) => vus.push("prévues " + n), faite: () => vus.push("faite") };
+      JEU.profils.Ailleurs = 30000;
+      let ligne = (id, cible) => ({ ligne: { id, cible, lieuNatif: "Terrain de chasse", troupesNatif: "10 Jeunes Soldates Naines", arrivee: moment(heure + 600000) }, capture: null });
+      return AttaqueLancee.reconstituer([ligne(1, "Dehors"), ligne(2, "Dehors"), ligne(3, "Ailleurs")], suivi).then(() => vus);
+    })()`);
+    expect(compte).toEqual(["prévues 2", "faite", "faite"]);
+  });
+
+  test("temps restant : l'attente d'un replacement ne compte pas dans la durée moyenne d'une lecture", () => {
+    const textes = lire<string[]>(`(() => {
+      let T = 0, vus = [];
+      performance.now = () => T;
+      document.body.innerHTML = "<div id='o_attaquesLancees'><span class='o_attaquesChargement'></span></div>";
+      let suivi = AttaqueLancee.suiviChargement($("#o_attaquesLancees")), note = () => vus.push($(".o_attaquesChargement").text());
+      note();
+      suivi.prevoir(4); T = 500; suivi.faite(); note();
+      T = 1000; suivi.faite(); note();
+      suivi.attente(true); note();
+      T = 11000; suivi.attente(false); note();
+      T = 11500; suivi.faite(); note();
+      suivi.faite(); note();
+      suivi.fin(); vus.push(String($(".o_attaquesChargement").length));
+      return vus;
+    })()`);
+    expect(textes).toEqual([
+      "chargement…",
+      "chargement 1 / 4",
+      "chargement 2 / 4, encore ≈ 1 s",
+      "en attente : le replacement de l'armée passe d'abord",
+      "chargement 2 / 4, encore ≈ 1 s",
+      "chargement 3 / 4, encore ≈ 1 s",
+      "chargement 4 / 4",
+      "0",
+    ]);
+  });
+
+  test("aucune attaque : le titre seul avec « chargement », dès l'ouverture ; retiré s'il n'y a rien à montrer", async () => {
+    differer();
+    lire(`FORUM.chasses.moi = []; PageRessource.lireChasses = () => [];`);
+    lire(`(() => {
+      PartageChasses.lireSujet = ((lire) => (id) => (id == "1" ? (FINIR.sujet1 = () => {}, Promise.resolve({ chasses: [], floods: [] })) : lire(id)))(PartageChasses.lireSujet);
+      document.body.innerHTML = ${JSON.stringify(armee())};
+      AttaqueLancee.afficherTableaux();
+    })()`);
+    // sans attendre : le bloc est là, réduit à son titre
+    expect(
+      lire(
+        `[$("#o_attaquesLancees").length, $("#o_attaquesLancees").hasClass("o_attaquesVide"), $("#o_attaquesLancees .o_attaquesTitre").text().replace(/\\s+/g, " ").trim(), $("#o_attaquesLancees tbody tr").length]`,
+      ),
+    ).toEqual([1, true, "▼ Mes attaques en cours chargement…", 0]);
+    await attendre();
+    expect(etat()).toBe("chargement 0 / 2");
+    await finir("liste", 500);
+    await finir("ressources", 600);
+    await finir("sujet2", 700);
+    await finir("sujet3", 800);
+    expect(lire(`$("#o_attaquesLancees").length`)).toBe(0);
+    const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8");
+    expect(css).toMatch(
+      /#o_attaquesLancees\.o_attaquesVide \.o_spoilerCorps \{\s*display: none !important;\s*\}/,
+    );
+  });
+
+  test("aucune attaque mais une chasse en cours : le bloc se remplit, sans boutons groupés", async () => {
+    lire(`FORUM = { chasses: {}, floods: [] }`);
+    lire(
+      `(() => { document.body.innerHTML = ${JSON.stringify(armee())}; AttaqueLancee.afficherTableaux(); })()`,
+    );
+    expect(lire(`$("#o_attaquesLancees").hasClass("o_attaquesVide")`)).toBe(true);
+    await attendre();
+    expect(
+      lire(
+        `[$("#o_attaquesLancees").hasClass("o_attaquesVide"), $("#o_attaquesLancees .o_attaquesChargement").length, $("#o_attaquesLancees .o_attaquesEnTete").length, $("#o_attaquesLancees .o_attaquesCompte").text()]`,
+      ),
+    ).toEqual([false, 0, 0, "(2)"]);
+    expect(cases().map((l) => l[2])).toEqual(["Chasse × 2", "Chasse"]);
+  });
+});
+
+describe("le replacement de l'armée passe avant les lectures du bloc", () => {
+  const etat = () => lire<string | null>(`$("#o_attaquesLancees .o_attaquesChargement").text()`);
+  // forum compté ; replacements terminés à la main
+  const compter = () =>
+    lire(`(() => {
+      window.FORUM_LU = 0; window.FIN = [];
+      PartageChasses.charger = ((charger) => (...a) => { FORUM_LU++; return charger(...a); })(PartageChasses.charger);
+      window.replacement = () => AttaqueLancee.laisserPasser(new Promise((r) => FIN.push(r)));
+    })()`);
+
+  test("replacement attendu à l'ouverture (fin de flood) : aucune lecture avant sa fin, le titre le dit", async () => {
+    compter();
+    lire(`replacement()`);
+    await ouvrir();
+    expect(lire(`[JEU.lues, FORUM_LU]`)).toEqual([[], 0]);
+    expect(etat()).toBe("en attente : le replacement de l'armée passe d'abord");
+    // mes attaques sont déjà listées, d'après la page
+    expect(cases().map((l) => l.slice(2, 6).join(" | "))).toEqual([
+      "moi → Cible(OUAF) | 5 000 | 5 000 | …",
+      "moi → Cible(OUAF) | 4 000 | 4 000 | …",
+    ]);
+    lire(`FIN[0]()`);
+    await attendre();
+    expect(lire(`[JEU.lues, FORUM_LU > 0]`)).toEqual([
+      ["/Ressources.php", "/alliance.php?Membres"],
+      true,
+    ]);
+    expect(lire(`$("#o_attaquesLancees .o_attaquesChargement").length`)).toBe(0);
+    expect(lignes()).toHaveLength(5);
+  });
+
+  test("attaque lancée ailleurs : la page de sa cible attend aussi", async () => {
+    const details =
+      "<small><em> Troupes en attaques : 12 000 Jeunes Soldates Naines.<br /> Arrivée à 10h10</em></small><br/>";
+    compter();
+    lire(`replacement()`);
+    await ouvrir(
+      [
+        attaque(503, "Dehors", 600, details).replace(
+          "</span> dans",
+          "</span> (Terrain de chasse) dans",
+        ),
+      ],
+      [],
+    );
+    expect(lire(`JEU.lues`)).toEqual([]);
+    lire(`FIN[0]()`);
+    await attendre();
+    expect(lire(`JEU.lues`)).toEqual([
+      "/Membre.php?Pseudo=Dehors",
+      "/Ressources.php",
+      "/alliance.php?Membres",
+    ]);
+  });
+
+  test("replacement lancé pendant le chargement : la lecture suivante (page Membres) attend sa fin", async () => {
+    compter();
+    // forum en cours de lecture quand le joueur clique sur « Replacer l'armée »
+    lire(`(() => {
+      let charger = PartageChasses.charger, premiere = true;
+      PartageChasses.charger = (...a) => {
+        if (!premiere) return charger(...a);
+        premiere = false;
+        return new Promise((r) => (window.FORUM_FINI = () => r(charger(...a))));
+      };
+    })()`);
+    await ouvrir();
+    expect(lire(`JEU.lues`)).toEqual(["/Ressources.php"]);
+    expect(etat()).toBe("chargement 1 / 1");
+    lire(`replacement()`);
+    expect(etat()).toBe("en attente : le replacement de l'armée passe d'abord");
+    lire(`FORUM_FINI()`);
+    await attendre();
+    expect(lire(`JEU.lues`)).toEqual(["/Ressources.php"]);
+    // second replacement lancé avant la fin du premier : les deux sont attendus
+    lire(`replacement(); FIN[0]()`);
+    await attendre();
+    expect(lire(`JEU.lues`)).toEqual(["/Ressources.php"]);
+    expect(etat()).toBe("en attente : le replacement de l'armée passe d'abord");
+    lire(`FIN[1]()`);
+    await attendre();
+    expect(lire(`JEU.lues`)).toEqual(["/Ressources.php", "/alliance.php?Membres"]);
+    expect(lignes()).toHaveLength(5);
+  });
+
+  test("replacement lancé pendant la lecture de la page d'une cible : forum et page Ressources attendent sa fin", async () => {
+    const details =
+      "<small><em> Troupes en attaques : 12 000 Jeunes Soldates Naines.<br /> Arrivée à 10h10</em></small><br/>";
+    compter();
+    lire(`(() => {
+      localStorage.setItem("outiiil_attaquesLancees", "[]");
+      document.body.innerHTML = ${JSON.stringify(armee(attaque(503, "Dehors", 600, details).replace("</span> dans", "</span> (Terrain de chasse) dans")))};
+      AttaqueLancee.afficherTableaux();
+      replacement();
+    })()`);
+    await attendre();
+    expect(lire(`[JEU.lues, FORUM_LU]`)).toEqual([["/Membre.php?Pseudo=Dehors"], 0]);
+    lire(`FIN[0]()`);
+    await attendre();
+    expect(lire(`JEU.lues`)).toEqual([
+      "/Membre.php?Pseudo=Dehors",
+      "/Ressources.php",
+      "/alliance.php?Membres",
+    ]);
+  });
+
+  test("replacement en échec : le bloc se charge quand même", async () => {
+    compter();
+    lire(`AttaqueLancee.laisserPasser(Promise.reject(new Error("jeu muet")))`);
+    await ouvrir();
+    expect(lignes()).toHaveLength(5);
+  });
+});
+
 describe("« Annuler » : l'ordre du jeu d'abord, le partage du forum ensuite", () => {
   // deux attaques lancées ailleurs (le jeu donne leur lien Annuler), partagées dans le forum
   const ANNULEES = [attaque(503, "Cible", 600), attaque(504, "Cible", 700)];
@@ -462,7 +774,7 @@ describe("« Annuler » : l'ordre du jeu d'abord, le partage du forum ensuite", 
     await ouvrir(ANNULEES.slice(1), []);
     expect(lire(`ECRITS.retraits`)).toEqual([[503]]);
     expect(lignes()).toEqual([
-      "1 | 12/11 10h11:40 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓RetirerAnnuler",
+      "1 | 12/11 10h11:40 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓Annuler",
     ]);
   });
 

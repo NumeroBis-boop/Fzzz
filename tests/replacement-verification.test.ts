@@ -375,3 +375,106 @@ describe("replacement vérifié déplacement par déplacement", () => {
     );
   });
 });
+
+// Le replacement passe avant l'affichage des mouvements (règle du mainteneur) :
+// PageArmee l'annonce au bloc « Mes attaques en cours » (AttaqueLancee.laisserPasser),
+// qui n'envoie aucune lecture avant sa fin.
+describe("le replacement est annoncé au bloc « Mes attaques en cours », qui attend sa fin", () => {
+  const PLACEE: Lieux = { tdc: [2, 0, 0], dome: [2, 0, 0], loge: [616, 305, 0] };
+  /** Page Armée ouverte (PageArmee.executer), les ajouts sans rapport coupés. */
+  const ouvrir = (depart: Lieux, flood: boolean, auto = false) =>
+    page.lire(`(() => {
+      localStorage.clear(); sessionStorage.clear();
+      ["armeeAttaquesRestantes", "armeeTotalUnites", "armeeHof", "armeeStatistiques", "armeeMiseEnPage"].forEach((c) => localStorage.setItem("fzzz_affichage_" + c, "0"));
+      localStorage.setItem("outiiil_parametre", JSON.stringify({ uniteAntisondeTerrain: 2, uniteAntisondeDome: 2, uniteAntisondeTerrainType: 1, uniteAntisondeDomeType: 1, replacerArmeeAuto: ${auto} }));
+      if (${flood}) sessionStorage.setItem("outiiil_floodPuisReplacer", "1");
+      window.AFFICHAGES_ONGLET = {};
+      window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
+      document.body.innerHTML = "<div id='menuComptePlus'><a class='boutonStatJoueur'>Stat</a></div>" + pageArmee(${JSON.stringify(depart)}, "j0");
+      installerServeur(${JSON.stringify(depart)}, "normal", 2);
+      Utils.garderPosition = () => {};
+      window.ordre = [];
+      let etape = (quoi) => ordre.push(quoi + " (" + serveur.requetes.length + " requête(s) envoyée(s))");
+      window.AttaqueLancee = {
+        partageEnCours: null,
+        laisserPasser: (replacement) => { etape("annoncé"); replacement.then(() => etape("fini")); },
+        afficherTableaux: () => { etape("bloc affiché"); if (${flood}) AttaqueLancee.partageEnCours = new Promise((r) => (window.PARTAGE_FINI = r)); },
+      };
+      window.p = Object.create(PageArmee.prototype);
+      p.executer();
+    })()`);
+  const attendre = () => new Promise((r) => setTimeout(r, 10));
+  const ordre = () => page.lire<string[]>(`ordre`);
+
+  test("fin de flood : annoncé avant l'affichage du bloc ; le replacement attend le partage, le bloc attend le replacement", async () => {
+    ouvrir(DEPART, true);
+    await attendre();
+    // le partage « Flooder + partager » n'est pas encore écrit : rien n'est envoyé
+    expect(ordre()).toEqual([
+      "annoncé (0 requête(s) envoyée(s))",
+      "bloc affiché (0 requête(s) envoyée(s))",
+    ]);
+    expect(page.lire(`sessionStorage.getItem("outiiil_floodPuisReplacer")`)).toBeNull();
+    page.lire(`PARTAGE_FINI()`);
+    await attendre();
+    // le replacement lui-même s'annonce aussi ; les deux finissent après ses 3 déplacements
+    expect(ordre().slice(2)).toEqual([
+      "annoncé (0 requête(s) envoyée(s))",
+      "fini (3 requête(s) envoyée(s))",
+      "fini (3 requête(s) envoyée(s))",
+    ]);
+    expect(page.lire(`toasts.map((t) => t.text)`)).toEqual([REUSSI[1]]);
+  });
+
+  test("fin de flood avec l'option « Replacer l'armée automatiquement » : pas de bouton en évidence, le replacement part seul", async () => {
+    ouvrir(DEPART, true, true);
+    page.lire(`PARTAGE_FINI()`);
+    await attendre();
+    expect(
+      page.lire(
+        `[serveur.requetes.length, $("#o_replaceArmee").hasClass("o_synchroPret"), toasts.map((t) => t.text)]`,
+      ),
+    ).toEqual([3, false, [REUSSI[1]]]);
+  });
+
+  test("fin de flood, armée déjà placée : rien à déplacer, le bloc est libéré tout de suite", async () => {
+    ouvrir(PLACEE, true);
+    page.lire(`PARTAGE_FINI()`);
+    await attendre();
+    expect(ordre()).toEqual([
+      "annoncé (0 requête(s) envoyée(s))",
+      "bloc affiché (0 requête(s) envoyée(s))",
+      "fini (0 requête(s) envoyée(s))",
+    ]);
+  });
+
+  test("armée à replacer, sans flood : rien d'annoncé à l'ouverture (le bouton est mis en évidence) ; au clic, annoncé avant le premier déplacement", async () => {
+    ouvrir(DEPART, false, true);
+    await attendre();
+    expect(ordre()).toEqual(["bloc affiché (0 requête(s) envoyée(s))"]);
+    expect(
+      page.lire(`[$("#o_replaceArmee").hasClass("o_synchroPret"), toasts.map((t) => t.text)]`),
+    ).toEqual([true, ["Armée à replacer : clique sur le bouton de replacement mis en évidence."]]);
+    // double clic : un seul replacement
+    page.lire(`$("#o_replaceArmee").trigger("click").trigger("click")`);
+    expect(
+      page.lire(`[$("#o_replaceArmee").prop("disabled"), $("#o_replaceArmee").text()]`),
+    ).toEqual([true, "Replacement…"]);
+    await attendre();
+    expect(ordre().slice(1)).toEqual([
+      "annoncé (0 requête(s) envoyée(s))",
+      "fini (3 requête(s) envoyée(s))",
+    ]);
+    expect(page.lire(`serveur.requetes.length`)).toBe(3);
+  });
+
+  test("armée déjà placée, au clic : rien d'annoncé, rien d'envoyé", async () => {
+    ouvrir(PLACEE, false);
+    page.lire(`$("#o_replaceArmee").trigger("click")`);
+    await attendre();
+    expect(ordre()).toEqual(["bloc affiché (0 requête(s) envoyée(s))"]);
+    expect(page.lire(`toasts.map((t) => t.text)`)).toEqual([
+      "Votre armée est déjà placée correctement.",
+    ]);
+  });
+});

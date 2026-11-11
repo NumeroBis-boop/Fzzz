@@ -6,7 +6,8 @@ import { classeurSimule, feuille } from "./sheet-simule";
  * 1.104.0, demande du mainteneur) : le relevé quotidien d'un joueur va dans
  * « Dernier relevé » (une ligne par joueur) et dans « Suivi » (une ligne par
  * joueur et par jour) ; le fond d'une case dit si le joueur partage cette
- * information (vert) ou a décoché sa case (rouge, case vide).
+ * information (vert) ou a décoché sa case (rouge : la dernière valeur lue y
+ * reste, règle du mainteneur ; case vide s'il ne l'a jamais partagée).
  */
 const VERT = "#d9ead3",
   ROUGE = "#f4cccc";
@@ -99,7 +100,7 @@ describe("premier relevé : onglets créés, une ligne dans chacun", () => {
 });
 
 describe("information décochée par le joueur", () => {
-  test("case vide sur fond rouge, même si une valeur est envoyée ; les autres en vert", () => {
+  test("jamais partagée : case vide sur fond rouge, même si une valeur est envoyée ; les autres en vert", () => {
     const f = fichier();
     f.doPost(
       releve({
@@ -122,7 +123,160 @@ describe("information décochée par le joueur", () => {
     }
   });
 
-  test("tout décoché : la ligne du joueur existe, tout en rouge, sans aucune valeur", () => {
+  test("décochée après un relevé du jour : la dernière valeur lue reste, sur fond rouge, dans les deux onglets", () => {
+    const f = fichier();
+    f.doPost(releve());
+    // la valeur envoyée malgré la case décochée n'est pas écrite ; le reste est mis à jour
+    f.doPost(
+      releve({
+        donnees: { ...DONNEES, tdp: 39, fdfAB: 999 },
+        partages: { ...TOUT, fdfAB: false, puceron: false },
+      }),
+    );
+    for (const nom of ["Dernier relevé", "Suivi"]) {
+      expect(lignes(f, nom)).toHaveLength(2);
+      expect(lignes(f, nom)[1].slice(2, 10)).toEqual([39, 250000, 3100000, 5890000, 7, 8, 2, 17]);
+      expect(fonds(f, nom, 2, [3, 6, 9, 10])).toEqual([VERT, ROUGE, ROUGE, VERT]);
+    }
+  });
+
+  test("toujours décochée les jours suivants : la dernière valeur lue suit dans « Suivi », en rouge", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1) }));
+    f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 }, partages: { ...TOUT, cdf: false } }));
+    f.doPost(
+      releve({ jour: jour(1), donnees: { tdp: 40 }, partages: { ...TOUT, cdf: false, va: false } }),
+    );
+    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[2], l[3], l[6]])).toEqual([
+      ["Date", "TdP", "CdF", "VA"],
+      [jour(-1), 38, 250000, 7],
+      [jour(), 39, 250000, 7],
+      [jour(1), 40, 250000, 7],
+    ]);
+    expect([2, 3, 4].map((l) => fonds(f, "Suivi", l, [4, 7]))).toEqual([
+      [VERT, VERT],
+      [ROUGE, VERT],
+      [ROUGE, ROUGE],
+    ]);
+    expect(lignes(f, "Dernier relevé")[1].slice(1, 7)).toEqual([jour(1), 40, 250000, "", "", 7]);
+    expect(fonds(f, "Dernier relevé", 2, [3, 4, 5, 7])).toEqual([VERT, ROUGE, null, ROUGE]);
+  });
+
+  test("relevé de la veille reçu après celui du jour : sa case non partagée prend la valeur lue avant la veille", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 6 } }));
+    f.doPost(releve({ jour: jour(1), donnees: { ...DONNEES, va: 8 } }));
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
+      ["Date", "VA"],
+      [jour(-1), 6],
+      [jour(1), 8],
+      [jour(), 6],
+    ]);
+    // « Dernier relevé » garde le plus récent, partagé
+    expect(
+      lignes(f, "Dernier relevé")[1].slice(1, 2).concat(lignes(f, "Dernier relevé")[1][6]),
+    ).toEqual([jour(1), 8]);
+    expect(fonds(f, "Dernier relevé", 2, [7])).toEqual([VERT]);
+  });
+
+  test("lignes triées à la main (la plus récente en premier) : c'est bien la valeur du relevé le plus récent qui est reprise", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 5 } }));
+    f.doPost(releve());
+    const grille = f.onglets["Suivi"].grille;
+    [grille[1], grille[2]] = [grille[2], grille[1]];
+    f.doPost(releve({ jour: jour(1), partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
+      ["Date", "VA"],
+      [jour(), 7],
+      [jour(-1), 5],
+      [jour(1), 7],
+    ]);
+  });
+
+  test("relevé précédent sans cette valeur (page illisible ce jour-là) : la valeur lue avant lui est reprise", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 5 } }));
+    f.doPost(releve({ donnees: { ...DONNEES, va: undefined } }));
+    f.doPost(releve({ jour: jour(1), partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
+      ["Date", "VA"],
+      [jour(-1), 5],
+      [jour(), ""],
+      [jour(1), 5],
+    ]);
+  });
+
+  test("ligne du jour sans cette valeur, placée avant celle de la veille : la valeur de la veille est reprise", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 5 } }));
+    f.doPost(releve({ donnees: { ...DONNEES, va: undefined } }));
+    const grille = f.onglets["Suivi"].grille;
+    [grille[1], grille[2]] = [grille[2], grille[1]];
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
+      ["Date", "VA"],
+      [jour(), 5],
+      [jour(-1), 5],
+    ]);
+  });
+
+  test("ligne du jour en double (copiée à la main) : la première est remplacée, l'autre n'est pas touchée", () => {
+    const f = fichier();
+    f.doPost(releve());
+    const grille = f.onglets["Suivi"].grille;
+    grille.push([...grille[1]]);
+    grille[2][2] = 1;
+    f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 }, partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi").map((l: unknown[]) => l[2])).toEqual(["TdP", 39, 1]);
+  });
+
+  test("« Suivi » vidé à la main : la valeur de « Dernier relevé » est reprise", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1) }));
+    f.onglets["Suivi"].grille.length = 1;
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi")[1].slice(0, 2).concat(lignes(f, "Suivi")[1][6])).toEqual([
+      jour(),
+      "DoggyBag",
+      7,
+    ]);
+    expect(fonds(f, "Suivi", 2, [7])).toEqual([ROUGE]);
+  });
+
+  test("valeur d'un autre joueur, ou case vidée à la main : rien n'est repris", () => {
+    const f = fichier();
+    f.doPost(releve({ joueur: "Lassie", jour: jour(-1) }));
+    f.doPost(releve({ jour: jour(-1) }));
+    f.onglets["Suivi"].grille[2][6] = "";
+    f.onglets["Dernier relevé"].grille[2][6] = "";
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    expect(lignes(f, "Suivi")[3].slice(0, 7)).toEqual([
+      jour(),
+      "DoggyBag",
+      38,
+      250000,
+      3100000,
+      5890000,
+      "",
+    ]);
+    expect(fonds(f, "Suivi", 4, [7])).toEqual([ROUGE]);
+  });
+
+  test("dernière valeur tapée à la main comme une formule : réécrite comme du texte", () => {
+    const f = fichier();
+    f.doPost(releve());
+    f.onglets["Dernier relevé"].grille[1][6] = "=1+1";
+    f.onglets["Suivi"].grille[1][6] = "=1+1";
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    expect([lignes(f, "Dernier relevé")[1][6], lignes(f, "Suivi")[1][6]]).toEqual([
+      "'=1+1",
+      "'=1+1",
+    ]);
+  });
+
+  test("tout décoché dès le premier relevé : la ligne du joueur existe, tout en rouge, sans aucune valeur", () => {
     const f = fichier();
     f.doPost(releve({ donnees: {}, partages: Object.fromEntries(CLES.map((c) => [c, false])) }));
     expect(lignes(f, "Dernier relevé")[1].slice(0, 11)).toEqual([
@@ -142,6 +296,18 @@ describe("information décochée par le joueur", () => {
     expect(fonds(f, "Dernier relevé", 2, [3, 4, 7])).toEqual([VERT, null, VERT]);
     // l'historique garde le jour d'avant tel quel
     expect(fonds(f, "Suivi", 2, [7])).toEqual([ROUGE]);
+  });
+
+  test("recochée après avoir été décochée : la nouvelle valeur remplace l'ancienne, en vert", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1) }));
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    f.doPost(releve({ donnees: { ...DONNEES, va: 9 } }));
+    for (const nom of ["Dernier relevé", "Suivi"]) {
+      const derniere = lignes(f, nom).length;
+      expect(lignes(f, nom)[derniere - 1][6]).toBe(9);
+      expect(fonds(f, nom, derniere, [7])).toEqual([VERT]);
+    }
   });
 });
 

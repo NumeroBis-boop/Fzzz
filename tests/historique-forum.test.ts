@@ -157,7 +157,7 @@ describe("floods passés vers l'historique", () => {
   test("flood annulé (à venir) retiré : pas dans l'historique ; flood arrivé : dedans", async () => {
     sujet("1", "Floods | DoggyBag", `${A_VENIR}\n${PASSE}`);
     lire(`AttaqueLancee = { majPartages() {} };`);
-    await lire(`PartageChasses._retirerFloods([12], null, "DoggyBag", "Floods | DoggyBag")`);
+    await lire(`PartageChasses._retirerFloods([12], "DoggyBag", "Floods | DoggyBag")`);
     expect(message("Historique Floods 1 | DoggyBag")).toBe(PASSE);
     expect(message("Floods | DoggyBag")).toBe("Aucun flood en cours.");
   });

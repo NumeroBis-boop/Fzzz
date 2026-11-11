@@ -178,6 +178,8 @@ class MessagerieFzzz {
         if (page) page.couleurMessage();
         MessagerieFzzz.decorer();
         MessagerieFzzz.analyser();
+        // réponse d'une conversation que le jeu vient d'ouvrir
+        if (Utils.affichage("messagerieSmileysAlliance")) ChatGif.messagerie();
       }, 50);
     }).observe(cible, { childList: true, subtree: true });
   }

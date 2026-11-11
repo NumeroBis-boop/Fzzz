@@ -81,6 +81,7 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       "messagerieCompacte",
       "messagerieMiseEnForme",
       "messagerieSmileys",
+      "messagerieSmileysAlliance",
       "profilRetour",
       "profilTrajet",
       "profilSurveiller",

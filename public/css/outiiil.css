@@ -1510,13 +1510,15 @@ html:not(.o_originePage) #color {
     rgba(215, 195, 132, 1) 100%
   );
 }
-/* chats : boutons « GIF » et « Smileys », leurs listes (ChatGif) */
+/* chats et Messagerie : boutons « GIF » et « Smileys », leurs listes (ChatGif) */
 #o_gifBouton,
-#o_smileysBouton {
+#o_smileysBouton,
+.o_smileysBouton {
   margin-left: 6px;
 }
 #o_gifPanneau,
-#o_smileysPanneau {
+#o_smileysPanneau,
+.o_smileysPanneau {
   box-sizing: border-box;
   max-width: 100%;
   max-height: 50vh;
@@ -1529,7 +1531,8 @@ html:not(.o_originePage) #color {
   background: rgba(255, 255, 255, 0.35);
 }
 #o_gifPanneau[hidden],
-#o_smileysPanneau[hidden] {
+#o_smileysPanneau[hidden],
+.o_smileysPanneau[hidden] {
   display: none !important;
 }
 .o_gifTitre {

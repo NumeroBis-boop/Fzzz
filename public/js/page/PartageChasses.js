@@ -23,6 +23,9 @@ const TITRE_EXPORT_SHEET = "Export Google Sheet";
 // sujets où l'alliance tient à la main ses listes de GIF et de smileys pour le chat (ChatGif)
 const TITRE_GIF_ALLIANCE = "GIF de l'alliance";
 const TITRE_SMILEYS_ALLIANCE = "Smileys de l'alliance";
+// sujet où est postée, à la main, l'adresse du script du fichier qui reçoit le
+// relevé quotidien des statistiques des membres (SuiviMembres)
+const TITRE_STATS_MEMBRES = "Stats membres";
 
 // numéros des attaques déjà publiées dans le sujet « Floods » du joueur
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
@@ -250,7 +253,8 @@ class PartageChasses {
       // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse ;
       // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
       // sujets.exportSheet : sujet de l'adresse du Google Sheet ;
-      // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance
+      // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance ;
+      // sujets.statsMembres : sujet de l'adresse du fichier des statistiques des membres
       let sujets = { liste: [], historiques: [] },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
         normaliser = (/** @type {String} */ t) =>
@@ -284,6 +288,7 @@ class PartageChasses {
           for (let [cle, titreListe] of [
             ["gifAlliance", TITRE_GIF_ALLIANCE],
             ["smileysAlliance", TITRE_SMILEYS_ALLIANCE],
+            ["statsMembres", TITRE_STATS_MEMBRES],
           ])
             if (
               normaliser(titre) == normaliser(titreListe) &&

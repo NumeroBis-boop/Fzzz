@@ -1197,13 +1197,15 @@ class ExportRapports {
    */
   static requete(url, methode, corps) {
     let quoi =
-        corps && corps.statistiques
-          ? "statistiques de la synthèse"
-          : corps && corps.verifier
-            ? "vérification des RC déjà exportés"
-            : corps && corps.onglet
-              ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
-              : "test du script",
+        corps && corps.suivi
+          ? "relevé des statistiques du joueur"
+          : corps && corps.statistiques
+            ? "statistiques de la synthèse"
+            : corps && corps.verifier
+              ? "vérification des RC déjà exportés"
+              : corps && corps.onglet
+                ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
+                : "test du script",
       echec = (/** @type {String} */ message, /** @type {any} */ r) => {
         // statut, réponse du script, ou texte de la page d'erreur de Google
         Journal.erreur(

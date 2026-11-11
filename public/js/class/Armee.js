@@ -425,7 +425,6 @@ class Armee {
   /**
    * calcul le nombre de point d'attaque de base.
    *
-   * @private
    * @method getBaseAtt
    * @return {Integer} Points de combat hors bonus.
    */
@@ -448,7 +447,6 @@ class Armee {
   /**
    * calcul le nombre de point d'attaque total de l'armée.
    *
-   * @private
    * @method getTotalAtt
    * @param {Integer} bonus
    * @return {Integer} Somme des points de combat de l'armée.

@@ -835,6 +835,12 @@ const DATEPICKER_OPTION = {
         } catch (e) {
           console.error("Fzzz : reprise des partages", e);
         }
+        // relevé du jour pour le fichier de l'alliance, après les lectures de la page
+        try {
+          SuiviMembres.lancer();
+        } catch (e) {
+          console.error("Fzzz : partage de données", e);
+        }
         Utils.noterChargement(debutExtension);
       });
   }

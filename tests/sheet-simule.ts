@@ -4,14 +4,13 @@ import vm from "node:vm";
 
 /**
  * Google Sheet simulé en mémoire, piloté par le vrai script du fichier
- * (google-sheet/export-rapports.gs) : SpreadsheetApp, LockService,
- * ContentService, Utilities et Charts réduits à ce que le script utilise. Les
- * formules, formats, validations et graphiques sont notés, pas calculés.
+ * (google-sheet/export-rapports.gs, ou stats-membres.gs) : SpreadsheetApp,
+ * LockService, ContentService, Utilities et Charts réduits à ce que les
+ * scripts utilisent. Les formules, formats, validations et graphiques sont
+ * notés, pas calculés.
  */
-const CODE = readFileSync(
-  join(import.meta.dir, "..", "google-sheet", "export-rapports.gs"),
-  "utf8",
-);
+const code = (script: string) =>
+  readFileSync(join(import.meta.dir, "..", "google-sheet", script), "utf8");
 
 type Grille = unknown[][];
 
@@ -40,6 +39,8 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     // onglet « Statistiques » : formules et formats par case « ligne,colonne »
     formules: {} as Record<string, string>,
     formats: {} as Record<string, string>,
+    // couleurs de fond par case « ligne,colonne » (null : fond retiré)
+    fonds: {} as Record<string, string | null>,
     validations: [] as { r: number; c: number; nl: number; nc: number; regle: any }[],
     graphiques: [] as any[],
     // mise en forme conditionnelle : condition, couleur, gras, italique, plages
@@ -140,6 +141,8 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
             Array.from({ length: nc }, (_, j) => grille[r - 1 + i]?.[c - 1 + j] ?? ""),
           ),
         setValues: (v: Grille) => {
+          if (v.length != nl || v.some((l) => l.length != nc))
+            throw new Error("The number of rows or columns in the data does not match the range.");
           v.forEach((l, i) =>
             l.forEach((x, j) => {
               while (grille.length < r + i) grille.push([]);
@@ -149,6 +152,16 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
           return plage;
         },
         setValue: (x: unknown) => plage.setValues([[x]]),
+        setBackgrounds: (v: (string | null)[][]) => {
+          if (v.length != nl || v.some((l) => l.length != nc))
+            throw new Error("The number of rows or columns in the data does not match the range.");
+          v.forEach((l, i) => l.forEach((x, j) => (f.fonds[`${r + i},${c + j}`] = x)));
+          return plage;
+        },
+        setBackground: (x: string | null) =>
+          plage.setBackgrounds(
+            Array.from({ length: nl }, () => Array.from({ length: nc }, () => x)),
+          ),
         setFontWeight: () => plage,
         setFormula: (x: string) => ((f.formules[`${r},${c}`] = x), plage),
         setNumberFormat: (x: string) => ((f.formats[`${r},${c}`] = x), plage),
@@ -164,8 +177,12 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
   return f;
 }
 
-/** Fichier simulé : onglets {nom: feuille}, doGet / doPost du script. */
-export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Europe/Paris") {
+/** Fichier simulé : onglets {nom: feuille}, doGet / doPost du script (`script` : son fichier). */
+export function classeurSimule(
+  onglets: Record<string, any> = {},
+  fuseau = "Europe/Paris",
+  script = "export-rapports.gs",
+) {
   // ordre des onglets : insertSheet(nom, 0) le met en premier
   const ordre = Object.keys(onglets);
   const classeur = {
@@ -206,6 +223,21 @@ export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Euro
       };
     return b;
   };
+  // heure affichée dans un fuseau, en parties numériques
+  const parties = (d: Date, tz: string) =>
+    Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(d)
+        .map((x) => [x.type, Number(x.value)]),
+    );
   const ctx: any = {
     console: { warn: (m: string) => avertissements.push(m) },
     SpreadsheetApp: {
@@ -234,6 +266,15 @@ export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Euro
         const jour = `${p.year}-${p.month}-${p.day}`;
         return format == "yyyy-MM-dd" ? jour : `${jour} ${p.hour}:${p.minute}`;
       },
+      // minuit de ce jour dans le fuseau du fichier
+      parseDate: (texte: string, tz: string, format: string) => {
+        if (format != "yyyy-MM-dd") throw new Error("format non simulé : " + format);
+        const [a, m, j] = texte.split("-").map(Number),
+          utc = Date.UTC(a!, m! - 1, j!),
+          p = parties(new Date(utc), tz),
+          decalage = Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!) - utc;
+        return new Date(utc - decalage);
+      },
     },
     Charts: {
       ChartType: {
@@ -251,7 +292,7 @@ export function classeurSimule(onglets: Record<string, any> = {}, fuseau = "Euro
     },
   };
   vm.createContext(ctx);
-  vm.runInContext(CODE, ctx);
+  vm.runInContext(code(script), ctx);
   return {
     onglets,
     ordre,

@@ -178,3 +178,66 @@ describe("partage demandé par « Envoyer + partager » (page rechargée après 
     expect(recharger(null)).toEqual({ toasts: [], partages: [], ordre: null });
   });
 });
+
+describe("heure d'une chasse : minute du RC, où le TdC change", () => {
+  // le jeu affiche la minute de l'arrivée, secondes coupées ; le TdC change à
+  // la minute suivante (minute du RC), comme pour une attaque
+  const chasse = (id: number, reste: number, arrivee: string | null) =>
+    `<div><span id='chasse_${id}'></span>- Vos chasseuses vont conquérir 50 000 cm²</div><small>Troupes en chasse : 500 000 Jeunes Soldates Naines.${arrivee ? ` Arrivée à ${arrivee}` : ""}</small><script>reste(${reste},"chasse_${id}")</script>`;
+  const lireImpacts = (html: string) =>
+    lire<string[]>(`(() => {
+      let serveur = Horloge.serveur;
+      Horloge.serveur = () => moment("2026-11-11 22:00:20", "YYYY-MM-DD HH:mm:ss");
+      let racine = Utils.parseHtml(${JSON.stringify(`<div id='boite_tdc'>${html}</div>`)}),
+        chasses = PageRessource.lireChasses(racine),
+        partage = PageRessource.aPartager(PageRessource.grouperChasses(chasses));
+      Horloge.serveur = serveur;
+      return chasses.map((c) => c.impact.format("YYYY-MM-DD HH:mm:ss")).concat(partage.map((g) => "partage " + g.impact.format("YYYY-MM-DD HH:mm")));
+    })()`);
+
+  test("« Arrivée à 23h39 » (arrivée à 23h39:40) : TdC ajouté à 23h40, l'heure partagée", () => {
+    expect(lireImpacts(chasse(1, 5960, "23h39"))).toEqual([
+      "2026-11-11 23:40:00",
+      "partage 2026-11-11 23:40",
+    ]);
+  });
+
+  test("sans « Arrivée à » : minute du RC de l'arrivée calculée, passage à minuit compris", () => {
+    // 22h00:20 + 7 170 s = 23h59:50 → 00h00 le lendemain
+    expect(lireImpacts(chasse(2, 7170, null))).toEqual([
+      "2026-11-12 00:00:00",
+      "partage 2026-11-12 00:00",
+    ]);
+  });
+
+  test("chasses enchaînées : partagées à la minute du RC de la dernière", () => {
+    expect(
+      lireImpacts(chasse(3, 5960, "23h39") + chasse(4, 6010, "23h40") + chasse(5, 9000, "00h30")),
+    ).toEqual([
+      "2026-11-11 23:40:00",
+      "2026-11-11 23:41:00",
+      "2026-11-12 00:31:00",
+      "partage 2026-11-11 23:41",
+      "partage 2026-11-12 00:31",
+    ]);
+  });
+});
+
+describe("chasses partagées avant 1.101.6 (minute affichée par le jeu)", () => {
+  test("relues par le chasseur à jour : recalées sur la minute du RC et réécrites", () => {
+    const r = lire<{ lignes: { date: string; terrain: number }[]; change: boolean }>(
+      `PartageChasses.recalerListeChasses(
+        [{ date: "2026-11-11 23:39", terrain: 50000 }, { date: "2026-11-12 00:30", terrain: 50000 }],
+        [{ debut: "2026-11-11 23:40", fin: "2026-11-11 23:40", terrain: 50000 }, { debut: "2026-11-12 00:31", fin: "2026-11-12 00:31", terrain: 50000 }],
+        "2026-11-11 22:00",
+      )`,
+    );
+    expect(r).toEqual({
+      lignes: [
+        { date: "2026-11-11 23:40", terrain: 50000 },
+        { date: "2026-11-12 00:31", terrain: 50000 },
+      ],
+      change: true,
+    });
+  });
+});

@@ -126,7 +126,7 @@ class PageRessource {
         return `<tr class='${classe}'><td>${libelle}</td><td>${liste.length}</td><td>${numeral(s.terrain).format()} cm²</td><td title='${s.estime ? "~ : durée estimée comme si la chasse partait maintenant (lancée ailleurs que d&#39;ici)" : "Durée réelle depuis le lancement"}'>${tdcHeure}</td><td title='Pertes moyennes estimées d&#39;après l&#39;armée envoyée et le TdC courant'>${jsnHeure}</td><td class='o_syntheseUnites'>${unites}</td></tr>`;
       },
       html = `<table class='o_maxWidth centre' cellspacing='0'>
-        <tr class='gras'><td>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>TdC / h</td><td>JSN / h</td><td>Unités mises en chasse</td></tr>`;
+        <tr class='gras'><td title='Minute où le TdC change (minute du rapport) : celle qui suit « Arrivée à » du jeu'>Heure d'impact</td><td>Chasses</td><td>TdC chassé</td><td>TdC / h</td><td>JSN / h</td><td>Unités mises en chasse</td></tr>`;
     let aPartager = () => PageRessource.aPartager(groupes);
     if (partagerMaintenant) PartageChasses.partager(aPartager(), null);
     // chasses partagées puis annulées (ici ou par le lien du jeu) : retirées du forum
@@ -200,19 +200,25 @@ class PageRessource {
           (details.match(/Troupes en chasses?\s*:\s*([^\n]+?)\.?\s*(?:Arrivée|$)/i) || [])[1] || "",
         libelle = details.match(/Arrivée à (\d+)h(\d+)/i);
       if (isNaN(secondes)) return;
-      // minute d'impact : celle qu'affiche le jeu (« Arrivée à 02h59 »), placée
-      // au jour le plus proche de l'arrivée calculée ; sinon l'arrivée calculée
+      // minute d'impact : celle du RC, où le TdC change, comme pour une attaque
+      // (Utils.minuteRC) ; le jeu affiche la minute de l'arrivée, secondes
+      // coupées (« Arrivée à 02h59 » pour 02h59:40, TdC ajouté à 03h00) : une
+      // synchro sur la minute affichée arriverait trop tôt. Sans ce texte, la
+      // minute du RC de l'arrivée calculée (horloge du serveur, à ±1 s près).
       let arrivee = Horloge.serveur().add(secondes, "s"),
-        impact = arrivee.clone().startOf("minute");
+        impact = Utils.minuteRC(arrivee);
       if (libelle) {
-        impact = arrivee
+        let affichee = arrivee
           .clone()
           .hours(parseInt(libelle[1]))
           .minutes(parseInt(libelle[2]))
           .startOf("minute");
-        let ecart = impact.diff(arrivee, "hours", true);
-        if (ecart > 12) impact.subtract(1, "day");
-        else if (ecart < -12) impact.add(1, "day");
+        let ecart = affichee.diff(arrivee, "hours", true);
+        if (ecart > 12) affichee.subtract(1, "day");
+        else if (ecart < -12) affichee.add(1, "day");
+        // une arrivée pile à :00 (une fois sur 60) est datée une minute après :
+        // une synchro arrive alors après la chasse, jamais avant
+        impact = affichee.add(1, "minute");
       }
       let unites = {};
       troupes.split(",").forEach((morceau) => {

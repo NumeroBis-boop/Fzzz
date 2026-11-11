@@ -5,7 +5,8 @@
  *  - « Dernier relevé » : une ligne par joueur, son relevé le plus récent ;
  *  - « Suivi » : une ligne par joueur et par jour, pour suivre l'évolution.
  * Le fond d'une case dit si le joueur partage cette information : vert, il la
- * partage ; rouge, il a décoché sa case (la case reste vide).
+ * partage ; rouge, il a décoché sa case (la case garde la dernière valeur lue
+ * avant, ou reste vide s'il ne l'a jamais partagée).
  *
  * Installation, par le propriétaire du fichier :
  *  1. Dans le fichier : Extensions → Apps Script ; remplacer le contenu de
@@ -55,7 +56,7 @@ var JOURS_ECART_MAX = 1;
 var VALEUR_MAX = 1e15;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-12.1";
+var VERSION_SCRIPT = "stats-membres 2026-11-12.2";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -180,7 +181,9 @@ function preparer(classeur) {
 /**
  * Range un relevé : la ligne du joueur dans « Dernier relevé » (remplacée si le
  * relevé n'est pas plus ancien que le sien), et sa ligne du jour dans « Suivi »
- * (remplacée si elle existe : un autre appareil du joueur, le même jour).
+ * (remplacée si elle existe : un autre appareil du joueur, le même jour). Une
+ * information que le joueur ne partage pas garde sa dernière valeur lue, sur
+ * fond rouge.
  */
 function enregistrer(classeur, s) {
   preparer(classeur);
@@ -188,6 +191,7 @@ function enregistrer(classeur, s) {
     joueur = s.joueur,
     valeurs = {},
     fonds = {},
+    refusees = [],
     donnees = s.donnees || {},
     partages = s.partages || {};
   // dans l'ordre des titres : un titre absent de l'onglet y est ajouté dans cet ordre
@@ -197,21 +201,59 @@ function enregistrer(classeur, s) {
     var refuse = partages[d[0]] === false,
       v = refuse ? null : donnees[d[0]];
     valeurs[d[1]] = v == null ? "" : v;
+    if (refuse) refusees.push(d[1]);
     // sans valeur ni refus (page du jeu illisible ce jour-là) : pas de couleur
     fonds[d[1]] = refuse ? COULEUR_REFUS : v == null ? null : COULEUR_PARTAGE;
   });
   valeurs[COLONNE_VERSION] = s.version == null ? "" : String(s.version);
-  var suivi = ecrireLigne(classeur.getSheetByName(ONGLET_SUIVI), valeurs, fonds, function (l) {
-      return cleJoueur(l[COLONNE_JOUEUR]) == cleJoueur(joueur) &&
-        jourCellule(l[COLONNE_DATE], fuseau) == s.jour
-        ? "remplacer"
-        : "";
-    }),
-    dernier = ecrireLigne(classeur.getSheetByName(ONGLET_DERNIER), valeurs, fonds, function (l) {
-      if (cleJoueur(l[COLONNE_JOUEUR]) != cleJoueur(joueur)) return "";
-      return jourCellule(l[COLONNE_DATE], fuseau) > s.jour ? "garder" : "remplacer";
-    });
+  // dernière valeur lue d'une information non partagée : celle de la ligne
+  // remplacée, sinon celle du relevé le plus récent du joueur avant ce jour dans
+  // l'onglet, sinon celle retrouvée dans « Dernier relevé » (écrit en premier)
+  var garder = !refusees.length
+      ? null
+      : function (lignes, remplacee) {
+          refusees.forEach(function (t) {
+            var v = remplacee ? remplacee[t] : "",
+              jour = "";
+            if (estVide(v))
+              lignes.forEach(function (l) {
+                if (cleJoueur(l[COLONNE_JOUEUR]) != cleJoueur(joueur) || estVide(l[t])) return;
+                var j = jourCellule(l[COLONNE_DATE], fuseau);
+                if (j && j < s.jour && j > jour) {
+                  jour = j;
+                  v = l[t];
+                }
+              });
+            if (!estVide(v)) valeurs[t] = valeurCellule(v);
+          });
+        },
+    dernier = ecrireLigne(
+      classeur.getSheetByName(ONGLET_DERNIER),
+      valeurs,
+      fonds,
+      function (l) {
+        if (cleJoueur(l[COLONNE_JOUEUR]) != cleJoueur(joueur)) return "";
+        return jourCellule(l[COLONNE_DATE], fuseau) > s.jour ? "garder" : "remplacer";
+      },
+      garder,
+    ),
+    suivi = ecrireLigne(
+      classeur.getSheetByName(ONGLET_SUIVI),
+      valeurs,
+      fonds,
+      function (l) {
+        return cleJoueur(l[COLONNE_JOUEUR]) == cleJoueur(joueur) &&
+          jourCellule(l[COLONNE_DATE], fuseau) == s.jour
+          ? "remplacer"
+          : "";
+      },
+      garder,
+    );
   return { ok: true, nouveau: suivi == "ajoutée", dernier: dernier != "gardée" };
+}
+
+function estVide(v) {
+  return v === "" || v == null;
 }
 
 function cleJoueur(v) {
@@ -236,31 +278,39 @@ function jourCellule(v, fuseau) {
 /**
  * Écrit `valeurs` (par titre de colonne) dans la ligne que `choisir` désigne
  * ("remplacer"), sinon dans une nouvelle ligne ; "garder" : rien n'est écrit.
- * Seules les colonnes de `valeurs` sont touchées.
+ * Seules les colonnes de `valeurs` sont touchées. `completer(lignes, remplacee)`,
+ * s'il est donné, peut changer `valeurs` d'après les lignes de l'onglet (par
+ * titre) et celle qui va être remplacée (null pour une nouvelle ligne).
  *
  * @return {String} "remplacée", "ajoutée" ou "gardée"
  */
-function ecrireLigne(feuille, valeurs, fonds, choisir) {
+function ecrireLigne(feuille, valeurs, fonds, choisir, completer) {
   var titres = Object.keys(valeurs),
     colonnes = colonnesDe(feuille, titres),
     derniere = feuille.getLastRow(),
     ligne = 0,
-    sort = "ajoutée";
+    sort = "ajoutée",
+    lignes = [],
+    remplacee = null;
   if (derniere > 1) {
     var lues = feuille.getRange(2, 1, derniere - 1, feuille.getLastColumn()).getValues();
-    for (var i = 0; i < lues.length && !ligne; i++) {
+    for (var i = 0; i < lues.length && (completer || !ligne); i++) {
       var l = {};
       titres.forEach(function (t) {
         l[t] = lues[i][colonnes[t] - 1];
       });
+      lignes.push(l);
+      if (ligne) continue;
       var choix = choisir(l);
       if (choix == "garder") return "gardée";
       if (choix == "remplacer") {
         ligne = i + 2;
         sort = "remplacée";
+        remplacee = l;
       }
     }
   }
+  if (completer) completer(lignes, remplacee);
   if (!ligne) {
     ligne = Math.max(derniere, 1) + 1;
     if (ligne > feuille.getMaxRows())

@@ -781,29 +781,28 @@ class PartageChasses {
       .finally(() => $bouton && $bouton.prop("disabled", false));
   }
   /**
-   * Retire des floods (numéros d'attaque) du sujet « Floods » du joueur ; les
-   * entrées passées sont purgées au passage, comme lors d'un partage.
+   * Retire du sujet « Floods » du joueur des floods (numéros d'attaque) qui ne
+   * sont plus dans la liste du jeu, annulés ou arrivés : un flood ne quitte le
+   * forum que pour cette raison (règle du mainteneur, pas de retrait à la
+   * main). Les entrées passées sont purgées au passage, comme lors d'un
+   * partage ; rien n'est écrit si aucun de ces floods n'est dans le sujet, et
+   * un message seulement si un flood à venir est retiré.
    *
    * @static
    * @method retirerFloods
    * @param {Array<Number>} ids
-   * @param {jQuery|null} $bouton
-   * @param {Boolean} [discret] retrait automatique (attaques disparues de la
-   *   liste) : rien n'est écrit si aucun de ces floods n'est dans le sujet, et
-   *   un message seulement si un flood à venir est retiré
    * @return {Promise}
    */
-  static retirerFloods(ids, $bouton, discret = false) {
+  static retirerFloods(ids) {
     let pseudo = monProfil.pseudo,
       titre = `Floods | ${pseudo}`;
     ids = ids.filter((id) => !retraitsEnCours.has(id));
     if (!ids.length) return Promise.resolve();
     PartageChasses.noterARetirer(ids, true);
     ids.forEach((id) => retraitsEnCours.add(id));
-    if ($bouton) $bouton.prop("disabled", true);
-    return PartageChasses.enFile(() =>
-      PartageChasses._retirerFloods(ids, $bouton, pseudo, titre, discret),
-    ).finally(() => ids.forEach((id) => retraitsEnCours.delete(id)));
+    return PartageChasses.enFile(() => PartageChasses._retirerFloods(ids, pseudo, titre)).finally(
+      () => ids.forEach((id) => retraitsEnCours.delete(id)),
+    );
   }
   /**
    * Note (ajouter) ou efface des floods de la liste des retraits à faire.
@@ -833,7 +832,7 @@ class PartageChasses {
     if (!monProfil.pseudo) return Promise.resolve();
     let aRetirer = Utils.lireStockage(CLE_FLOODS_A_RETIRER, []);
     return Promise.all([
-      aRetirer.length ? PartageChasses.retirerFloods(aRetirer, null, true) : null,
+      aRetirer.length ? PartageChasses.retirerFloods(aRetirer) : null,
       AttaqueLancee.partagerMarquees(),
     ]);
   }
@@ -841,7 +840,7 @@ class PartageChasses {
    * @private
    * @static
    */
-  static _retirerFloods(ids, $bouton, pseudo, titre, discret = false) {
+  static _retirerFloods(ids, pseudo, titre) {
     return PartageChasses.sujets()
       .then((sujets) => {
         let idSujet = sujets[`Floods | ${pseudo.toLowerCase()}`];
@@ -852,7 +851,7 @@ class PartageChasses {
             presents = d.floods.filter((e) => ids.includes(e.id)),
             // un flood arrivé n'est plus « retiré » : il serait purgé de toute façon
             retires = presents.filter((e) => e.date >= maintenant).length;
-          if (discret && !presents.length) return 0;
+          if (!presents.length) return 0;
           // arrivés (minute passée) : vers l'historique ; annulés à venir : retirés
           let passees = d.floods.filter((e) => e.date < maintenant);
           return PartageChasses.archiverPassees("Floods", passees, sujets).then((archivees) => {
@@ -877,12 +876,10 @@ class PartageChasses {
         PartageChasses.oublierFloodsPartages(ids);
         PartageChasses.noterARetirer(ids, false);
         AttaqueLancee.majPartages();
-        if (n || !discret)
+        if (n)
           $.toast({
             ...TOAST_SUCCESS,
-            text: n
-              ? `${n} flood${n > 1 ? "s annulés retirés" : " annulé retiré"} du forum de la ${Utils.alliance}.`
-              : "Ce flood n'était plus dans le forum.",
+            text: `${n} flood${n > 1 ? "s annulés retirés" : " annulé retiré"} du forum de la ${Utils.alliance}.`,
           });
       })
       .catch((e) => {
@@ -891,15 +888,9 @@ class PartageChasses {
           PartageChasses.oublierFloodsPartages(ids);
           PartageChasses.noterARetirer(ids, false);
         }
-        // retrait automatique : réessayé à la page suivante, sans message
-        if (discret) console.warn(`[${NOM_EXTENSION}] retrait des floods différé`, e);
-        else
-          $.toast({
-            ...TOAST_ERROR,
-            text: "Retrait du flood annulé impossible : le forum de l'alliance n'a pas pu être lu ou modifié.",
-          });
-      })
-      .finally(() => $bouton && $bouton.prop("disabled", false));
+        // réessayé à la page suivante, sans message
+        console.warn(`[${NOM_EXTENSION}] retrait des floods différé`, e);
+      });
   }
   /**
    * @static
@@ -1043,9 +1034,11 @@ class PartageChasses {
    * @method charger
    * @param {Array|null} chassesDe pseudos dont lire les chasses (null : tous)
    * @param {Boolean} [avecFloods] false : les chasses seulement
+   * @param {{prevoir: (n: Number) => void, faite: () => void}|null} [suivi] prévenu de chaque lecture (avancement affiché)
    * @return {Promise<Object>} {chasses: {pseudo minuscule: [...]}, floods: [... avec lanceur]}
    */
-  static charger(chassesDe = null, avecFloods = true) {
+  static charger(chassesDe = null, avecFloods = true, suivi = null) {
+    if (suivi) suivi.prevoir(1);
     return PartageChasses.sujets(true).then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
         liste = sujets.liste.filter(
@@ -1054,6 +1047,7 @@ class PartageChasses {
             (t.type == "Chasses" && (!voulus || voulus.includes(t.pseudo.toLowerCase()))),
         ),
         d = { chasses: {}, floods: [] },
+        lu = () => suivi && suivi.faite(),
         lirePaquet = (k) =>
           k >= liste.length
             ? Promise.resolve()
@@ -1064,9 +1058,14 @@ class PartageChasses {
                       if (t.type == "Chasses") d.chasses[t.pseudo.toLowerCase()] = r.chasses;
                       else r.floods.forEach((e) => d.floods.push({ ...e, lanceur: t.pseudo }));
                     })
-                    .catch(() => {}),
+                    .catch(() => {})
+                    .then(lu),
                 ),
               ).then(() => lirePaquet(k + 4));
+      if (suivi) {
+        suivi.faite();
+        suivi.prevoir(liste.length);
+      }
       return lirePaquet(0).then(() => d);
     });
   }
@@ -1109,17 +1108,22 @@ class PartageChasses {
    * @method completer
    * @param {Object} d charger(suivis), mes mouvements compris s'il y a lieu
    * @param {Array<String>} suivis
+   * @param {{prevoir: (n: Number) => void, faite: () => void}|null} [suivi] prévenu de chaque lecture (avancement affiché)
    * @return {Promise<{d: Object, tdc: Object}>} tdc : {pseudo: TdC} des membres ({} sans joueur relié)
    */
-  static completer(d, suivis) {
+  static completer(d, suivis, suivi = null) {
     let relies = PartageChasses.relies(d.floods, suivis);
     if (!relies.length) return Promise.resolve({ d, tdc: {} });
     let manquants = relies.filter((p) => !d.chasses[p]);
+    if (suivi) suivi.prevoir(1);
     return Promise.all([
       manquants.length
-        ? PartageChasses.charger(manquants, false).catch(() => ({ chasses: {} }))
+        ? PartageChasses.charger(manquants, false, suivi).catch(() => ({ chasses: {} }))
         : { chasses: {} },
-      PartageChasses.tdcMembres(),
+      PartageChasses.tdcMembres().then((tdc) => {
+        if (suivi) suivi.faite();
+        return tdc;
+      }),
     ]).then(([lu, tdc]) => {
       let chasses = { ...d.chasses };
       manquants.forEach((p) => {

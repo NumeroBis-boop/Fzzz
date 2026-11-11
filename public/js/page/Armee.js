@@ -90,6 +90,20 @@ class PageArmee {
     }
 
     if (!Utils.comptePlus) this.plus();
+    // Fin de flood : le replacement fait partie de l'enchaînement lancé par le
+    // clic du joueur. Il attend que le partage des floods (« Flooder +
+    // partager », posé par afficherTableaux) soit écrit dans le forum, et passe
+    // avant les lectures du bloc « Mes attaques en cours », qui attendent sa fin.
+    let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
+    if (floodFlag) {
+      sessionStorage.removeItem("outiiil_floodPuisReplacer");
+      AttaqueLancee.laisserPasser(
+        Promise.resolve()
+          .then(() => AttaqueLancee.partageEnCours)
+          .catch(() => {})
+          .then(() => this.replacerArmee(true)),
+      );
+    }
     AttaqueLancee.afficherTableaux();
     // Affichage du temps Hof de votre armée
     if (Utils.affichage("armeeHof"))
@@ -109,22 +123,13 @@ class PageArmee {
     // Affichage des statistiques detaillés
     if (Utils.affichage("armeeStatistiques")) this.afficherStatistique();
     if (Utils.affichage("armeeMiseEnPage")) this.alleger();
-    // Auto-replacer : déclenché en sortie de flood (flag sessionStorage) ou par le param utilisateur.
-    let floodFlag = sessionStorage.getItem("outiiil_floodPuisReplacer") === "1";
-    if (floodFlag) sessionStorage.removeItem("outiiil_floodPuisReplacer");
-    // Fin de flood : le replacement fait partie de l'enchaînement lancé par le
-    // clic du joueur. L'option « Replacer l'armée automatiquement » ne peut en
-    // revanche rien envoyer à la simple ouverture de la page (règlement du s5) :
-    // elle met en évidence le bouton de replacement, le joueur clique.
     // rechargement après un clic (Annuler, transfert…) : même position à l'écran
     Utils.garderPosition("fzzz_positionArmee");
-    // fin de flood : le replacement attend que le partage des floods
-    // (« Flooder + partager ») soit écrit dans le forum
-    if (floodFlag)
-      Promise.resolve(AttaqueLancee.partageEnCours)
-        .catch(() => {})
-        .then(() => this.replacerArmee(true));
-    else if (
+    // L'option « Replacer l'armée automatiquement » ne peut rien envoyer à la
+    // simple ouverture de la page (règlement du s5) : elle met en évidence le
+    // bouton de replacement, le joueur clique.
+    if (
+      !floodFlag &&
       monProfil.parametre["replacerArmeeAuto"].valeur &&
       $("#o_replaceArmee").length &&
       this.uniteTransferables() &&
@@ -219,16 +224,18 @@ class PageArmee {
    * du jeu, sans recharger la page : le tableau est mis à jour avec la réponse.
    * Quand auto=true (en sortie de flood, enchaîné au clic du joueur),
    * les toasts informatifs sont supprimés pour ne pas spammer à chaque visite.
+   *
+   * @return {Promise} tenue à la fin du replacement (tout de suite s'il n'y en a pas)
    */
   replacerArmee(auto = false) {
     if (!this.uniteTransferables()) {
       if (!auto) $.toast({ ...TOAST_ERROR, text: "Aucune unité n'est transférable." });
-      return this;
+      return Promise.resolve();
     }
     let placer = this.placementPrevu();
-    if (placer) this.lancerReplacement(() => placer(auto));
-    else if (!auto) $.toast({ ...TOAST_INFO, text: "Votre armée est déjà placée correctement." });
-    return this;
+    if (placer) return this.lancerReplacement(() => placer(auto));
+    if (!auto) $.toast({ ...TOAST_INFO, text: "Votre armée est déjà placée correctement." });
+    return Promise.resolve();
   }
   /**
    * @method uniteTransferables
@@ -354,20 +361,29 @@ class PageArmee {
   }
   /**
    * Un seul replacement à la fois : un double clic (ou un clic pendant le
-   * replacement automatique) déplaçait les troupes deux fois.
+   * replacement automatique) déplaçait les troupes deux fois. Le bloc « Mes
+   * attaques en cours » n'envoie aucune lecture pendant ce temps.
    *
    * @private
    * @method lancerReplacement
    * @param {Function} placer renvoie une promesse
+   * @return {Promise} tenue à la fin du replacement en cours
    */
   lancerReplacement(placer) {
-    if (this._replacementEnCours) return;
-    this._replacementEnCours = true;
+    if (this._replacementEnCours) return this._replacementEnCours;
+    let fini = () => {},
+      replacement = new Promise((fin) => (fini = () => fin(undefined)));
+    this._replacementEnCours = replacement;
+    AttaqueLancee.laisserPasser(replacement);
     $("#o_replaceArmee").prop("disabled", true).removeClass("o_synchroPret").text("Replacement…");
-    Promise.resolve(placer()).finally(() => {
-      this._replacementEnCours = false;
-      $("#o_replaceArmee").prop("disabled", false).text("Replacer l'armée");
-    });
+    new Promise((resolu) => resolu(placer()))
+      .catch(() => {})
+      .then(() => {
+        this._replacementEnCours = null;
+        $("#o_replaceArmee").prop("disabled", false).text("Replacer l'armée");
+        fini();
+      });
+    return replacement;
   }
   /**
    *

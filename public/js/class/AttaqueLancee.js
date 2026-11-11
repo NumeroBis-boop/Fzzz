@@ -32,6 +32,11 @@ const DELAI_ANNULATION = 120;
 const CLE_ANNULATION_ECHEC = "outiiil_annulationEchec";
 // recalcul de la taille du tableau au redimensionnement, installé une fois
 let ajustementTailleActif = false;
+// replacements de l'armée attendus ou en cours : le bloc « Mes attaques en
+// cours » n'envoie aucune lecture avant leur fin
+let replacementsArmee = new Set();
+// avancement affiché du chargement de ce bloc (suiviChargement)
+let chargementBloc = null;
 
 class AttaqueLancee {
   /**
@@ -351,7 +356,7 @@ class AttaqueLancee {
       aRetirer = Object.keys(PartageChasses.floodsPartages())
         .map(Number)
         .filter((id) => id && !affiches.has(id));
-    if (retirer && aRetirer.length) PartageChasses.retirerFloods(aRetirer, null, true);
+    if (retirer && aRetirer.length) PartageChasses.retirerFloods(aRetirer);
     return liste;
   }
   /**
@@ -457,24 +462,31 @@ class AttaqueLancee {
    * @static
    * @method lireMouvements
    * @param {Array} attaques {ligne, capture} de la liste du jeu
+   * @param {Object|null} [suivi] suiviChargement, prévenu de chaque lecture
    * @return {Promise<{floods: Object, chasses: Array, recus: Array}>} floods :
    *   événement de la simulation par numéro d'attaque ; chasses : {evenement,
    *   groupe (Ressources.php, ou null), partagee} ; recus : floods sur moi
    */
-  static lireMouvements(attaques) {
+  static lireMouvements(attaques, suivi = null) {
     let moi = monProfil.pseudo,
       m = String(moi || "").toLowerCase();
     if (!moi) return Promise.resolve({ floods: {}, chasses: [], recus: [] });
+    if (suivi) suivi.prevoir(1);
     return Promise.all([
-      PartageChasses.enFile(() => PartageChasses.charger([moi])).catch(() => null),
-      Promise.resolve($.get(location.origin + "/Ressources.php")).then(
-        (html) => {
-          let $page = Utils.parseHtml(String(html));
-          // autre page que Ressources (connexion) : chasses inconnues, pas « aucune »
-          return $page.find("#boite_tdc").length ? PageRessource.lireChasses($page) : null;
-        },
-        () => null,
-      ),
+      PartageChasses.enFile(() => PartageChasses.charger([moi], true, suivi)).catch(() => null),
+      Promise.resolve($.get(location.origin + "/Ressources.php"))
+        .then(
+          (html) => {
+            let $page = Utils.parseHtml(String(html));
+            // autre page que Ressources (connexion) : chasses inconnues, pas « aucune »
+            return $page.find("#boite_tdc").length ? PageRessource.lireChasses($page) : null;
+          },
+          () => null,
+        )
+        .then((chasses) => {
+          if (suivi) suivi.faite();
+          return chasses;
+        }),
     ]).then(([forum, chasses]) => {
       let d = forum || { chasses: {}, floods: [] },
         partagees = d.chasses[m] || [],
@@ -494,45 +506,50 @@ class AttaqueLancee {
           AttaqueLancee.idsAffiches(),
         );
       }
-      return PartageChasses.completer(
-        PartageChasses.avecMesMouvements(
-          d,
-          moi,
-          mesFloods,
-          mesChasses,
-          attaques.map((a) => a.ligne.id),
-        ),
-        [moi],
-      ).then(({ d: complet, tdc }) => {
-        let sim = PartageChasses.simuler(
-            complet,
-            PartageChasses.tdcConnus(tdc, { [moi]: Utils.terrain }),
+      return AttaqueLancee.apresReplacement()
+        .then(() =>
+          PartageChasses.completer(
+            PartageChasses.avecMesMouvements(
+              d,
+              moi,
+              mesFloods,
+              mesChasses,
+              attaques.map((a) => a.ligne.id),
+            ),
+            [moi],
+            suivi,
           ),
-          maintenant = minute(Horloge.serveur()),
-          mouvements = { floods: {}, chasses: [], recus: [] };
-        sim.evenements.forEach((e) => {
-          if (e.type == "chasse") {
-            if (e.joueur != m) return;
-            let g = groupes ? groupes.find((x) => minute(x.impact) == e.date) || null : null;
-            mouvements.chasses.push({
-              evenement: e,
-              groupe: g,
-              // sans la page Ressources, mes chasses connues sont celles du forum
-              partagee: groupes
-                ? !!g &&
-                  PartageChasses.recalerListeChasses(
-                    partagees,
-                    [{ debut: minute(g.chasses[0].impact), fin: e.date, terrain: e.terrain }],
-                    maintenant,
-                  ).lignes.length > 0
-                : true,
-            });
-          } else if (String(e.lanceur).toLowerCase() == m) {
-            if (e.id) mouvements.floods[e.id] = e;
-          } else if (String(e.cible).toLowerCase() == m) mouvements.recus.push(e);
+        )
+        .then(({ d: complet, tdc }) => {
+          let sim = PartageChasses.simuler(
+              complet,
+              PartageChasses.tdcConnus(tdc, { [moi]: Utils.terrain }),
+            ),
+            maintenant = minute(Horloge.serveur()),
+            mouvements = { floods: {}, chasses: [], recus: [] };
+          sim.evenements.forEach((e) => {
+            if (e.type == "chasse") {
+              if (e.joueur != m) return;
+              let g = groupes ? groupes.find((x) => minute(x.impact) == e.date) || null : null;
+              mouvements.chasses.push({
+                evenement: e,
+                groupe: g,
+                // sans la page Ressources, mes chasses connues sont celles du forum
+                partagee: groupes
+                  ? !!g &&
+                    PartageChasses.recalerListeChasses(
+                      partagees,
+                      [{ debut: minute(g.chasses[0].impact), fin: e.date, terrain: e.terrain }],
+                      maintenant,
+                    ).lignes.length > 0
+                  : true,
+              });
+            } else if (String(e.lanceur).toLowerCase() == m) {
+              if (e.id) mouvements.floods[e.id] = e;
+            } else if (String(e.cible).toLowerCase() == m) mouvements.recus.push(e);
+          });
+          return mouvements;
         });
-        return mouvements;
-      });
     });
   }
   /**
@@ -541,13 +558,133 @@ class AttaqueLancee {
    * @static
    * @method mouvements
    * @param {Array} attaques
+   * @param {Object|null} [suivi] suiviChargement
    * @return {Promise<{floods: Object, chasses: Array, recus: Array}>}
    */
-  static mouvements(attaques) {
-    return AttaqueLancee.lireMouvements(attaques).catch((e) => {
+  static mouvements(attaques, suivi = null) {
+    return AttaqueLancee.lireMouvements(attaques, suivi).catch((e) => {
       console.error(`[${NOM_EXTENSION}] mouvements en cours`, e);
       return { floods: {}, chasses: [], recus: [] };
     });
+  }
+  /**
+   * Le replacement de l'armée passe avant l'affichage des mouvements (règle du
+   * mainteneur) : tant que `replacement` n'est pas fini, le bloc « Mes attaques
+   * en cours » n'envoie aucune nouvelle lecture. Celles déjà en file attendent
+   * derrière les déplacements (Requetes.js).
+   *
+   * @static
+   * @method laisserPasser
+   * @param {Promise} replacement
+   */
+  static laisserPasser(replacement) {
+    let fin = Promise.resolve(replacement)
+      .catch(() => {})
+      .then(() => {
+        replacementsArmee.delete(fin);
+        if (chargementBloc) chargementBloc.attente(replacementsArmee.size > 0);
+      });
+    replacementsArmee.add(fin);
+    if (chargementBloc) chargementBloc.attente(true);
+  }
+  /**
+   * @static
+   * @method apresReplacement
+   * @return {Promise} tenue quand aucun replacement de l'armée n'est attendu ni en cours
+   */
+  static apresReplacement() {
+    return replacementsArmee.size
+      ? Promise.all([...replacementsArmee]).then(() => AttaqueLancee.apresReplacement())
+      : Promise.resolve();
+  }
+  /**
+   * Avancement du chargement du bloc, écrit dans son titre (visible même
+   * replié, et sans ligne de plus) : lectures faites sur lectures prévues et
+   * temps restant estimé d'après leur durée moyenne, ou attente du replacement.
+   *
+   * @static
+   * @method suiviChargement
+   * @param {jQuery} $bloc
+   * @return {{prevoir: (n: Number) => void, faite: () => void, attente: (oui: Boolean) => void, fin: () => void}}
+   */
+  static suiviChargement($bloc) {
+    let $etat = $bloc.find(".o_attaquesChargement"),
+      prevues = 0,
+      faites = 0,
+      debut = 0,
+      pause = 0,
+      enAttente = replacementsArmee.size > 0,
+      ecrire = () => {
+        let reste =
+          faites >= 2 && faites < prevues
+            ? Math.ceil(((prevues - faites) * (performance.now() - debut)) / faites / 1000)
+            : 0;
+        $etat.text(
+          enAttente
+            ? "en attente : le replacement de l'armée passe d'abord"
+            : prevues
+              ? `chargement ${numeral(faites).format()} / ${numeral(prevues).format()}${reste ? `, encore ≈ ${numeral(reste).format()} s` : ""}`
+              : "chargement…",
+        );
+      },
+      suivi = {
+        prevoir: (/** @type {Number} */ n) => {
+          if (!prevues) debut = performance.now();
+          prevues += n;
+          ecrire();
+        },
+        faite: () => {
+          faites++;
+          ecrire();
+        },
+        attente: (/** @type {Boolean} */ oui) => {
+          // l'attente d'un replacement ne compte pas dans la durée moyenne d'une lecture
+          if (oui && !enAttente) pause = performance.now();
+          if (!oui && enAttente && prevues) debut += performance.now() - pause;
+          enAttente = oui;
+          ecrire();
+        },
+        fin: () => {
+          if (chargementBloc === suivi) chargementBloc = null;
+          $etat.remove();
+        },
+      };
+    chargementBloc = suivi;
+    ecrire();
+    return suivi;
+  }
+  /**
+   * Charge ce que la page ne donne pas : troupes des attaques lancées ailleurs,
+   * mes chasses, les floods partagés sur moi et les TdC, puis complète le bloc.
+   * Rien n'est lu tant qu'un replacement de l'armée est attendu ou en cours.
+   * Sans attaque, le bloc n'est qu'un titre pendant le chargement, et il est
+   * retiré s'il n'y a ni chasse ni flood sur moi.
+   *
+   * @static
+   * @method chargerMouvements
+   * @param {jQuery} $bloc
+   * @param {Array} attaques {ligne, capture} de la liste du jeu
+   * @return {Promise}
+   */
+  static chargerMouvements($bloc, attaques) {
+    let suivi = AttaqueLancee.suiviChargement($bloc);
+    return AttaqueLancee.apresReplacement()
+      .then(() => AttaqueLancee.reconstituer(attaques, suivi).catch(() => []))
+      .then((faites) => {
+        faites.forEach((a) => {
+          let $ligne = $bloc.find(`tr.o_ligneAttaque[data-id='${a.ligne.id}']`);
+          $ligne.find(".o_priseAttaque").html(AttaqueLancee.priseEstimee(a));
+          $ligne.find(".o_troupesCourtes").attr("title", AttaqueLancee.detail(a));
+        });
+        return AttaqueLancee.apresReplacement();
+      })
+      .then(() => AttaqueLancee.mouvements(attaques, suivi))
+      .then((m) => {
+        suivi.fin();
+        if (!attaques.length && !m.chasses.length && !m.recus.length) return void $bloc.remove();
+        $bloc.removeClass("o_attaquesVide");
+        AttaqueLancee.insererMouvements($bloc, m);
+      });
   }
   /**
    * @private
@@ -707,24 +844,6 @@ class AttaqueLancee {
     AttaqueLancee.partagerMarquees();
     // les captures restent synchronisées (partage des floods) même sans la liste
     if (!afficher || !Utils.affichage("listeAttaques")) return;
-    if (!attaques.length) {
-      AttaqueLancee.mouvements([]).then((mouvements) => {
-        if (!mouvements.chasses.length && !mouvements.recus.length) return;
-        let $bloc = $(
-          `<div id="o_attaquesLancees" class="boite_amelioration simulateur centre o_blocAttaques">` +
-            Utils.spoiler(
-              `Mes attaques en cours <span class="o_attaquesCompte"></span>`,
-              `<table class="o_attaquesLancees o_maxWidth centre" cellspacing="0">${AttaqueLancee.ENTETE}<tbody></tbody></table>`,
-              "attaquesEnCours",
-              "o_attaquesTitre",
-            ) +
-            "</div>",
-        );
-        AttaqueLancee.placer($bloc);
-        AttaqueLancee.insererMouvements($bloc, mouvements);
-      });
-      return;
-    }
     // une seule liste, dans l'ordre d'arrivée : # | Arrivée | moi → cible (tag
     // coloré) | Unités (détail et lieu au survol) | Variation | TdC après | boutons
     let id = "o_attaquesLancees",
@@ -751,14 +870,18 @@ class AttaqueLancee {
     });
     html += `</tbody></table>`;
     // boutons groupés sur la ligne du titre : une rangée de moins
-    let boutons = `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods et toutes mes chasses avec la ${tag}">Partager tous</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`;
+    let boutons = attaques.length
+      ? `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods et toutes mes chasses avec la ${tag}">Partager tous</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`
+      : "";
     // en haut de la page ; la liste du jeu sous « Attaque(s) en cours » reste telle
     // quelle. Armée et Attaquer visent le premier .simulateur qui n'est pas un
     // .o_blocAttaques (tableau de l'armée, formulaire d'attaque)
+    // sans attaque : seulement le titre et l'avancement, le temps de savoir s'il y a
+    // une chasse ou un flood sur moi à montrer
     let $bloc = $(
-      `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques">` +
+      `<div id="${id}" class="boite_amelioration simulateur centre o_blocAttaques${attaques.length ? "" : " o_attaquesVide"}">` +
         Utils.spoiler(
-          `Mes attaques en cours <span class="o_attaquesCompte">(${attaques.length})</span>${boutons}`,
+          `Mes attaques en cours <span class="o_attaquesCompte">${attaques.length ? `(${attaques.length})` : ""}</span><span class="o_attaquesChargement" role="status"></span>${boutons}`,
           html,
           "attaquesEnCours",
           "o_attaquesTitre",
@@ -767,19 +890,8 @@ class AttaqueLancee {
     );
     AttaqueLancee.placer($bloc);
     AttaqueLancee.colorerTags($(`#${id}`));
-    // attaques lancées ailleurs : leurs troupes et le TdC de leur cible sont
-    // retrouvés avant la simulation, qui part de ce TdC pour une cible hors alliance
-    AttaqueLancee.reconstituer(attaques)
-      .catch(() => [])
-      .then((faites) => {
-        faites.forEach((a) => {
-          let $ligne = $(`#${id} tr.o_ligneAttaque[data-id='${a.ligne.id}']`);
-          $ligne.find(".o_priseAttaque").html(AttaqueLancee.priseEstimee(a));
-          $ligne.find(".o_troupesCourtes").attr("title", AttaqueLancee.detail(a));
-        });
-        return AttaqueLancee.mouvements(attaques);
-      })
-      .then((m) => AttaqueLancee.insererMouvements($bloc, m));
+    AttaqueLancee.chargerMouvements($bloc, attaques);
+    if (!attaques.length) return;
     // un clic sur ces boutons ne replie pas l'encart (titre cliquable)
     $(`#${id} .o_attaquesEnTete`).on("click", (e) => e.stopPropagation());
     // lien Annuler du jeu copié dans le tableau. Pour une attaque capturée on
@@ -824,30 +936,13 @@ class AttaqueLancee {
         "Attaque copiée dans le presse-papier.",
       );
     });
-    // délégués : les boutons Partager / Retirer sont remplacés l'un par l'autre
+    // délégué : « Partagé ✓ » redevient un bouton si le forum n'a plus le flood
     $(`#${id}`).on("click", ".o_attaquePartager", (e) =>
       PartageChasses.partagerFloods(
         [AttaqueLancee.pourPartage(attaques[parseInt(e.currentTarget.dataset.i)])],
         $(e.currentTarget),
       ),
     );
-    $(`#${id}`).on("click", ".o_attaqueRetirer", (e) => {
-      if (!confirm(`Retirer ce flood du forum de la ${Utils.alliance || "l'alliance"} ?`)) return;
-      PartageChasses.retirerFloods([parseInt(e.currentTarget.dataset.id)], $(e.currentTarget));
-    });
-    $(`#${id}RetirerTout`).on("click", (e) => {
-      let ids = $(`#${id} .o_attaqueRetirer`)
-        .map((i, b) => parseInt(b.dataset.id))
-        .get();
-      if (!ids.length) return;
-      if (
-        !confirm(
-          `Retirer ${ids.length} flood${ids.length > 1 ? "s" : ""} du forum de la ${Utils.alliance || "l'alliance"} ?`,
-        )
-      )
-        return;
-      PartageChasses.retirerFloods(ids, $(e.currentTarget));
-    });
     $(`#${id}PartagerTout`).on("click", (e) => {
       let restants = $(`#${id} .o_attaquePartager`)
           .map((i, b) => parseInt(b.dataset.id))
@@ -989,9 +1084,8 @@ class AttaqueLancee {
     $(window).on("load resize", caler);
   }
   /**
-   * Colonne des actions : largeur réservée pour l'état le plus large
-   * (« Partagé ✓ » + « Retirer » au lieu de « Partager »), pour que partager
-   * ou retirer un flood ne fasse pas bouger le tableau.
+   * Colonne des actions : largeur réservée pour le plus large de « Partager »
+   * et « Partagé ✓ », pour que partager un flood ne fasse pas bouger le tableau.
    *
    * @static
    * @method figerActions
@@ -1001,7 +1095,7 @@ class AttaqueLancee {
       $cellules = $table.find("td.o_attaqueActions");
     if (!$cellules.length) return;
     let $essai = $(
-        `<span class="o_attaquePartageBloc"><span class="o_attaquePartage">Partagé ✓</span><button type="button" class="o_button o_attaqueRetirer">Retirer</button></span><button type="button" class="o_button f_info o_attaquePartager">Partager</button>`,
+        `<span class="o_attaquePartage">Partagé ✓</span><button type="button" class="o_button f_info o_attaquePartager">Partager</button>`,
       ),
       $cadre = $("<span style='position:absolute;visibility:hidden;white-space:nowrap'></span>")
         .append($essai)
@@ -1057,7 +1151,7 @@ class AttaqueLancee {
    * @return {Array<Number>}
    */
   static idsAffiches() {
-    return $(".o_attaquePartager, .o_attaqueRetirer")
+    return $(".o_attaquePartager, .o_floodPartage")
       .map((i, b) => parseInt(b.dataset.id))
       .get()
       .filter(Boolean);
@@ -1072,27 +1166,23 @@ class AttaqueLancee {
   static majPartages() {
     let partages = PartageChasses.floodsPartages(),
       tag = Utils.echapper(Utils.alliance || "l'alliance");
-    // partagé : « Partagé ✓ » et bouton Retirer ; retiré : bouton Partager
     $(".o_attaquePartager").each((i, bouton) => {
       if (partages[bouton.dataset.id])
         $(bouton).replaceWith(
-          `<span class="o_attaquePartageBloc"><span class="o_attaquePartage" title="Déjà publié dans le forum de la ${tag}">Partagé ✓</span><button type="button" class="o_button o_attaqueRetirer" data-i="${bouton.dataset.i}" data-id="${bouton.dataset.id}" title="Retirer ce flood du forum de la ${tag}">Retirer</button></span>`,
+          `<span class="o_attaquePartage o_floodPartage" data-i="${bouton.dataset.i}" data-id="${bouton.dataset.id}" title="Déjà publié dans le forum de la ${tag}">Partagé ✓</span>`,
         );
     });
-    $(".o_attaqueRetirer").each((i, bouton) => {
-      if (!partages[bouton.dataset.id])
-        $(bouton)
-          .closest(".o_attaquePartageBloc")
-          .replaceWith(
-            `<button type="button" class="o_button f_info o_attaquePartager" data-i="${bouton.dataset.i}" data-id="${bouton.dataset.id}" title="Partager ce flood avec la ${tag}">Partager</button>`,
-          );
+    // le forum n'a plus ce flood (retiré depuis un autre appareil) : à partager de nouveau
+    $(".o_floodPartage").each((i, marque) => {
+      if (!partages[marque.dataset.id])
+        $(marque).replaceWith(
+          `<button type="button" class="o_button f_info o_attaquePartager" data-i="${marque.dataset.i}" data-id="${marque.dataset.id}" title="Partager ce flood avec la ${tag}">Partager</button>`,
+        );
     });
-    let reste = $(".o_attaquePartager").length + $(".o_chassePartager").length,
-      retirables = $(".o_attaqueRetirer").length;
+    let reste = $(".o_attaquePartager").length + $(".o_chassePartager").length;
     $("#o_attaquesLanceesPartagerTout")
       .prop("disabled", !reste)
       .text(reste ? "Partager tous" : "Tous partagés ✓");
-    $("#o_attaquesLanceesRetirerTout").toggle(retirables > 0);
   }
 
   /**
@@ -1123,9 +1213,11 @@ class AttaqueLancee {
    *
    * @static
    * @method reconstituer
+   * @param {Array} attaques {ligne, capture}
+   * @param {Object|null} [suivi] suiviChargement, prévenu de chaque page lue
    * @return {Promise<Array>} attaques complétées
    */
-  static reconstituer(attaques) {
+  static reconstituer(attaques, suivi = null) {
     let manquantes = attaques.filter(
       (a) =>
         !a.capture &&
@@ -1134,11 +1226,17 @@ class AttaqueLancee {
         Object.keys(AttaqueLancee.uniteNatif(a.ligne.troupesNatif)).length,
     );
     if (!manquantes.length) return Promise.resolve([]);
-    let profils = [...new Set(manquantes.map((a) => a.ligne.cible))].map((pseudo) => {
+    let cibles = [...new Set(manquantes.map((a) => a.ligne.cible))];
+    if (suivi) suivi.prevoir(cibles.length);
+    let profils = cibles.map((pseudo) => {
       let j = new Joueur({ pseudo });
       return Promise.resolve(j.getProfil())
         .then((html) => (j.chargerProfil(html) ? j : null))
-        .catch(() => null);
+        .catch(() => null)
+        .then((lu) => {
+          if (suivi) suivi.faite();
+          return lu;
+        });
     });
     return Promise.all(profils).then((joueurs) => {
       let liste = AttaqueLancee.charger();

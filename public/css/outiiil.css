@@ -1336,6 +1336,16 @@ h2:has(+ .o_nbUnite) {
   margin: 0 0 0 auto;
   font-weight: normal;
 }
+/* avancement du chargement, dans le titre : visible bloc replié, sans ligne de plus */
+.o_blocAttaques .o_attaquesChargement {
+  font-size: var(--fzzz-petit);
+  font-style: italic;
+  font-weight: normal;
+}
+/* sans attaque, le temps du chargement : le titre seul */
+#o_attaquesLancees.o_attaquesVide .o_spoilerCorps {
+  display: none !important;
+}
 .o_blocAttaques .o_attaquesLancees {
   margin: 0 auto;
   line-height: 1.15;

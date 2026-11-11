@@ -103,14 +103,14 @@ describe("retrait automatique des floods disparus de la liste", () => {
   };
   test("flood à venir annulé : retiré du sujet", async () => {
     sujet([]);
-    await page.lire(`PartageChasses.retirerFloods([20], null, true)`);
+    await page.lire(`PartageChasses.retirerFloods([20])`);
     const ecrits = page.lire<string[]>("ECRITS");
     expect(ecrits).toHaveLength(1);
     expect(ecrits[0]).not.toContain("#20");
   });
   test("aucun de ces floods dans le sujet : rien n'est écrit", async () => {
     sujet([]);
-    await page.lire(`PartageChasses.retirerFloods([99], null, true)`);
+    await page.lire(`PartageChasses.retirerFloods([99])`);
     expect(page.lire<string[]>("ECRITS")).toHaveLength(0);
   });
 });
@@ -135,14 +135,14 @@ describe("retraits repris après une page quittée trop tôt", () => {
 
   test("noté avant l'écriture, effacé une fois le forum modifié", async () => {
     preparer(true);
-    const fin = page.lire(`PartageChasses.retirerFloods([20], null, true)`);
+    const fin = page.lire(`PartageChasses.retirerFloods([20])`);
     expect(enAttente()).toEqual([20]);
     await fin;
     expect(enAttente()).toEqual([]);
   });
   test("écriture échouée : gardé, puis repris au chargement d'une autre page", async () => {
     preparer(false);
-    await page.lire(`PartageChasses.retirerFloods([20], null, true)`);
+    await page.lire(`PartageChasses.retirerFloods([20])`);
     expect(enAttente()).toEqual([20]);
     preparer(true);
     page.lire(`localStorage.setItem("fzzz_floodsARetirer", "[20]")`);

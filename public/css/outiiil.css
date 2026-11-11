@@ -2570,6 +2570,27 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_a
 }
 /* TdC à l'arrivée d'une attaque lancée à l'ouverture de la page (page
    Membres, page d'un membre) */
+/* ligne du joueur, surlignée comme o_ligneArrivee ; ombres intérieures plutôt
+   que bordures : la largeur du tableau ne change pas (téléphone) */
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMoi > td {
+  font-weight: bold;
+  background: #fff8d6;
+  box-shadow:
+    inset 0 1px #8b7440,
+    inset 0 -1px #8b7440;
+}
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMoi > td:first-child {
+  box-shadow:
+    inset 1px 0 #8b7440,
+    inset 0 1px #8b7440,
+    inset 0 -1px #8b7440;
+}
+html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMoi > td:last-child {
+  box-shadow:
+    inset -1px 0 #8b7440,
+    inset 0 1px #8b7440,
+    inset 0 -1px #8b7440;
+}
 #o_allInfobulle tr.o_ligneArrivee > td,
 #o_chassesPartagees tr.o_ligneArrivee > td {
   font-weight: bold;

@@ -54,7 +54,8 @@ class PageAlliance {
    * @method traitementMembre
    */
   traitementMembre() {
-    let tableau = Utils.affichage("membresTableau");
+    let tableau = Utils.affichage("membresTableau"),
+      moi = Utils.affichage("membresMoi") ? String(monProfil.pseudo || "").toLowerCase() : "";
     if (tableau) $("#tabMembresAlliance td:eq(5)").css("white-space", "nowrap");
     if (Utils.affichage("membresEtats")) this.compterEtats();
     // ajout des totaux de l'alliance
@@ -62,6 +63,7 @@ class PageAlliance {
     $("#tabMembresAlliance tr:gt(0)").each((i, elt) => {
       let pseudo = $(elt).find("td:eq(3)").text(),
         terrain = numeral($(elt).find("td:eq(5)").text()).value();
+      if (moi && pseudo.trim().toLowerCase() == moi) $(elt).addClass("o_allMoi");
       tmpJoueurs[pseudo] = new Joueur({
         pseudo: pseudo,
         terrain: terrain,

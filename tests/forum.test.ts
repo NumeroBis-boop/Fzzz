@@ -158,7 +158,7 @@ describe("attaques en dôme ou en loge partagées", () => {
     ["js/class/Utils.js", "js/class/AttaqueLancee.js", "js/page/PartageChasses.js"],
     `var Horloge = { serveur: () => moment("2026-11-04 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-04 12:00", "YYYY-MM-DD HH:mm").valueOf() };`,
   );
-  test("ligne sans « cm² », relue avec sa zone, sans TdC pris", async () => {
+  test("ligne sans « cm² », relue avec sa zone ; le TdC est pris comme au terrain", async () => {
     const ligne = page2.lire<string>(
       `PartageChasses._ligne("Floods", { date: "2026-11-04 21:30", cible: "Spike", unites: 20000, terrain: 0, tdcCible: 93059, id: 77, lieu: "Loge" })`,
     );
@@ -186,9 +186,11 @@ describe("attaques en dôme ou en loge partagées", () => {
     const sim = page2.lire<{ evenements: { lieu?: string; prise: number; statut: string }[] }>(
       `PartageChasses.simuler({ chasses: {}, floods: ${JSON.stringify(r.floods.map((f: object) => ({ ...f, lanceur: "Moi" })))} }, { Moi: 50000, Spike: 93059 })`,
     );
+    // même règle quel que soit le lieu : 20 % du TdC de Spike (93 059) au plus,
+    // puis 1 unité au dôme, puis 3 000 au terrain
     expect(sim.evenements.map((e) => [e.lieu || "TdC", e.prise, e.statut])).toEqual([
-      ["Loge", 0, "lieu"],
-      ["Dôme", 0, "lieu"],
+      ["Loge", 18611, "plafond"],
+      ["Dôme", 1, "ok"],
       ["TdC", 3000, "ok"],
     ]);
   });
@@ -200,7 +202,7 @@ describe("attaques en dôme ou en loge partagées", () => {
       false,
     );
   });
-  test("partage d'une capture en loge : zone, unités, aucun TdC", () => {
+  test("partage d'une capture en loge : zone et unités, prise comme au terrain", () => {
     const entrees = page2.lire(`(() => {
       let notees = null;
       Utils.minuteRC = (m) => m;
@@ -216,20 +218,48 @@ describe("attaques en dôme ou en loge partagées", () => {
         date: "2026-11-04 21:30",
         cible: "Spike",
         unites: 20000,
-        terrain: 0,
+        terrain: 20000,
         tdcCible: 93059,
         id: 77,
         lieu: "Loge",
       },
     ]);
   });
-  test("capture en loge : le TdC estimé de la cible ne baisse pas", () => {
+  test("capture au dôme ou en loge : le TdC estimé de la cible baisse comme au terrain", () => {
     expect(
       page2.lire(`[
         AttaqueLancee.estimerTerrain({ lieu: "Loge Impériale", unite: { a: 5000 } }, 10000),
         AttaqueLancee.estimerTerrain({ lieu: "Fourmilière", unite: { a: 5000 } }, 10000),
         AttaqueLancee.estimerTerrain({ lieu: "Terrain de Chasse", unite: { a: 5000 } }, 10000),
       ]`),
-    ).toEqual([10000, 10000, 8000]);
+    ).toEqual([8000, 8000, 8000]);
+  });
+  test("prise affichée : la même règle, le lieu en note", () => {
+    const texte = (v: object) =>
+      page2
+        .lire<string>(`$("<div>").html(PartageChasses.libellePrise(${JSON.stringify(v)})).text()`)
+        .replace(/[\s  ]+/g, " ");
+    expect(texte({ delta: -18611, statut: "plafond", lieu: "Loge" })).toBe(
+      "−18 611 cm² (20 %) (loge)",
+    );
+    expect(texte({ delta: -1, statut: "ok", lieu: "Dôme" })).toBe("−1 cm² (dôme)");
+    expect(texte({ delta: 0, statut: "portee", lieu: "Dôme" })).toBe("0 cm² (hors portée) (dôme)");
+    expect(texte({ delta: -3000, statut: "ok" })).toBe("−3 000 cm²");
+  });
+  test("« Mes attaques en cours » : TdC pris estimé au dôme et en loge aussi", () => {
+    const prise = (lieu: string, capture: object | null) =>
+      page2.lire<string>(
+        `AttaqueLancee.priseEstimee({ capture: ${JSON.stringify(capture)}, ligne: { lieuNatif: ${JSON.stringify(lieu)} } })`,
+      );
+    const c = (lieu: string) => ({
+      lieu,
+      unite: { a: 5000 },
+      terrainDepart: 10000,
+      terrainCible: 8000,
+    });
+    expect(prise("Fourmilière", c("Fourmilière"))).toContain("2 000");
+    expect(prise("Loge Impériale", c("Loge Impériale"))).toContain("2 000");
+    expect(prise("Terrain de Chasse", c("Terrain de Chasse"))).toContain("2 000");
+    expect(prise("", null)).toBe("—");
   });
 });

@@ -1017,12 +1017,14 @@ class PartageChasses {
             c.terrainDepart != null && c.terrainCible != null
               ? c.terrainDepart - c.terrainCible
               : null;
+        // dôme ou loge : le TdC est pris comme au terrain ; la ligne du forum
+        // garde sa zone et le format sans « cm² » (prise recalculée à la lecture)
         if (zone == "Dôme" || zone == "Loge")
           return {
             date: Utils.minuteRC(moment(c.arrivee)).format("YYYY-MM-DD HH:mm"),
             cible: c.cible,
             unites: unites || null,
-            terrain: 0,
+            terrain: estimee != null ? estimee : unites,
             tdcCible: c.terrainConnu || c.terrainDepart || null,
             id: c.id,
             lieu: zone,
@@ -1270,11 +1272,8 @@ class PartageChasses {
         tl = tdc[l],
         envoi = e.unites != null ? e.unites : e.terrain;
       e.tdcCibleAvant = tc;
-      if (e.lieu) {
-        // dôme ou loge : un combat, aucun TdC ne change de main
-        e.prise = 0;
-        e.statut = "lieu";
-      } else if (tc == null) {
+      // même règle au dôme et en loge (e.lieu) qu'au terrain de chasse
+      if (tc == null) {
         // TdC de la cible inconnu : prise estimée au lancement
         e.prise = e.terrain;
         e.statut = "inconnu";
@@ -1461,14 +1460,13 @@ class PartageChasses {
   }
   /**
    * Prise signée et colorée, avec la raison quand elle diffère des unités
-   * envoyées : « (20 %) » plafonnée, « hors portée », « ~ » estimée au lancement.
+   * envoyées : « (20 %) » plafonnée, « hors portée », « ~ » estimée au lancement ;
+   * « (dôme) » ou « (loge) » pour une attaque à ce lieu.
    *
    * @static
    * @method libellePrise
    */
   static libellePrise(v, unite = " cm²") {
-    if (v.statut == "lieu")
-      return `<span class='o_priseLieu' title='Attaque en ${v.lieu == "Loge" ? "loge" : "dôme"} : aucun TdC pris'>${v.lieu}</span>`;
     let html =
       v.delta == 0
         ? `<span>0${unite}</span>`
@@ -1477,6 +1475,8 @@ class PartageChasses {
     else if (v.statut == "portee")
       html +=
         " <small class='o_priseNote' title='À l&#39;impact, la cible n&#39;est plus à portée (50 % à 300 % du TdC du lanceur) : opti-flood raté'>(hors portée)</small>";
+    if (v.lieu == "Dôme" || v.lieu == "Loge")
+      html += ` <small class='o_priseNote' title='Attaque ${v.lieu == "Loge" ? "en loge : TdC pris comme au terrain, ressources pillées, la cible devient vassale" : "au dôme : TdC pris comme au terrain, ressources pillées en plus"}'>(${v.lieu == "Loge" ? "loge" : "dôme"})</small>`;
     return html;
   }
   /**

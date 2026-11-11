@@ -3166,11 +3166,6 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_a
   color: #b42318;
 }
 
-/* attaque partagée en dôme ou en loge : pas de TdC pris */
-.o_priseLieu {
-  font-style: italic;
-}
-
 /* onglet « Synthèse » des « Outils pour Chasseur » (boite/Synthese.js) */
 .o_syntheseDates {
   display: flex;

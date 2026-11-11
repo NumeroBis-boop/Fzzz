@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.5",
+    notes: [
+      "Attaques au dôme ou en loge : l'info-bulle de « (dôme) » ou « (loge) » indique seulement que le TdC est pris comme au terrain de chasse.",
+    ],
+  },
+  {
     version: "1.101.4",
     notes: [
       "Correction : une attaque au dôme ou en loge prend du TdC avec la même règle qu'au terrain de chasse (au plus 20 % du TdC de la cible, rien hors de portée). Elle compte maintenant dans « Mes attaques en cours », les floods partagés, la page Membres, la page Armée, la page d'un membre et le TdC à l'impact, avec « (dôme) » ou « (loge) » à côté de la prise.",

@@ -245,6 +245,14 @@ describe("attaques en dôme ou en loge partagées", () => {
     expect(texte({ delta: -1, statut: "ok", lieu: "Dôme" })).toBe("−1 cm² (dôme)");
     expect(texte({ delta: 0, statut: "portee", lieu: "Dôme" })).toBe("0 cm² (hors portée) (dôme)");
     expect(texte({ delta: -3000, statut: "ok" })).toBe("−3 000 cm²");
+    // ni pillage de ressources ni vassalisation affichés, même en info-bulle (règle du mainteneur)
+    for (const lieu of ["Dôme", "Loge"]) {
+      const html = page2.lire<string>(
+        `PartageChasses.libellePrise(${JSON.stringify({ delta: -5, statut: "ok", lieu })})`,
+      );
+      expect(html).toContain("TdC pris comme au terrain de chasse");
+      expect(html).not.toMatch(/ressource|pill|vassal/i);
+    }
   });
   test("« Mes attaques en cours » : TdC pris estimé au dôme et en loge aussi", () => {
     const prise = (lieu: string, capture: object | null) =>

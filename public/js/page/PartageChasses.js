@@ -1476,7 +1476,7 @@ class PartageChasses {
       html +=
         " <small class='o_priseNote' title='À l&#39;impact, la cible n&#39;est plus à portée (50 % à 300 % du TdC du lanceur) : opti-flood raté'>(hors portée)</small>";
     if (v.lieu == "Dôme" || v.lieu == "Loge")
-      html += ` <small class='o_priseNote' title='Attaque ${v.lieu == "Loge" ? "en loge : TdC pris comme au terrain, ressources pillées, la cible devient vassale" : "au dôme : TdC pris comme au terrain, ressources pillées en plus"}'>(${v.lieu == "Loge" ? "loge" : "dôme"})</small>`;
+      html += ` <small class='o_priseNote' title='Attaque ${v.lieu == "Loge" ? "en loge" : "au dôme"} : TdC pris comme au terrain de chasse'>(${v.lieu == "Loge" ? "loge" : "dôme"})</small>`;
     return html;
   }
   /**

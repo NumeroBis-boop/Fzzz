@@ -263,8 +263,7 @@ class AttaqueLancee {
   /**
    * Terrain estimé de la cible après une attaque : même règle que la
    * simulation de flood, une unité prend 1 de terrain, plafonné à 20 % du
-   * terrain de la cible avant l'attaque. Le jeu applique cette règle quel que
-   * soit le lieu attaqué : le dôme et la loge pillent en plus des ressources.
+   * terrain de la cible avant l'attaque, quel que soit le lieu attaqué.
    *
    * @param {Object} capture
    * @param {Integer|null} base terrain de la cible avant l'attaque

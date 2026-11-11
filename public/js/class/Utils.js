@@ -174,6 +174,7 @@ const AFFICHAGES_FZZZ = {
   membresFloods:
     "Membres de l'alliance : vue « Floods et chasses en cours » (colonnes et info-bulle de l'évolution du TdC)",
   membresCarte: "Membres de l'alliance : « Carte de l'alliance » (menu Alliance → Carte)",
+  membresMoi: "Membres de l'alliance : ta ligne en surbrillance",
   evolutionEnCours:
     "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
   retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",

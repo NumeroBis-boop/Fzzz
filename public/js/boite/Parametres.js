@@ -130,6 +130,7 @@ const ONGLETS_PARAMETRE = [
       "membresTableau",
       "membresFloods",
       "membresCarte",
+      "membresMoi",
     ],
     origine: "page d'un membre et page Membres de l'alliance",
   },

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.6",
+    notes: [
+      "Correction : l'heure d'une chasse partagée est maintenant la minute où le TdC change (celle du rapport), une minute après l'« Arrivée à » affichée par le jeu. Une synchro calée sur l'heure affichée arrivait trop tôt. Les chasses déjà partagées sont corrigées quand le chasseur, à jour, ouvre sa page Ressources.",
+    ],
+  },
+  {
     version: "1.101.5",
     notes: [
       "Attaques au dôme ou en loge : l'info-bulle de « (dôme) » ou « (loge) » indique seulement que le TdC est pris comme au terrain de chasse.",

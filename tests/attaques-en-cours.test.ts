@@ -216,7 +216,8 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     await ouvrir();
     expect(cases().map((ligne) => ligne.slice(1, 6).join(" | "))).toEqual([
       "12/11 10h25 | Autre → moi | 30 000 | −20 000 (20 %) | 80 000",
-      "12/11 10h31 | Chasse | 0 | +2 000 | 82 000",
+      // chasse sans détail des troupes (compte sans Compte+) : unités inconnues
+      "12/11 10h31 | Chasse | — | +2 000 | 82 000",
       // n° 500 : à 82 000 je suis sous la moitié du TdC d'Autre (170 000), hors de sa portée
       "12/11 10h31 | Autre → moi | 1 000 | 0 (hors portée) | 82 000",
       "12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 000",

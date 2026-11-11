@@ -596,13 +596,14 @@ class AttaqueLancee {
         .text(AttaqueLancee._tdc(e ? e.tdcLanceurApres : null));
     });
     mouvements.chasses.forEach((c) => {
+      // unités : « — » quand le jeu ne détaille pas les troupes (hors Compte+) ou sans la page Ressources
       let e = c.evenement,
         s = c.groupe ? PageRessource.sommeChasses(c.groupe.chasses) : null,
         nb = c.groupe ? c.groupe.chasses.length : 1,
         $tr = $(
           `<tr class="o_ligneChasse" data-date="${e.date}" data-id="0" title="Chasse en cours : heure du rapport, à la minute"><td></td>
           <td>${heure(e.date)}</td><td>Chasse${nb > 1 ? ` <small>× ${numeral(nb).format()}</small>` : ""}</td>
-          <td class="o_troupesCourtes">${s ? numeral(s.total).format() : "—"}</td>
+          <td class="o_troupesCourtes">${s && s.total ? numeral(s.total).format() : "—"}</td>
           <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: e.prise }, "")}</td>
           <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcApres)}</td>
           <td class="o_attaqueActions">${

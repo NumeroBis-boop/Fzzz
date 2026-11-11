@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.105.1",
+    notes: [
+      "Page Armée, « Mes attaques en cours » : pour une chasse dont le jeu ne détaille pas les troupes (compte sans Compte+), la colonne « Unités » affiche « — » au lieu de 0.",
+    ],
+  },
+  {
     version: "1.105.0",
     notes: [
       "Page Armée : le bloc « Mes attaques en cours » liste maintenant tous tes mouvements dans l'ordre — tes attaques, tes chasses (partagées ou non) et les floods partagés sur toi — avec la variation de ton TdC et ton TdC après chacun, comme sur la page d'un membre.",

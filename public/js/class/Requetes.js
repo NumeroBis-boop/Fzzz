@@ -31,7 +31,7 @@
 const REQUETES_ACTION = [
   { url: /\/ennemie\.php\?(Attaquer|annuler)=/i },
   { url: /\/AcquerirTerrain\.php/i },
-  { url: /\/Armee\.php\?(deplacement|Transferer)/i },
+  { url: /\/Armee\.php\?(deplacement|Transferer|annuler)/i },
   { url: /\/Armee\.php/i, methode: "POST" },
   { url: /\/Ressources\.php\?annuler=/i },
 ];

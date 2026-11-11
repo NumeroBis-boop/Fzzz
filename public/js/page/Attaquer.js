@@ -783,15 +783,14 @@ class PageAttaquer {
     ])
       .then(([d, chasses]) => {
         let captures = AttaqueLancee.charger(),
+          lignes = AttaqueLancee.extraireLignes().filter((l) => l.cible),
           mesFloods = PartageChasses.entreesFloods(
-            AttaqueLancee.extraireLignes()
-              .filter((l) => l.cible)
-              .map((l) =>
-                AttaqueLancee.pourPartage({
-                  ligne: l,
-                  capture: captures.find((c) => c.id == l.id) || null,
-                }),
-              ),
+            lignes.map((l) =>
+              AttaqueLancee.pourPartage({
+                ligne: l,
+                capture: captures.find((c) => c.id == l.id) || null,
+              }),
+            ),
           ),
           mesChasses = chasses
             ? PageRessource.aPartager(PageRessource.grouperChasses(chasses)).map((g) => ({
@@ -800,7 +799,13 @@ class PageAttaquer {
               }))
             : null;
         return PartageChasses.completer(
-          PageAttaquer.avecMesMouvements(d, monProfil.pseudo, mesFloods, mesChasses),
+          PartageChasses.avecMesMouvements(
+            d,
+            monProfil.pseudo,
+            mesFloods,
+            mesChasses,
+            lignes.map((l) => l.id),
+          ),
           suivis,
         );
       })
@@ -877,28 +882,6 @@ class PageAttaquer {
       return { tdc: depart == null ? null : depart + ecart, ecart };
     };
     return { moi: suivre(moi), cible: suivre(cible) };
-  }
-  /**
-   * Partages du forum où mes floods sont ceux de la liste du jeu et mes
-   * chasses celles de Ressources.php (s'il a été lu) : mes mouvements non
-   * partagés comptent, sans doublon.
-   *
-   * @static
-   * @method avecMesMouvements
-   * @param {Object} d PartageChasses.charger()
-   * @param {String} moi
-   * @param {Array} mesFloods lignes de PartageChasses.entreesFloods
-   * @param {Array|null} mesChasses [{date, terrain}] ; null : celles du forum
-   * @return {Object} {chasses, floods}
-   */
-  static avecMesMouvements(d, moi, mesFloods, mesChasses) {
-    let m = moi.toLowerCase();
-    return {
-      chasses: mesChasses ? { ...d.chasses, [m]: mesChasses } : d.chasses,
-      floods: d.floods
-        .filter((f) => String(f.lanceur).toLowerCase() != m)
-        .concat(mesFloods.map((f) => ({ ...f, lanceur: moi }))),
-    };
   }
   /**
    * Unités gardées pour cette attaque, sous le lanceur.

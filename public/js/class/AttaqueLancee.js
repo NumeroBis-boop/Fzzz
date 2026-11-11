@@ -424,7 +424,7 @@ class AttaqueLancee {
     return listeAttaque;
   }
   static get ENTETE() {
-    return `<thead><tr><th>#</th><th>Arrivée</th><th>Cible</th><th>Unités</th><th>Lieu</th><th title="Estimé : au plus 20 % du TdC de la cible à l'impact, d'après le TdC connu au lancement et tes attaques précédentes sur elle">TdC pris</th><th></th></tr></thead>`;
+    return `<thead><tr><th>#</th><th>Arrivée</th><th>Lanceur → cible</th><th>Unités</th><th title="Chasse : TdC conquis. Flood : estimé à l'impact, au plus 20 % du TdC de la cible à ce moment, rien hors de portée, d'après les TdC actuels et les mouvements en cours">Variation</th><th title="Mon TdC après ce mouvement">TdC après</th><th></th></tr></thead>`;
   }
   /**
    * Bloc « Mes attaques en cours » en haut de la page : sous le menu du jeu
@@ -442,92 +442,246 @@ class AttaqueLancee {
       $("#o_alertePonte").insertAfter($bloc);
       $(window).trigger("resize");
     } else $bloc.prependTo("#centre");
+    // bloc créé après la mise en page allégée de l'Armée : mêmes marges que ses blocs
+    if ($(".o_blocArmee").length) $bloc.addClass("o_blocArmee");
   }
   /**
-   * Mes chasses à venir partagées dans le forum ({date "AAAA-MM-JJ HH:mm",
-   * terrain}), dans l'ordre. Le forum n'est lu que si le repère local annonce
-   * une chasse partagée encore à venir (ou n'est pas encore connu).
+   * Mes mouvements à venir et les floods partagés sur moi, rejoués dans l'ordre
+   * comme sur la page d'un membre (PartageChasses.simuler). Pour moi, la liste
+   * des attaques du jeu (cette page) et mes chasses de Ressources.php font foi,
+   * partagées ou non ; le forum de l'alliance donne les floods des autres
+   * membres, les chasses des joueurs que ces floods relient à moi et, avec la
+   * page Membres, leurs TdC. Forum ou page Ressources illisible : le reste est
+   * quand même rendu (mes chasses sont alors celles du forum).
    *
    * @static
-   * @method chassesPartagees
-   * @return {Promise<Array>}
+   * @method lireMouvements
+   * @param {Array} attaques {ligne, capture} de la liste du jeu
+   * @return {Promise<{floods: Object, chasses: Array, recus: Array}>} floods :
+   *   événement de la simulation par numéro d'attaque ; chasses : {evenement,
+   *   groupe (Ressources.php, ou null), partagee} ; recus : floods sur moi
    */
-  static chassesPartagees() {
-    let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-      pseudo = monProfil.pseudo,
-      fin = null;
-    try {
-      fin = localStorage.getItem(CLE_FIN_CHASSES_PARTAGEES);
-    } catch (e) {}
-    if (!pseudo || (fin != null && fin < maintenant)) return Promise.resolve([]);
-    return PartageChasses.enFile(() =>
-      PartageChasses.sujets(true).then((sujets) => {
-        let idSujet = sujets[`Chasses | ${pseudo.toLowerCase()}`];
-        return idSujet ? PartageChasses.lireSujet(idSujet, true).then((d) => d.chasses) : [];
-      }),
-    )
-      .then((chasses) => {
-        let aVenir = chasses
-          .filter((c) => c.date >= maintenant)
-          .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-        try {
-          localStorage.setItem(
-            CLE_FIN_CHASSES_PARTAGEES,
-            aVenir.length ? aVenir[aVenir.length - 1].date : "-",
-          );
-        } catch (e) {}
-        return aVenir;
-      })
-      .catch(() => []);
-  }
-  /**
-   * Ajoute les chasses partagées au tableau, à leur place dans l'ordre
-   * d'arrivée, sans boutons (le forum n'a ni leur numéro ni leurs troupes).
-   *
-   * @static
-   * @method insererChasses
-   * @param {jQuery} $bloc bloc « Mes attaques en cours »
-   * @param {Array} chasses voir chassesPartagees
-   * @param {Integer} nbFloods
-   */
-  static insererChasses($bloc, chasses, nbFloods) {
-    if (!chasses.length) return;
-    let $corps = $bloc.find("table.o_attaquesLancees tbody");
-    chasses.forEach((c) => {
-      let impact = moment(c.date, "YYYY-MM-DD HH:mm"),
-        $tr = $(
-          `<tr class="o_ligneChasse" data-arrivee="${impact.valueOf()}" title="Chasse partagée dans le forum de l'alliance (heure à la minute)"><td></td>
-          <td>${impact.format("DD/MM HH[h]mm")}</td><td>Chasse</td><td>—</td><td>TdC</td>
-          <td class="o_priseAttaque"><span class="green">+${numeral(c.terrain).format()}</span></td>
-          <td class="o_attaqueActions"><span class="small">partagée</span></td></tr>`,
+  static lireMouvements(attaques) {
+    let moi = monProfil.pseudo,
+      m = String(moi || "").toLowerCase();
+    if (!moi) return Promise.resolve({ floods: {}, chasses: [], recus: [] });
+    return Promise.all([
+      PartageChasses.enFile(() => PartageChasses.charger([moi])).catch(() => null),
+      Promise.resolve($.get(location.origin + "/Ressources.php")).then(
+        (html) => {
+          let $page = Utils.parseHtml(String(html));
+          // autre page que Ressources (connexion) : chasses inconnues, pas « aucune »
+          return $page.find("#boite_tdc").length ? PageRessource.lireChasses($page) : null;
+        },
+        () => null,
+      ),
+    ]).then(([forum, chasses]) => {
+      let d = forum || { chasses: {}, floods: [] },
+        partagees = d.chasses[m] || [],
+        groupes = chasses ? PageRessource.grouperChasses(chasses) : null,
+        minute = (/** @type {any} */ instant) => instant.format("YYYY-MM-DD HH:mm"),
+        mesChasses = groupes
+          ? PageRessource.aPartager(groupes).map((g) => ({
+              date: minute(g.impact),
+              terrain: g.terrain,
+            }))
+          : null,
+        mesFloods = PartageChasses.entreesFloods(attaques.map(AttaqueLancee.pourPartage));
+      if (forum) {
+        // mes floods publiés ou retirés depuis un autre appareil
+        PartageChasses.recalerFloods(
+          forum.floods.filter((f) => f.id && String(f.lanceur).toLowerCase() == m).map((f) => f.id),
+          AttaqueLancee.idsAffiches(),
+        );
+      }
+      return PartageChasses.completer(
+        PartageChasses.avecMesMouvements(
+          d,
+          moi,
+          mesFloods,
+          mesChasses,
+          attaques.map((a) => a.ligne.id),
         ),
-        // une chasse à la minute M arrive au plus tôt à M:00
-        $apres = $corps
-          .children("tr")
-          .filter((i, tr) => Number(tr.dataset.arrivee) > impact.valueOf())
-          .first();
-      if ($apres.length) $tr.insertBefore($apres);
-      else $tr.appendTo($corps);
+        [moi],
+      ).then(({ d: complet, tdc }) => {
+        let sim = PartageChasses.simuler(
+            complet,
+            PartageChasses.tdcConnus(tdc, { [moi]: Utils.terrain }),
+          ),
+          maintenant = minute(Horloge.serveur()),
+          mouvements = { floods: {}, chasses: [], recus: [] };
+        sim.evenements.forEach((e) => {
+          if (e.type == "chasse") {
+            if (e.joueur != m) return;
+            let g = groupes ? groupes.find((x) => minute(x.impact) == e.date) || null : null;
+            mouvements.chasses.push({
+              evenement: e,
+              groupe: g,
+              // sans la page Ressources, mes chasses connues sont celles du forum
+              partagee: groupes
+                ? !!g &&
+                  PartageChasses.recalerListeChasses(
+                    partagees,
+                    [{ debut: minute(g.chasses[0].impact), fin: e.date, terrain: e.terrain }],
+                    maintenant,
+                  ).lignes.length > 0
+                : true,
+            });
+          } else if (String(e.lanceur).toLowerCase() == m) {
+            if (e.id) mouvements.floods[e.id] = e;
+          } else if (String(e.cible).toLowerCase() == m) mouvements.recus.push(e);
+        });
+        return mouvements;
+      });
     });
+  }
+  /**
+   * lireMouvements, qui ne laisse pas le bloc en attente si le calcul échoue.
+   *
+   * @static
+   * @method mouvements
+   * @param {Array} attaques
+   * @return {Promise<{floods: Object, chasses: Array, recus: Array}>}
+   */
+  static mouvements(attaques) {
+    return AttaqueLancee.lireMouvements(attaques).catch((e) => {
+      console.error(`[${NOM_EXTENSION}] mouvements en cours`, e);
+      return { floods: {}, chasses: [], recus: [] };
+    });
+  }
+  /**
+   * @private
+   * @static
+   * @param {Number|null|undefined} tdc
+   * @return {String} TdC écrit, « ? » s'il est inconnu
+   */
+  static _tdc(tdc) {
+    return tdc == null ? "?" : numeral(tdc).format();
+  }
+  /**
+   * Complète le tableau de mes attaques : variation et TdC de chacune d'après
+   * la simulation, lignes de mes chasses (bouton « Partager » si elle n'est pas
+   * dans le forum) et des floods partagés sur moi, le tout dans l'ordre de la
+   * simulation (minute du rapport, chasses d'abord, puis floods par numéro).
+   *
+   * @static
+   * @method insererMouvements
+   * @param {jQuery} $bloc bloc « Mes attaques en cours »
+   * @param {Object} mouvements voir lireMouvements
+   */
+  static insererMouvements($bloc, mouvements) {
+    let $corps = $bloc.find("table.o_attaquesLancees tbody"),
+      tag = Utils.echapper(Utils.alliance || "l'alliance"),
+      heure = (/** @type {String} */ date) =>
+        moment(date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm");
+    $corps.children("tr.o_ligneAttaque").each((i, tr) => {
+      let e = mouvements.floods[tr.dataset.id];
+      if (e) {
+        // même minute que la simulation : la ligne est rangée où son TdC a été calculé
+        tr.dataset.date = e.date;
+        // attaque que cette page ne sait pas décrire : unités de sa ligne du forum
+        let $unites = $(tr).find(".o_troupesCourtes");
+        if ($unites.text() == "?" && e.unites != null) $unites.text(numeral(e.unites).format());
+        $(tr)
+          .find(".o_priseAttaque")
+          .html(
+            PartageChasses.libellePrise(
+              { delta: e.prise, statut: e.statut, lieu: e.lieu || null },
+              "",
+            ),
+          );
+      }
+      $(tr)
+        .find(".o_tdcApres")
+        .text(AttaqueLancee._tdc(e ? e.tdcLanceurApres : null));
+    });
+    mouvements.chasses.forEach((c) => {
+      let e = c.evenement,
+        s = c.groupe ? PageRessource.sommeChasses(c.groupe.chasses) : null,
+        nb = c.groupe ? c.groupe.chasses.length : 1,
+        $tr = $(
+          `<tr class="o_ligneChasse" data-date="${e.date}" data-id="0" title="Chasse en cours : heure du rapport, à la minute"><td></td>
+          <td>${heure(e.date)}</td><td>Chasse${nb > 1 ? ` <small>× ${numeral(nb).format()}</small>` : ""}</td>
+          <td class="o_troupesCourtes">${s ? numeral(s.total).format() : "—"}</td>
+          <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: e.prise }, "")}</td>
+          <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcApres)}</td>
+          <td class="o_attaqueActions">${
+            c.partagee
+              ? `<span class="o_attaquePartage" title="Déjà publiée dans le forum de la ${tag}">Partagée ✓</span>`
+              : `<button type="button" class="o_button f_info o_chassePartager" title="Partager cette chasse avec la ${tag}">Partager</button>`
+          }</td></tr>`,
+        );
+      if (s && s.detail) $tr.find(".o_troupesCourtes").attr("title", s.detail);
+      $tr.find(".o_chassePartager").data("o_groupe", c.groupe);
+      $corps.append($tr);
+    });
+    mouvements.recus.forEach((e) => {
+      $corps.append(
+        `<tr class="o_ligneRecue" data-date="${e.date}" data-id="${e.id || 0}" title="Flood partagé dans le forum de l'alliance : heure du rapport, à la minute"><td></td>
+        <td>${heure(e.date)}</td>
+        <td class="o_cibleAttaque"><a href="Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}">${Utils.echapper(e.lanceur)}</a> → moi</td>
+        <td class="o_troupesCourtes">${e.unites != null ? numeral(e.unites).format() : "?"}</td>
+        <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: -e.prise, statut: e.statut, lieu: e.lieu || null }, "")}</td>
+        <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcCibleApres)}</td>
+        <td class="o_attaqueActions"></td></tr>`,
+      );
+    });
+    // comme simuler : à minute égale, les chasses (numéro 0) puis les floods par numéro d'attaque
+    let cle = (/** @type {HTMLElement} */ tr) =>
+      `${tr.dataset.date}|${String(tr.dataset.id).padStart(12, "0")}`;
+    $corps.append(
+      $corps
+        .children("tr")
+        .get()
+        .sort((a, b) => (cle(a) < cle(b) ? -1 : cle(a) > cle(b) ? 1 : 0)),
+    );
     $corps.children("tr").each((i, tr) => {
       $(tr).toggleClass("ligne_paire", i % 2 == 1);
       tr.cells[0].textContent = String(i + 1);
     });
-    $bloc
-      .find(".o_attaquesCompte")
-      .text(
-        `(${nbFloods ? nbFloods + " + " : ""}${chasses.length} chasse${chasses.length > 1 ? "s" : ""})`,
-      );
+    $bloc.find(".o_attaquesCompte").text(`(${$corps.children("tr").length})`);
+    $bloc.off("click.o_chasses").on("click.o_chasses", ".o_chassePartager", (e) => {
+      AttaqueLancee.partagerChasses($(e.currentTarget));
+    });
+    AttaqueLancee.majPartages();
+    AttaqueLancee.figerActions();
+    AttaqueLancee.ajusterTaille();
   }
   /**
-   * Un tableau récapitulatif par cible : lieu, troupes, temps restant,
-   * arrivée, terrain estimé, annulation unitaire ou groupée, et copie au
-   * format texte du jeu pour le forum.
+   * Publie dans le sujet « Chasses » du joueur les chasses de ces boutons
+   * « Partager » ; ils deviennent « Partagée ✓ » quand le forum les a.
    *
-   * Le tableau s'ajoute sous la liste du jeu, laissée telle quelle (toutes
-   * les attaques, capturées ou non), avec une copie de chaque lien Annuler.
-   * Pour une attaque non capturée, lieu et troupes viennent du texte du jeu
-   * quand il les donne (C+), sinon « ? ».
+   * @static
+   * @method partagerChasses
+   * @param {jQuery} $boutons boutons .o_chassePartager
+   * @return {Promise}
+   */
+  static partagerChasses($boutons) {
+    let groupes = $boutons
+      .get()
+      .map((b) => $(b).data("o_groupe"))
+      .filter(Boolean);
+    if (!groupes.length) return Promise.resolve();
+    return PartageChasses.partager(PageRessource.aPartager(groupes), $boutons).then((fait) => {
+      if (!fait) return;
+      $boutons.replaceWith(
+        `<span class="o_attaquePartage" title="Déjà publiée dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}">Partagée ✓</span>`,
+      );
+      AttaqueLancee.majPartages();
+    });
+  }
+  /**
+   * Bloc « Mes attaques en cours » : mes attaques de la liste du jeu, puis,
+   * une fois le forum et la page Ressources lus, mes chasses et les floods
+   * partagés sur moi, dans l'ordre, avec la variation de mon TdC et mon TdC
+   * après chacun (le contenu de la page d'un membre, pour moi). Chaque attaque
+   * a ses boutons : copie au format du jeu, partage dans le forum, annulation
+   * (copie du lien Annuler du jeu), unitaire ou groupée ; chaque chasse, son
+   * partage.
+   *
+   * La liste du jeu reste telle quelle sous « Attaque(s) en cours ». Pour une
+   * attaque non capturée, troupes et lieu viennent du texte du jeu quand il les
+   * donne (C+), sinon « ? ».
    *
    * @param {Boolean} afficher false : captures et partages suivis, sans le bloc
    */
@@ -553,8 +707,8 @@ class AttaqueLancee {
     // les captures restent synchronisées (partage des floods) même sans la liste
     if (!afficher || !Utils.affichage("listeAttaques")) return;
     if (!attaques.length) {
-      AttaqueLancee.chassesPartagees().then((chasses) => {
-        if (!chasses.length) return;
+      AttaqueLancee.mouvements([]).then((mouvements) => {
+        if (!mouvements.chasses.length && !mouvements.recus.length) return;
         let $bloc = $(
           `<div id="o_attaquesLancees" class="boite_amelioration simulateur centre o_blocAttaques">` +
             Utils.spoiler(
@@ -566,12 +720,12 @@ class AttaqueLancee {
             "</div>",
         );
         AttaqueLancee.placer($bloc);
-        AttaqueLancee.insererChasses($bloc, chasses, 0);
+        AttaqueLancee.insererMouvements($bloc, mouvements);
       });
       return;
     }
-    // Fzzz : une seule liste, dans l'ordre d'arrivée : # | Arrivée | Cible (tag
-    // coloré) | Troupes (quantité, détail au survol) | Lieu | Copier | Partager
+    // une seule liste, dans l'ordre d'arrivée : # | Arrivée | moi → cible (tag
+    // coloré) | Unités (détail et lieu au survol) | Variation | TdC après | boutons
     let id = "o_attaquesLancees",
       tag = Utils.alliance || "l'alliance";
     attaques.sort((a, b) => a.ligne.arrivee - b.ligne.arrivee);
@@ -581,21 +735,22 @@ class AttaqueLancee {
         ${AttaqueLancee.ENTETE}
         <tbody>`;
     attaques.forEach((a, i) => {
-      html += `<tr data-arrivee="${a.ligne.arrivee.valueOf()}"${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td>
+      // data-date, data-id : place de la ligne parmi les chasses et les floods reçus
+      html += `<tr class="o_ligneAttaque${i % 2 ? " ligne_paire" : ""}" data-id="${a.ligne.id}" data-date="${Utils.minuteRC(a.ligne.arrivee).format("YYYY-MM-DD HH:mm")}"><td>${i + 1}</td>
         ${
           a.ligne.incertaine
             ? `<td class="o_arriveeIncertaine" title="Heure du jeu, à la minute : l'horloge de ce navigateur est décalée (mise en veille, cache). Recharge la page pour retrouver les secondes.">${a.ligne.arrivee.format("DD/MM HH[h]mm")}</td>`
             : `<td title="RC à ${Utils.minuteRC(a.ligne.arrivee).format("HH[h]mm")}">${a.ligne.arrivee.format("DD/MM HH[h]mm:ss")}</td>`
         }
-        <td class="o_cibleAttaque">${a.ligne.cibleHtml || a.ligne.cible}</td>
-        <td class="o_troupesCourtes" title="${AttaqueLancee.troupes(a) || "Détail inconnu (attaque lancée depuis un autre navigateur)"}">${AttaqueLancee.quantite(a)}</td>
-        <td class="o_lieuAttaque" title="${AttaqueLancee.lieu(a) || "Lieu inconnu"}">${AttaqueLancee.lieuCourt(a)}</td>
-        <td class="o_priseAttaque" data-i="${i}">${AttaqueLancee.priseEstimee(a)}</td>
+        <td class="o_cibleAttaque">moi → ${a.ligne.cibleHtml || a.ligne.cible}</td>
+        <td class="o_troupesCourtes" title="${AttaqueLancee.detail(a)}">${AttaqueLancee.quantite(a)}</td>
+        <td class="o_priseAttaque">${AttaqueLancee.priseEstimee(a)}</td>
+        <td class="o_tdcApres">…</td>
         <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button><button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager cette attaque avec la ${tag}">Partager</button><span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span></td></tr>`;
     });
     html += `</tbody></table>`;
     // boutons groupés sur la ligne du titre : une rangée de moins
-    let boutons = `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods avec la ${tag}">Partager tous</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`;
+    let boutons = `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods et toutes mes chasses avec la ${tag}">Partager tous</button><button type="button" id="${id}RetirerTout" class="o_button f_error" style="display:none" title="Retirer du forum de la ${tag} tous les floods partagés de cette liste">Retirer mes partages</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`;
     // en haut de la page ; la liste du jeu sous « Attaque(s) en cours » reste telle
     // quelle. Armée et Attaquer visent le premier .simulateur qui n'est pas un
     // .o_blocAttaques (tableau de l'armée, formulaire d'attaque)
@@ -611,9 +766,19 @@ class AttaqueLancee {
     );
     AttaqueLancee.placer($bloc);
     AttaqueLancee.colorerTags($(`#${id}`));
-    AttaqueLancee.chassesPartagees().then((chasses) =>
-      AttaqueLancee.insererChasses($bloc, chasses, attaques.length),
-    );
+    // attaques lancées ailleurs : leurs troupes et le TdC de leur cible sont
+    // retrouvés avant la simulation, qui part de ce TdC pour une cible hors alliance
+    AttaqueLancee.reconstituer(attaques)
+      .catch(() => [])
+      .then((faites) => {
+        faites.forEach((a) => {
+          let $ligne = $(`#${id} tr.o_ligneAttaque[data-id='${a.ligne.id}']`);
+          $ligne.find(".o_priseAttaque").html(AttaqueLancee.priseEstimee(a));
+          $ligne.find(".o_troupesCourtes").attr("title", AttaqueLancee.detail(a));
+        });
+        return AttaqueLancee.mouvements(attaques);
+      })
+      .then((m) => AttaqueLancee.insererMouvements($bloc, m));
     // un clic sur ces boutons ne replie pas l'encart (titre cliquable)
     $(`#${id} .o_attaquesEnTete`).on("click", (e) => e.stopPropagation());
     // lien Annuler du jeu copié dans le tableau. Pour une attaque capturée on
@@ -651,17 +816,6 @@ class AttaqueLancee {
     });
     majToutAnnuler();
     AttaqueLancee.majPartages();
-    AttaqueLancee.reconstituer(attaques).then((faites) =>
-      faites.forEach((a) => {
-        let i = attaques.indexOf(a);
-        $(`#${id} .o_priseAttaque[data-i='${i}']`).html(AttaqueLancee.priseEstimee(a));
-        $(`#${id} .o_troupesCourtes`).eq(i).attr("title", AttaqueLancee.troupes(a));
-      }),
-    );
-    // page d'attaque, ou page Armée sans l'encart des floods reçus (qui lit
-    // déjà le forum) : recalage sur le forum peu après le chargement
-    if (!/^\/Armee\.php/i.test(location.pathname) || !Utils.affichage("floodsRecus"))
-      setTimeout(() => AttaqueLancee.synchroniserPartages(), 1500);
     $(`#${id} .o_attaqueCopier`).on("click", (e) => {
       let a = attaques[parseInt(e.currentTarget.dataset.i)];
       CommerceFzzz.copier(
@@ -693,9 +847,22 @@ class AttaqueLancee {
         return;
       PartageChasses.retirerFloods(ids, $(e.currentTarget));
     });
-    $(`#${id}PartagerTout`).on("click", (e) =>
-      PartageChasses.partagerFloods(attaques.map(AttaqueLancee.pourPartage), $(e.currentTarget)),
-    );
+    $(`#${id}PartagerTout`).on("click", (e) => {
+      let restants = $(`#${id} .o_attaquePartager`)
+          .map((i, b) => parseInt(b.dataset.id))
+          .get(),
+        floods = attaques
+          .filter((a) => restants.includes(a.ligne.id))
+          .map(AttaqueLancee.pourPartage)
+          .filter((c) => PartageChasses.entreesFloods([c]).length),
+        $chasses = $(`#${id} .o_chassePartager`);
+      // rien à partager : partagerFloods le dit ; un refus du forum pour les
+      // floods vaudrait aussi pour les chasses, qui ne sont alors pas tentées
+      (floods.length || !$chasses.length
+        ? PartageChasses.partagerFloods(floods, $(e.currentTarget))
+        : Promise.resolve(true)
+      ).then((fait) => (fait ? AttaqueLancee.partagerChasses($chasses) : null));
+    });
     // annulation groupée : les liens Annuler du jeu, appelés l'un après
     // l'autre. Le jeu n'autorise l'annulation que peu de temps après le
     // lancement : la dernière réponse (page complète) dit quelles attaques
@@ -714,9 +881,7 @@ class AttaqueLancee {
             echecs = encore.filter((a) => restantes.indexOf(a.ligne.id) != -1).length;
           if (echecs) sessionStorage.setItem(CLE_ANNULATION_ECHEC, echecs);
         })
-        // navigation GET et non reload() : sur la page Attaquer, la page
-        // courante est la réponse du POST de lancement, un reload le rejouerait
-        .finally(() => location.replace(location.pathname + location.search));
+        .finally(() => AttaqueLancee.recharger());
     });
     $(`#${id}`).on("click", ".o_attaqueAnnuler a", (e) => {
       e.preventDefault();
@@ -728,7 +893,10 @@ class AttaqueLancee {
   /**
    * Annuler : le lien du jeu (…?annuler=id) renvoie sur la page Ennemies ;
    * l'annulation est donc envoyée en arrière-plan puis la page courante est
-   * rechargée, au même endroit (Utils.garderPosition).
+   * rechargée, au même endroit (Utils.garderPosition). L'ordre du jeu est
+   * annulé d'abord ; le partage du forum, s'il y en a un, est retiré ensuite,
+   * par la page rechargée, quand l'attaque n'est plus dans la liste du jeu
+   * (synchroniser) : un flood que le jeu a refusé d'annuler reste partagé.
    *
    * @static
    * @method annulerSurPlace
@@ -737,11 +905,29 @@ class AttaqueLancee {
   static annulerSurPlace($lien) {
     if ($lien.hasClass("o_enCours")) return;
     $lien.addClass("o_enCours").css("pointer-events", "none");
+    let id = parseInt((String($lien.attr("href")).match(/annuler=(\d+)/) || [])[1]);
+    // passe devant les lectures du forum encore en attente (REQUETES_ACTION)
     Promise.resolve($.get($lien.attr("href")))
+      .then((html) => {
+        // la réponse du jeu liste les attaques en cours : celle-ci y est encore
+        // si le jeu a refusé (délai d'annulation dépassé), signalé après rechargement
+        let restantes = AttaqueLancee.extraireLignes(Utils.parseHtml(String(html))).map(
+          (l) => l.id,
+        );
+        if (id && restantes.includes(id)) sessionStorage.setItem(CLE_ANNULATION_ECHEC, "1");
+      })
       .catch(() => null)
-      // navigation GET et non reload() : la page courante peut être la
-      // réponse du POST de lancement, un reload le rejouerait
-      .then(() => location.replace(location.pathname + location.search));
+      .then(() => AttaqueLancee.recharger());
+  }
+  /**
+   * Relit la page courante par une navigation GET et non reload() : elle peut
+   * être la réponse du POST de lancement, qu'un reload rejouerait.
+   *
+   * @static
+   * @method recharger
+   */
+  static recharger() {
+    location.replace(location.pathname + location.search);
   }
   /**
    * Bloc collé sous le menu du jeu et qui le reste en faisant défiler la
@@ -876,29 +1062,6 @@ class AttaqueLancee {
       .filter(Boolean);
   }
   /**
-   * Partages faits ou retirés depuis un autre appareil : l'état affiché est
-   * recalé sur le sujet « Floods » du forum. Lecture faite une fois, un peu
-   * après le chargement, et repoussée tant qu'un compte à rebours de
-   * synchronisation tourne (pour ne pas gêner un lancement).
-   *
-   * @static
-   * @method synchroniserPartages
-   */
-  static synchroniserPartages(essais = 6) {
-    if (!AttaqueLancee.idsAffiches().length || !monProfil.pseudo) return;
-    let attendre = () => setTimeout(() => AttaqueLancee.synchroniserPartages(essais - 1), 5000);
-    if ($("#o_syncA").text().trim() || document.hidden) {
-      if (essais > 0) attendre();
-      return;
-    }
-    PartageChasses.enFile(() => PartageChasses.mesFloodsForum())
-      .then((publies) => {
-        PartageChasses.recalerFloods(publies, AttaqueLancee.idsAffiches());
-        AttaqueLancee.majPartages();
-      })
-      .catch(() => {});
-  }
-  /**
    * Floods déjà publiés dans le forum de l'alliance : « Partagé ✓ » à la place
    * du bouton, et bouton « Partager TOUS » désactivé s'il ne reste rien.
    *
@@ -923,7 +1086,7 @@ class AttaqueLancee {
             `<button type="button" class="o_button f_info o_attaquePartager" data-i="${bouton.dataset.i}" data-id="${bouton.dataset.id}" title="Partager ce flood avec la ${tag}">Partager</button>`,
           );
     });
-    let reste = $(".o_attaquePartager").length,
+    let reste = $(".o_attaquePartager").length + $(".o_chassePartager").length,
       retirables = $(".o_attaqueRetirer").length;
     $("#o_attaquesLanceesPartagerTout")
       .prop("disabled", !reste)
@@ -1128,13 +1291,6 @@ class AttaqueLancee {
     return a.capture ? a.capture.lieu : a.ligne.lieuNatif;
   }
   /**
-   * Lieu en 4 lettres au plus pour le tableau : TDC, Dôme, Loge.
-   */
-  static lieuCourt(a) {
-    let lieu = AttaqueLancee.lieu(a) || "";
-    return AttaqueLancee.zoneLieu(lieu) || lieu || "?";
-  }
-  /**
    * Zone d'un libellé de lieu du jeu (« Loge Impériale », « Fourmilière »…).
    *
    * @static
@@ -1148,6 +1304,20 @@ class AttaqueLancee {
     if (/d[ôo]me|fourmili/i.test(lieu)) return "Dôme";
     if (/loge/i.test(lieu)) return "Loge";
     return null;
+  }
+  /**
+   * Info-bulle des unités d'une attaque : ses troupes et le lieu attaqué.
+   *
+   * @static
+   * @method detail
+   * @return {String}
+   */
+  static detail(a) {
+    let troupes = AttaqueLancee.troupes(a),
+      lieu = AttaqueLancee.lieu(a);
+    return troupes
+      ? `${lieu ? `${lieu} : ` : ""}${troupes}`
+      : "Détail inconnu (attaque lancée depuis un autre navigateur)";
   }
   /**
    * Troupes d'une attaque : capture, sinon texte du jeu (C+), sinon null.

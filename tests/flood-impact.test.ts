@@ -118,7 +118,7 @@ describe("TdC à l'impact : calcul", () => {
       chasses: Record<string, object[]>;
       floods: { id: number; lanceur: string }[];
     }>(
-      `PageAttaquer.avecMesMouvements(${JSON.stringify(PARTAGES)}, "Moi", [{ date: "2026-11-09 10:45", cible: "Cible", terrain: 4000, id: 9 }], [{ date: "2026-11-09 10:50", terrain: 700 }])`,
+      `PartageChasses.avecMesMouvements(${JSON.stringify(PARTAGES)}, "Moi", [{ date: "2026-11-09 10:45", cible: "Cible", terrain: 4000, id: 9 }], [{ date: "2026-11-09 10:50", terrain: 700 }])`,
     );
     expect(d.floods.map((f) => [f.id, f.lanceur])).toEqual([
       [7, "Alpha"],
@@ -129,9 +129,54 @@ describe("TdC à l'impact : calcul", () => {
     // Ressources.php illisible : les chasses partagées restent
     expect(
       page.lire(
-        `PageAttaquer.avecMesMouvements(${JSON.stringify(PARTAGES)}, "Moi", [], null).chasses.moi`,
+        `PartageChasses.avecMesMouvements(${JSON.stringify(PARTAGES)}, "Moi", [], null).chasses.moi`,
       ),
     ).toEqual([{ date: "2026-11-09 10:30", terrain: 1000 }]);
+  });
+
+  test("mon attaque de la liste du jeu que la page ne sait pas décrire (lancée ailleurs) : sa ligne du forum est gardée", () => {
+    const avecLesMiens = {
+      ...PARTAGES,
+      floods: [
+        ...PARTAGES.floods,
+        {
+          date: "2026-11-09 10:42",
+          cible: "Cible",
+          unites: 900,
+          terrain: 900,
+          id: 11,
+          lanceur: "moi",
+        },
+        {
+          date: "2026-11-09 10:43",
+          cible: "Cible",
+          unites: 800,
+          terrain: 800,
+          id: 12,
+          lanceur: "Moi",
+        },
+        {
+          date: "2026-11-09 10:44",
+          cible: "Cible",
+          unites: 700,
+          terrain: 700,
+          id: 13,
+          lanceur: "Moi",
+        },
+      ],
+    };
+    // liste du jeu : 9 (décrite par la page), 11 et 13 ; la 12 n'y est plus (annulée)
+    const floods = page.lire<{ id: number; lanceur: string; terrain: number }[]>(
+      `PartageChasses.avecMesMouvements(${JSON.stringify(avecLesMiens)}, "Moi", [{ date: "2026-11-09 10:45", cible: "Cible", terrain: 4000, id: 9 }, { date: "2026-11-09 10:44", cible: "Cible", terrain: 650, id: 13 }], null, [9, 11, 13]).floods`,
+    );
+    expect(floods.map((f) => [f.id, f.lanceur, f.terrain])).toEqual([
+      [7, "Alpha", 5000],
+      [8, "Beta", 2000],
+      [11, "moi", 900],
+      [9, "Moi", 4000],
+      // décrite par la page : la ligne du forum ne fait pas doublon
+      [13, "Moi", 650],
+    ]);
   });
 });
 

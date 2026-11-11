@@ -63,7 +63,8 @@ const DUREE_CACHE_FORUM = 60000;
  *
  * Requêtes : au clic sur Partager, au chargement de page qui suit un envoi
  * « + partager » ou l'annulation d'un flood partagé, et la lecture des sujets
- * à l'ouverture d'une page membre. Rien de périodique.
+ * à l'ouverture d'une page membre ou de la page Armée (bloc « Mes attaques en
+ * cours »). Rien de périodique.
  *
  * @class PartageChasses
  */
@@ -729,13 +730,14 @@ class PartageChasses {
    * Bouton : désactivé pendant l'envoi, puis bilan.
    *
    * @private
+   * @return {Promise<Boolean>} vrai si ces entrées sont dans le forum
    */
   static _avecBouton($bouton, type, entrees) {
     let libelle = type == "Chasses" ? "chasse" : "flood",
       accord = (n) => (type == "Chasses" ? "e" : "") + (n > 1 ? "s" : "");
     if (!entrees.length) {
       $.toast({ ...TOAST_INFO, text: `Aucun ${libelle} à partager.` });
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     if ($bouton) $bouton.prop("disabled", true);
     return PartageChasses._partager(type, entrees)
@@ -747,14 +749,15 @@ class PartageChasses {
         }
         return n;
       })
-      .then((n) =>
+      .then((n) => {
         $.toast({
           ...TOAST_SUCCESS,
           text: n
             ? `${n} ${libelle}${n > 1 ? "s" : ""} partagé${accord(n)} avec la ${Utils.alliance}.`
             : `Ces ${libelle}s étaient déjà partagé${accord(2)}.`,
-        }),
-      )
+        });
+        return true;
+      })
       .catch((e) => {
         let code = e && e.message;
         $.toast({
@@ -773,6 +776,7 @@ class PartageChasses {
         // (le bouton Partager de la liste des attaques reste)
         if (type == "Floods" && ["absente", "non créé", "non modifié"].includes(code))
           AttaqueLancee.oublierPartage(entrees.map((x) => x.id));
+        return false;
       })
       .finally(() => $bouton && $bouton.prop("disabled", false));
   }
@@ -932,24 +936,6 @@ class PartageChasses {
     try {
       localStorage.setItem(CLE_FLOODS_PARTAGES, JSON.stringify(liste));
     } catch (e) {}
-  }
-  /**
-   * Numéros d'attaque publiés dans le sujet « Floods » du joueur, lus sur le
-   * forum (deux lectures : liste des sujets, puis le sien). Vide si le sujet
-   * ou la section n'existe pas.
-   *
-   * @static
-   * @method mesFloodsForum
-   * @return {Promise<Array<Number>>}
-   */
-  static mesFloodsForum() {
-    let pseudo = (monProfil.pseudo || "").toLowerCase();
-    return PartageChasses.sujets().then((sujets) => {
-      let id = sujets[`Floods | ${pseudo}`];
-      return id
-        ? PartageChasses.lireSujet(id).then((d) => d.floods.map((f) => f.id).filter(Boolean))
-        : [];
-    });
   }
   /**
    * État « partagé » des floods affichés recalé sur le forum, qui fait foi
@@ -1211,6 +1197,36 @@ class PartageChasses {
       if (pseudo && terrain > 0) tdc[pseudo] = terrain;
     });
     return tdc;
+  }
+  /**
+   * Partages du forum où mes floods sont ceux de la liste du jeu et mes
+   * chasses celles de Ressources.php (s'il a été lu) : mes mouvements non
+   * partagés comptent, sans doublon.
+   *
+   * @static
+   * @method avecMesMouvements
+   * @param {Object} d charger()
+   * @param {String} moi
+   * @param {Array} mesFloods lignes de entreesFloods
+   * @param {Array|null} mesChasses [{date, terrain}] ; null : celles du forum
+   * @param {Array<Number>} [enCours] numéros de mes attaques de la liste du jeu : la
+   *   ligne du forum de celles que `mesFloods` ne décrit pas (lancées ailleurs, sans
+   *   détail du jeu) est gardée
+   * @return {Object} {chasses, floods}
+   */
+  static avecMesMouvements(d, moi, mesFloods, mesChasses, enCours = []) {
+    let m = moi.toLowerCase(),
+      decrits = mesFloods.map((f) => f.id);
+    return {
+      chasses: mesChasses ? { ...d.chasses, [m]: mesChasses } : d.chasses,
+      floods: d.floods
+        .filter(
+          (f) =>
+            String(f.lanceur).toLowerCase() != m ||
+            (enCours.includes(f.id) && !decrits.includes(f.id)),
+        )
+        .concat(mesFloods.map((f) => ({ ...f, lanceur: moi }))),
+    };
   }
   /**
    * Rejoue dans l'ordre d'arrivée les chasses et floods partagés à venir, en
@@ -1483,76 +1499,6 @@ class PartageChasses {
     if (v.lieu == "Dôme" || v.lieu == "Loge")
       html += ` <small class='o_priseNote' title='Attaque ${v.lieu == "Loge" ? "en loge" : "au dôme"} : TdC pris comme au terrain de chasse'>(${v.lieu == "Loge" ? "loge" : "dôme"})</small>`;
     return html;
-  }
-  /**
-   * Armee.php : floods en cours sur le joueur, au-dessus de « Troupes en
-   * Garnison » : unités envoyées et TdC qu'ils prendront à l'impact
-   * (simulation avec les TdC actuels des membres et les chasses partagées du
-   * joueur et des joueurs reliés, comme la page Membres).
-   *
-   * @static
-   * @method afficherArmee
-   */
-  static afficherArmee() {
-    if (!Utils.affichage("floodsRecus")) return;
-    let moi = monProfil.pseudo,
-      $titre = $("#centre *")
-        .filter(
-          (i, e) =>
-            /^\s*Troupes en Garnison/i.test(e.textContent) &&
-            !$(e)
-              .children()
-              .filter((k, c) => /Troupes en Garnison/i.test(c.textContent)).length,
-        )
-        .first();
-    if (!moi || !$titre.length) return;
-    let $ancre = $titre.closest("table").length ? $titre.closest("table") : $titre;
-    PartageChasses.enFile(() =>
-      PartageChasses.charger([moi]).then((d) => PartageChasses.completer(d, [moi])),
-    )
-      .then(({ d, tdc }) => {
-        // mes floods publiés ou retirés, y compris depuis un autre appareil
-        PartageChasses.recalerFloods(
-          d.floods
-            .filter((f) => f.id && f.lanceur.toLowerCase() == moi.toLowerCase())
-            .map((f) => f.id),
-          AttaqueLancee.idsAffiches(),
-        );
-        AttaqueLancee.majPartages();
-        let sim = PartageChasses.simuler(
-            d,
-            PartageChasses.tdcConnus(tdc, { [moi]: Utils.terrain }),
-          ),
-          recus = PartageChasses.chronologie(sim, moi).filter(
-            (v) => v.flood && v.delta <= 0 && v.cible.toLowerCase() == moi.toLowerCase(),
-          ),
-          html = "";
-        if (!recus.length) html += "<p>Aucun flood partagé en cours sur toi.</p>";
-        else {
-          html += `<table class='o_attaquesLancees o_maxWidth centre' cellspacing='0'><thead><tr><th>#</th><th>Arrivée</th><th>Unités envoyées</th><th>TdC perdu (estimé)</th><th>Lanceur</th></tr></thead><tbody>`;
-          recus.forEach((v, i) => {
-            html += `<tr${i % 2 ? " class='ligne_paire'" : ""}><td>${i + 1}</td><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${v.unites != null ? numeral(v.unites).format() : "?"}</td><td>${PartageChasses.libellePrise(v)}</td><td><a href='Membre.php?Pseudo=${encodeURIComponent(v.lanceur)}'>${Utils.echapper(v.lanceur)}</a></td></tr>`;
-          });
-          let unites = recus.reduce((t, v) => t + (v.unites || 0), 0),
-            perte = recus.reduce((t, v) => t + v.delta, 0);
-          html += `<tr class='o_syntheseTotal'><td></td><td>Total (${recus.length})</td><td>${numeral(unites).format()}</td><td>${PartageChasses.libellePrise({ delta: perte })}</td><td></td></tr></tbody></table>
-            <p class='reduce'><em>Prise estimée à l'impact : au plus 20 % de ton TdC à ce moment, rien si tu sors de la portée du lanceur.</em></p>`;
-        }
-        $("#o_floodsRecus").remove();
-        $ancre.before(
-          "<div id='o_floodsRecus' class='boite_amelioration simulateur centre o_blocAttaques o_blocArmee'>" +
-            Utils.spoiler(
-              `Floods en cours sur ${moi} partagés avec la ${Utils.alliance} (${recus.length})`,
-              html,
-              "armeeFloodsRecus",
-              "o_attaquesTitre",
-              false,
-            ) +
-            "</div>",
-        );
-        if (typeof PageArmee != "undefined") PageArmee.calerLargeurs();
-      })
-      .catch(() => {});
   }
   /**
    * Page membre : chasses et floods partagés du joueur consulté, et évolution

@@ -63,6 +63,9 @@ describe("file des requêtes : actions du joueur d'abord", () => {
     expect(action("https://s5.fourmizzz.fr/AcquerirTerrain.php", "POST")).toBe(true);
     expect(action("https://s5.fourmizzz.fr/ennemie.php?annuler=5")).toBe(true);
     expect(action("https://s5.fourmizzz.fr/Ressources.php?annuler=5")).toBe(true);
+    // lien « Annuler » d'une attaque sur la page Armée
+    expect(action("/Armee.php?annuler=98529")).toBe(true);
+    expect(action("https://s5.fourmizzz.fr/Armee.php")).toBe(false);
     expect(action("https://s5.fourmizzz.fr/Membre.php?Pseudo=A")).toBe(false);
     expect(action("https://s5.fourmizzz.fr/Reine.php")).toBe(false);
     expect(action("https://s5.fourmizzz.fr/ennemie.php", "POST")).toBe(false);

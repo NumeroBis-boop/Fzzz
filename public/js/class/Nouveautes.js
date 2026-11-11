@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.101.4",
+    notes: [
+      "Correction : une attaque au dôme ou en loge prend du TdC avec la même règle qu'au terrain de chasse (au plus 20 % du TdC de la cible, rien hors de portée). Elle compte maintenant dans « Mes attaques en cours », les floods partagés, la page Membres, la page Armée, la page d'un membre et le TdC à l'impact, avec « (dôme) » ou « (loge) » à côté de la prise.",
+    ],
+  },
+  {
     version: "1.101.3",
     notes: [
       "Correction : avec « Envoyer + partager » sur la page Ressources, le partage pouvait ne jamais se faire, sans aucun message (page relue trop tard, ou demande du navigateur de renvoyer un formulaire). La page est maintenant relue sans renvoyer de formulaire, et si le partage n'a pas pu se faire, un message le dit et indique le bouton « Partager mes chasses ».",

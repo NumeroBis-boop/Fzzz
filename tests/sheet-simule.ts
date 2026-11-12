@@ -238,17 +238,25 @@ export function classeurSimule(
         .formatToParts(d)
         .map((x) => [x.type, Number(x.value)]),
     );
+  // heure de Google : celle du PC, ou l'instant qu'un test fixe avec horloge()
+  let instantFixe: number | null = null;
+  class DateSimulee extends Date {
+    constructor(...a: unknown[]) {
+      super(...((a.length ? a : [instantFixe ?? Date.now()]) as [number]));
+    }
+  }
   const ctx: any = {
+    Date: DateSimulee,
     console: { warn: (m: string) => avertissements.push(m) },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => classeur,
       newDataValidation: regle,
       newConditionalFormatRule: regleConditionnelle,
     },
-    // formats utilisés par le script : jour ou minute d'une date dans le fuseau du fichier
+    // formats utilisés par les scripts : jour, minute ou heure d'une date dans un fuseau
     Utilities: {
       formatDate: (d: Date, tz: string, format: string) => {
-        if (format != "yyyy-MM-dd" && format != "yyyy-MM-dd HH:mm")
+        if (!["yyyy-MM-dd", "yyyy-MM-dd HH:mm", "HH:mm:ss"].includes(format))
           throw new Error("format non simulé : " + format);
         const p = Object.fromEntries(
           new Intl.DateTimeFormat("en-CA", {
@@ -258,21 +266,24 @@ export function classeurSimule(
             day: "2-digit",
             hour: "2-digit",
             minute: "2-digit",
+            second: "2-digit",
             hourCycle: "h23",
           })
             .formatToParts(d)
             .map((x) => [x.type, x.value]),
         );
         const jour = `${p.year}-${p.month}-${p.day}`;
+        if (format == "HH:mm:ss") return `${p.hour}:${p.minute}:${p.second}`;
         return format == "yyyy-MM-dd" ? jour : `${jour} ${p.hour}:${p.minute}`;
       },
-      // minuit de ce jour dans le fuseau du fichier
+      // ce jour (à minuit) ou cet instant, dans le fuseau donné
       parseDate: (texte: string, tz: string, format: string) => {
-        if (format != "yyyy-MM-dd") throw new Error("format non simulé : " + format);
-        const [a, m, j] = texte.split("-").map(Number),
-          utc = Date.UTC(a!, m! - 1, j!),
+        if (format != "yyyy-MM-dd" && format != "yyyy-MM-dd HH:mm:ss")
+          throw new Error("format non simulé : " + format);
+        const [a, m, j, h = 0, mi = 0, s = 0] = texte.split(/[- :]/).map(Number),
+          utc = Date.UTC(a!, m! - 1, j!, h, mi, s),
           p = parties(new Date(utc), tz),
-          decalage = Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!) - utc;
+          decalage = Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!, s) - utc;
         return new Date(utc - decalage);
       },
     },
@@ -300,6 +311,10 @@ export function classeurSimule(
     script: ctx,
     /** Messages du journal d'Apps Script (console.warn). */
     avertissements,
+    /** Fixe l'heure que lit le script (`new Date()`), instant ISO ; null : celle du PC. */
+    horloge: (instant: string | null) => {
+      instantFixe = instant == null ? null : Date.parse(instant);
+    },
     doGet: () => ctx.doGet(),
     doPost: (corps: object) => ctx.doPost({ postData: { contents: JSON.stringify(corps) } }),
     /** Corps tel quel (requête illisible). */

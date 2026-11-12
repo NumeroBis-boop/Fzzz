@@ -5,8 +5,8 @@ import { classeurSimule, feuille } from "./sheet-simule";
  * Script du Google Sheet « Stats membres » (google-sheet/stats-membres.gs,
  * 1.104.0, demande du mainteneur) : le relevé d'un joueur va dans sa ligne de
  * l'onglet « Dernier relevé », une ligne par joueur, sans historique (règle du
- * mainteneur, 12/11/2026 : un seul onglet, la date dit de quand datent les
- * valeurs) ; le fond d'une case dit si le joueur partage cette information
+ * mainteneur, 12/11/2026 : un seul onglet, la date et l'heure disent de quand
+ * datent les valeurs) ; le fond d'une case dit si le joueur partage cette information
  * (vert) ou a décoché sa case (rouge : la dernière valeur lue y reste, règle
  * du mainteneur ; case vide s'il ne l'a jamais partagée).
  */
@@ -57,7 +57,7 @@ const fonds = (f: ReturnType<typeof fichier>, ligne: number, colonnes: number[])
   colonnes.map((c) => f.onglets[ONGLET].fonds[`${ligne},${c}`]);
 
 describe("premier relevé : un seul onglet, une ligne par joueur", () => {
-  test("titres, valeurs, version ; la date est celle du jour dans le fuseau du fichier, à minuit", () => {
+  test("titres, valeurs, version, jour du relevé", () => {
     const f = fichier();
     expect(f.doPost(releve())).toEqual({ ok: true, nouveau: true, dernier: true });
     expect(f.ordre).toEqual([ONGLET]);
@@ -65,12 +65,6 @@ describe("premier relevé : un seul onglet, une ligne par joueur", () => {
       ["Joueur", "Date", ...TITRES, "Version"],
       ["DoggyBag", jour(), 38, 250000, 3100000, 5890000, 7, 8, 2, 17, "1.104.0"],
     ]);
-    const date = f.onglets[ONGLET].grille[1][1] as Date;
-    expect(
-      new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", timeStyle: "short" }).format(
-        date,
-      ),
-    ).toBe("00:00");
   });
 
   test("légende des couleurs à droite des titres ; cases partagées en vert, joueur et date sans couleur", () => {
@@ -138,6 +132,97 @@ describe("premier relevé : un seul onglet, une ligne par joueur", () => {
       ["DoggyBag", jour(), 38],
       ["Lassie", jour(), 38],
     ]);
+  });
+});
+
+describe("colonne « Date » : le jour du relevé et l'heure du jeu à sa réception (demande du mainteneur)", () => {
+  // instant d'une case, lu dans un fuseau
+  const instant = (v: unknown, fuseau = "Europe/Paris") =>
+    new Intl.DateTimeFormat("sv-SE", {
+      timeZone: fuseau,
+      dateStyle: "short",
+      timeStyle: "medium",
+    }).format(v as Date);
+  const date = (f: ReturnType<typeof fichier>, ligne = 1, fuseau?: string) =>
+    instant(f.onglets[ONGLET].grille[ligne][1], fuseau);
+  // heure de Google au moment où le script reçoit le relevé
+  const recuA = (f: ReturnType<typeof fichier>, utc: string) => f.horloge(utc);
+
+  test("heure de Paris à la réception, au format jj/mm/aaaa hh:mm sur la case écrite ; elle suit à chaque relevé", () => {
+    const f = fichier();
+    recuA(f, "2026-11-12T13:35:20Z");
+    f.doPost(releve({ jour: "2026-11-12" }));
+    expect(date(f)).toBe("2026-11-12 14:35:20");
+    expect(f.onglets[ONGLET].formats["2,2"]).toBe("dd/MM/yyyy HH:mm");
+    recuA(f, "2026-11-12T20:05:00Z");
+    f.doPost(releve({ jour: "2026-11-12" }));
+    expect([lignes(f).length, date(f)]).toEqual([2, "2026-11-12 21:05:00"]);
+    // l'été, Paris est à UTC + 2
+    recuA(f, "2026-07-01T08:00:00Z");
+    f.doPost(releve({ jour: "2026-07-01", joueur: "Lassie" }));
+    expect(date(f, 2)).toBe("2026-07-01 10:00:00");
+  });
+
+  test("relevé reçu juste après minuit pour la veille, ou juste avant minuit pour le lendemain : daté du bord de son jour", () => {
+    const f = fichier();
+    // 13/11 à 00h00min01 à Paris
+    recuA(f, "2026-11-12T23:00:01Z");
+    f.doPost(releve({ jour: "2026-11-12" }));
+    expect(date(f)).toBe("2026-11-12 23:59:59");
+    // 13/11 à 23h59min58 à Paris
+    recuA(f, "2026-11-13T22:59:58Z");
+    f.doPost(releve({ jour: "2026-11-14" }));
+    expect(date(f)).toBe("2026-11-14 00:00:00");
+  });
+
+  test("ligne écrite par une version précédente (date sans heure) : remplacée avec l'heure ; celle d'un autre joueur n'est pas touchée", () => {
+    const minuit = () => new Date("2026-11-11T23:00:00Z");
+    const f = fichier({
+      "Dernier relevé": feuille("Dernier relevé", [
+        ["Joueur", "Date", "TdP"],
+        ["Lassie", minuit(), 20],
+        ["DoggyBag", minuit(), 37],
+      ]),
+    });
+    f.onglets[ONGLET].formats["2,2"] = "dd/MM/yyyy";
+    f.onglets[ONGLET].formats["3,2"] = "dd/MM/yyyy";
+    recuA(f, "2026-11-12T09:15:00Z");
+    f.doPost(releve({ jour: "2026-11-12" }));
+    expect([date(f, 1), date(f, 2)]).toEqual(["2026-11-12 00:00:00", "2026-11-12 10:15:00"]);
+    expect([f.onglets[ONGLET].formats["2,2"], f.onglets[ONGLET].formats["3,2"]]).toEqual([
+      "dd/MM/yyyy",
+      "dd/MM/yyyy HH:mm",
+    ]);
+    // seule la case de la date reçoit ce format
+    expect(Object.keys(f.onglets[ONGLET].formats).sort()).toEqual(["2,2", "3,2"]);
+  });
+
+  test("relevé plus ancien que la ligne : la date et l'heure de la ligne ne bougent pas", () => {
+    const f = fichier();
+    recuA(f, "2026-11-12T09:15:00Z");
+    f.doPost(releve({ jour: "2026-11-12" }));
+    recuA(f, "2026-11-12T09:20:00Z");
+    expect(f.doPost(releve({ jour: "2026-11-11" })).dernier).toBe(false);
+    expect(date(f)).toBe("2026-11-12 10:15:00");
+  });
+
+  test("fichier réglé sur un autre fuseau : la case affiche quand même le jour du relevé à l'heure du jeu, et un second relevé du jour la remplace", () => {
+    const f = classeurSimule({}, "Asia/Tokyo", "stats-membres.gs");
+    // 12/11 à 20h30 à Paris, déjà le 13 à Tokyo
+    recuA(f, "2026-11-12T19:30:00Z");
+    expect(f.doPost(releve({ jour: "2026-11-12" }))).toEqual({
+      ok: true,
+      nouveau: true,
+      dernier: true,
+    });
+    expect(date(f, 1, "Asia/Tokyo")).toBe("2026-11-12 20:30:00");
+    recuA(f, "2026-11-12T20:00:00Z");
+    expect(f.doPost(releve({ jour: "2026-11-12", donnees: { ...DONNEES, tdp: 39 } }))).toEqual({
+      ok: true,
+      nouveau: false,
+      dernier: true,
+    });
+    expect([date(f, 1, "Asia/Tokyo"), lignes(f)[1][2]]).toEqual(["2026-11-12 21:00:00", 39]);
   });
 });
 

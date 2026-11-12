@@ -690,7 +690,7 @@ class BoiteParametre extends Boite {
    */
   ongletPartage() {
     let $onglet = $("#o_tabsParametrePartage").append(`<form>
-        <p class='left o_aideParam'>Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance, avec ton pseudo et la version de l'extension. L'adresse du fichier est lue dans le forum caché de l'alliance (sujet « ${TITRE_STATS_MEMBRES} ») : sans ce sujet, rien n'est relevé ni envoyé.</p>
+        <p class='left o_aideParam'>Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance, avec ton pseudo et la version de l'extension. Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (sujet « ${TITRE_STATS_MEMBRES} ») : sans ce sujet, rien n'est relevé ni envoyé.</p>
         <p class='o_titreParam'>Informations partagées <span class='o_aideParam'>(décochée : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas)</span></p>
         ${DONNEES_PARTAGEES.map(
           (d) =>

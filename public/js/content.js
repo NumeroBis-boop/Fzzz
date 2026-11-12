@@ -739,6 +739,13 @@ const DATEPICKER_OPTION = {
           try {
             sessionStorage.removeItem(CLE_TRI_CONVOIS);
           } catch (e) {}
+        // niveau de la Champignonnière ou de l'Étable à pucerons changé : relevé du
+        // jour à refaire ; lu avant que le module de la page ne la modifie
+        try {
+          SuiviMembres.observer();
+        } catch (e) {
+          console.error("Fzzz : partage de données", e);
+        }
         // Routing ; une erreur dans le module d'une page reste confinée à cette page.
         // Page dont l'onglet des préférences est réglé sur l'affichage d'origine
         // (classe posée par bootstrap.js) : laissée au jeu

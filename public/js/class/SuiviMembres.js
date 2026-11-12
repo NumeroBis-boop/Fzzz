@@ -2,7 +2,8 @@
 /*
  * SuiviMembres.js
  * Partage de données : relevé quotidien des statistiques du joueur pour le
- * Google Sheet « Stats membres » de son alliance.
+ * Google Sheet « Stats membres » de son alliance, refait quand le niveau de
+ * sa Champignonnière ou de son Étable à pucerons change.
  **********************************************************************/
 
 /**
@@ -31,7 +32,7 @@ const DONNEES_PARTAGEES = [
 // case décochée : "0" ; cochée par défaut
 const CLE_PARTAGE = "fzzz_partage_";
 // par pseudo : jour du dernier relevé tenté, s'il est fait, essais du jour,
-// annonce déjà montrée, dernier envoi
+// annonce déjà montrée, dernier envoi, construction suivie en cours
 const CLE_SUIVI_MEMBRES = "fzzz_suiviMembres";
 // relevé qui échoue (jeu, forum ou fichier sans réponse) : nouvel essai à une
 // page ouverte plus tard, jamais à chaque page
@@ -42,6 +43,12 @@ const JOURNAL_SUIVI = "Partage de données";
 const SUIVI_CONSTRUCTION = ["tdp", "puceron", "champignonniere"];
 const SUIVI_LABORATOIRE = ["tdp", "va", "vc", "fdfAB"];
 const SUIVI_ARMEE = ["cdf", "fdfHB", "fdfAB"];
+// niveaux dont le changement fait refaire le relevé du jour sans attendre le
+// lendemain (demande du mainteneur) : information partagée → nom du bâtiment
+const SUIVI_NIVEAUX_SUIVIS = { champignonniere: "champignonniere", puceron: "etable a pucerons" };
+// la fin d'une construction est estimée (heure du serveur à la seconde près,
+// délai d'affichage de la page) : écart toléré
+const SUIVI_ECART_FIN = 30 * 1000;
 
 /**
  * Une fois par jour, à la première page que le joueur ouvre, ses informations
@@ -50,9 +57,12 @@ const SUIVI_ARMEE = ["cdf", "fdfHB", "fdfAB"];
  * est dans le premier message du sujet caché TITRE_STATS_MEMBRES : sans ce
  * sujet, rien n'est lu ni envoyé. Une information décochée n'est ni relevée ni
  * envoyée ; le fichier reçoit seulement le fait qu'elle n'est pas partagée.
+ * Le relevé du jour est refait à la première page ouverte après un changement
+ * de niveau de SUIVI_NIVEAUX_SUIVIS (observer).
  *
  * Règles s5 : tout part de l'ouverture d'une page par le joueur, une fois par
- * jour ; aucune minuterie, aucune requête répétée.
+ * jour et une fois par changement de niveau ; aucune minuterie, aucune requête
+ * répétée.
  *
  * @class SuiviMembres
  */
@@ -196,14 +206,147 @@ class SuiviMembres {
    * @private
    * @static
    * @param {String} chemin "/construction.php" ou "/laboratoire.php"
+   * @param {{chantier?: any} | null} [vu] reçoit la construction suivie en cours
+   *   d'une page Construction lue dans le jeu
    * @return {Promise<Record<String, Number>>} la page ouverte si c'est elle, sinon lue
    */
-  static _niveauxDe(chemin) {
+  static _niveauxDe(chemin, vu = null) {
+    if (location.pathname.toLowerCase() == chemin)
+      return Promise.resolve(SuiviMembres.niveaux($(document.body)));
+    return Promise.resolve($.get(location.origin + chemin))
+      .then(Utils.parseHtml)
+      .then(($page) => {
+        if (vu) vu.chantier = SuiviMembres.chantierDe($page, Horloge.maintenant());
+        return SuiviMembres.niveaux($page);
+      });
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} nom construction en cours, telle que le jeu l'affiche
+   * @param {Number} secondes temps restant
+   * @param {Number} instant heure du serveur à la lecture
+   * @return {{cle: String, fin: Number} | null} null si ce n'est pas un niveau suivi
+   */
+  static _chantier(nom, secondes, instant) {
+    let construction = SuiviMembres._nom(nom),
+      cle = Object.keys(SUIVI_NIVEAUX_SUIVIS).find((c) =>
+        construction.includes(SUIVI_NIVEAUX_SUIVIS[c]),
+      );
+    return cle && secondes > 0 ? { cle, fin: instant + secondes * 1000 } : null;
+  }
+  /**
+   * Construction suivie en cours, d'après une page Construction telle que le
+   * jeu l'écrit (« - Etable à pucerons 3 se termine dans : », chrono `reste`).
+   *
+   * @static
+   * @method chantierDe
+   * @param {any} $page jQuery
+   * @param {Number} instant heure du serveur à la lecture
+   * @return {{cle: String, fin: Number} | null}
+   */
+  static chantierDe($page, instant) {
+    /** @type {{cle: String, fin: Number} | null} */
+    let chantier = null;
+    $page.find("#centre > strong").each((/** @type {Number} */ i, /** @type {Element} */ elt) => {
+      let secondes = parseInt(
+        ($(elt)
+          .children("script")
+          .text()
+          .match(/reste\((\d+),/) || [])[1],
+      );
+      chantier = chantier || SuiviMembres._chantier($(elt).text(), secondes, instant);
+    });
+    return chantier;
+  }
+  /**
+   * Compte+ : construction suivie en cours d'après l'encart du jeu, présent
+   * sur chaque page (nom et secondes restantes), sans requête.
+   *
+   * @static
+   * @method chantierEncart
+   * @param {Number} instant heure du serveur à la lecture
+   * @return {{cle: String, fin: Number} | null | undefined} undefined sans cet encart
+   */
+  static chantierEncart(instant) {
+    let $ligne = $("#ligne_construction");
+    if (!$ligne.length) return undefined;
+    return SuiviMembres._chantier(
+      $ligne.find("td").eq(1).text(),
+      parseInt(
+        ($ligne
+          .find("script")
+          .text()
+          .match(/resteTemps\((\d+)/) || [])[1],
+      ),
+      instant,
+    );
+  }
+  /**
+   * @private
+   * @static
+   * @param {{cle: String, fin: Number} | undefined} avant construction suivie jusqu'ici
+   * @param {{cle: String, fin: Number} | null | undefined} vue celle que la page
+   *   affiche ; undefined quand la page ne le dit pas
+   * @param {Number} instant
+   * @return {Boolean} la construction suivie est terminée
+   */
+  static _finie(avant, vue, instant) {
+    if (!avant) return false;
+    // la page ne dit rien : à l'heure prévue, passée de l'écart toléré
+    if (vue === undefined) return avant.fin + SUIVI_ECART_FIN <= instant;
+    // la page dit ce qui se construit : terminée si ce n'est plus elle, vers
+    // l'heure prévue (plus tôt, elle a été annulée)
     return (
-      location.pathname.toLowerCase() == chemin
-        ? Promise.resolve($(document.body))
-        : Promise.resolve($.get(location.origin + chemin)).then(Utils.parseHtml)
-    ).then(SuiviMembres.niveaux);
+      avant.fin - SUIVI_ECART_FIN <= instant &&
+      !(vue && vue.cle == avant.cle && Math.abs(vue.fin - avant.fin) < SUIVI_ECART_FIN)
+    );
+  }
+  /**
+   * Niveau de la Champignonnière ou de l'Étable à pucerons changé depuis le
+   * relevé du jour : ce relevé est marqué à refaire, et lancer() le refait sur
+   * cette page. Le changement se voit sans requête : sur la page Construction,
+   * au niveau affiché, différent du dernier envoyé ; ailleurs, à la fin d'une
+   * construction suivie (encart Compte+ du jeu, page Construction ouverte ou
+   * lue par un relevé). À appeler à l'ouverture de chaque page, avant que son
+   * module ne la modifie ; rien n'est lu dans le jeu ni envoyé ici.
+   *
+   * @static
+   * @method observer
+   */
+  static observer() {
+    if (!SuiviMembres._pseudo() || !Utils.alliance) return;
+    let instant = Horloge.maintenant(),
+      etat = SuiviMembres.etat(),
+      surConstruction = location.pathname.toLowerCase() == "/construction.php",
+      niveaux = surConstruction ? SuiviMembres.niveaux($(document.body)) : {},
+      envoyes = (etat.envoi && etat.envoi.niveaux) || {},
+      avant = etat.chantier,
+      vue = SuiviMembres.chantierEncart(instant);
+    if (vue === undefined && surConstruction)
+      vue = SuiviMembres.chantierDe($(document.body), instant);
+    let finie = SuiviMembres._finie(avant, vue, instant),
+      chantier = vue !== undefined ? vue : finie ? null : avant,
+      changes = Object.keys(SUIVI_NIVEAUX_SUIVIS).filter((c) => {
+        if (!SuiviMembres.partage(c)) return false;
+        let affiche = niveaux[SUIVI_NIVEAUX_SUIVIS[c]];
+        if (affiche != null && envoyes[c] != null) return affiche != envoyes[c];
+        // niveau non affiché : construction finie après le dernier envoi
+        return finie && avant.cle == c && !(etat.envoi && etat.envoi.instant >= avant.fin);
+      }),
+      refaire = changes.length > 0 && etat.jour == SuiviMembres.jour() && etat.fait && !etat.raison;
+    if (!refaire && JSON.stringify(chantier || null) == JSON.stringify(avant || null)) return;
+    if (refaire)
+      Journal.info(
+        JOURNAL_SUIVI,
+        "niveau changé depuis le relevé du jour : relevé à refaire",
+        SuiviMembres._titres(changes),
+      );
+    SuiviMembres._garder({
+      ...etat,
+      ...(refaire ? { fait: false, essais: 0, essai: 0 } : {}),
+      chantier: chantier || undefined,
+    });
   }
   /**
    * Armée complète (garnison et troupes parties), d'après la page Reine.
@@ -231,12 +374,14 @@ class SuiviMembres {
    * @static
    * @method relever
    * @param {Record<String, Boolean>} partages
+   * @param {{chantier?: any} | null} [vu] reçoit la construction suivie en cours,
+   *   si la page Construction est lue dans le jeu
    * @return {Promise<Record<String, Number>>} rejetée si une valeur partagée ne se lit pas
    */
-  static relever(partages) {
+  static relever(partages, vu = null) {
     let utile = (/** @type {Array<String>} */ cles) => cles.some((c) => partages[c]);
     return Promise.all([
-      utile(SUIVI_CONSTRUCTION) ? SuiviMembres._niveauxDe("/construction.php") : null,
+      utile(SUIVI_CONSTRUCTION) ? SuiviMembres._niveauxDe("/construction.php", vu) : null,
       utile(SUIVI_LABORATOIRE) ? SuiviMembres._niveauxDe("/laboratoire.php") : null,
       utile(SUIVI_ARMEE) ? SuiviMembres._armee() : null,
     ]).then(([construction, recherche, unites]) => {
@@ -287,11 +432,12 @@ class SuiviMembres {
   }
   /**
    * Relevé du jour, s'il reste à faire : appelé à chaque page ouverte, il ne
-   * lit et n'envoie quelque chose qu'à la première du jour (ou, après un
-   * échec, à une page ouverte au moins SUIVI_PAUSE_ESSAIS plus tard,
-   * SUIVI_ESSAIS_PAR_JOUR fois au plus). La première fois, le joueur est
-   * prévenu et rien n'est envoyé : l'envoi se fait à la page suivante, ce qui
-   * lui laisse le temps de décocher ce qu'il ne veut pas partager.
+   * lit et n'envoie quelque chose qu'à la première du jour, puis à celle où
+   * observer() a vu un niveau suivi changer (ou, après un échec, à une page
+   * ouverte au moins SUIVI_PAUSE_ESSAIS plus tard, SUIVI_ESSAIS_PAR_JOUR fois
+   * au plus). La première fois, le joueur est prévenu et rien n'est envoyé :
+   * l'envoi se fait à la page suivante, ce qui lui laisse le temps de décocher
+   * ce qu'il ne veut pas partager.
    *
    * @static
    * @method lancer
@@ -304,7 +450,15 @@ class SuiviMembres {
       instant = Horloge.maintenant(),
       etat = SuiviMembres.etat();
     if (etat.jour != jour)
-      etat = { annonce: etat.annonce, envoi: etat.envoi, jour, fait: false, essais: 0, essai: 0 };
+      etat = {
+        annonce: etat.annonce,
+        envoi: etat.envoi,
+        chantier: etat.chantier,
+        jour,
+        fait: false,
+        essais: 0,
+        essai: 0,
+      };
     if (
       !maintenant &&
       (etat.fait ||
@@ -330,15 +484,23 @@ class SuiviMembres {
           SuiviMembres.annoncer(partages);
           return fin("annonce", { annonce: true, essais: 0, essai: 0 });
         }
-        return SuiviMembres.relever(partages)
-          .then((donnees) => SuiviMembres.envoyer(url, jour, donnees, partages))
-          .then(() => {
-            let cles = DONNEES_PARTAGEES.filter((d) => partages[d.cle]).map((d) => d.cle);
+        // avec l'encart Compte+, la page ouverte dit déjà ce qui se construit (observer)
+        /** @type {{chantier?: any} | null} */
+        let vu = $("#ligne_construction").length ? null : {};
+        return SuiviMembres.relever(partages, vu)
+          .then((donnees) => SuiviMembres.envoyer(url, jour, donnees, partages).then(() => donnees))
+          .then((donnees) => {
+            let cles = DONNEES_PARTAGEES.filter((d) => partages[d.cle]).map((d) => d.cle),
+              // ceux qui sont partagés : les autres, absents du relevé, ne sont pas gardés
+              niveaux = Object.fromEntries(
+                Object.keys(SUIVI_NIVEAUX_SUIVIS).map((c) => [c, donnees[c]]),
+              );
             Journal.info(JOURNAL_SUIVI, `relevé du ${jour} envoyé`, cles.join(", ") || "rien");
             return fin("envoyé", {
               annonce: true,
               fait: true,
-              envoi: { instant: Horloge.maintenant(), cles },
+              envoi: { instant: Horloge.maintenant(), cles, niveaux },
+              ...(vu && "chantier" in vu ? { chantier: vu.chantier || undefined } : {}),
             });
           });
       })
@@ -370,12 +532,13 @@ class SuiviMembres {
    */
   static annoncer(partages) {
     let titres = SuiviMembres._titres(
-      DONNEES_PARTAGEES.map((d) => d.cle).filter((c) => partages[c]),
-    );
+        DONNEES_PARTAGEES.map((d) => d.cle).filter((c) => partages[c]),
+      ),
+      suivis = Object.keys(SUIVI_NIVEAUX_SUIVIS).some((c) => partages[c]);
     $.toast({
       ...TOAST_INFO,
       heading: "Partage de données",
-      text: `Une fois par jour, l'extension envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance ${titres ? `tes statistiques : ${titres}` : "le fait que tu ne partages aucune statistique"}. Le premier envoi se fera à ta prochaine page. Tu choisis ce que tu partages dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
+      text: `Une fois par jour, l'extension envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance ${titres ? `tes statistiques : ${titres}` : "le fait que tu ne partages aucune statistique"}.${suivis ? " Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change." : ""} Le premier envoi se fera à ta prochaine page. Tu choisis ce que tu partages dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
       hideAfter: false,
       allowToastClose: true,
     });

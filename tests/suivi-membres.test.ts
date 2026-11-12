@@ -11,6 +11,10 @@ import { classeurSimule } from "./sheet-simule";
  * et envoyées au script du Google Sheet « Stats membres » de l'alliance, dont
  * l'adresse est dans le sujet caché du même nom. Règles s5 : tout part d'une
  * page ouverte par le joueur ; rien de répété ni de minuté.
+ *
+ * 1.107.0 (demande du mainteneur) : le relevé du jour est refait à la première
+ * page ouverte après un changement de niveau de la Champignonnière ou de
+ * l'Étable à pucerons.
  */
 const page = creerPage(
   [
@@ -35,7 +39,7 @@ const attendre = () => new Promise((r) => setTimeout(r, 0));
 const ADRESSE = "https://script.google.com/macros/s/AKfycbInvente123/exec";
 const ligne = (nom: string, niveau: number) =>
   `<tr class="ligneAmelioration"><td><div class="desciption_amelioration"><h2>${nom}</h2><span class="niveau_amelioration">niveau ${niveau}</span></div></td></tr>`;
-const CONSTRUCTION = `<table>${[
+const BATIMENTS: [string, number][] = [
   ["Champignonnière", 17],
   ["Entrepôt de Nourriture", 10],
   ["Entrepôt de Matériaux", 13],
@@ -49,9 +53,23 @@ const CONSTRUCTION = `<table>${[
   ["Loge Impériale", 3],
   ["Etable à pucerons", 2],
   ["Etable à cochenilles", 0],
-]
-  .map(([n, v]) => ligne(String(n), Number(v)))
-  .join("")}</table>`;
+];
+const CONSTRUCTION = `<table>${BATIMENTS.map(([n, v]) => ligne(n, v)).join("")}</table>`;
+// page Construction du jeu : niveaux (ceux de BATIMENTS sauf mention) et
+// construction en cours [nom affiché, secondes restantes]
+const pageConstruction = (niveaux: Record<string, number> = {}, enCours?: [string, number]) =>
+  `<div id="centre">${
+    enCours
+      ? `<strong>- ${enCours[0]} se termine dans : <span id="batiment_3"></span><script type="text/javascript">reste(${enCours[1]}, "batiment_3");</script> - <a href="construction.php?annuler=3&amp;t=1c34">Annuler</a></strong><br/>`
+      : ""
+  }<table>${BATIMENTS.map(([n, v]) => ligne(n, niveaux[n] ?? v)).join("")}</table></div>`;
+// encart Compte+ du jeu, présent sur chaque page : ligne de la construction en cours
+const encart = (nom = "Aucune construction", secondes = 0) =>
+  `<table><tr id="ligne_construction" onclick="document.location.href='construction.php'" class="lien tooltip_compte_plus" title=""> <td><a href="construction.php"><div class="mini_icone_construction"></div></a></td> <td> <a href="construction.php" >${nom}</a></td> <td style="text-align:right;">${
+    secondes
+      ? `<a href="construction.php" id="temps_construction"></a> <script language="JavaScript">$(function() { resteTemps(${secondes},"temps_construction"); });</script>`
+      : ""
+  }<script language="JavaScript">$(function() { $("#ligne_construction").tooltip({ tooltipClass: "warning-tooltip", content:"" }); });</script></td></tr></table>`;
 const LABORATOIRE = `<table>${[
   ["Technique de ponte", 12],
   ["Bouclier Thoracique", 8],
@@ -116,6 +134,12 @@ beforeEach(() => {
     Utils._reine = null; Utils._pageReine = null;
     window.TOASTS = [];
     $.toast = (o) => { TOASTS.push(o); return {}; };
+    // ce que le module note au journal, et ses écritures de l'état
+    window.NOTES = [];
+    Journal.info = (source, message, detail) => NOTES.push([message, detail]);
+    window.ECRITURES = 0;
+    window.GARDER = window.GARDER || SuiviMembres._garder;
+    SuiviMembres._garder = (e) => { ECRITURES++; GARDER(e); };
     window.JEU = { lues: [], pages: { "/construction.php": ${JSON.stringify(CONSTRUCTION)}, "/laboratoire.php": ${JSON.stringify(LABORATOIRE)},
       "/Reine.php": ${JSON.stringify(reine())}, "/Armee.php": ${JSON.stringify(PAGE_ARMEE)} }, pannes: {} };
     $.get = (url) => {
@@ -149,14 +173,30 @@ const annonceVue = () =>
   lire(
     `localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ doggybag: { annonce: true } }))`,
   );
+// comme content.js : observer() avant le module de la page, lancer() après
 const ouvrirPage = async (chemin = "/Armee.php") => {
   lire(
-    `(() => { history.replaceState(null, "", ${JSON.stringify(chemin)}); Utils._reine = null; Utils._pageReine = null; })()`,
+    `(() => { history.replaceState(null, "", ${JSON.stringify(chemin)}); Utils._reine = null; Utils._pageReine = null; SuiviMembres.observer(); })()`,
   );
   const resultat = await lire<Promise<string>>(`SuiviMembres.lancer()`);
   await attendre();
   return resultat;
 };
+// page ouverte avec son contenu (page Construction, encart Compte+)
+const visiter = (chemin: string, html = "") => {
+  lire(`document.body.innerHTML = "<span id='tag_alliance'>OUAF</span>" + ${JSON.stringify(html)}`);
+  return ouvrirPage(chemin);
+};
+// ce que le jeu répond à la lecture de sa page Construction
+const jeuConstruction = (niveaux: Record<string, number> = {}, enCours?: [string, number]) =>
+  lire(`JEU.pages["/construction.php"] = ${JSON.stringify(pageConstruction(niveaux, enCours))}`);
+const envoyes = () =>
+  recus().map((r) => [r.corps.suivi.donnees.puceron, r.corps.suivi.donnees.champignonniere]);
+// lignes du journal « niveau changé… » : une par relevé refait, avec l'information concernée
+const changements = () =>
+  lire<[string, string][]>(`NOTES.slice()`)
+    .filter(([message]) => message.startsWith("niveau changé"))
+    .map(([, detail]) => detail);
 const recus = () => lire<any[]>(`SHEET.recus.slice()`);
 const lues = () => lire<string[]>(`JEU.lues.slice()`);
 const forum = () => lire<string[]>(`FORUM.appels.slice()`);
@@ -261,7 +301,7 @@ describe("annonce avant le premier envoi", () => {
     const annonce = lire<any>(`TOASTS[0]`);
     expect(annonce.hideAfter).toBe(false);
     expect(annonce.text).toContain(
-      "Une fois par jour, l'extension envoie au Google Sheet « Stats membres » de ton alliance tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron et Champignonnière. Le premier envoi se fera à ta prochaine page.",
+      "Une fois par jour, l'extension envoie au Google Sheet « Stats membres » de ton alliance tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron et Champignonnière. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change. Le premier envoi se fera à ta prochaine page.",
     );
     expect(annonce.text).toContain("Préférences → Partage de données");
     // la page suivante, quelques secondes après
@@ -433,6 +473,414 @@ describe("relevé impossible : jamais relancé à chaque page", () => {
   });
 });
 
+describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : relevé refait sans attendre le lendemain", () => {
+  const H = 3600;
+  // relevé du jour parti à 08h03 (Étable 2, Champignonnière 17)
+  const releveDuJour = async (html = "") => {
+    annonceVue();
+    expect(await visiter("/Armee.php", html)).toBe("envoyé");
+  };
+
+  test("page Construction : niveau affiché différent du dernier envoyé → relevé refait sur cette page, lue sur place", async () => {
+    await releveDuJour();
+    expect(etat().envoi.niveaux).toEqual({ champignonniere: 17, puceron: 2 });
+    avancer(180);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "envoyé",
+    );
+    // la page Construction n'est pas relue : elle est ouverte
+    expect(lues().slice(3)).toEqual(["/laboratoire.php", "/Reine.php"]);
+    expect(recus().map((r) => r.corps.suivi.jour)).toEqual(["2026-11-12", "2026-11-12"]);
+    expect(envoyes()).toEqual([
+      [2, 17],
+      [3, 17],
+    ]);
+    expect(etat()).toMatchObject({
+      fait: true,
+      envoi: { niveaux: { champignonniere: 17, puceron: 3 } },
+    });
+    // rouverte : plus rien ; la Champignonnière qui monte ensuite : de nouveau
+    avancer(5);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    avancer(5);
+    expect(
+      await visiter(
+        "/construction.php",
+        pageConstruction({ "Etable à pucerons": 3, Champignonnière: 18 }),
+      ),
+    ).toBe("envoyé");
+    expect(envoyes()[2]).toEqual([3, 18]);
+    expect(changements()).toEqual(["Puceron", "Champignonnière"]);
+  });
+
+  test("niveaux inchangés, autre bâtiment monté, information décochée : rien de refait", async () => {
+    await releveDuJour();
+    avancer(60);
+    expect(await visiter("/construction.php", pageConstruction())).toBe("attente");
+    expect(await visiter("/construction.php", pageConstruction({ Couveuse: 15 }))).toBe("attente");
+    decocher("puceron");
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    expect([recus().length, forum().length]).toEqual([1, 3]);
+    // niveaux affichés ailleurs que sur la page Construction du joueur : jamais comparés
+    expect(await visiter("/Membre.php", pageConstruction({ Champignonnière: 21 }))).toBe("attente");
+    // la Champignonnière reste partagée
+    expect(await visiter("/construction.php", pageConstruction({ Champignonnière: 18 }))).toBe(
+      "envoyé",
+    );
+    expect(recus()[1].corps.suivi.donnees).toMatchObject({ champignonniere: 18 });
+    expect(recus()[1].corps.suivi.donnees.puceron).toBeUndefined();
+  });
+
+  test("relevé du jour pas encore parti (annonce, échec) ou sans sujet : rien de forcé, les essais gardent leur rythme", async () => {
+    // annonce montrée à la première page : l'envoi attend la suivante, comme avant
+    expect(await visiter("/construction.php", pageConstruction())).toBe("annonce");
+    expect(await visiter("/construction.php", pageConstruction())).toBe("envoyé");
+    // le lendemain, forum illisible : essai raté, pas de nouvel essai avant une heure
+    lire(
+      `(() => { heure += 24 * 3600000; PartageChasses.oublierCache(); FORUM.echoue = true; })()`,
+    );
+    expect(await visiter("/Armee.php")).toBe("échec");
+    avancer(20);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    expect(etat()).toMatchObject({ fait: false, essais: 1 });
+    // jour sans sujet « Stats membres » : le forum n'est pas relu
+    lire(
+      `(() => { heure += 24 * 3600000; PartageChasses.oublierCache(); FORUM.echoue = false; FORUM.sujets = []; FORUM.appels = []; })()`,
+    );
+    expect(await visiter("/Armee.php")).toBe("sans sujet");
+    const appels = forum().length;
+    avancer(20);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    expect([recus().length, forum().length]).toEqual([1, appels]);
+  });
+
+  test("relevé du jour interrompu (page quittée pendant les lectures) : le changement de niveau ne le relance pas avant une heure", async () => {
+    lire(
+      `localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ doggybag: { annonce: true, jour: "2026-11-12", fait: false, essais: 1, essai: heure, raison: "", envoi: { instant: heure - 86400000, cles: ["puceron"], niveaux: { puceron: 2 } } } }))`,
+    );
+    avancer(10);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    expect([etat().essais, recus().length, changements()]).toEqual([1, 0, []]);
+    avancer(51);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "envoyé",
+    );
+  });
+
+  test("dernier envoi fait par une version qui ne gardait pas les niveaux : pas de comparaison", async () => {
+    lire(
+      `localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ doggybag: { annonce: true, jour: "2026-11-12", fait: true, essais: 1, essai: heure, raison: "", envoi: { instant: heure, cles: ["puceron", "champignonniere"] } } }))`,
+    );
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    expect(recus()).toEqual([]);
+  });
+
+  test("sans Compte+ : construction vue sur la page Construction, relevé refait à la première page ouverte après sa fin", async () => {
+    await releveDuJour();
+    avancer(10);
+    // 08h13 : l'Étable passe au niveau 3 dans 2 h
+    expect(
+      await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 2 * H])),
+    ).toBe("attente");
+    const fin = lire<number>(`heure`) + 2 * H * 1000;
+    expect(etat().chantier).toEqual({ cle: "puceron", fin });
+    avancer(60);
+    expect(await visiter("/Ressources.php")).toBe("attente");
+    // 10 s après l'heure prévue : pas encore (heure de fin estimée)
+    lire(`heure = ${fin + 10000}`);
+    expect(await visiter("/Armee.php")).toBe("attente");
+    expect(etat().chantier).toEqual({ cle: "puceron", fin });
+    expect([recus().length, lues().length]).toEqual([1, 3]);
+    // 1 min après : la page Construction est relue, le nouveau niveau envoyé
+    jeuConstruction({ "Etable à pucerons": 3 });
+    lire(`heure = ${fin + 60000}`);
+    expect(await visiter("/Armee.php")).toBe("envoyé");
+    expect(lues().slice(3)).toEqual(["/construction.php", "/laboratoire.php", "/Reine.php"]);
+    expect(envoyes()).toEqual([
+      [2, 17],
+      [3, 17],
+    ]);
+    expect(etat().chantier).toBeUndefined();
+    // une seule fois
+    avancer(1);
+    expect(await visiter("/Reine.php")).toBe("attente");
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "attente",
+    );
+    expect(recus()).toHaveLength(2);
+  });
+
+  test("construction annulée avant sa fin : oubliée, rien à l'heure prévue", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Champignonnière 18", 2 * H]));
+    expect(etat().chantier).toMatchObject({ cle: "champignonniere" });
+    avancer(30);
+    expect(await visiter("/construction.php", pageConstruction())).toBe("attente");
+    expect(etat().chantier).toBeUndefined();
+    avancer(120);
+    expect(await visiter("/Armee.php")).toBe("attente");
+    expect(recus()).toHaveLength(1);
+  });
+
+  test("autre construction en cours, message d'erreur du jeu sans chrono : rien de suivi", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Couveuse 15", 2 * H]));
+    expect(etat().chantier).toBeUndefined();
+    await visiter(
+      "/construction.php",
+      `<div id="centre"><strong>- Etable à pucerons : Prerequis non valide.</strong>${CONSTRUCTION}</div>`,
+    );
+    expect(etat().chantier).toBeUndefined();
+  });
+
+  test("page Construction rouverte après la fin : le niveau affiché fait foi (construction annulée ailleurs : rien)", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 2 * H]));
+    avancer(150);
+    expect(await visiter("/construction.php", pageConstruction())).toBe("attente");
+    expect([recus().length, etat().chantier]).toEqual([1, undefined]);
+  });
+
+  test("information décochée : la fin de sa construction ne refait rien", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 2 * H]));
+    decocher("puceron");
+    avancer(150);
+    expect(await visiter("/Armee.php")).toBe("attente");
+    expect([recus().length, etat().chantier]).toEqual([1, undefined]);
+  });
+
+  test("construction lancée ailleurs : vue par le relevé du jour qui lit la page Construction, puis relevé refait après sa fin", async () => {
+    jeuConstruction({}, ["Etable à pucerons 3", 3 * H]);
+    await releveDuJour();
+    const fin = lire<number>(`heure`) + 3 * H * 1000;
+    expect(etat().chantier).toEqual({ cle: "puceron", fin });
+    jeuConstruction({ "Etable à pucerons": 3 });
+    lire(`heure = ${fin + 5 * 60000}`);
+    expect(await visiter("/alliance.php")).toBe("envoyé");
+    expect(envoyes()).toEqual([
+      [2, 17],
+      [3, 17],
+    ]);
+    expect(etat().chantier).toBeUndefined();
+  });
+
+  test("construction finie avant le relevé du lendemain : un seul relevé ce jour-là", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 20 * H]));
+    // le lendemain 07h00, l'Étable est finie depuis 04h03
+    jeuConstruction({ "Etable à pucerons": 3 });
+    lire(`heure = moment("2026-11-13 07:00", "YYYY-MM-DD HH:mm").valueOf()`);
+    expect(await visiter("/Armee.php")).toBe("envoyé");
+    avancer(10);
+    expect(await visiter("/Ressources.php")).toBe("attente");
+    expect(envoyes()).toEqual([
+      [2, 17],
+      [3, 17],
+    ]);
+    // c'est le relevé du jour, pas un relevé refait
+    expect(changements()).toEqual([]);
+  });
+
+  test("construction encore en cours le lendemain : gardée d'un jour à l'autre, relevé refait après sa fin", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 30 * H]));
+    const fin = lire<number>(`heure`) + 30 * H * 1000;
+    // le lendemain 07h00 : relevé du jour, la page Construction lue affiche encore la construction
+    lire(`heure = moment("2026-11-13 07:00", "YYYY-MM-DD HH:mm").valueOf()`);
+    jeuConstruction({}, ["Etable à pucerons 3", (fin - lire<number>(`heure`)) / 1000]);
+    expect(await visiter("/Armee.php")).toBe("envoyé");
+    expect(etat().chantier).toEqual({ cle: "puceron", fin });
+    jeuConstruction({ "Etable à pucerons": 3 });
+    lire(`heure = ${fin + 2 * 60000}`);
+    expect(await visiter("/Armee.php")).toBe("envoyé");
+    expect(envoyes()).toEqual([
+      [2, 17],
+      [2, 17],
+      [3, 17],
+    ]);
+  });
+
+  test("relevé refait qui échoue : repris une heure plus tard, pas à chaque page", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 2 * H]));
+    jeuConstruction({ "Etable à pucerons": 3 });
+    lire(`JEU.pannes["/laboratoire.php"] = true`);
+    avancer(125);
+    expect(await visiter("/Armee.php")).toBe("échec");
+    lire(`JEU.pannes = {}`);
+    avancer(20);
+    expect(await visiter("/Ressources.php")).toBe("attente");
+    avancer(41);
+    expect(await visiter("/Ressources.php")).toBe("envoyé");
+    expect(envoyes()).toEqual([
+      [2, 17],
+      [3, 17],
+    ]);
+    avancer(61);
+    expect(await visiter("/Ressources.php")).toBe("attente");
+  });
+
+  describe("Compte+ : encart du jeu, sur chaque page", () => {
+    test("construction suivie sans passer par la page Construction, relevé refait à la première page ouverte après sa fin", async () => {
+      await releveDuJour(encart());
+      expect(etat().chantier).toBeUndefined();
+      avancer(30);
+      expect(await visiter("/Ressources.php", encart("Champignonnière", 90 * 60))).toBe("attente");
+      const fin = lire<number>(`heure`) + 90 * 60000;
+      expect(etat().chantier).toEqual({ cle: "champignonniere", fin });
+      avancer(60);
+      expect(await visiter("/alliance.php", encart("Champignonnière", 30 * 60))).toBe("attente");
+      expect(etat().chantier).toEqual({ cle: "champignonniere", fin });
+      jeuConstruction({ Champignonnière: 18 });
+      avancer(31);
+      expect(await visiter("/Armee.php", encart())).toBe("envoyé");
+      expect(envoyes()).toEqual([
+        [2, 17],
+        [2, 18],
+      ]);
+      expect(etat().chantier).toBeUndefined();
+      avancer(1);
+      expect(await visiter("/Armee.php", encart())).toBe("attente");
+    });
+
+    test("annulée (l'encart ne l'affiche plus avant l'heure prévue) : oubliée", async () => {
+      await releveDuJour(encart());
+      await visiter("/Ressources.php", encart("Etable à pucerons", 2 * H));
+      avancer(60);
+      expect(await visiter("/Armee.php", encart())).toBe("attente");
+      expect(etat().chantier).toBeUndefined();
+      avancer(90);
+      expect(await visiter("/Armee.php", encart())).toBe("attente");
+      expect(recus()).toHaveLength(1);
+    });
+
+    test("heure de fin estimée : encore affichée à l'heure prévue → pas finie ; plus affichée juste avant → finie", async () => {
+      await releveDuJour(encart());
+      await visiter("/Ressources.php", encart("Etable à pucerons", 2 * H));
+      const fin = lire<number>(`heure`) + 2 * H * 1000;
+      // page ouverte 2 s après l'heure estimée, où le jeu affiche encore 3 s
+      lire(`heure = ${fin + 2000}`);
+      expect(await visiter("/Armee.php", encart("Etable à pucerons", 3))).toBe("attente");
+      expect(etat().chantier).toEqual({ cle: "puceron", fin: fin + 5000 });
+      jeuConstruction({ "Etable à pucerons": 3 });
+      lire(`heure = ${fin + 8000}`);
+      expect(await visiter("/Armee.php", encart())).toBe("envoyé");
+      expect(envoyes()[1]).toEqual([3, 17]);
+      // autre construction, que l'encart n'affiche plus 10 s avant l'heure estimée
+      await visiter("/Ressources.php", encart("Champignonnière", H));
+      jeuConstruction({ "Etable à pucerons": 3, Champignonnière: 18 });
+      lire(`heure += ${H * 1000 - 10000}`);
+      expect(await visiter("/Armee.php", encart())).toBe("envoyé");
+      expect(envoyes()[2]).toEqual([3, 18]);
+    });
+
+    test("file d'attente : la construction suivante est affichée à la fin de la première", async () => {
+      await releveDuJour(encart());
+      await visiter("/Ressources.php", encart("Etable à pucerons", H));
+      // à la fin, l'encart affiche la suite de la file ; il fait foi, pas la page
+      // Construction que lit le relevé
+      jeuConstruction({ "Etable à pucerons": 3 });
+      avancer(61);
+      expect(await visiter("/Armee.php", encart("Champignonnière", 5 * H))).toBe("envoyé");
+      const fin = lire<number>(`heure`) + 5 * H * 1000;
+      expect(etat().chantier).toEqual({ cle: "champignonniere", fin });
+      // puis de nouveau la Champignonnière, pour 6 h : la première est finie
+      jeuConstruction({ "Etable à pucerons": 3, Champignonnière: 18 }, ["Couveuse 15", H]);
+      lire(`heure = ${fin + 60000}`);
+      expect(await visiter("/Armee.php", encart("Champignonnière", 6 * H))).toBe("envoyé");
+      expect(envoyes()).toEqual([
+        [2, 17],
+        [3, 17],
+        [3, 18],
+      ]);
+      expect(etat().chantier).toEqual({ cle: "champignonniere", fin: fin + 60000 + 6 * H * 1000 });
+    });
+
+    test("autre construction ou aucune : rien de suivi, aucun état écrit", async () => {
+      await releveDuJour(encart());
+      lire(`ECRITURES = 0`);
+      await visiter("/Ressources.php", encart("Couveuse", H));
+      await visiter("/Ressources.php", encart());
+      expect([lire(`ECRITURES`), etat().chantier]).toEqual([0, undefined]);
+      // construction suivie : notée une fois, pas réécrite à chaque page
+      await visiter("/Ressources.php", encart("Etable à pucerons", H));
+      await visiter("/Armee.php", encart("Etable à pucerons", H));
+      expect(lire(`ECRITURES`)).toBe(1);
+    });
+
+    test("« Envoyer maintenant » après la fin, sans changer de page : pas de second relevé à la page suivante", async () => {
+      await releveDuJour(encart());
+      await visiter("/Ressources.php", encart("Etable à pucerons", H));
+      jeuConstruction({ "Etable à pucerons": 3 });
+      avancer(70);
+      expect(await lire<Promise<string>>(`SuiviMembres.lancer(true)`)).toBe("envoyé");
+      avancer(1);
+      expect(await visiter("/Armee.php", encart())).toBe("attente");
+      expect([envoyes(), etat().chantier, changements()]).toEqual([
+        [
+          [2, 17],
+          [3, 17],
+        ],
+        undefined,
+        [],
+      ]);
+    });
+
+    test("construction encore en cours le lendemain : gardée par le relevé du jour, relevé refait après sa fin", async () => {
+      await releveDuJour(encart());
+      await visiter("/Ressources.php", encart("Etable à pucerons", 30 * H));
+      const fin = lire<number>(`heure`) + 30 * H * 1000;
+      lire(`heure = moment("2026-11-13 07:00", "YYYY-MM-DD HH:mm").valueOf()`);
+      const reste = (fin - lire<number>(`heure`)) / 1000;
+      expect(await visiter("/Armee.php", encart("Etable à pucerons", reste))).toBe("envoyé");
+      expect(etat().chantier).toEqual({ cle: "puceron", fin });
+      jeuConstruction({ "Etable à pucerons": 3 });
+      lire(`heure = ${fin + 60000}`);
+      expect(await visiter("/Armee.php", encart())).toBe("envoyé");
+      expect(envoyes()[2]).toEqual([3, 17]);
+    });
+  });
+
+  test("règles s5 : observer() ne lit rien dans le jeu ni le forum et n'envoie rien ; il marque seulement le relevé à refaire", async () => {
+    await releveDuJour();
+    await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 2 * H]));
+    avancer(125);
+    const avant = [lues().length, forum().length, recus().length];
+    lire(
+      `(() => { history.replaceState(null, "", "/Armee.php"); document.body.innerHTML = "<span id='tag_alliance'>OUAF</span>"; SuiviMembres.observer(); })()`,
+    );
+    await attendre();
+    expect([lues().length, forum().length, recus().length]).toEqual(avant);
+    expect(etat()).toMatchObject({ fait: false, essais: 0, essai: 0 });
+    // joueur sans alliance : rien n'est suivi
+    lire(
+      `(() => { localStorage.clear(); history.replaceState(null, "", "/construction.php"); document.body.innerHTML = ${JSON.stringify(pageConstruction({}, ["Etable à pucerons 3", 2 * H]))}; SuiviMembres.observer(); })()`,
+    );
+    expect(lire(`localStorage.getItem("fzzz_suiviMembres")`)).toBeNull();
+  });
+
+  test("annonce : le renvoi au changement de niveau n'est dit que si l'un des deux niveaux est partagé", async () => {
+    decocher("puceron", "champignonniere");
+    expect(await visiter("/Armee.php")).toBe("annonce");
+    expect(lire<string>(`TOASTS[0].text`)).toContain(
+      "tes statistiques : TdP, CdF, FdF HB, FdF AB, VA et VC. Le premier envoi se fera à ta prochaine page.",
+    );
+  });
+});
+
 describe("lecture des niveaux et règles s5", () => {
   test("niveaux par nom : accents, apostrophe typographique et espaces tolérés", () => {
     expect(
@@ -454,6 +902,18 @@ describe("lecture des niveaux et règles s5", () => {
       (f) => source(f).match(/SuiviMembres\.lancer\([^)]*\)/g) || [],
     );
     expect(appels).toEqual([["SuiviMembres.lancer()"], ["SuiviMembres.lancer(true)"]]);
+    // observer() : une fois par page, avant le module de la page qui la modifie ; lancer() après
+    const demarrage = source("js/content.js");
+    expect(demarrage.match(/SuiviMembres\.\w+\(/g)).toEqual([
+      "SuiviMembres.observer(",
+      "SuiviMembres.lancer(",
+    ]);
+    expect(demarrage.indexOf("SuiviMembres.observer()")).toBeLessThan(
+      demarrage.indexOf("switch (true)"),
+    );
+    expect(demarrage.indexOf("SuiviMembres.lancer()")).toBeGreaterThan(
+      demarrage.indexOf("PartageChasses.reprendre()"),
+    );
   });
 
   test("les informations du module et du script du fichier sont les mêmes, dans le même ordre", () => {
@@ -521,6 +981,7 @@ describe("Préférences → Partage de données", () => {
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     for (const dit of [
       "Une fois par jour, à la première page que tu ouvres",
+      "Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau.",
       "Google Sheet « Stats membres » de ton alliance, avec ton pseudo et la version de l'extension",
       "sans ce sujet, rien n'est relevé ni envoyé",
       "le fichier indique seulement que tu ne la partages pas",

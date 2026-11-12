@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.107.0",
+    notes: [
+      "Partage de données : quand le niveau de ta Champignonnière ou de ton Étable à pucerons change, tes statistiques sont renvoyées au fichier de l'alliance à la première page que tu ouvres ensuite, sans attendre le lendemain (seulement si tu partages ce niveau ; cases dans Préférences → Partage de données).",
+    ],
+  },
+  {
     version: "1.106.0",
     notes: [
       "Page Armée : le replacement de l'armée passe toujours avant le chargement du bloc « Mes attaques en cours ». Après un flood, le bloc attend la fin du replacement ; si tu cliques sur « Replacer l'armée » pendant qu'il se charge, il se met en pause.",

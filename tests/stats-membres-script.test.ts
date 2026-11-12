@@ -3,11 +3,12 @@ import { classeurSimule, feuille } from "./sheet-simule";
 
 /**
  * Script du Google Sheet « Stats membres » (google-sheet/stats-membres.gs,
- * 1.104.0, demande du mainteneur) : le relevé quotidien d'un joueur va dans
- * « Dernier relevé » (une ligne par joueur) et dans « Suivi » (une ligne par
- * joueur et par jour) ; le fond d'une case dit si le joueur partage cette
- * information (vert) ou a décoché sa case (rouge : la dernière valeur lue y
- * reste, règle du mainteneur ; case vide s'il ne l'a jamais partagée).
+ * 1.104.0, demande du mainteneur) : le relevé d'un joueur va dans sa ligne de
+ * l'onglet « Dernier relevé », une ligne par joueur, sans historique (règle du
+ * mainteneur, 12/11/2026 : un seul onglet, la date dit de quand datent les
+ * valeurs) ; le fond d'une case dit si le joueur partage cette information
+ * (vert) ou a décoché sa case (rouge : la dernière valeur lue y reste, règle
+ * du mainteneur ; case vide s'il ne l'a jamais partagée).
  */
 const VERT = "#d9ead3",
   ROUGE = "#f4cccc";
@@ -42,32 +43,29 @@ const releve = (plus: Record<string, unknown> = {}) => ({
     ...plus,
   },
 });
-// lignes d'un onglet : dates rendues en jours de Paris
-const lignes = (f: ReturnType<typeof fichier>, nom: string) =>
-  f.onglets[nom].grille.map((l: unknown[]) =>
+// lignes de l'onglet : dates rendues en jours de Paris
+const ONGLET = "Dernier relevé";
+const lignes = (f: ReturnType<typeof fichier>) =>
+  f.onglets[ONGLET].grille.map((l: unknown[]) =>
     l.map((v) =>
       v instanceof Date
         ? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(v)
         : v,
     ),
   );
-const fonds = (f: ReturnType<typeof fichier>, nom: string, ligne: number, colonnes: number[]) =>
-  colonnes.map((c) => f.onglets[nom].fonds[`${ligne},${c}`]);
+const fonds = (f: ReturnType<typeof fichier>, ligne: number, colonnes: number[]) =>
+  colonnes.map((c) => f.onglets[ONGLET].fonds[`${ligne},${c}`]);
 
-describe("premier relevé : onglets créés, une ligne dans chacun", () => {
+describe("premier relevé : un seul onglet, une ligne par joueur", () => {
   test("titres, valeurs, version ; la date est celle du jour dans le fuseau du fichier, à minuit", () => {
     const f = fichier();
     expect(f.doPost(releve())).toEqual({ ok: true, nouveau: true, dernier: true });
-    expect(f.ordre).toEqual(["Dernier relevé", "Suivi"]);
-    expect(lignes(f, "Dernier relevé").map((l: unknown[]) => l.slice(0, 11))).toEqual([
+    expect(f.ordre).toEqual([ONGLET]);
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 11))).toEqual([
       ["Joueur", "Date", ...TITRES, "Version"],
       ["DoggyBag", jour(), 38, 250000, 3100000, 5890000, 7, 8, 2, 17, "1.104.0"],
     ]);
-    expect(lignes(f, "Suivi").map((l: unknown[]) => l.slice(0, 11))).toEqual([
-      ["Date", "Joueur", ...TITRES, "Version"],
-      [jour(), "DoggyBag", 38, 250000, 3100000, 5890000, 7, 8, 2, 17, "1.104.0"],
-    ]);
-    const date = f.onglets["Suivi"].grille[1][0] as Date;
+    const date = f.onglets[ONGLET].grille[1][1] as Date;
     expect(
       new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", timeStyle: "short" }).format(
         date,
@@ -78,24 +76,68 @@ describe("premier relevé : onglets créés, une ligne dans chacun", () => {
   test("légende des couleurs à droite des titres ; cases partagées en vert, joueur et date sans couleur", () => {
     const f = fichier();
     f.doPost(releve());
-    for (const nom of ["Dernier relevé", "Suivi"]) {
-      expect(f.onglets[nom].grille[0].slice(12, 14)).toEqual(["partagé", "non partagé"]);
-      expect(fonds(f, nom, 1, [13, 14])).toEqual([VERT, ROUGE]);
-      expect(fonds(f, nom, 2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])).toEqual([
-        undefined,
-        undefined,
-        ...TITRES.map(() => VERT),
-        undefined,
-      ]);
-    }
+    expect(f.onglets[ONGLET].grille[0].slice(12, 14)).toEqual(["partagé", "non partagé"]);
+    expect(fonds(f, 1, [13, 14])).toEqual([VERT, ROUGE]);
+    expect(fonds(f, 2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])).toEqual([
+      undefined,
+      undefined,
+      ...TITRES.map(() => VERT),
+      undefined,
+    ]);
   });
 
-  test("adresse ouverte dans le navigateur : version du script, onglets créés", () => {
+  test("adresse ouverte dans le navigateur : version du script, onglet créé", () => {
     const f = fichier();
     expect(f.doGet()).toMatchObject({ ok: true, suivi: true });
     expect(String(f.doGet().version)).toMatch(/^stats-membres \d{4}-\d{2}-\d{2}\.\d+$/);
-    expect(f.ordre).toEqual(["Dernier relevé", "Suivi"]);
-    expect(f.onglets["Suivi"].grille).toHaveLength(1);
+    expect(f.ordre).toEqual([ONGLET]);
+    expect(f.onglets[ONGLET].grille).toHaveLength(1);
+  });
+
+  test("fichier qui a déjà d'autres onglets : celui des relevés est créé en premier", () => {
+    const f = fichier({ "Feuille 1": feuille("Feuille 1") });
+    f.doPost(releve());
+    expect(f.ordre).toEqual([ONGLET, "Feuille 1"]);
+    expect(f.onglets["Feuille 1"].grille).toEqual([]);
+  });
+
+  test("pas d'historique : les relevés de plusieurs jours tiennent dans la ligne du joueur, dont la date suit", () => {
+    const f = fichier();
+    f.doPost(releve({ jour: jour(-1) }));
+    f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 } }));
+    f.doPost(releve({ jour: jour(1), donnees: { ...DONNEES, tdp: 40 } }));
+    expect(f.ordre).toEqual([ONGLET]);
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 3))).toEqual([
+      ["Joueur", "Date", "TdP"],
+      ["DoggyBag", jour(1), 40],
+    ]);
+  });
+
+  test("onglet « Suivi » créé par une version précédente du script : ni écrit, ni supprimé", () => {
+    const ancien = [
+      ["Date", "Joueur", "TdP"],
+      ["11/11/2026", "DoggyBag", 37],
+    ];
+    const f = fichier({
+      "Dernier relevé": feuille("Dernier relevé", [
+        ["Joueur", "Date", "TdP"],
+        ["DoggyBag", jour(-1).split("-").reverse().join("/"), 37],
+      ]),
+      Suivi: feuille(
+        "Suivi",
+        ancien.map((l) => [...l]),
+      ),
+    });
+    f.doGet();
+    f.doPost(releve());
+    f.doPost(releve({ joueur: "Lassie" }));
+    expect(f.ordre).toEqual([ONGLET, "Suivi"]);
+    expect(f.onglets["Suivi"].grille).toEqual(ancien);
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 3))).toEqual([
+      ["Joueur", "Date", "TdP"],
+      ["DoggyBag", jour(), 38],
+      ["Lassie", jour(), 38],
+    ]);
   });
 });
 
@@ -108,259 +150,167 @@ describe("information décochée par le joueur", () => {
         partages: { ...TOUT, fdfAB: false, puceron: false },
       }),
     );
-    for (const nom of ["Dernier relevé", "Suivi"]) {
-      expect(lignes(f, nom)[1].slice(2, 10)).toEqual([38, 250000, 3100000, "", 7, 8, "", 17]);
-      expect(fonds(f, nom, 2, [3, 4, 5, 6, 7, 8, 9, 10])).toEqual([
-        VERT,
-        VERT,
-        VERT,
-        ROUGE,
-        VERT,
-        VERT,
-        ROUGE,
-        VERT,
-      ]);
-    }
+    expect(lignes(f)[1].slice(2, 10)).toEqual([38, 250000, 3100000, "", 7, 8, "", 17]);
+    expect(fonds(f, 2, [3, 4, 5, 6, 7, 8, 9, 10])).toEqual([
+      VERT,
+      VERT,
+      VERT,
+      ROUGE,
+      VERT,
+      VERT,
+      ROUGE,
+      VERT,
+    ]);
   });
 
-  test("décochée après un relevé du jour : la dernière valeur lue reste, sur fond rouge, dans les deux onglets", () => {
+  test("décochée après un relevé : la dernière valeur lue reste, sur fond rouge ; le reste est mis à jour", () => {
     const f = fichier();
     f.doPost(releve());
-    // la valeur envoyée malgré la case décochée n'est pas écrite ; le reste est mis à jour
+    // la valeur envoyée malgré la case décochée n'est pas écrite
     f.doPost(
       releve({
         donnees: { ...DONNEES, tdp: 39, fdfAB: 999 },
         partages: { ...TOUT, fdfAB: false, puceron: false },
       }),
     );
-    for (const nom of ["Dernier relevé", "Suivi"]) {
-      expect(lignes(f, nom)).toHaveLength(2);
-      expect(lignes(f, nom)[1].slice(2, 10)).toEqual([39, 250000, 3100000, 5890000, 7, 8, 2, 17]);
-      expect(fonds(f, nom, 2, [3, 6, 9, 10])).toEqual([VERT, ROUGE, ROUGE, VERT]);
-    }
+    expect(lignes(f)).toHaveLength(2);
+    expect(lignes(f)[1].slice(2, 10)).toEqual([39, 250000, 3100000, 5890000, 7, 8, 2, 17]);
+    expect(fonds(f, 2, [3, 6, 9, 10])).toEqual([VERT, ROUGE, ROUGE, VERT]);
   });
 
-  test("toujours décochée les jours suivants : la dernière valeur lue suit dans « Suivi », en rouge", () => {
+  test("toujours décochée les jours suivants : la dernière valeur lue reste dans la ligne du joueur, en rouge", () => {
     const f = fichier();
     f.doPost(releve({ jour: jour(-1) }));
     f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 }, partages: { ...TOUT, cdf: false } }));
     f.doPost(
       releve({ jour: jour(1), donnees: { tdp: 40 }, partages: { ...TOUT, cdf: false, va: false } }),
     );
-    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[2], l[3], l[6]])).toEqual([
-      ["Date", "TdP", "CdF", "VA"],
-      [jour(-1), 38, 250000, 7],
-      [jour(), 39, 250000, 7],
-      [jour(1), 40, 250000, 7],
-    ]);
-    expect([2, 3, 4].map((l) => fonds(f, "Suivi", l, [4, 7]))).toEqual([
-      [VERT, VERT],
-      [ROUGE, VERT],
-      [ROUGE, ROUGE],
-    ]);
-    expect(lignes(f, "Dernier relevé")[1].slice(1, 7)).toEqual([jour(1), 40, 250000, "", "", 7]);
-    expect(fonds(f, "Dernier relevé", 2, [3, 4, 5, 7])).toEqual([VERT, ROUGE, null, ROUGE]);
-  });
-
-  test("relevé de la veille reçu après celui du jour : sa case non partagée prend la valeur lue avant la veille", () => {
-    const f = fichier();
-    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 6 } }));
-    f.doPost(releve({ jour: jour(1), donnees: { ...DONNEES, va: 8 } }));
-    f.doPost(releve({ partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
-      ["Date", "VA"],
-      [jour(-1), 6],
-      [jour(1), 8],
-      [jour(), 6],
-    ]);
-    // « Dernier relevé » garde le plus récent, partagé
-    expect(
-      lignes(f, "Dernier relevé")[1].slice(1, 2).concat(lignes(f, "Dernier relevé")[1][6]),
-    ).toEqual([jour(1), 8]);
-    expect(fonds(f, "Dernier relevé", 2, [7])).toEqual([VERT]);
-  });
-
-  test("lignes triées à la main (la plus récente en premier) : c'est bien la valeur du relevé le plus récent qui est reprise", () => {
-    const f = fichier();
-    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 5 } }));
-    f.doPost(releve());
-    const grille = f.onglets["Suivi"].grille;
-    [grille[1], grille[2]] = [grille[2], grille[1]];
-    f.doPost(releve({ jour: jour(1), partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
-      ["Date", "VA"],
-      [jour(), 7],
-      [jour(-1), 5],
-      [jour(1), 7],
-    ]);
-  });
-
-  test("relevé précédent sans cette valeur (page illisible ce jour-là) : la valeur lue avant lui est reprise", () => {
-    const f = fichier();
-    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 5 } }));
-    f.doPost(releve({ donnees: { ...DONNEES, va: undefined } }));
-    f.doPost(releve({ jour: jour(1), partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
-      ["Date", "VA"],
-      [jour(-1), 5],
-      [jour(), ""],
-      [jour(1), 5],
-    ]);
-  });
-
-  test("ligne du jour sans cette valeur, placée avant celle de la veille : la valeur de la veille est reprise", () => {
-    const f = fichier();
-    f.doPost(releve({ jour: jour(-1), donnees: { ...DONNEES, va: 5 } }));
-    f.doPost(releve({ donnees: { ...DONNEES, va: undefined } }));
-    const grille = f.onglets["Suivi"].grille;
-    [grille[1], grille[2]] = [grille[2], grille[1]];
-    f.doPost(releve({ partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi").map((l: unknown[]) => [l[0], l[6]])).toEqual([
-      ["Date", "VA"],
-      [jour(), 5],
-      [jour(-1), 5],
-    ]);
-  });
-
-  test("ligne du jour en double (copiée à la main) : la première est remplacée, l'autre n'est pas touchée", () => {
-    const f = fichier();
-    f.doPost(releve());
-    const grille = f.onglets["Suivi"].grille;
-    grille.push([...grille[1]]);
-    grille[2][2] = 1;
-    f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 }, partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi").map((l: unknown[]) => l[2])).toEqual(["TdP", 39, 1]);
-  });
-
-  test("« Suivi » vidé à la main : la valeur de « Dernier relevé » est reprise", () => {
-    const f = fichier();
-    f.doPost(releve({ jour: jour(-1) }));
-    f.onglets["Suivi"].grille.length = 1;
-    f.doPost(releve({ partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi")[1].slice(0, 2).concat(lignes(f, "Suivi")[1][6])).toEqual([
-      jour(),
-      "DoggyBag",
-      7,
-    ]);
-    expect(fonds(f, "Suivi", 2, [7])).toEqual([ROUGE]);
+    expect(lignes(f)).toHaveLength(2);
+    // FdF HB et FdF AB : partagées mais non lues ce jour-là, vides et sans couleur
+    expect(lignes(f)[1].slice(1, 7)).toEqual([jour(1), 40, 250000, "", "", 7]);
+    expect(fonds(f, 2, [3, 4, 5, 7])).toEqual([VERT, ROUGE, null, ROUGE]);
   });
 
   test("valeur d'un autre joueur, ou case vidée à la main : rien n'est repris", () => {
     const f = fichier();
-    f.doPost(releve({ joueur: "Lassie", jour: jour(-1) }));
-    f.doPost(releve({ jour: jour(-1) }));
-    f.onglets["Suivi"].grille[2][6] = "";
-    f.onglets["Dernier relevé"].grille[2][6] = "";
+    f.doPost(releve({ joueur: "Lassie" }));
     f.doPost(releve({ partages: { ...TOUT, va: false } }));
-    expect(lignes(f, "Suivi")[3].slice(0, 7)).toEqual([
-      jour(),
+    expect([lignes(f)[2][0], lignes(f)[2][6]]).toEqual(["DoggyBag", ""]);
+    f.doPost(releve());
+    f.onglets[ONGLET].grille[2][6] = "";
+    f.doPost(releve({ partages: { ...TOUT, va: false } }));
+    expect(lignes(f)[2].slice(0, 7)).toEqual([
       "DoggyBag",
+      jour(),
       38,
       250000,
       3100000,
       5890000,
       "",
     ]);
-    expect(fonds(f, "Suivi", 4, [7])).toEqual([ROUGE]);
+    expect(fonds(f, 3, [7])).toEqual([ROUGE]);
+    // la ligne de l'autre joueur n'a pas bougé
+    expect([lignes(f)[1][0], lignes(f)[1][6]]).toEqual(["Lassie", 7]);
   });
 
   test("dernière valeur tapée à la main comme une formule : réécrite comme du texte", () => {
     const f = fichier();
     f.doPost(releve());
-    f.onglets["Dernier relevé"].grille[1][6] = "=1+1";
-    f.onglets["Suivi"].grille[1][6] = "=1+1";
+    f.onglets[ONGLET].grille[1][6] = "=1+1";
     f.doPost(releve({ partages: { ...TOUT, va: false } }));
-    expect([lignes(f, "Dernier relevé")[1][6], lignes(f, "Suivi")[1][6]]).toEqual([
-      "'=1+1",
-      "'=1+1",
-    ]);
+    expect(lignes(f)[1][6]).toBe("'=1+1");
   });
 
   test("tout décoché dès le premier relevé : la ligne du joueur existe, tout en rouge, sans aucune valeur", () => {
     const f = fichier();
     f.doPost(releve({ donnees: {}, partages: Object.fromEntries(CLES.map((c) => [c, false])) }));
-    expect(lignes(f, "Dernier relevé")[1].slice(0, 11)).toEqual([
+    expect(lignes(f)[1].slice(0, 11)).toEqual([
       "DoggyBag",
       jour(),
       ...TITRES.map(() => ""),
       "1.104.0",
     ]);
-    expect(fonds(f, "Dernier relevé", 2, [3, 10])).toEqual([ROUGE, ROUGE]);
+    expect(fonds(f, 2, [3, 10])).toEqual([ROUGE, ROUGE]);
   });
 
-  test("recochée le lendemain : la case redevient verte ; valeur partagée mais illisible ce jour-là : sans couleur", () => {
-    const f = fichier();
-    f.doPost(releve({ jour: jour(-1), partages: { ...TOUT, va: false } }));
-    f.doPost(releve({ donnees: { ...DONNEES, cdf: undefined } }));
-    expect(lignes(f, "Dernier relevé")[1].slice(2, 7)).toEqual([38, "", 3100000, 5890000, 7]);
-    expect(fonds(f, "Dernier relevé", 2, [3, 4, 7])).toEqual([VERT, null, VERT]);
-    // l'historique garde le jour d'avant tel quel
-    expect(fonds(f, "Suivi", 2, [7])).toEqual([ROUGE]);
-  });
-
-  test("recochée après avoir été décochée : la nouvelle valeur remplace l'ancienne, en vert", () => {
+  test("recochée : la nouvelle valeur remplace l'ancienne, en vert ; valeur partagée mais illisible ce jour-là : sans couleur", () => {
     const f = fichier();
     f.doPost(releve({ jour: jour(-1) }));
     f.doPost(releve({ partages: { ...TOUT, va: false } }));
-    f.doPost(releve({ donnees: { ...DONNEES, va: 9 } }));
-    for (const nom of ["Dernier relevé", "Suivi"]) {
-      const derniere = lignes(f, nom).length;
-      expect(lignes(f, nom)[derniere - 1][6]).toBe(9);
-      expect(fonds(f, nom, derniere, [7])).toEqual([VERT]);
-    }
+    expect([lignes(f)[1][6], fonds(f, 2, [7])]).toEqual([7, [ROUGE]]);
+    f.doPost(releve({ donnees: { ...DONNEES, va: 9, cdf: undefined } }));
+    expect(lignes(f)[1].slice(2, 7)).toEqual([38, "", 3100000, 5890000, 9]);
+    expect(fonds(f, 2, [3, 4, 7])).toEqual([VERT, null, VERT]);
   });
 });
 
-describe("une ligne par joueur et par jour", () => {
-  test("même joueur, même jour (autre appareil) : sa ligne du jour est remplacée, pseudo comparé sans la casse", () => {
+describe("une ligne par joueur", () => {
+  test("même joueur, autre appareil ou autre jour : sa ligne est remplacée, pseudo comparé sans la casse", () => {
     const f = fichier();
-    f.doPost(releve());
+    f.doPost(releve({ jour: jour(-1) }));
     expect(f.doPost(releve({ joueur: "doggybag", donnees: { ...DONNEES, tdp: 39 } }))).toEqual({
       ok: true,
       nouveau: false,
       dernier: true,
     });
-    expect(lignes(f, "Suivi")).toHaveLength(2);
-    expect(lignes(f, "Suivi")[1].slice(1, 3)).toEqual(["doggybag", 39]);
-    expect(lignes(f, "Dernier relevé")).toHaveLength(2);
+    expect(lignes(f)).toHaveLength(2);
+    expect(lignes(f)[1].slice(0, 3)).toEqual(["doggybag", jour(), 39]);
+    // même jour, de nouveau
+    f.doPost(releve({ donnees: { ...DONNEES, tdp: 40 } }));
+    expect(lignes(f).map((l: unknown[]) => l[2])).toEqual(["TdP", 40]);
   });
 
-  test("jours et joueurs différents : « Suivi » s'allonge, « Dernier relevé » garde une ligne par joueur", () => {
+  test("joueurs différents : une ligne chacun, dans l'ordre d'arrivée", () => {
     const f = fichier();
     f.doPost(releve({ jour: jour(-1) }));
-    f.doPost(releve({ joueur: "Lassie", donnees: { ...DONNEES, tdp: 20 } }));
+    expect(f.doPost(releve({ joueur: "Lassie", donnees: { ...DONNEES, tdp: 20 } }))).toEqual({
+      ok: true,
+      nouveau: true,
+      dernier: true,
+    });
     f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 } }));
-    expect(lignes(f, "Suivi").map((l: unknown[]) => l.slice(0, 3))).toEqual([
-      ["Date", "Joueur", "TdP"],
-      [jour(-1), "DoggyBag", 38],
-      [jour(), "Lassie", 20],
-      [jour(), "DoggyBag", 39],
-    ]);
-    expect(lignes(f, "Dernier relevé").map((l: unknown[]) => l.slice(0, 3))).toEqual([
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 3))).toEqual([
       ["Joueur", "Date", "TdP"],
       ["DoggyBag", jour(), 39],
       ["Lassie", jour(), 20],
     ]);
   });
 
-  test("relevé plus ancien que celui de « Dernier relevé » : ajouté au suivi, sans remplacer le plus récent", () => {
+  test("relevé plus ancien que celui de la ligne du joueur : rien n'est écrit", () => {
     const f = fichier();
     f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 } }));
-    expect(f.doPost(releve({ jour: jour(-1) }))).toEqual({
+    const avant = JSON.stringify([lignes(f), f.onglets[ONGLET].fonds]);
+    expect(
+      f.doPost(releve({ jour: jour(-1), partages: { ...TOUT, va: false }, version: "1.0.0" })),
+    ).toEqual({
       ok: true,
-      nouveau: true,
+      nouveau: false,
       dernier: false,
     });
-    expect(lignes(f, "Dernier relevé")[1].slice(1, 3)).toEqual([jour(), 39]);
-    expect(lignes(f, "Suivi")).toHaveLength(3);
+    expect(JSON.stringify([lignes(f), f.onglets[ONGLET].fonds])).toBe(avant);
   });
 
-  test("suivi plus long que l'onglet : des lignes sont ajoutées", () => {
-    const f = fichier({ Suivi: feuille("Suivi", [["Date", "Joueur"]], 2) });
-    f.doPost(releve({ jour: jour(-1) }));
+  test("ligne du joueur en double (copiée à la main) : la première est remplacée, l'autre n'est pas touchée", () => {
+    const f = fichier();
     f.doPost(releve());
-    expect(lignes(f, "Suivi")).toHaveLength(3);
-    expect(f.onglets["Suivi"].getMaxRows()).toBe(3);
+    const grille = f.onglets[ONGLET].grille;
+    grille.push([...grille[1]]);
+    grille[2][2] = 1;
+    f.doPost(releve({ donnees: { ...DONNEES, tdp: 39 }, partages: { ...TOUT, va: false } }));
+    expect(lignes(f).map((l: unknown[]) => [l[2], l[6]])).toEqual([
+      ["TdP", "VA"],
+      [39, 7],
+      [1, 7],
+    ]);
+    expect([fonds(f, 2, [7]), fonds(f, 3, [7])]).toEqual([[ROUGE], [undefined]]);
+  });
+
+  test("plus de joueurs que de lignes dans l'onglet : des lignes sont ajoutées", () => {
+    const f = fichier({ "Dernier relevé": feuille("Dernier relevé", [["Joueur", "Date"]], 2) });
+    f.doPost(releve());
+    f.doPost(releve({ joueur: "Lassie" }));
+    expect(lignes(f)).toHaveLength(3);
+    expect(f.onglets[ONGLET].getMaxRows()).toBe(3);
   });
 });
 
@@ -377,7 +327,7 @@ describe("fichier modifié à la main", () => {
     f.onglets["Dernier relevé"].fonds["3,1"] = "#ffff00";
     f.onglets["Dernier relevé"].fonds["3,4"] = "#00ffff";
     f.doPost(releve());
-    const [titres, lassie, moi] = lignes(f, "Dernier relevé");
+    const [titres, lassie, moi] = lignes(f);
     // titres manquants ajoutés au bout
     expect(titres).toEqual([
       "Note",
@@ -391,7 +341,7 @@ describe("fichier modifié à la main", () => {
     expect(lassie).toEqual(["chef", "", 1, "Lassie", "01/11/2026"]);
     expect(moi.slice(0, 7)).toEqual(["à relancer", "x", 38, "DoggyBag", jour(), 250000, 3100000]);
     // seules les cases des informations sont colorées
-    expect(fonds(f, "Dernier relevé", 3, [1, 2, 3, 4, 5, 6])).toEqual([
+    expect(fonds(f, 3, [1, 2, 3, 4, 5, 6])).toEqual([
       "#ffff00",
       undefined,
       VERT,
@@ -399,14 +349,14 @@ describe("fichier modifié à la main", () => {
       undefined,
       VERT,
     ]);
-    expect(lignes(f, "Dernier relevé")).toHaveLength(3);
+    expect(lignes(f)).toHaveLength(3);
   });
 
   test("pseudo qui commencerait une formule : écrit comme du texte, retrouvé ensuite", () => {
     const f = fichier();
     f.doPost(releve({ joueur: "-Alpha-" }));
     f.doPost(releve({ joueur: "-Alpha-", donnees: { ...DONNEES, tdp: 40 } }));
-    expect(lignes(f, "Dernier relevé").map((l: unknown[]) => l.slice(0, 3))).toEqual([
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 3))).toEqual([
       ["Joueur", "Date", "TdP"],
       ["'-Alpha-", jour(), 40],
     ]);

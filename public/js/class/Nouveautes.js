@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.108.0",
+    notes: [
+      "Page d'attaque : la liste déroulante du lieu visé prend la couleur du lieu choisi, comme les boutons (vert terrain, orange dôme, rouge loge), et ses choix sont colorés aussi. Sur téléphone, seule la liste fermée est colorée : la fenêtre de choix est celle du téléphone. Case dans Préférences → Attaque.",
+    ],
+  },
+  {
     version: "1.107.0",
     notes: [
       "Partage de données : quand le niveau de ta Champignonnière ou de ton Étable à pucerons change, tes statistiques sont renvoyées au fichier de l'alliance à la première page que tu ouvres ensuite, sans attendre le lendemain (seulement si tu partages ce niveau ; cases dans Préférences → Partage de données).",

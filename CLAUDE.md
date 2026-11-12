@@ -261,7 +261,7 @@ Trois skills sont versionnés dans `.claude/skills/` et s'auto-chargent quand pe
 - **`ui-primitives`** — inventaire des classes CSS et patterns réutilisables (tableaux, boutons, jQuery UI widgets, toasts, données globales `monProfil`/`Utils`/`Joueur.rechercher`). À consulter avant d'écrire du HTML/CSS dans une Boite ou une Page — la plupart des choses qu'on serait tenté d'ajouter existent déjà.
 - **`release-notes`** — format et méthodologie pour rédiger les release notes Toolzzz (audience joueurs FR, pas devs). Structure 3 sections (Nouveautés / Corrections / Sous le capot), template footer avec liens stores. À consulter avant `gh release create` ou `gh release edit`.
 
-Le dossier `docs/` est gitignored (workspace personnel d'exploration : HAR, scenario reports). Tout ce qui a une valeur durable est promu en skill ou intégré ici.
+Le dossier `docs/` est gitignored (workspace personnel d'exploration : HAR, scenario reports), sauf ses fichiers `.md` à la racine (`docs/conformite.md`, `docs/observations-s5.md`…), qui sont suivis : les tenir à jour avec le code. Tout ce qui a une valeur durable est promu en skill ou intégré ici.
 
 ## AI-assisted work on WXT
 

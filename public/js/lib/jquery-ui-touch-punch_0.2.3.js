@@ -45,7 +45,11 @@
       simulatedType,    // type
       true,             // bubbles                    
       true,             // cancelable                 
-      window,           // view                       
+      // Fzzz : pas `window`. Dans un script utilisateur c'est l'enveloppe du
+      // gestionnaire de scripts, que le navigateur refuse comme vue (Firefox :
+      // « Argument 4 does not implement interface Window »), et le toucher
+      // d'un curseur ne faisait plus rien.
+      document.defaultView, // view
       1,                // detail                     
       touch.screenX,    // screenX                    
       touch.screenY,    // screenY                    

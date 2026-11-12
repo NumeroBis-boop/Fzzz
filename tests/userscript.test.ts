@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
 import { entete, fichiersManifeste, globales, scriptsDePages, TEST } from "../scripts/userscript";
+import { creerPage } from "./harnais";
 
 const RACINE = join(import.meta.dir, "..");
 const config = readFileSync(join(RACINE, "wxt.config.ts"), "utf8");
@@ -286,6 +287,58 @@ describe("export des RC : script du Google Sheet de l'alliance", () => {
     expect(
       await chrome.runtime.sendMessage({ type: "fzzz_sheet", url: URL_SCRIPT, methode: "GET" }),
     ).toEqual({ erreur: "reseau" });
+  });
+});
+
+describe("bac à sable du gestionnaire de scripts : `window` n'y est pas la fenêtre de la page", () => {
+  // journal du mainteneur, 12/11/2026, Firefox Android + Violentmonkey : « MouseEvent.initMouseEvent:
+  // Argument 4 does not implement interface Window », 32 fois, en touchant un curseur
+  test("curseur touché du doigt : l'événement de souris simulé a pour vue la vraie fenêtre, pas l'enveloppe du script", () => {
+    const page = creerPage(["js/lib/jquery-ui_1.12.1.js"], "document.ontouchend = null;");
+    // la bibliothèque tactile chargée comme dans un script utilisateur : son `window` est une enveloppe
+    const source = readFileSync(
+      join(import.meta.dir, "..", "public", "js/lib/jquery-ui-touch-punch_0.2.3.js"),
+      "utf8",
+    );
+    page.lire(`(function (window) { ${source} })(Object.create(null))`);
+    const vues = page.lire<boolean[]>(`(() => {
+      let vues = [], creer = document.createEvent.bind(document);
+      document.createEvent = (type) => {
+        let e = new Event("mousedown", { bubbles: true });
+        e.initMouseEvent = (...a) => vues.push(a[3] === document.defaultView);
+        return e;
+      };
+      document.body.innerHTML = "<div id='curseur'></div>";
+      $("#curseur").slider({ min: 0, max: 100 });
+      let touche = { screenX: 5, screenY: 5, clientX: 5, clientY: 5, pageX: 5, pageY: 5 };
+      for (let type of ["touchstart", "touchmove", "touchend"])
+        $("#curseur").trigger($.Event(type, { originalEvent: { touches: [touche], changedTouches: [touche], preventDefault() {} } }));
+      document.createEvent = creer;
+      return vues;
+    })()`);
+    expect(vues.length).toBeGreaterThan(0);
+    expect(vues.every((v) => v)).toBe(true);
+  });
+
+  test("aucun script ne donne `window` comme vue d'un événement qu'il fabrique", () => {
+    const dossier = join(import.meta.dir, "..", "public", "js");
+    const fichiers = (d: string): string[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((f) =>
+        f.isDirectory()
+          ? fichiers(join(d, f.name))
+          : f.name.endsWith(".js")
+            ? [join(d, f.name)]
+            : [],
+      );
+    const fautifs = [
+      ...fichiers(dossier),
+      join(import.meta.dir, "..", "userscript", "shim.js"),
+    ].filter((f) =>
+      /init(Mouse|UI|Keyboard)Event\((?:[^()]|\([^()]*\))*\bwindow\b|\bview\s*:\s*window\b/.test(
+        readFileSync(f, "utf8").replace(/\/\/[^\n]*/g, ""),
+      ),
+    );
+    expect(fautifs).toEqual([]);
   });
 });
 

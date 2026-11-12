@@ -17,11 +17,12 @@ const CLE_RAPPEL_EXPORT_MASQUE = "fzzz_rappelExportMasque";
 const MINUTES_MASQUAGE_RAPPEL = 60;
 
 /**
- * Rappel « Export des chasses à faire » pour le rôle Chasseur : un bandeau
- * sous le menu à partir du mercredi et du dimanche 22h, jusqu'à l'export des
- * chasses (bouton de la messagerie), sauf export dans les 24 h d'avant. Aucune
- * requête au jeu : le joueur ouvre la messagerie et clique (règlement du s5 :
- * pas d'export sans son clic).
+ * Rendez-vous d'export des chasses du rôle Chasseur, le mercredi et le
+ * dimanche à 22h, sauf export dans les 24 h d'avant. L'export automatique
+ * (ExportAuto) s'en charge à la première page ouverte ensuite ; le rappel
+ * « Export des chasses à faire », un bandeau sous le menu sans aucune requête
+ * au jeu, ne reste que s'il ne peut pas le faire : case décochée, ou essai en
+ * échec. Le joueur ouvre alors la messagerie et clique.
  *
  * @class RappelExport
  */
@@ -54,24 +55,59 @@ class RappelExport {
    * @return {Boolean}
    */
   static aRappeler() {
-    let role = monProfil.parametre && monProfil.parametre["role"];
-    if (!role || parseInt(role.valeur) != ROLE_CHASSEUR) return false;
+    if (!RappelExport.chasseur()) return false;
     if (!Utils.affichage("rappelExport")) return false;
     // sans le bouton « Exporter mes chasses » de la messagerie, rien à rappeler
     if (Utils.origine("Messagerie") || !Utils.affichage("messagerieExport")) return false;
-    let lire = (cle) => {
-        try {
-          return Number(localStorage.getItem(cle)) || 0;
-        } catch (e) {
-          return 0;
-        }
-      },
-      rdv = RappelExport.dernier(Horloge.serveur());
+    let rdv = RappelExport.rendezVousDu();
     return (
       !!rdv &&
-      lire(CLE_EXPORT_CHASSES_FAIT) < rdv.valueOf() - HEURES_EXPORT_AVANT_RDV * 3600000 &&
-      lire(CLE_RAPPEL_EXPORT_MASQUE) < Horloge.maintenant()
+      !(typeof ExportAuto != "undefined" && ExportAuto.enCharge(rdv)) &&
+      RappelExport._lire(CLE_RAPPEL_EXPORT_MASQUE) < Horloge.maintenant()
     );
+  }
+  /**
+   * @static
+   * @method chasseur
+   * @return {Boolean} rôle « Chasseur » choisi dans les Préférences
+   */
+  static chasseur() {
+    let role = monProfil.parametre && monProfil.parametre["role"];
+    return !!role && parseInt(role.valeur) == ROLE_CHASSEUR;
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} cle
+   * @return {Number} instant gardé (ms), 0 sans
+   */
+  static _lire(cle) {
+    try {
+      return Number(localStorage.getItem(cle)) || 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+  /**
+   * @static
+   * @method exportFait
+   * @return {Number} dernier export des chasses mené au bout dans ce navigateur (ms), 0 sans
+   */
+  static exportFait() {
+    return RappelExport._lire(CLE_EXPORT_CHASSES_FAIT);
+  }
+  /**
+   * Rendez-vous passé dont l'export reste à faire.
+   *
+   * @static
+   * @method rendezVousDu
+   * @return {Number} son instant (ms, heure du serveur), 0 si l'export est à jour
+   */
+  static rendezVousDu() {
+    let rdv = RappelExport.dernier(Horloge.serveur());
+    return rdv && RappelExport.exportFait() < rdv.valueOf() - HEURES_EXPORT_AVANT_RDV * 3600000
+      ? rdv.valueOf()
+      : 0;
   }
   /**
    * Export des chasses mené au bout : plus de rappel avant le rendez-vous suivant.

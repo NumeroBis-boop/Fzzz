@@ -1008,7 +1008,9 @@ describe("Préférences → Partage de données", () => {
       "js/class/Armee.js",
       "js/class/UnitesGardees.js",
       "js/page/PartageChasses.js",
+      "js/class/RappelExport.js",
       "js/class/SuiviMembres.js",
+      "js/class/ExportAuto.js",
       "js/boite/Boite.js",
       "js/boite/Parametres.js",
     ],
@@ -1039,7 +1041,7 @@ describe("Préférences → Partage de données", () => {
     expect(cases()).toEqual(CLES.map((c) => [c, true]));
     expect(
       preferences.lire<string[]>(
-        `$("#o_tabsParametrePartage label.o_affichageFzzz").map((i, l) => l.textContent.trim()).get()`,
+        `$("#o_tabsParametrePartage label.o_affichageFzzz:has(input[data-partage])").map((i, l) => l.textContent.trim()).get()`,
       ),
     ).toEqual([
       "TdP : Couveuse + Solarium + Technique de ponte",
@@ -1080,6 +1082,56 @@ describe("Préférences → Partage de données", () => {
     expect(cases().filter(([, coche]) => !coche)).toEqual([["fdfAB", false]]);
     preferences.lire(`$("input[data-partage='fdfAB']").prop("checked", true).trigger("change")`);
     expect(preferences.lire(`SuiviMembres.partage("fdfAB")`)).toBe(true);
+  });
+
+  test("export automatique des chasses : une case cochée par défaut, gardée dans ce navigateur, et où en est l'export", () => {
+    preferences.lire(`localStorage.clear()`);
+    ouvrir();
+    const chasses = () =>
+      preferences.lire<[boolean, string]>(
+        `[$("#o_partageChasses").prop("checked"), $("#o_partageChassesEtat").text()]`,
+      );
+    // sans rôle choisi, rien n'est exporté automatiquement : l'onglet le dit
+    expect(chasses()).toEqual([
+      true,
+      "Ton rôle n'est pas « Chasseur » (Préférences → Rôle) : tes chasses ne sont pas exportées automatiquement.",
+    ]);
+    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
+    for (const dit of [
+      "Rapports de chasse (rôle Chasseur)",
+      "Exporter mes chasses automatiquement",
+      "à la première page que tu ouvres après le mercredi et le dimanche à 22h (heure du serveur)",
+      "ceux que tu n'avais pas lus restent marqués non lus",
+      "Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat.",
+      "Décochée : rien n'est lu ni envoyé sans ton clic",
+    ])
+      expect(texte).toContain(dit);
+    const chasseur = () =>
+      preferences.lire(`(() => {
+        monProfil.parametre.role.valeur = ROLE_CHASSEUR;
+        $("#o_tabsParametrePartage").empty();
+        boite.ongletPartage();
+      })()`);
+    chasseur();
+    expect(chasses()).toEqual([
+      true,
+      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera à ta prochaine page.",
+    ]);
+    preferences.lire(`$("#o_partageChasses").prop("checked", false).trigger("change")`);
+    expect(preferences.lire(`localStorage.getItem("fzzz_partage_exportChasses")`)).toBe("0");
+    expect(preferences.lire(`ExportAuto.actif()`)).toBe(false);
+    expect(chasses()).toEqual([
+      false,
+      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant.",
+    ]);
+    // rouverte : la case reste décochée ; recochée : l'export automatique reprend
+    ouvrir();
+    chasseur();
+    expect(chasses()[0]).toBe(false);
+    preferences.lire(`$("#o_partageChasses").prop("checked", true).trigger("change")`);
+    expect(preferences.lire(`ExportAuto.actif()`)).toBe(true);
+    // les cases des statistiques ne sont pas touchées par celle des chasses
+    expect(cases()).toEqual(CLES.map((c) => [c, true]));
   });
 
   test("bouton « Envoyer maintenant » : un relevé forcé, l'état mis à jour", async () => {

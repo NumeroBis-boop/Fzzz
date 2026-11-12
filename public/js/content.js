@@ -842,12 +842,19 @@ const DATEPICKER_OPTION = {
         } catch (e) {
           console.error("Fzzz : reprise des partages", e);
         }
-        // relevé du jour pour le fichier de l'alliance, après les lectures de la page
+        // relevé du jour pour le fichier de l'alliance, après les lectures de la
+        // page ; puis l'export des chasses dû (rôle Chasseur), l'un après l'autre :
+        // la liste des sujets du forum n'est lue qu'une fois pour les deux
+        let releve = Promise.resolve("");
         try {
-          SuiviMembres.lancer();
+          releve = SuiviMembres.lancer();
         } catch (e) {
           console.error("Fzzz : partage de données", e);
         }
+        releve
+          .catch(() => {})
+          .then(() => ExportAuto.lancer())
+          .catch((e) => console.error("Fzzz : export automatique des chasses", e));
         Utils.noterChargement(debutExtension);
       });
   }

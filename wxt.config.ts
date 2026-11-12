@@ -148,6 +148,7 @@ export default defineConfig({
           "js/class/Parametre.js",
           "js/class/RappelExport.js",
           "js/class/SuiviMembres.js",
+          "js/class/ExportAuto.js",
           "js/class/SimulationChasse.js",
           "js/class/ModeleChasse.js",
           "js/class/LanceurChasse.js",

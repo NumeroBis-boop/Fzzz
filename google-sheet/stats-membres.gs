@@ -1,9 +1,10 @@
 /*
  * Script du Google Sheet « Stats membres » de l'alliance (Apps Script) : reçoit
- * le relevé quotidien que l'extension fait pour chaque joueur (Préférences →
- * Partage de données) et le range dans deux onglets :
- *  - « Dernier relevé » : une ligne par joueur, son relevé le plus récent ;
- *  - « Suivi » : une ligne par joueur et par jour, pour suivre l'évolution.
+ * le relevé que l'extension fait pour chaque joueur (Préférences → Partage de
+ * données) et le range dans l'onglet « Dernier relevé » : une ligne par joueur,
+ * son relevé le plus récent, dont la date dit de quand datent ses valeurs. Pas
+ * d'historique (règle du mainteneur) : un onglet « Suivi » créé par une version
+ * précédente n'est plus écrit et peut être supprimé à la main.
  * Le fond d'une case dit si le joueur partage cette information : vert, il la
  * partage ; rouge, il a décoché sa case (la case garde la dernière valeur lue
  * avant, ou reste vide s'il ne l'a jamais partagée).
@@ -21,15 +22,14 @@
  * Après une modification de ce code : Enregistrer, puis Déployer → Gérer les
  * déploiements → modifier → Version : Nouvelle version (l'adresse ne change
  * pas). L'adresse ouverte dans le navigateur montre alors la nouvelle
- * « version », et crée les deux onglets s'ils manquent.
+ * « version », et crée l'onglet s'il manque.
  *
  * Les colonnes se repèrent par leur titre : elles peuvent être déplacées, et
  * d'autres ajoutées à la main. Un joueur se retrouve par son pseudo : les
  * lignes peuvent être triées.
  */
 
-var ONGLET_DERNIER = "Dernier relevé";
-var ONGLET_SUIVI = "Suivi";
+var ONGLET = "Dernier relevé";
 var COLONNE_JOUEUR = "Joueur";
 var COLONNE_DATE = "Date";
 var COLONNE_VERSION = "Version";
@@ -56,7 +56,7 @@ var JOURS_ECART_MAX = 1;
 var VALEUR_MAX = 1e15;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-12.2";
+var VERSION_SCRIPT = "stats-membres 2026-11-12.3";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -148,46 +148,40 @@ function instantDuJour(jour) {
   return Date.UTC(+p[0], +p[1] - 1, +p[2]);
 }
 
-/** Titres des colonnes d'un onglet, la première étant celle qui l'ordonne. */
-function titresDe(nom) {
-  var donnees = DONNEES.map(function (d) {
-    return d[1];
-  });
-  return (
-    nom == ONGLET_SUIVI ? [COLONNE_DATE, COLONNE_JOUEUR] : [COLONNE_JOUEUR, COLONNE_DATE]
-  ).concat(donnees, [COLONNE_VERSION]);
-}
-
-/** Crée les onglets qui manquent : titres, formats et légende des couleurs. */
+/** L'onglet des relevés, créé s'il manque : titres, formats et légende des couleurs. */
 function preparer(classeur) {
-  [ONGLET_DERNIER, ONGLET_SUIVI].forEach(function (nom, position) {
-    if (classeur.getSheetByName(nom)) return;
-    var feuille = classeur.insertSheet(nom, position),
-      titres = titresDe(nom),
-      lignes = feuille.getMaxRows() - 1;
-    feuille.getRange(1, 1, 1, titres.length).setValues([titres]).setFontWeight("bold");
-    feuille.setFrozenRows(1);
-    feuille.getRange(2, titres.indexOf(COLONNE_DATE) + 1, lignes, 1).setNumberFormat("dd/MM/yyyy");
-    feuille.getRange(2, 3, lignes, DONNEES.length).setNumberFormat("#,##0");
-    LEGENDE.forEach(function (l, i) {
-      feuille
-        .getRange(1, titres.length + 2 + i)
-        .setValue(l[0])
-        .setBackground(l[1]);
-    });
+  var feuille = classeur.getSheetByName(ONGLET);
+  if (feuille) return feuille;
+  feuille = classeur.insertSheet(ONGLET, 0);
+  var titres = [COLONNE_JOUEUR, COLONNE_DATE].concat(
+      DONNEES.map(function (d) {
+        return d[1];
+      }),
+      [COLONNE_VERSION],
+    ),
+    lignes = feuille.getMaxRows() - 1;
+  feuille.getRange(1, 1, 1, titres.length).setValues([titres]).setFontWeight("bold");
+  feuille.setFrozenRows(1);
+  feuille.getRange(2, titres.indexOf(COLONNE_DATE) + 1, lignes, 1).setNumberFormat("dd/MM/yyyy");
+  feuille.getRange(2, 3, lignes, DONNEES.length).setNumberFormat("#,##0");
+  LEGENDE.forEach(function (l, i) {
+    feuille
+      .getRange(1, titres.length + 2 + i)
+      .setValue(l[0])
+      .setBackground(l[1]);
   });
+  return feuille;
 }
 
 /**
- * Range un relevé : la ligne du joueur dans « Dernier relevé » (remplacée si le
- * relevé n'est pas plus ancien que le sien), et sa ligne du jour dans « Suivi »
- * (remplacée si elle existe : un autre appareil du joueur, le même jour). Une
- * information que le joueur ne partage pas garde sa dernière valeur lue, sur
+ * Range un relevé dans la ligne du joueur : remplacée si le relevé n'est pas
+ * plus ancien que le sien, ajoutée s'il n'en a pas. Une information que le
+ * joueur ne partage pas garde sa dernière valeur lue, celle de sa ligne, sur
  * fond rouge.
  */
 function enregistrer(classeur, s) {
-  preparer(classeur);
-  var fuseau = classeur.getSpreadsheetTimeZone(),
+  var feuille = preparer(classeur),
+    fuseau = classeur.getSpreadsheetTimeZone(),
     joueur = s.joueur,
     valeurs = {},
     fonds = {},
@@ -206,54 +200,21 @@ function enregistrer(classeur, s) {
     fonds[d[1]] = refuse ? COULEUR_REFUS : v == null ? null : COULEUR_PARTAGE;
   });
   valeurs[COLONNE_VERSION] = s.version == null ? "" : String(s.version);
-  // dernière valeur lue d'une information non partagée : celle de la ligne
-  // remplacée, sinon celle du relevé le plus récent du joueur avant ce jour dans
-  // l'onglet, sinon celle retrouvée dans « Dernier relevé » (écrit en premier)
-  var garder = !refusees.length
-      ? null
-      : function (lignes, remplacee) {
-          refusees.forEach(function (t) {
-            var v = remplacee ? remplacee[t] : "",
-              jour = "";
-            if (estVide(v))
-              lignes.forEach(function (l) {
-                if (cleJoueur(l[COLONNE_JOUEUR]) != cleJoueur(joueur) || estVide(l[t])) return;
-                var j = jourCellule(l[COLONNE_DATE], fuseau);
-                if (j && j < s.jour && j > jour) {
-                  jour = j;
-                  v = l[t];
-                }
-              });
-            if (!estVide(v)) valeurs[t] = valeurCellule(v);
-          });
-        },
-    dernier = ecrireLigne(
-      classeur.getSheetByName(ONGLET_DERNIER),
-      valeurs,
-      fonds,
-      function (l) {
-        if (cleJoueur(l[COLONNE_JOUEUR]) != cleJoueur(joueur)) return "";
-        return jourCellule(l[COLONNE_DATE], fuseau) > s.jour ? "garder" : "remplacer";
-      },
-      garder,
-    ),
-    suivi = ecrireLigne(
-      classeur.getSheetByName(ONGLET_SUIVI),
-      valeurs,
-      fonds,
-      function (l) {
-        return cleJoueur(l[COLONNE_JOUEUR]) == cleJoueur(joueur) &&
-          jourCellule(l[COLONNE_DATE], fuseau) == s.jour
-          ? "remplacer"
-          : "";
-      },
-      garder,
-    );
-  return { ok: true, nouveau: suivi == "ajoutée", dernier: dernier != "gardée" };
-}
-
-function estVide(v) {
-  return v === "" || v == null;
+  var sort = ecrireLigne(
+    feuille,
+    valeurs,
+    fonds,
+    function (l) {
+      if (cleJoueur(l[COLONNE_JOUEUR]) != cleJoueur(joueur)) return "";
+      return jourCellule(l[COLONNE_DATE], fuseau) > s.jour ? "garder" : "remplacer";
+    },
+    function (remplacee) {
+      refusees.forEach(function (t) {
+        if (remplacee) valeurs[t] = valeurCellule(remplacee[t]);
+      });
+    },
+  );
+  return { ok: true, nouveau: sort == "ajoutée", dernier: sort != "gardée" };
 }
 
 function cleJoueur(v) {
@@ -276,11 +237,11 @@ function jourCellule(v, fuseau) {
 }
 
 /**
- * Écrit `valeurs` (par titre de colonne) dans la ligne que `choisir` désigne
- * ("remplacer"), sinon dans une nouvelle ligne ; "garder" : rien n'est écrit.
- * Seules les colonnes de `valeurs` sont touchées. `completer(lignes, remplacee)`,
- * s'il est donné, peut changer `valeurs` d'après les lignes de l'onglet (par
- * titre) et celle qui va être remplacée (null pour une nouvelle ligne).
+ * Écrit `valeurs` (par titre de colonne) dans la première ligne que `choisir`
+ * désigne ("remplacer"), sinon dans une nouvelle ligne ; "garder" : rien n'est
+ * écrit. Seules les colonnes de `valeurs` sont touchées. `completer(remplacee)`
+ * peut changer `valeurs` d'après la ligne qui va être remplacée (par titre ;
+ * null pour une nouvelle ligne).
  *
  * @return {String} "remplacée", "ajoutée" ou "gardée"
  */
@@ -290,17 +251,14 @@ function ecrireLigne(feuille, valeurs, fonds, choisir, completer) {
     derniere = feuille.getLastRow(),
     ligne = 0,
     sort = "ajoutée",
-    lignes = [],
     remplacee = null;
   if (derniere > 1) {
     var lues = feuille.getRange(2, 1, derniere - 1, feuille.getLastColumn()).getValues();
-    for (var i = 0; i < lues.length && (completer || !ligne); i++) {
+    for (var i = 0; i < lues.length && !ligne; i++) {
       var l = {};
       titres.forEach(function (t) {
         l[t] = lues[i][colonnes[t] - 1];
       });
-      lignes.push(l);
-      if (ligne) continue;
       var choix = choisir(l);
       if (choix == "garder") return "gardée";
       if (choix == "remplacer") {
@@ -310,7 +268,7 @@ function ecrireLigne(feuille, valeurs, fonds, choisir, completer) {
       }
     }
   }
-  if (completer) completer(lignes, remplacee);
+  completer(remplacee);
   if (!ligne) {
     ligne = Math.max(derniere, 1) + 1;
     if (ligne > feuille.getMaxRows())

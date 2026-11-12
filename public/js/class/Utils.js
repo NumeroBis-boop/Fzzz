@@ -381,14 +381,25 @@ class Utils {
     return parseInt($("#nb_nourriture").text());
   }
   /**
-   * Renvoie le nombre de materiaux en stock dans l'entrepot.
+   * Matériaux en stock, tels que l'encart « S5 Pseudo » les affiche : le
+   * nombre caché de la page peut le dépasser de 1 (stock à virgule, arrondi
+   * d'un côté et tronqué de l'autre), et le jeu n'en envoie pas plus qu'il
+   * n'en affiche.
    *
    * @static
    * @method materiaux
-   * @return {Integer} le quantité de materiaux.
+   * @return {Integer} la quantité de matériaux, NaN si elle ne se lit pas
    */
   static get materiaux() {
-    return parseInt($("#nb_materiaux").text());
+    let cache = parseInt($("#nb_materiaux").text()),
+      affiche = parseInt(
+        $("#boiteInfo .icone_materiaux_boite_info")
+          .siblings(".texte_ligne_boite_info")
+          .text()
+          .replace(/\D/g, ""),
+      );
+    if (isNaN(affiche)) return cache;
+    return isNaN(cache) ? affiche : Math.min(cache, affiche);
   }
   /**
    * Calcul des quantités de ressources commandées - fdthierry

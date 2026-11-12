@@ -159,6 +159,145 @@ describe("requête au script (ExportRapports.statistiques)", () => {
   });
 });
 
+describe("tableau récapitulatif : toutes les chasses du joueur sur la période", () => {
+  const tableau = (s: unknown) => {
+    lire(`document.body.innerHTML = SyntheseChasse.recapitulatif(${json(s)})`);
+    return lire<{ titre: string; entetes: string[]; lignes: string[][]; total: string[] }>(`({
+      titre: $(".o_syntheseRecap .o_syntheseTitre").text(),
+      entetes: $(".o_syntheseRecap thead th").map((i, c) => c.textContent).get(),
+      lignes: $(".o_syntheseRecap tbody tr").map((i, tr) => [$(tr).children().map((j, c) => c.textContent).get()]).get(),
+      total: $(".o_syntheseRecap tfoot td").map((i, c) => c.textContent).get(),
+    })`);
+  };
+  // statistiques du vrai script sur un fichier inventé
+  const statsDe = (lignes: unknown[][], periode = demande) =>
+    classeurSimule({ "BDD chasse": feuille("BDD chasse", [CHASSE, ...lignes]) }).doPost({
+      ...periode,
+      autres: true,
+      format: 5,
+    }).statistiques;
+
+  test("une ligne par chasse, dans l'ordre des retours, avec ses chiffres ; puis le total", () => {
+    expect(tableau(STATS)).toEqual({
+      titre: "Tableau récapitulatif",
+      entetes: [
+        "Chasse",
+        "Retour",
+        "Terrain (cm²)",
+        "Pertes",
+        "Pertes / M cm²",
+        "Nourriture",
+        "Expéditions",
+        "Troupes envoyées",
+        "Difficulté / cm²",
+      ],
+      // 12 000 unités parties : 10 000 JSN et 2 000 artilleuses ; difficulté :
+      // 1 000 criquets (58,9) et 100 abeilles (144,6) pour 12 000 cm²
+      lignes: [
+        ["1", "01/11/26 à 10h00", "12 000", "600", "50 000", "90 000", "1", "12 000", "6,11"],
+        ["2", "03/11/26 à 10h00", "8 000", "400", "50 000", "60 000", "1", "11 500", "6,06"],
+      ],
+      total: ["Total", "2 chasses", "20 000", "1 000", "50 000", "150 000", "2", "", ""],
+    });
+    // les totaux sont ceux des cartes
+    for (const [colonne, carte] of [
+      [2, "Terrain chassé (cm²)"],
+      [3, "Fourmis perdues"],
+      [4, "Pertes par M cm² chassé"],
+      [5, "Nourriture rapportée"],
+    ] as [number, string][])
+      expect(tableau(STATS).total[colonne]).toBe(
+        lire<string>(`numeral(SyntheseChasse.resume(${json(STATS)}, ${json(carte)})).format()`),
+      );
+  });
+
+  test("multi-chasse : une seule ligne, sous son numéro des graphiques ; expéditions, troupes et résultats additionnés", () => {
+    const s = statsDe([
+      [
+        "m1",
+        "DoggyBag",
+        "2026-11-05 10:00",
+        1000,
+        500,
+        10,
+        "1 000 Jeunes Soldates Naines",
+        "10 Criquets",
+        "",
+      ],
+      // trois minutes après : la même multi-chasse
+      [
+        "m2",
+        "DoggyBag",
+        "2026-11-05 10:03",
+        2000,
+        700,
+        20,
+        "2 000 Jeunes Soldates Naines, 500 Tanks",
+        "20 Criquets",
+        "",
+      ],
+      // six minutes après la précédente : une autre chasse
+      ["m3", "DoggyBag", "2026-11-05 10:09", 500, 100, 5, "400 Soldates", "5 Criquets", ""],
+      // un autre chasseur : pas dans le tableau du joueur
+      ["m4", "Alpha", "2026-11-05 11:00", 9000, 900, 90, "1 Tank", "90 Criquets", ""],
+    ]);
+    const t = tableau(s);
+    expect(t.lignes).toEqual([
+      ["1", "05/11/26 à 10h00", "3 000", "30", "10 000", "1 200", "2", "3 500", "0,59"],
+      ["2", "05/11/26 à 10h09", "500", "5", "10 000", "100", "1", "400", "0,59"],
+    ]);
+    expect(t.total).toEqual(["Total", "2 chasses", "3 500", "35", "10 000", "1 300", "3", "", ""]);
+    // les numéros sont ceux de l'axe des graphiques
+    expect(lire(`SyntheseChasse.colonne(${json(s)}, "Chasse")`)).toEqual([
+      "Chasse 1 (05/11)",
+      "Chasse 2 (05/11)",
+    ]);
+  });
+
+  test("une seule chasse : « 1 chasse » ; terrain nul : pas de pertes par M cm²", () => {
+    const t = tableau(
+      statsDe([
+        ["z1", "DoggyBag", "2026-11-05 23:59", 0, 0, 7, "1 234 Jeunes Soldates Naines", "", ""],
+      ]),
+    );
+    expect(t.lignes).toEqual([["1", "05/11/26 à 23h59", "0", "7", "—", "0", "1", "1 234", "—"]]);
+    expect(t.total).toEqual(["Total", "1 chasse", "0", "7", "—", "0", "1", "", ""]);
+  });
+
+  test("aucune chasse exportée sur la période : la section le dit, sans tableau", () => {
+    const s = statsDe([
+      ["a1", "Alpha", "2026-11-05 11:00", 9000, 900, 90, "1 Tank", "90 Criquets", ""],
+    ]);
+    lire(`document.body.innerHTML = SyntheseChasse.recapitulatif(${json(s)})`);
+    expect(lire(`[$(".o_syntheseRecap").text(), $(".o_syntheseRecap table").length]`)).toEqual([
+      "Tableau récapitulatifAucune chasse exportée sur cette période.",
+      0,
+    ]);
+  });
+
+  test("colonne absente de la réponse du script : un tiret ; date absente : le texte du script, échappé", () => {
+    const s = JSON.parse(json(STATS));
+    const k = (titre: string) => s.chasses.titres.indexOf(titre);
+    s.chasses.titres[k("Difficulté / cm²")] = "Autre";
+    s.chasses.lignes[0][k("Date")] = "";
+    s.chasses.lignes[0][k("Retour")] = "<img src=x onerror=alert(1)>";
+    const t = tableau(s);
+    expect(t.lignes[0]).toEqual([
+      "1",
+      "<img src=x onerror=alert(1)>",
+      "12 000",
+      "600",
+      "50 000",
+      "90 000",
+      "1",
+      "12 000",
+      "—",
+    ]);
+    expect(lire(`$(".o_syntheseRecap img").length`)).toBe(0);
+    expect(t.lignes[1]![1]).toBe("03/11/26 à 10h00");
+  });
+});
+
 describe("affichage", () => {
   test("période : jours valides, dans l'ordre, trois ans au plus", () => {
     expect(lire(`SyntheseChasse.erreurPeriode("2026-11-01", "2026-11-07")`)).toBe("");
@@ -263,10 +402,17 @@ describe("affichage", () => {
     expect(html.lastIndexOf("o_syntheseMesures")).toBeGreaterThan(
       html.lastIndexOf("o_syntheseGraphique'"),
     );
-    // le tableau des chasseurs à la fin, seul tableau
-    expect(html.match(/<table/g)).toHaveLength(1);
+    // après les graphiques : le tableau des chasseurs, puis le tableau récapitulatif, tout en bas
+    expect(html.match(/<table/g)).toHaveLength(2);
     expect(html.indexOf("o_syntheseComparaison")).toBeGreaterThan(
       html.lastIndexOf("o_syntheseTrace"),
+    );
+    expect(html.indexOf("Tableau récapitulatif")).toBeGreaterThan(
+      html.indexOf("Chasseurs de la période"),
+    );
+    expect(html.trimEnd()).toEndWith("</tfoot></table></div>");
+    expect(html.lastIndexOf("o_syntheseRecap")).toBeGreaterThan(
+      html.lastIndexOf("Moyenne des chasseurs"),
     );
     // plus rien d'autre : ni floods internes, attaques, classements ou sections
     for (const absent of [

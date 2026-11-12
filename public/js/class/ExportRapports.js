@@ -1350,6 +1350,71 @@ class ExportRapports {
     return suite.then(() => total);
   }
   /**
+   * Conversations d'un type dans une liste de la messagerie : celle de la page
+   * affichée, ou celle d'une page de la messagerie lue (export automatique).
+   *
+   * @static
+   * @method listees
+   * @param {String} type "chasse" ou "combat"
+   * @param {any} [$racine]
+   * @return {Array<{id: Number, titre: String, camp: String, nonLue: Boolean}>}
+   */
+  static listees(type, $racine = $(document)) {
+    return $racine
+      .find("tr.en_tete_message[id^='conversation_']")
+      .get()
+      .filter((/** @type {Element} */ elt) => {
+        let c = MessagerieFzzz.categorie($(elt));
+        return c && c.nom == type;
+      })
+      .map((/** @type {Element} */ elt) => ({
+        id: parseInt((elt.id.match(/\d+/) || ["0"])[0]),
+        titre: $(elt).find(".intitule_message").text().replace(/\s+/g, " ").trim(),
+        // camp d'après le titre, pour un RC dont la tournure n'est pas reconnue
+        camp: MessagerieFzzz.typeCouleur($(elt)) == "defense" ? "defense" : "attaque",
+        // repère du jeu sur une conversation pas encore ouverte
+        nonLue: $(elt).children(".td_objet").children(".nbr_mess_non_lus_conv").length > 0,
+      }))
+      .filter((/** @type {{id: Number}} */ c) => c.id);
+  }
+  /**
+   * Parmi des conversations listées, celles dont un RC manque au fichier :
+   * jamais exportée, ou exportée et dont le fichier n'a plus la ligne.
+   *
+   * @static
+   * @method aLire
+   * @param {String} type
+   * @param {Array<{id: Number, titre: String, camp: String, nonLue: Boolean}>} listees
+   * @param {String} url
+   * @return {Promise<{aLire: Array<{id: Number, titre: String, camp: String, nonLue: Boolean}>, connues: Number, absentes: Number}>}
+   *   connues : RC déjà exportés de ces conversations ; absentes : ceux que le fichier n'a plus
+   */
+  static aLire(type, listees, url) {
+    let memoire = ExportRapports.memoire(type),
+      connues = listees.flatMap((c) => memoire[c.id] || []);
+    return ExportRapports.absentes(type, connues, url).then((absentes) => ({
+      // clé sans date (« |… ») : RC exporté sans date par une version d'avant, relu
+      aLire: listees.filter(
+        (c) =>
+          !memoire[c.id] || memoire[c.id].some((cle) => absentes.has(cle) || cle.startsWith("|")),
+      ),
+      connues: connues.length,
+      absentes: absentes.size,
+    }));
+  }
+  /**
+   * Un export (bouton ou export automatique) est-il en cours ? Un seul à la fois.
+   *
+   * @static
+   * @type {Boolean}
+   */
+  static get enCours() {
+    return exportEnCours;
+  }
+  static set enCours(v) {
+    exportEnCours = !!v;
+  }
+  /**
    * Bouton « Exporter mes chasses » / « Exporter mes RC » : conversations de
    * ce type listées dans la messagerie dont un RC manque au fichier (jamais
    * exportée, ou ligne effacée depuis), lues une à une, puis envoyées au
@@ -1387,31 +1452,11 @@ class ExportRapports {
           });
           return;
         }
-        let memoire = ExportRapports.memoire(type),
-          listees = $("tr.en_tete_message[id^='conversation_']")
-            .get()
-            .filter((elt) => {
-              let c = MessagerieFzzz.categorie($(elt));
-              return c && c.nom == type;
-            })
-            .map((elt) => ({
-              id: parseInt((elt.id.match(/\d+/) || ["0"])[0]),
-              titre: $(elt).find(".intitule_message").text().replace(/\s+/g, " ").trim(),
-              // camp d'après le titre, pour un RC dont la tournure n'est pas reconnue
-              camp: MessagerieFzzz.typeCouleur($(elt)) == "defense" ? "defense" : "attaque",
-            }))
-            .filter((c) => c.id);
-        let connues = listees.flatMap((c) => memoire[c.id] || []);
-        return ExportRapports.absentes(type, connues, url).then((absentes) => {
-          // clé sans date (« |… ») : RC exporté sans date par une version d'avant, relu
-          let aLire = listees.filter(
-            (c) =>
-              !memoire[c.id] ||
-              memoire[c.id].some((cle) => absentes.has(cle) || cle.startsWith("|")),
-          );
+        let listees = ExportRapports.listees(type);
+        return ExportRapports.aLire(type, listees, url).then(({ aLire, connues, absentes }) => {
           Journal.info(
             JOURNAL_EXPORT,
-            `Export des ${quoi} vers le fichier ${alliance ? "de l'alliance" : "personnel"} : ${listees.length} conversation(s) listée(s), ${connues.length} RC déjà exporté(s) dont ${absentes.size} absent(s) du fichier, ${aLire.length} conversation(s) à lire`,
+            `Export des ${quoi} vers le fichier ${alliance ? "de l'alliance" : "personnel"} : ${listees.length} conversation(s) listée(s), ${connues} RC déjà exporté(s) dont ${absentes} absent(s) du fichier, ${aLire.length} conversation(s) à lire`,
           );
           return ExportRapports._exporterListees(type, aLire, url);
         });
@@ -1426,66 +1471,49 @@ class ExportRapports {
       .finally(fin);
   }
   /**
-   * Lit les conversations à exporter, puis envoie leurs RC au fichier.
+   * Lit des conversations une à une, puis envoie leurs RC au fichier, onglet
+   * par onglet ; les clés d'une conversation ne sont retenues qu'une fois ses
+   * RC acceptés par le fichier. Aucun message au joueur : le bouton et l'export
+   * automatique disent chacun le leur.
    *
-   * @private
    * @static
+   * @method lireEtEnvoyer
    * @param {String} type
    * @param {Array<{id: Number, titre: String, camp: String}>} aLire
    * @param {String} url
-   * @return {Promise}
+   * @param {Set<String>} membres membres de l'alliance (combats), vide pour les chasses
+   * @param {(etape: String) => void} [progres] reçoit l'étape en cours : « 3/12 », puis « envoi au Google Sheet… »
+   * @return {Promise<{lues: Number, echecs: Number, bilans: Array<{onglet: String, ajoutees: Number, deja: Number}>, sansRC: Number, sansDate: Number, entete: String}>}
+   *   echecs : conversations illisibles ; sansDate : RC sans date lisible, pas exportés (entete : la date lue)
    */
-  static _exporterListees(type, aLire, url) {
-    let pseudo = monProfil.pseudo,
-      quoi = type == "chasse" ? "chasses" : "RC";
-    if (!aLire.length) {
-      $.toast({
-        ...TOAST_INFO,
-        text: `Aucun nouveau ${type == "chasse" ? "rapport de chasse" : "RC"} à exporter dans la liste de la messagerie.`,
-      });
-      if (type == "chasse" && typeof RappelExport != "undefined") RappelExport.noterExport();
-      return Promise.resolve();
-    }
-    let lues = [],
-      echecs = 0,
-      membres = new Set();
-    // membres lus avant les conversations : sans eux, pas de lecture
-    return (type == "combat" ? ExportRapports.membres() : Promise.resolve(new Set()))
-      .then((m) => {
-        membres = m;
-        if (type == "combat")
-          Journal.info(
-            JOURNAL_EXPORT,
-            `membres de l'alliance (export public des joueurs) : ${m.size}`,
-          );
-        $.toast({
-          ...TOAST_INFO,
-          hideAfter: false,
-          text: `Export des ${quoi} : lecture des conversations, une à une (le jeu n'en sert qu'une à la fois) <strong id='o_exportProgres'>0/${aLire.length}</strong>`,
-        });
-        return aLire.reduce(
-          (suite, c, k) =>
-            suite.then(() =>
-              ExportRapports.messages(c.id)
-                .then(
-                  (messages) => lues.push({ ...c, messages }),
-                  (e) => {
-                    echecs++;
-                    Journal.erreur(
-                      JOURNAL_EXPORT,
-                      `conversation ${c.id} illisible (« ${c.titre} »)`,
-                      e,
-                    );
-                  },
-                )
-                .then(() => $("#o_exportProgres").text(`${k + 1}/${aLire.length}`)),
-            ),
-          Promise.resolve(),
-        );
-      })
+  static lireEtEnvoyer(type, aLire, url, membres, progres = () => {}) {
+    let /** @type {Array<any>} */ lues = [],
+      echecs = 0;
+    return aLire
+      .reduce(
+        (suite, c, k) =>
+          suite.then(() =>
+            ExportRapports.messages(c.id)
+              .then(
+                (messages) => {
+                  lues.push({ ...c, messages });
+                },
+                (e) => {
+                  echecs++;
+                  Journal.erreur(
+                    JOURNAL_EXPORT,
+                    `conversation ${c.id} illisible (« ${c.titre} »)`,
+                    e,
+                  );
+                },
+              )
+              .then(() => progres(`${k + 1}/${aLire.length}`)),
+          ),
+        Promise.resolve(),
+      )
       .then(() => {
         let bilanDates = { sansDate: 0, entete: "", conversations: new Set() },
-          lignes = ExportRapports.lignes(type, lues, pseudo, membres, bilanDates),
+          lignes = ExportRapports.lignes(type, lues, monProfil.pseudo, membres, bilanDates),
           // conversations sans RC reconnu : pas retenues, relues au prochain export
           /** @type {Object<string, Array<String>>} */
           parConversation = {},
@@ -1506,7 +1534,7 @@ class ExportRapports {
             `${bilanDates.sansDate} RC sans date lisible, pas exporté(s)`,
             `en-tête du message : « ${bilanDates.entete} »`,
           );
-        if (lignes.length) $("#o_exportProgres").text("envoi au Google Sheet…");
+        if (lignes.length) progres("envoi au Google Sheet…");
         return onglets
           .reduce(
             (suite, onglet) =>
@@ -1515,7 +1543,9 @@ class ExportRapports {
                   onglet,
                   lignes.filter((l) => l.onglet == onglet).map((l) => l.ligne),
                   url,
-                ).then((r) => bilans.push({ onglet, ...r })),
+                ).then((r) => {
+                  bilans.push({ onglet, ...r });
+                }),
               ),
             Promise.resolve(),
           )
@@ -1525,39 +1555,97 @@ class ExportRapports {
               parConversation[id] = (parConversation[id] || []).concat("|");
             });
             ExportRapports.memoriser(type, parConversation);
-            // une conversation illisible : à refaire, le rappel reste
-            if (type == "chasse" && !echecs && typeof RappelExport != "undefined")
-              RappelExport.noterExport();
-            let sansRC = lues.filter(
+            return {
+              lues: lues.length,
+              echecs,
+              bilans,
+              sansRC: lues.filter(
                 (c) => !parConversation[c.id] && !bilanDates.conversations.has(c.id),
               ).length,
-              pluriel = (/** @type {Number} */ n) => (n > 1 ? "s" : ""),
-              deja = bilans.reduce((t, b) => t + b.deja, 0),
-              n = bilanDates.sansDate;
-            $.toast({
-              ...(n ? TOAST_WARNING : TOAST_SUCCESS),
-              hideAfter: n ? false : 10000,
-              text:
-                `Export des ${quoi} : ` +
-                (bilans.length
-                  ? bilans
-                      .map(
-                        (b) =>
-                          `${b.ajoutees} ligne${pluriel(b.ajoutees)} ajoutée${pluriel(b.ajoutees)} dans « ${EXPORTS_RAPPORTS[b.onglet].onglet} »`,
-                      )
-                      .join(", ")
-                  : "rien à ajouter") +
-                (deja ? ` (${deja} déjà présente${pluriel(deja)})` : "") +
-                "." +
-                (sansRC ? ` ${sansRC} conversation(s) sans RC reconnu.` : "") +
-                (echecs
-                  ? ` ${echecs} conversation(s) n'ont pas pu être lues : réessaie plus tard.`
-                  : "") +
-                (n
-                  ? ` ${n} rapport${pluriel(n)} sans date lisible, pas exporté${pluriel(n)} : envoie ce message à la personne qui gère l'extension (date lue : « ${Utils.echapper(bilanDates.entete)} »).`
-                  : ""),
-            });
+              sansDate: bilanDates.sansDate,
+              entete: bilanDates.entete,
+            };
           });
+      });
+  }
+  /**
+   * Phrase d'un export pour les RC sans date lisible, pas exportés.
+   *
+   * @static
+   * @method phraseSansDate
+   * @param {Number} n
+   * @param {String} entete date lue dans le message
+   * @return {String}
+   */
+  static phraseSansDate(n, entete) {
+    let s = n > 1 ? "s" : "";
+    return ` ${n} rapport${s} sans date lisible, pas exporté${s} : envoie ce message à la personne qui gère l'extension (date lue : « ${Utils.echapper(entete)} »).`;
+  }
+  /**
+   * Suite du bouton : lit les conversations à exporter, envoie leurs RC au
+   * fichier et dit le résultat.
+   *
+   * @private
+   * @static
+   * @param {String} type
+   * @param {Array<{id: Number, titre: String, camp: String}>} aLire
+   * @param {String} url
+   * @return {Promise}
+   */
+  static _exporterListees(type, aLire, url) {
+    let quoi = type == "chasse" ? "chasses" : "RC";
+    if (!aLire.length) {
+      $.toast({
+        ...TOAST_INFO,
+        text: `Aucun nouveau ${type == "chasse" ? "rapport de chasse" : "RC"} à exporter dans la liste de la messagerie.`,
+      });
+      if (type == "chasse" && typeof RappelExport != "undefined") RappelExport.noterExport();
+      return Promise.resolve();
+    }
+    // membres lus avant les conversations : sans eux, pas de lecture
+    return (type == "combat" ? ExportRapports.membres() : Promise.resolve(new Set()))
+      .then((membres) => {
+        if (type == "combat")
+          Journal.info(
+            JOURNAL_EXPORT,
+            `membres de l'alliance (export public des joueurs) : ${membres.size}`,
+          );
+        $.toast({
+          ...TOAST_INFO,
+          hideAfter: false,
+          text: `Export des ${quoi} : lecture des conversations, une à une (le jeu n'en sert qu'une à la fois) <strong id='o_exportProgres'>0/${aLire.length}</strong>`,
+        });
+        return ExportRapports.lireEtEnvoyer(type, aLire, url, membres, (etape) =>
+          $("#o_exportProgres").text(etape),
+        );
+      })
+      .then(({ echecs, bilans, sansRC, sansDate, entete }) => {
+        // une conversation illisible : à refaire, le rappel reste
+        if (type == "chasse" && !echecs && typeof RappelExport != "undefined")
+          RappelExport.noterExport();
+        let pluriel = (/** @type {Number} */ n) => (n > 1 ? "s" : ""),
+          deja = bilans.reduce((t, b) => t + b.deja, 0);
+        $.toast({
+          ...(sansDate ? TOAST_WARNING : TOAST_SUCCESS),
+          hideAfter: sansDate ? false : 10000,
+          text:
+            `Export des ${quoi} : ` +
+            (bilans.length
+              ? bilans
+                  .map(
+                    (b) =>
+                      `${b.ajoutees} ligne${pluriel(b.ajoutees)} ajoutée${pluriel(b.ajoutees)} dans « ${EXPORTS_RAPPORTS[b.onglet].onglet} »`,
+                  )
+                  .join(", ")
+              : "rien à ajouter") +
+            (deja ? ` (${deja} déjà présente${pluriel(deja)})` : "") +
+            "." +
+            (sansRC ? ` ${sansRC} conversation(s) sans RC reconnu.` : "") +
+            (echecs
+              ? ` ${echecs} conversation(s) n'ont pas pu être lues : réessaie plus tard.`
+              : "") +
+            (sansDate ? ExportRapports.phraseSansDate(sansDate, entete) : ""),
+        });
       });
   }
 }

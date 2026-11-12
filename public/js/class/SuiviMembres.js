@@ -558,6 +558,16 @@ class SuiviMembres {
       hideAfter: false,
       allowToastClose: true,
     });
+    SuiviMembres.lierPreferences();
+  }
+  /**
+   * Les liens « Préférences → Partage de données » des annonces (classe
+   * o_ouvrirPartage) ouvrent cet onglet.
+   *
+   * @static
+   * @method lierPreferences
+   */
+  static lierPreferences() {
     $(document)
       .off("click.o_ouvrirPartage")
       .on("click.o_ouvrirPartage", ".o_ouvrirPartage", (e) => {

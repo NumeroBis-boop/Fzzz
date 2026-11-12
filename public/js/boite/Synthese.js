@@ -260,7 +260,8 @@ class SyntheseChasse {
       <p class='o_syntheseSousTitre'>Armée hors bonus : la première multi-chasse (supposée emmener toute l'armée), puis l'effet en % de chaque chasse — pertes et expérience — sans les pontes</p>
       <div class='o_syntheseCartes o_syntheseArmee'>${SyntheseChasse.cartesArmee(s).map(carte).join("")}</div>
       <div class='o_syntheseGraphiques'>${graphiques}</div>
-      ${SyntheseChasse.tableau(s)}`;
+      ${SyntheseChasse.tableau(s)}
+      ${SyntheseChasse.recapitulatif(s)}`;
   }
   /**
    * Boutons des mesures du graphique de l'armée.
@@ -390,6 +391,72 @@ class SyntheseChasse {
       <table class='o_syntheseComparaison'><thead><tr><th>Chasseur</th>${colonnes.map(([nom]) => `<th>${nom}</th>`).join("")}</tr></thead>
       <tbody>${lignes}</tbody>
       <tfoot><tr class='o_syntheseTotal'><td>Moyenne des chasseurs</td>${cellules(c.moyenne)}</tr></tfoot></table></div>`;
+  }
+  /**
+   * « Tableau récapitulatif », tout en bas (demande du mainteneur) : chaque
+   * chasse du joueur sur la période, dans l'ordre des retours et sous le numéro
+   * qu'elle porte dans les graphiques (une multi-chasse compte pour une
+   * chasse), puis le total. Tout vient du bloc « chasses » du script.
+   *
+   * @static
+   * @method recapitulatif
+   * @param {any} s statistiques renvoyées par le script
+   * @return {String}
+   */
+  static recapitulatif(s) {
+    let titre = "<p class='gras o_syntheseTitre'>Tableau récapitulatif</p>",
+      lignes = s.chasses.lignes;
+    if (!lignes.length)
+      return `<div class='o_syntheseTableau o_syntheseRecap'>${titre}<p class='o_syntheseSousTitre'>Aucune chasse exportée sur cette période.</p></div>`;
+    let colonne = (/** @type {String} */ t) => SyntheseChasse.colonne(s, t),
+      // unités parties : les colonnes après « Nourriture », une par unité
+      premiere = s.chasses.titres.indexOf("Nourriture") + 1,
+      troupes = lignes.map((/** @type {any[]} */ l) =>
+        l.slice(premiere).reduce((a, n) => a + (Number(n) || 0), 0),
+      ),
+      dates = colonne("Date"),
+      retours = colonne("Retour"),
+      /** @type {Array<{titre: String, valeurs: Array<any>, decimales?: Number, total?: Boolean}>} */
+      // les résultats d'abord : sur un téléphone, le tableau défile dans sa largeur
+      colonnes = [
+        { titre: "Terrain (cm²)", valeurs: colonne("Terrain (cm²)"), total: true },
+        { titre: "Pertes", valeurs: colonne("Pertes"), total: true },
+        { titre: "Pertes / M cm²", valeurs: colonne("Pertes / M cm²") },
+        { titre: "Nourriture", valeurs: colonne("Nourriture"), total: true },
+        { titre: "Expéditions", valeurs: colonne("Expéditions"), total: true },
+        { titre: "Troupes envoyées", valeurs: troupes },
+        { titre: "Difficulté / cm²", valeurs: colonne("Difficulté / cm²"), decimales: 2 },
+      ],
+      nombre = (/** @type {any} */ v, decimales = 0) =>
+        typeof v == "number" ? Utils.decimal(v, decimales) : "—",
+      somme = (/** @type {Array<any>} */ valeurs) =>
+        valeurs.reduce((a, v) => a + (Number(v) || 0), 0),
+      terrain = somme(colonne("Terrain (cm²)")),
+      // pertes par M cm² de la période : total ÷ total, le chiffre de la carte
+      totaux = /** @type {Object<String, any>} */ ({
+        "Pertes / M cm²":
+          terrain > 0 ? Math.round((somme(colonne("Pertes")) * 1e6) / terrain) : null,
+      }),
+      // heure du fichier (numéro de série du tableur), sinon le texte du script
+      retour = (/** @type {Number} */ i) =>
+        typeof dates[i] == "number"
+          ? moment.utc(SyntheseChasse.instant(dates[i])).format("DD/MM/YY [à] HH[h]mm")
+          : Utils.echapper(String(retours[i] == null ? "—" : retours[i]));
+    return `<div class='o_syntheseTableau o_syntheseRecap'>${titre}
+      <p class='o_syntheseSousTitre'>Une ligne par chasse, numérotée comme dans les graphiques. Expéditions : ses rapports de chasse ; troupes envoyées : les unités parties, toutes expéditions réunies.</p>
+      <table class='o_syntheseComparaison'><thead><tr><th>Chasse</th><th>Retour</th>${colonnes.map((c) => `<th>${c.titre}</th>`).join("")}</tr></thead>
+      <tbody>${lignes
+        .map(
+          (/** @type {any[]} */ l, /** @type {Number} */ i) =>
+            `<tr><td>${numeral(i + 1).format()}</td><td>${retour(i)}</td>${colonnes.map((c) => `<td>${nombre(c.valeurs[i], c.decimales)}</td>`).join("")}</tr>`,
+        )
+        .join("")}</tbody>
+      <tfoot><tr class='o_syntheseTotal'><td>Total</td><td>${numeral(lignes.length).format()} chasse${lignes.length > 1 ? "s" : ""}</td>${colonnes
+        .map(
+          (c) =>
+            `<td>${c.total ? nombre(somme(c.valeurs)) : c.titre in totaux ? nombre(totaux[c.titre]) : ""}</td>`,
+        )
+        .join("")}</tr></tfoot></table></div>`;
   }
   /**
    * Armée de la première multi-chasse, puis après les chasses (pertes et

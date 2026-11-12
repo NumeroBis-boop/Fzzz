@@ -685,7 +685,8 @@ class BoiteParametre extends Boite {
   }
   /**
    * Partage de données : une case par information relevée chaque jour pour le
-   * fichier de l'alliance (SuiviMembres), toutes cochées par défaut.
+   * fichier de l'alliance (SuiviMembres), puis celle de l'export automatique
+   * des chasses (ExportAuto), toutes cochées par défaut.
    *
    * @method ongletPartage
    */
@@ -701,10 +702,20 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Envoi</p>
         <p id='o_partageEtat' class='left small'></p>
         <p class='left'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>
+        <p class='o_titreParam'>Rapports de chasse <span class='o_aideParam'>(rôle Chasseur)</span></p>
+        <label class='o_affichageFzzz'><input type='checkbox' id='o_partageChasses' ${ExportAuto.coche() ? "checked" : ""}/> Exporter mes chasses automatiquement</label>
+        <p class='left o_aideParam'>Deux fois par semaine, à la première page que tu ouvres après le mercredi et le dimanche à 22h (heure du serveur), l'extension lit les rapports de chasse de ta messagerie pas encore exportés et les envoie au Google Sheet où tu exportes tes rapports ; ceux que tu n'avais pas lus restent marqués non lus. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Décochée : rien n'est lu ni envoyé sans ton clic, et le rappel « Export des chasses à faire » revient.</p>
+        <p id='o_partageChassesEtat' class='left small'></p>
       </form>`),
       etat = (message = "") =>
-        $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume());
+        $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
+      etatChasses = () => $onglet.find("#o_partageChassesEtat").text(ExportAuto.resume());
     etat();
+    etatChasses();
+    $onglet.find("#o_partageChasses").on("change", (e) => {
+      ExportAuto.choisir(e.currentTarget.checked);
+      etatChasses();
+    });
     $onglet.find("input[data-partage]").on("change", (e) => {
       SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
       etat();

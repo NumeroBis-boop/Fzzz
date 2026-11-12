@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.109.0",
+    notes: [
+      "Rôle Chasseur : tes rapports de chasse sont maintenant exportés automatiquement vers le Google Sheet, deux fois par semaine, à la première page que tu ouvres après le mercredi et le dimanche à 22h (jamais sur les pages Armée et d'attaque). Tu es prévenu avant le premier export ; les rapports que tu n'avais pas lus restent marqués non lus. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Case dans Préférences → Partage de données.",
+      "Outils pour Chasseur → Synthèse : tout en bas, un « Tableau récapitulatif » liste chacune de tes chasses de la période (retour, terrain, pertes, pertes par M cm², nourriture, expéditions, troupes envoyées, difficulté par cm²), puis leur total.",
+      "Horloge : une croix la masque pendant 1 h. Elle revient dès que tu ouvres une page d'attaque, ou par le lien « La remettre » de la notification.",
+    ],
+  },
+  {
     version: "1.108.2",
     notes: [
       "Convois : en cliquant sur un montant du Récapitulatif, les matériaux pouvaient être remplis avec 1 de trop par rapport au stock affiché dans l'encart. Le montant ne dépasse plus ce stock.",

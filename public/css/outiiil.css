@@ -3327,6 +3327,15 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 .o_syntheseComparaison tfoot td {
   font-style: italic;
 }
+/* récapitulatif : le total en gras, la date du retour à gauche comme le numéro */
+.o_syntheseRecap tfoot td {
+  font-style: normal;
+  font-weight: bold;
+}
+.o_syntheseRecap th:nth-child(2),
+.o_syntheseRecap td:nth-child(2) {
+  text-align: left;
+}
 /* graphiques l'un sous l'autre, sur toute la largeur */
 .o_syntheseGraphiques {
   display: grid;

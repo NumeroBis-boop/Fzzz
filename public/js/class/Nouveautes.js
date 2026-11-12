@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.108.2",
+    notes: [
+      "Convois : en cliquant sur un montant du Récapitulatif, les matériaux pouvaient être remplis avec 1 de trop par rapport au stock affiché dans l'encart. Le montant ne dépasse plus ce stock.",
+    ],
+  },
+  {
     version: "1.108.1",
     notes: [
       "Firefox sur Android : correction d'une erreur qui empêchait les curseurs (ponte, récolte, coûts, Préférences…) de réagir au doigt.",

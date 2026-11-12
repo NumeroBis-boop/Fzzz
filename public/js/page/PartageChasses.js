@@ -43,8 +43,9 @@ const CLE_PARTAGE_CHASSES_APRES = "fzzz_partageChassesApres";
 let fileFloodsForum = Promise.resolve();
 // numéros dont le retrait est déjà en cours sur cette page
 let retraitsEnCours = new Set();
-// sujets lus pour l'affichage, réutilisés une minute d'une page à l'autre ;
-// les écritures relisent toujours le forum (un autre appareil a pu écrire)
+// sujets lus pour l'affichage, réutilisés une minute d'une page à l'autre par
+// la même version du script ; les écritures relisent toujours le forum (un
+// autre appareil a pu écrire)
 const CLE_CACHE_FORUM = "fzzz_cacheForum";
 const DUREE_CACHE_FORUM = 60000;
 
@@ -140,18 +141,34 @@ class PartageChasses {
    */
   static _enCache(cle, accepte, lire) {
     let cache = Utils.lireStockage(CLE_CACHE_FORUM),
+      version = PartageChasses._version(),
       e = cache[cle];
-    if (accepte && e && Date.now() - e.t < DUREE_CACHE_FORUM) return Promise.resolve(e.v);
+    // lecture gardée par une autre version du script (mise à jour, version
+    // TEST) : elle n'a pas forcément retenu les mêmes choses du forum
+    if (accepte && e && e.version === version && Date.now() - e.t < DUREE_CACHE_FORUM)
+      return Promise.resolve(e.v);
     return lire().then((v) => {
       let maintenant = Date.now(),
         garde = Utils.lireStockage(CLE_CACHE_FORUM);
       for (let k in garde) if (maintenant - garde[k].t >= DUREE_CACHE_FORUM) delete garde[k];
-      garde[cle] = { t: maintenant, v };
+      garde[cle] = { t: maintenant, v, version };
       try {
         localStorage.setItem(CLE_CACHE_FORUM, JSON.stringify(garde));
       } catch (err) {}
       return v;
     });
+  }
+  /**
+   * @private
+   * @static
+   * @return {String} version du script ; "" tant que content.js n'est pas chargé
+   */
+  static _version() {
+    try {
+      return VERSION;
+    } catch (e) {
+      return "";
+    }
   }
   /**
    * @static

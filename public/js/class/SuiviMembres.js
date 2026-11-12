@@ -149,20 +149,22 @@ class SuiviMembres {
    *
    * @static
    * @method adresse
-   * @return {Promise<String>} "" sans section cachée, sans sujet ou sans adresse ;
-   *   rejetée si le forum ne se lit pas
+   * @return {Promise<{url: String, manque: String}>} sans adresse, ce qui manque :
+   *   "section" (cachée absente ou invisible pour le grade), "sujet" ou
+   *   "adresse" (sujet présent, adresse illisible) ; rejetée si le forum ne se lit pas
    */
   static adresse() {
     return PartageChasses.sujets(true).then(
       (sujets) =>
         sujets.statsMembres
-          ? PartageChasses._xajax("callGetTopic", sujets.statsMembres).then(
-              (data) => ExportRapports.lireReglage(data).adresse,
-            )
-          : "",
+          ? PartageChasses._xajax("callGetTopic", sujets.statsMembres).then((data) => {
+              let url = ExportRapports.lireReglage(data).adresse;
+              return { url, manque: url ? "" : "adresse" };
+            })
+          : { url: "", manque: "sujet" },
       (e) => {
         // section inexistante ou cachée au grade du joueur : pas une panne
-        if (e && e.message == "absente") return "";
+        if (e && e.message == "absente") return { url: "", manque: "section" };
         throw e;
       },
     );
@@ -459,6 +461,9 @@ class SuiviMembres {
         essais: 0,
         essai: 0,
       };
+    // « rien aujourd'hui » conclu par une autre version du script : à revoir
+    if (etat.raison == "sans sujet" && etat.version !== VERSION)
+      etat = { ...etat, fait: false, essais: 0, essai: 0, raison: "" };
     if (
       !maintenant &&
       (etat.fait ||
@@ -475,10 +480,21 @@ class SuiviMembres {
         return resultat;
       };
     return SuiviMembres.adresse()
-      .then((url) => {
+      .then(({ url, manque }) => {
+        // sujet présent, adresse illisible (message en cours d'écriture, lecture
+        // ratée) : un échec, repris plus tard comme les autres
+        if (manque == "adresse")
+          throw new Error(
+            `pas d'adresse de script lisible dans le sujet « ${TITRE_STATS_MEMBRES} »`,
+          );
         if (!url) {
-          Journal.info(JOURNAL_SUIVI, `pas d'adresse dans le sujet « ${TITRE_STATS_MEMBRES} »`);
-          return fin("sans sujet", { fait: true, raison: "sans sujet" });
+          Journal.info(
+            JOURNAL_SUIVI,
+            manque == "section"
+              ? "section cachée du forum introuvable ou invisible pour ton grade : rien n'est relevé aujourd'hui"
+              : `pas de sujet « ${TITRE_STATS_MEMBRES} » dans la section cachée du forum : rien n'est relevé aujourd'hui`,
+          );
+          return fin("sans sujet", { fait: true, raison: "sans sujet", version: VERSION });
         }
         if (!etat.annonce && !maintenant) {
           SuiviMembres.annoncer(partages);

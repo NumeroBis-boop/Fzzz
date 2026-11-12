@@ -137,6 +137,7 @@ beforeEach(() => {
     // ce que le module note au journal, et ses écritures de l'état
     window.NOTES = [];
     Journal.info = (source, message, detail) => NOTES.push([message, detail]);
+    Journal.erreur = (source, message, detail) => NOTES.push([message, detail]);
     window.ECRITURES = 0;
     window.GARDER = window.GARDER || SuiviMembres._garder;
     SuiviMembres._garder = (e) => { ECRITURES++; GARDER(e); };
@@ -338,16 +339,89 @@ describe("annonce avant le premier envoi", () => {
     expect(await ouvrirPage()).toBe("annonce");
   });
 
-  test("section cachée absente ou invisible pour le grade, sujet sans adresse, joueur sans alliance : rien", async () => {
+  test("section cachée absente ou invisible pour le grade, joueur sans alliance : rien, et le journal dit ce qui manque", async () => {
     lire(`FORUM.section = false`);
     expect(await ouvrirPage()).toBe("sans sujet");
+    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
+      [
+        "section cachée du forum introuvable ou invisible pour ton grade : rien n'est relevé aujourd'hui",
+        undefined,
+      ],
+    ]);
+    // section visible, sans le sujet
     lire(
-      `(() => { localStorage.clear(); FORUM.section = true; FORUM.sujets[0].messages = ["bientôt"]; })()`,
+      `(() => { localStorage.clear(); NOTES = []; FORUM.section = true; FORUM.sujets = []; PartageChasses.idSection = null; })()`,
     );
     expect(await ouvrirPage()).toBe("sans sujet");
+    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
+      [
+        "pas de sujet « Stats membres » dans la section cachée du forum : rien n'est relevé aujourd'hui",
+        undefined,
+      ],
+    ]);
     lire(`(() => { localStorage.clear(); FORUM.appels = []; $("#tag_alliance").text(""); })()`);
     expect(await ouvrirPage()).toBe("sans alliance");
     expect([forum(), lues(), recus(), lire(`TOASTS.length`)]).toEqual([[], [], [], 0]);
+  });
+
+  test("sujet présent mais sans adresse lisible : un échec, repris une heure plus tard quand l'adresse y est", async () => {
+    lire(`FORUM.sujets[0].messages = ["bientôt"]`);
+    expect(await ouvrirPage()).toBe("échec");
+    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
+      [
+        "relevé du 2026-11-12 non envoyé",
+        "pas d'adresse de script lisible dans le sujet « Stats membres »",
+      ],
+    ]);
+    expect([lues(), recus(), lire(`TOASTS.length`), etat().fait]).toEqual([[], [], 0, false]);
+    lire(`FORUM.sujets[0].messages = [${JSON.stringify(ADRESSE)}]`);
+    avancer(20);
+    expect(await ouvrirPage()).toBe("attente");
+    // une heure après : les lectures gardées une minute sont périmées
+    lire(`(() => { heure += 41 * 60000; PartageChasses.oublierCache(); })()`);
+    expect(await ouvrirPage()).toBe("annonce");
+  });
+
+  test("« rien aujourd'hui » conclu par une autre version du script : revu à la page suivante ; par cette version : pas avant demain", async () => {
+    const conclu = (plus: object) =>
+      lire(
+        `localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ doggybag: { annonce: true, jour: "2026-11-12", fait: true, essais: 1, essai: heure, raison: "sans sujet", ...${JSON.stringify(plus)} } }))`,
+      );
+    conclu({});
+    expect(await ouvrirPage()).toBe("envoyé");
+    conclu({ version: "1.103.0" });
+    expect(await ouvrirPage()).toBe("envoyé");
+    conclu({ version: "1.104.0" });
+    expect(await ouvrirPage()).toBe("attente");
+    expect(recus()).toHaveLength(2);
+  });
+
+  test("liste des sujets gardée par une autre version du script (mise à jour dans la minute) : relue, le sujet est trouvé", async () => {
+    annonceVue();
+    // gardée il y a 5 s par une version qui ne retenait pas le sujet « Stats membres »
+    const garder = (plus: object) =>
+      lire(
+        `localStorage.setItem("fzzz_cacheForum", JSON.stringify({ sujets: { t: Date.now() - 5000, v: { liste: [], historiques: [] }, ...${JSON.stringify(plus)} } }))`,
+      );
+    garder({});
+    expect(await ouvrirPage()).toBe("envoyé");
+    expect(forum()).toEqual(["callGetForum", "callGetForum 7", "callGetTopic 31"]);
+    // la liste que cette version vient de lire et de garder : réutilisée dans la minute
+    await lire(`PartageChasses.sujets(true)`);
+    expect(forum()).toHaveLength(3);
+    lire(`(() => { localStorage.removeItem("fzzz_suiviMembres"); FORUM.appels = []; })()`);
+    annonceVue();
+    garder({ version: "1.101.0" });
+    expect(await ouvrirPage()).toBe("envoyé");
+    expect(forum()).toEqual(["callGetForum 7", "callGetTopic 31"]);
+    // gardée par cette version : réutilisée, le forum n'est pas relu
+    lire(
+      `(() => { localStorage.removeItem("fzzz_suiviMembres"); FORUM.appels = []; NOTES = []; })()`,
+    );
+    annonceVue();
+    garder({ version: "1.104.0" });
+    expect(await ouvrirPage()).toBe("sans sujet");
+    expect(forum()).toEqual([]);
   });
 });
 

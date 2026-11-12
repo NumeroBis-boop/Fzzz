@@ -72,6 +72,7 @@ const ONGLETS_PARAMETRE = [
       "sonder",
       "synchroniser",
       "couleurAttaquer",
+      "couleurLieu",
       "trajet",
       "retourArmee",
       "statArmee",

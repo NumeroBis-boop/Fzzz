@@ -347,8 +347,11 @@ class PageAttaquer {
       $("input[name='ChoixArmee']")[0].click();
       this._partagerEnvoi = false;
     });
-    // page reprise par « Précédent » : le bouton désactivé par le clic revient actif
+    // page affichée ou reprise par « Précédent » : le navigateur peut avoir
+    // remis une ancienne valeur dans la liste sans « change », et le bouton
+    // désactivé par le clic revient actif
     window.addEventListener("pageshow", (e) => {
+      this.majCouleurs();
       if (e.persisted && this._pret) $("#o_lancerPartager").prop("disabled", false);
     });
     $("#o_synchro").on("click", (e) => {
@@ -382,23 +385,31 @@ class PageAttaquer {
     );
   }
   /**
-   * Couleur du lieu visé par les boutons qui envoient : vert terrain, orange
-   * dôme, rouge loge. Bouton du jeu et « Lancer + partager » d'après la liste,
-   * « Sonder » d'après le lieu de sonde.
+   * Couleur du lieu visé : vert terrain, orange dôme, rouge loge. Liste du
+   * jeu, bouton du jeu et « Lancer + partager » d'après le lieu choisi dans la
+   * liste, chaque choix de la liste d'après le sien, « Sonder » d'après le lieu
+   * de sonde.
    *
    * @private
    * @method majCouleurs
    */
   majCouleurs() {
-    let colorer = ($b, lieu) => $b.removeClass("o_lieu1 o_lieu2 o_lieu3").addClass("o_lieu" + lieu);
+    let colorer = ($b, lieu) => $b.removeClass("o_lieu1 o_lieu2 o_lieu3").addClass("o_lieu" + lieu),
+      lieu = parseInt($("#lieu").val()) || LIEU_JEU_TERRAIN;
     colorer(
       $(
         Utils.affichage("couleurAttaquer")
           ? "input[name='ChoixArmee']:first, #o_lancerPartager"
           : "#o_lancerPartager",
       ),
-      parseInt($("#lieu").val()) || LIEU_JEU_TERRAIN,
+      lieu,
     );
+    if (Utils.affichage("couleurLieu")) {
+      colorer($("#lieu"), lieu);
+      $("#lieu option").each((i, choix) => {
+        if (ZONES_LIEU_JEU[choix.value]) colorer($(choix), choix.value);
+      });
+    }
     let lieuSonde = this.lieuSonde();
     colorer($("#o_sonder"), lieuSonde).text(`Sonder (${ZONES_LIEU_JEU[lieuSonde]})`);
   }

@@ -131,6 +131,8 @@ const AFFICHAGES_FZZZ = {
     "Bouton « Synchroniser » : compte à rebours pour une arrivée à la minute pleine (page d'attaque)",
   couleurAttaquer:
     "Couleur du bouton « Attaquer » du jeu selon le lieu visé : vert terrain, orange dôme, rouge loge",
+  couleurLieu:
+    "Couleur de la liste déroulante du lieu visé et de ses choix (page d'attaque) : vert terrain, orange dôme, rouge loge",
   trajet: "Ligne « Temps de trajet » (page d'attaque)",
   retourArmee: "Ligne « Votre armée rentrera le … (RC : …) » (page d'attaque)",
   statArmee:

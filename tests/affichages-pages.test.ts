@@ -23,8 +23,8 @@ const decocher = (cles: string[]) =>
 // formulaire d'attaque du jeu, boutons de l'extension posés dessous
 function boutons(cles: string[] = []) {
   decocher(cles);
-  return page.lire<Record<string, number | boolean>>(`(() => {
-    document.body.innerHTML = \`<form id="formulaireChoixArmee"><fieldset><select id="lieu"><option value="2">Fourmilière</option></select></fieldset>
+  return page.lire<Record<string, number | boolean | string>>(`(() => {
+    document.body.innerHTML = \`<form id="formulaireChoixArmee"><fieldset><select id="lieu"><option value="1">Terrain de Chasse</option><option value="2" selected>Fourmilière</option><option value="3">Loge Impériale</option><option value="9">Autre</option></select></fieldset>
       <fieldset><table id="tabChoixArmee"></table><center><input type="submit" name="ChoixArmee" value="Attaquer X !"/></center></fieldset></form>\`;
     let p = Object.create(PageAttaquer.prototype);
     p._cible = { pseudo: "X", terrain: 1000 };
@@ -36,6 +36,8 @@ function boutons(cles: string[] = []) {
       trajet: n("#o_tempsTrajet"), retour: n("#o_retourArmee"),
       couleurJeu: $("input[name='ChoixArmee']").hasClass("o_lieu2"),
       couleurLancer: $("#o_lancerPartager").hasClass("o_lieu2"),
+      couleurListe: $("#lieu")[0].className,
+      couleurChoix: $("#lieu option").map((i, o) => o.className).get().join(","),
     };
   })()`);
 }
@@ -53,6 +55,9 @@ describe("page d'attaque : une case par bouton ou ligne", () => {
       retour: 1,
       couleurJeu: true,
       couleurLancer: true,
+      // liste du jeu : couleur du lieu choisi ; chaque choix, la sienne ; un choix inconnu, aucune
+      couleurListe: "o_lieu2",
+      couleurChoix: "o_lieu1,o_lieu2,o_lieu3,",
     });
   });
 
@@ -76,7 +81,30 @@ describe("page d'attaque : une case par bouton ou ligne", () => {
     });
     expect(boutons(["retourArmee"])).toMatchObject({ retour: 0, trajet: 1 });
     // couleur : seul le bouton du jeu redevient celui du jeu
-    expect(boutons(["couleurAttaquer"])).toMatchObject({ couleurJeu: false, couleurLancer: true });
+    expect(boutons(["couleurAttaquer"])).toMatchObject({
+      couleurJeu: false,
+      couleurLancer: true,
+      couleurListe: "o_lieu2",
+    });
+    // couleur de la liste du lieu : elle seule redevient celle du jeu
+    expect(boutons(["couleurLieu"])).toMatchObject({
+      couleurJeu: true,
+      couleurLancer: true,
+      couleurListe: "",
+      couleurChoix: ",,,",
+    });
+  });
+
+  test("la liste du lieu suit le choix : au changement, et quand le navigateur y remet une valeur sans le dire (page affichée)", () => {
+    boutons();
+    const couleurs = () =>
+      page.lire<string[]>(
+        `[$("#lieu")[0].className, $("input[name='ChoixArmee']")[0].className, $("#o_lancerPartager")[0].className.replace("o_button ", ""), $("#lieu option").map((i, o) => o.className).get().join(",")]`,
+      );
+    page.lire(`$("#lieu").val("3").trigger("change")`);
+    expect(couleurs()).toEqual(["o_lieu3", "o_lieu3", "o_lieu3", "o_lieu1,o_lieu2,o_lieu3,"]);
+    page.lire(`(() => { $("#lieu").val("1"); window.dispatchEvent(new Event("pageshow")); })()`);
+    expect(couleurs()).toEqual(["o_lieu1", "o_lieu1", "o_lieu1", "o_lieu1,o_lieu2,o_lieu3,"]);
   });
 
   test("sans aucun bouton : ni bloc vide ni ligne de compte à rebours", () => {

@@ -1439,7 +1439,14 @@ h2:has(+ .o_nbUnite) {
     grid-column: 2;
   }
 }
-/* lieu visé : vert terrain, orange dôme, rouge loge (boutons qui envoient) */
+/* liste du lieu visé : un choix sans couleur reste lisible sous le texte blanc de la liste */
+select.o_lieu1 option,
+select.o_lieu2 option,
+select.o_lieu3 option {
+  color: #000;
+  background-color: #fff;
+}
+/* lieu visé : vert terrain, orange dôme, rouge loge (boutons qui envoient, liste du lieu et ses choix) */
 .o_lieu1,
 .o_lieu2,
 .o_lieu3 {

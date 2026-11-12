@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.108.1",
+    notes: [
+      "Firefox sur Android : correction d'une erreur qui empêchait les curseurs (ponte, récolte, coûts, Préférences…) de réagir au doigt.",
+      "Partage de données : juste après une mise à jour, le sujet « Stats membres » pouvait ne pas être trouvé et le relevé du jour était sauté. C'est corrigé ; si le sujet existe mais que son adresse est illisible, un nouvel essai est fait plus tard dans la journée.",
+    ],
+  },
+  {
     version: "1.108.0",
     notes: [
       "Page d'attaque : la liste déroulante du lieu visé prend la couleur du lieu choisi, comme les boutons (vert terrain, orange dôme, rouge loge), et ses choix sont colorés aussi. Sur téléphone, seule la liste fermée est colorée : la fenêtre de choix est celle du téléphone. Case dans Préférences → Attaque.",

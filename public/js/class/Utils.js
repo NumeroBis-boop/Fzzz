@@ -1158,10 +1158,18 @@ class Utils {
    * @return {Boolean}
    */
   static pageSansAlertePonte(adresse) {
-    return (
-      /^\/Armee\.php$/i.test(adresse.pathname) ||
-      (/^\/ennemie\.php$/i.test(adresse.pathname) && /[?&]Attaquer=/i.test(adresse.search))
-    );
+    return /^\/Armee\.php$/i.test(adresse.pathname) || Utils.pageAttaque(adresse);
+  }
+  /**
+   * Page d'attaque d'un ennemi (ennemie.php?Attaquer=…).
+   *
+   * @static
+   * @method pageAttaque
+   * @param {{pathname: String, search: String}} adresse
+   * @return {Boolean}
+   */
+  static pageAttaque(adresse) {
+    return /^\/ennemie\.php$/i.test(adresse.pathname) && /[?&]Attaquer=/i.test(adresse.search);
   }
   static alertePonte() {
     let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0,

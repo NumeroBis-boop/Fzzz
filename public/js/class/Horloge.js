@@ -10,6 +10,13 @@ const CLE_LATENCE = "fzzz_latence";
 /** Clé (stockage de l'extension) de la position déplacée de l'horloge {x, y} en px. */
 const CLE_POSITION_HORLOGE = "fzzz_positionHorloge";
 /**
+ * Clé (stockage de l'extension) de l'instant, à l'heure du serveur (ms),
+ * jusqu'auquel la croix de l'horloge la masque : une heure, ou jusqu'à
+ * l'ouverture d'une page d'attaque d'un ennemi (demande du mainteneur).
+ */
+const CLE_HORLOGE_MASQUEE = "fzzz_horlogeMasquee";
+const HEURES_HORLOGE_MASQUEE = 1;
+/**
  * Décalage estimé heure serveur − heure du PC, en ms (null tant qu'aucune
  * réponse du serveur n'a été observée).
  */
@@ -155,7 +162,8 @@ class Horloge {
    * Horloge flottante : fixée à l'écran (visible en faisant défiler la page),
    * déplaçable en la faisant glisser, position retenue d'une page à l'autre.
    * Première fois : au-dessus de l'encart « S5 Pseudo ». Mise à jour calée sur
-   * le changement de seconde.
+   * le changement de seconde. Sa croix la masque HEURES_HORLOGE_MASQUEE, ou
+   * jusqu'à l'ouverture d'une page d'attaque d'un ennemi.
    *
    * @static
    * @method afficher
@@ -168,7 +176,10 @@ class Horloge {
           <span id='o_latenceValeur' title='Latence : délai entre ton clic et sa prise en compte par le serveur. Elle est ajoutée à l’heure affichée et aux synchronisations d’attaque.'></span>
           <button type='button' id='o_latencePlus' title='Latence + 0,1 s'>+</button>
         </span>
-        <span id='o_horlogeHeure'></span>
+        <span class='o_horlogeDroite'>
+          <span id='o_horlogeHeure'></span>
+          <button type='button' id='o_horlogeFermer' title='Masquer l’horloge pendant ${HEURES_HORLOGE_MASQUEE} h ; elle revient dès qu’une page d’attaque est ouverte' aria-label='Masquer l’horloge'>×</button>
+        </span>
         <span id='o_horlogeLocale'></span>
       </div>`).appendTo("body"),
       h = $h[0],
@@ -208,18 +219,42 @@ class Horloge {
         try {
           chrome.storage.local.set({ [CLE_POSITION_HORLOGE]: pos });
         } catch (err) {}
-      };
-    // position partagée par toutes les pages et onglets du jeu (http et https
-    // compris) : stockage de l'extension, suivi en direct
+      },
+      // masquée jusqu'à `jusqua` (0 : affichée), ici et dans les autres onglets
+      masquer = (jusqua) => {
+        Horloge._masqueeJusqua = jusqua;
+        Horloge._majAffichage();
+        try {
+          if (jusqua) chrome.storage.local.set({ [CLE_HORLOGE_MASQUEE]: jusqua });
+          else chrome.storage.local.remove(CLE_HORLOGE_MASQUEE);
+        } catch (err) {}
+      },
+      // page d'attaque d'un ennemi : l'heure y sert à lancer, l'horloge y revient
+      surAttaque = Utils.pageAttaque(location);
+    Horloge._masqueeJusqua = 0;
+    // position et masquage partagés par toutes les pages et onglets du jeu (http
+    // et https compris) : stockage de l'extension, suivi en direct
     h.style.visibility = "hidden";
     try {
-      chrome.storage.local.get(CLE_POSITION_HORLOGE).then(
-        (r) => appliquer(r[CLE_POSITION_HORLOGE]),
+      chrome.storage.local.get([CLE_POSITION_HORLOGE, CLE_HORLOGE_MASQUEE]).then(
+        (r) => {
+          if (surAttaque) {
+            if (r[CLE_HORLOGE_MASQUEE]) masquer(0);
+          } else Horloge._masqueeJusqua = Number(r[CLE_HORLOGE_MASQUEE]) || 0;
+          // avant de la rendre visible : masquée, elle n'apparaît pas un instant
+          Horloge._majAffichage();
+          appliquer(r[CLE_POSITION_HORLOGE]);
+        },
         () => appliquer(null),
       );
       chrome.storage.onChanged.addListener((changements, zone) => {
-        if (zone == "local" && changements[CLE_POSITION_HORLOGE])
+        if (zone != "local") return;
+        if (changements[CLE_POSITION_HORLOGE])
           appliquer(changements[CLE_POSITION_HORLOGE].newValue);
+        if (changements[CLE_HORLOGE_MASQUEE]) {
+          Horloge._masqueeJusqua = Number(changements[CLE_HORLOGE_MASQUEE].newValue) || 0;
+          Horloge._majAffichage();
+        }
       });
     } catch (e) {
       appliquer(null);
@@ -254,6 +289,23 @@ class Horloge {
     };
     $("#o_latenceMoins").click(regler(-100));
     $("#o_latencePlus").click(regler(100));
+    $("#o_horlogeFermer").on("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      masquer(Horloge.maintenant() + HEURES_HORLOGE_MASQUEE * 3600000);
+      // un clic involontaire se rattrape : le lien la remet tout de suite
+      $.toast({
+        ...TOAST_INFO,
+        hideAfter: 8000,
+        text: `Horloge masquée pendant ${HEURES_HORLOGE_MASQUEE} h ; elle revient dès que tu ouvres une page d'attaque. <a href='#' class='o_horlogeRevoir'>La remettre</a>`,
+      });
+      $(document)
+        .off("click.o_horlogeRevoir")
+        .on("click.o_horlogeRevoir", ".o_horlogeRevoir", (clic) => {
+          clic.preventDefault();
+          masquer(0);
+        });
+    });
     let tic = () => {
       Horloge._majAffichage();
       // prochain tic juste après le changement de seconde affiché
@@ -278,6 +330,7 @@ class Horloge {
         : "Heure du PC : l’heure du serveur sera connue après le chargement d’une page du jeu";
     $("#o_horloge")
       .toggleClass("o_horlogePC", !Horloge.estSynchronisee())
+      .toggleClass("o_horlogeMasquee", instant < (Horloge._masqueeJusqua || 0))
       .toggleClass("o_horlogeAvecLocale", !!ligne)
       .attr("title", local ? `${titre}\n${local}` : titre);
     $("#o_horlogeLocale").text(ligne || "");

@@ -1927,6 +1927,31 @@ html:not(.o_desactivee):not(.o_originePage) center > div > #tabMembresAlliance {
 #o_horloge.o_horlogeDeplace {
   opacity: 0.85;
 }
+/* croix : masquée une heure, ou jusqu'à l'ouverture d'une page d'attaque */
+#o_horloge.o_horlogeMasquee {
+  display: none !important;
+}
+#o_horloge .o_horlogeDroite {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+#o_horloge #o_horlogeFermer {
+  width: 1.5em;
+  height: 1.5em;
+  margin: 0;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
+  font-size: 0.6em;
+  line-height: 1em;
+  cursor: pointer;
+}
+#o_horloge #o_horlogeFermer:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
 #o_horloge #o_horlogeHeure {
   font-size: 1em;
   font-weight: bold;

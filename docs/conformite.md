@@ -65,3 +65,10 @@ Toutes les requêtes et minuteries de `public/js` (hors bibliothèques) ont ét�
 Point ouvert : la boîte « Compte+ » de Toolzzz reprend des affichages du Compte+ (règle E3, fonctions équivalentes au Compte+). La modération a validé le projet « à l'image de Toolzzz » ; à surveiller si le règlement évolue.
 
 Point ouvert : la synchronisation vise une arrivée à la seconde 0, calculée avec l'horloge du PC et non celle du serveur. Avec un clic humain, l'arrivée glisse de quelques secondes. Or le RC est daté de la minute suivant l'impact : 17h23:00 donne 17h23, mais 17h23:01 donne 17h24. Il faudra viser une seconde de marge et utiliser l'heure serveur.
+
+## Lectures sans clic décidées par le mainteneur
+
+Deux fonctions lisent des pages du jeu que le joueur n'a pas ouvertes. Elles partent toujours d'une page que le joueur ouvre, quand leur relevé ou leur export est dû, avec des essais espacés (une heure, trois par jour) et sans minuterie. Ce sont les plus exposées à la règle « pas de lecture de pages en arrière-plan » : ne pas en ajouter d'autre sans demande du mainteneur.
+
+- Relevé quotidien des statistiques des membres (1.104.0) : pages Construction, Laboratoire, Reine (et Armée), une fois par jour, et de nouveau quand le niveau de la Champignonnière ou de l'Étable à pucerons change (1.107.0).
+- Export automatique des chasses (1.109.0, rôle Chasseur) : deux fois par semaine, la liste de la messagerie puis chaque conversation de chasse pas encore dans le fichier (plusieurs dizaines de requêtes possibles à l'ouverture d'une page) ; les conversations non lues sont remises « non lues » par la requête du bouton du jeu. Jamais sur les pages Armée et d'attaque.

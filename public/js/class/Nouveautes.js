@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.110.2",
+    notes: [
+      "Page d'un membre : le bloc « Chasses et floods en cours partagés » ne montre plus que l'évolution du TdC, où chaque chasse et chaque flood a sa ligne. Les tableaux séparés des chasses et des floods sont retirés.",
+    ],
+  },
+  {
     version: "1.110.1",
     notes: [
       "Rôle Chasseur : l'export automatique des chasses part après ton clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses (deux fois par semaine au plus, après le mercredi et le dimanche 22h). Le formulaire du jeu ne le déclenche plus.",

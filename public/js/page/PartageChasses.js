@@ -1702,45 +1702,57 @@ class PartageChasses {
     if (suivi) suivi.prevoir(1);
     return PartageChasses.sujets(true).then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
+        // floods de tous les joueurs ; chasses des joueurs demandés
         voulu = (/** @type {String} */ type, /** @type {String} */ pseudo) =>
-          type == "Floods"
-            ? avecFloods
-            : type == "Chasses" && (!voulus || voulus.includes(pseudo.toLowerCase())),
-        liste = sujets.liste.filter((t) => voulu(t.type, t.pseudo)),
+          type == "Floods" ? avecFloods : !voulus || voulus.includes(pseudo.toLowerCase()),
+        types = ["Floods", "Chasses"].filter((type) =>
+          type == "Floods" ? avecFloods : !voulus || voulus.length,
+        ),
+        communs = types.map((type) => (sujets.communs || {})[type]).filter(Boolean),
+        // les sujets des joueurs ne sont lus que pour un type sans sujet commun
+        sansCommun = types.filter((type) => !(sujets.communs || {})[type]),
+        liste = sujets.liste.filter((t) => sansCommun.includes(t.type) && voulu(t.type, t.pseudo)),
         d = { chasses: {}, floods: [] },
         lu = () => suivi && suivi.faite(),
-        communs = ["Floods", "Chasses"]
-          .filter((type) => (type == "Floods" ? avecFloods : !voulus || voulus.length))
-          .map((type) => (sujets.communs || {})[type])
-          .filter(Boolean);
+        ranger = (
+          /** @type {String} */ type,
+          /** @type {String} */ pseudo,
+          /** @type {any} */ r,
+        ) => {
+          if (type == "Chasses") d.chasses[pseudo.toLowerCase()] = r.chasses;
+          else r.floods.forEach((/** @type {any} */ e) => d.floods.push({ ...e, lanceur: pseudo }));
+        };
+      if (sansCommun.length)
+        Journal.info(
+          "Forum",
+          `pas de sujet ${sansCommun.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(" ni ")} dans la section : sujets des joueurs lus`,
+        );
       if (suivi) {
         suivi.faite();
         suivi.prevoir(communs.length);
       }
+      // un sujet commun illisible fait échouer la lecture : sans lui, il manquerait des joueurs
       return Promise.all(
         communs.map((c) =>
-          PartageChasses._lireCommun(c)
-            .catch(() => null)
-            .then((v) => {
-              lu();
-              return [c.type, v];
-            }),
+          PartageChasses._lireCommun(c).then((v) => {
+            lu();
+            return [c.type, v];
+          }),
         ),
       ).then((lus) => {
-        /** @type {any} section la plus récente de chaque joueur, par type */
-        let sections = { Floods: {}, Chasses: {} };
-        lus.forEach(
-          ([type, v]) => (sections[type] = PartageChasses.sectionsRecentes(v ? v.sections : [])),
-        );
-        let couverture = (/** @type {any} */ t) => {
-            let s = sections[t.type][t.pseudo.toLowerCase()];
-            return PartageChasses.couvert(t, s) ? s : null;
-          },
-          gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
+        lus.forEach(([type, v]) => {
+          let recentes = PartageChasses.sectionsRecentes(v.sections);
+          Object.keys(recentes)
+            .sort()
+            .forEach((k) => {
+              if (voulu(type, k)) ranger(type, recentes[k].pseudo, recentes[k]);
+            });
+        });
+        let gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
           // sujet par sujet, rangés ensuite dans l'ordre de la liste
           contenus = new Map(),
           aLire = liste.filter((t) => {
-            let garde = couverture(t) || PartageChasses.sujetGarde(gardes, t);
+            let garde = PartageChasses.sujetGarde(gardes, t);
             if (!garde) return true;
             contenus.set(t, garde);
             if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
@@ -1756,35 +1768,13 @@ class PartageChasses {
                       .catch(() => {})
                       .then(lu),
                   ),
-                ).then(() => lirePaquet(k + 4)),
-          ranger = (
-            /** @type {String} */ type,
-            /** @type {String} */ pseudo,
-            /** @type {any} */ r,
-          ) => {
-            if (type == "Chasses") d.chasses[pseudo.toLowerCase()] = r.chasses;
-            else
-              r.floods.forEach((/** @type {any} */ e) => d.floods.push({ ...e, lanceur: pseudo }));
-          };
+                ).then(() => lirePaquet(k + 4));
         if (suivi) suivi.prevoir(aLire.length);
         return lirePaquet(0).then(() => {
           liste.forEach((t) => {
             let r = contenus.get(t);
             if (r) ranger(t.type, t.pseudo, r);
           });
-          // joueur qui n'a que sa section (son sujet n'existe pas)
-          ["Floods", "Chasses"].forEach((type) =>
-            Object.keys(sections[type])
-              .sort()
-              .forEach((k) => {
-                let s = sections[type][k];
-                if (
-                  voulu(type, k) &&
-                  !sujets.liste.some((t) => t.type == type && t.pseudo.toLowerCase() == k)
-                )
-                  ranger(type, s.pseudo, s);
-              }),
-          );
           return d;
         });
       });

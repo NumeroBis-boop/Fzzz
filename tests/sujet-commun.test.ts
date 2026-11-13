@@ -183,21 +183,17 @@ describe("format du sujet commun", () => {
   });
 });
 
-describe("lecture : le sujet commun d'abord, le sujet d'un joueur seulement s'il est plus récent que sa section", () => {
-  test("Alpha a sa section à jour : son sujet n'est pas lu ; Beta n'a pas de section : son sujet est lu", async () => {
+describe("affichage : les sujets communs seulement, plus les sujets des joueurs", () => {
+  test("chaque joueur vient de sa section ; les sujets des joueurs ne sont jamais lus ; sans section, absent", async () => {
     preparer();
     const d = await charger();
-    expect(lectures()).toEqual(["10", "11", "2", "3"]);
-    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
-      ["Alpha", 11],
-      ["Beta", 21],
-    ]);
-    expect(d.chasses.alpha.map((c: any) => c.terrain)).toEqual([1500]);
-    // le sujet d'Alpha, couvert par sa section : une lecture évitée
-    expect(lire<number>(`COMPTE_REQUETES.cache`)).toBe(1);
+    expect(lectures()).toEqual(["10", "11"]);
+    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([["Alpha", 11]]);
+    // Beta n'a pas de section, ni Alpha dans le sujet commun des chasses
+    expect(d.chasses).toEqual({});
   });
 
-  test("sujet du joueur modifié après sa section (autre appareil, ancienne version) : c'est lui qui fait foi", async () => {
+  test("sujet du joueur plus récent que sa section : la section reste ce qui est affiché", async () => {
     preparer();
     lire(`(() => {
       const s = FORUM.sujets.find((s) => s.id == "1");
@@ -205,17 +201,11 @@ describe("lecture : le sujet commun d'abord, le sujet d'un joueur seulement s'il
       s.texte = ${JSON.stringify(ligne("Floods", flood("2026-11-13 23:40", "Delta", 12)))};
     })()`);
     const d = await charger();
-    expect(lectures()).toContain("1");
-    expect(d.floods.filter((f: any) => f.lanceur == "Alpha").map((f: any) => f.id)).toEqual([12]);
+    expect(lectures()).toEqual(["10", "11"]);
+    expect(d.floods.map((f: any) => f.id)).toEqual([11]);
   });
 
-  test("sujet modifié dans la minute de la section (écrit juste avant elle) : la section suffit", async () => {
-    preparer(section("Alpha", "2026-11-13 22:20:59", [ligne("Floods", F11)]));
-    await charger();
-    expect(lectures()).not.toContain("1");
-  });
-
-  test("joueur qui n'a que sa section : ses floods sont pris ; ses chasses seulement s'il est suivi", async () => {
+  test("floods de tous les joueurs ; chasses seulement des joueurs suivis", async () => {
     preparer(
       [
         section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
@@ -230,12 +220,12 @@ describe("lecture : le sujet commun d'abord, le sujet d'un joueur seulement s'il
     const d = await charger();
     expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
       ["Alpha", 11],
-      ["Beta", 21],
       ["Gamma", 31],
     ]);
-    expect(Object.keys(d.chasses).sort()).toEqual(["alpha", "gamma"]);
+    expect(Object.keys(d.chasses)).toEqual(["gamma"]);
     const suivi = await charger(`["Beta"]`);
     expect(Object.keys(suivi.chasses)).toEqual([]);
+    expect(suivi.floods.map((f: any) => f.id)).toEqual([11, 31]);
   });
 
   test("deux sections d'un même joueur : la plus récente", async () => {
@@ -248,29 +238,40 @@ describe("lecture : le sujet commun d'abord, le sujet d'un joueur seulement s'il
       ].join("\n"),
     );
     const d = await charger();
-    expect(d.floods.filter((f: any) => f.lanceur == "Alpha").map((f: any) => f.id)).toEqual([11]);
-    // la plus récente couvre le sujet d'Alpha : il n'est pas lu
-    expect(lectures()).not.toContain("1");
+    expect(d.floods.map((f: any) => f.id)).toEqual([11]);
   });
 
-  test("sujet commun illisible ou absent : tous les sujets des joueurs sont lus, comme avant", async () => {
+  test("sujet commun illisible : la lecture échoue (il manquerait des joueurs), aucun sujet de joueur lu", async () => {
     preparer();
     lire(`(() => { FORUM.echoue.push("10"); })()`);
-    let d = await charger();
-    expect(lectures()).toEqual(["1", "10", "11", "2", "3"]);
-    expect(d.floods.map((f: any) => f.id)).toEqual([11, 21]);
-    preparer(null);
-    d = await charger();
-    expect(lectures()).toEqual(["1", "11", "2", "3"]);
+    expect(
+      await lire<Promise<string>>(
+        `PartageChasses.charger().then(() => "lu", (e) => "échec : " + e.message)`,
+      ),
+    ).toBe("échec : forum");
+    expect(lire<string[]>(`FORUM.lectures.filter((id) => !["10", "11"].includes(id))`)).toEqual([]);
   });
 
-  test("chasses seules d'un joueur : seul le sujet commun des chasses est lu, jamais celui des convois", async () => {
+  test("pas de sujet commun d'un type dans la section : les sujets des joueurs de ce type, comme avant, noté au journal", async () => {
+    preparer(null);
+    const d = await charger();
+    expect(lectures()).toEqual(["1", "11", "2"]);
+    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
+      ["Alpha", 11],
+      ["Beta", 21],
+    ]);
+    expect(notes()).toContain(
+      "pas de sujet « BDD générale flood - NE RIEN ÉCRIRE » dans la section : sujets des joueurs lus",
+    );
+  });
+
+  test("chasses seules d'un joueur : seul le sujet commun des chasses est lu, jamais les sujets des joueurs ni des convois", async () => {
     preparer();
     await charger(`["Alpha"], false`);
-    expect(lectures()).toEqual(["11", "3"]);
+    expect(lectures()).toEqual(["11"]);
   });
 
-  test("sujet commun inchangé (même date) : gardé d'une page à l'autre, comme les autres", async () => {
+  test("sujet commun inchangé (même date) : gardé d'une page à l'autre", async () => {
     preparer();
     // 22:30:00 : le sujet commun, daté 22h29, est lu dans la minute qui suit sa date
     await charger();
@@ -281,6 +282,8 @@ describe("lecture : le sujet commun d'abord, le sujet d'un joueur seulement s'il
     regler("2026-11-13 22:40:00");
     await charger();
     expect(lectures()).toEqual([]);
+    // lectures évitées, comptées pour la mesure du journal
+    expect(lire<number>(`COMPTE_REQUETES.cache`)).toBeGreaterThan(0);
   });
 });
 
@@ -562,14 +565,26 @@ describe("bouton « Reporter tous les partages »", () => {
     ]);
   });
 
-  test("une modification du sujet dans la minute de sa lecture : ce sujet reste lu", async () => {
+  test("une modification du sujet dans la minute de sa lecture : ce joueur est reporté de nouveau au report suivant", async () => {
     preparerReport();
     await reporter();
     // Beta modifie son sujet à 22:30:50, après la lecture du report (22:30:40) : même minute
-    lire(`(() => { FORUM.sujets.find((s) => s.id == "2").dernier = "13 nov. à 22h30"; })()`);
+    lire(`(() => {
+      const s = FORUM.sujets.find((s) => s.id == "2");
+      s.dernier = "13 nov. à 22h30";
+      s.texte = ${JSON.stringify(ligne("Floods", flood("2026-11-13 23:59", "Zeta", 22)))};
+      FORUM.lectures.length = 0;
+    })()`);
     regler("2026-11-13 22:40:00");
-    await charger();
-    expect(lectures()).toContain("2");
+    expect(await reporter()).toStartWith(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 1 section reportée, 2 déjà à jour.",
+    );
+    expect(lire<string[]>(`FORUM.lectures`)).toContain("2");
+    expect(
+      sectionsDe("10")
+        .find((s) => s.pseudo == "Beta")
+        .floods.map((f: any) => f.id),
+    ).toEqual([22]);
   });
 
   test("une section plus récente que le report (son joueur l'a recopiée entre-temps) est gardée", async () => {
@@ -620,11 +635,17 @@ describe("bouton « Reporter tous les partages »", () => {
     expect(sectionsDe("10")[2].ecrit).toBe("2026-11-13 22:10:00");
   });
 
-  test("sujet lu par une page il y a peu (lecture gardée qui fait foi) : pas relu, daté de cette lecture", async () => {
+  test("sujet lu il y a peu (lecture gardée qui fait foi) : pas relu, daté de cette lecture", async () => {
     preparerReport();
-    await charger();
+    await reporter();
+    // la section de Beta est défaite : le report suivant reprend la lecture gardée de son sujet
+    lire(`(() => {
+      const s = FORUM.sujets.find((s) => s.id == "10");
+      s.texte = s.texte.replace(/--- Beta[^\\n]*\\n[^\\n]*\\n?/, "");
+      FORUM.lectures.length = 0;
+    })()`);
+    expect(sectionsDe("10").map((s) => s.pseudo)).toEqual(["Alpha", "Gamma"]);
     regler("2026-11-13 22:31:50");
-    lire(`(() => { FORUM.lectures.length = 0; })()`);
     await reporter();
     expect(lire<string[]>(`FORUM.lectures.filter((id) => ["2", "5", "6"].includes(id))`)).toEqual(
       [],

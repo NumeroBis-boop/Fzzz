@@ -165,7 +165,7 @@ const AFFICHAGES_FZZZ = {
   armeeLignes: "Hors Compte+ : lignes Vie, Attaque, Défense et Consommation par lieu",
   arriveeRenforts:
     "Hors Compte+ : heure d'arrivée sous les renforts de la liste « Attaque(s) en cours » du jeu (pages Armée et d'attaque)",
-  profilPartages: "Chasses, floods et évolution du TdC partagés",
+  profilPartages: "Évolution du TdC avec les chasses et floods partagés",
   profilRetour: "Lignes « Retour le » et « Rapport » (attaque lancée maintenant vers ce joueur)",
   profilTrajet: "Hors Compte+ : ligne « Temps de trajet »",
   profilSurveiller: "Lien « Surveiller ce joueur » (boîte radar)",

@@ -2,10 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
 /**
- * Page d'un membre, tableau « Évolution du TdC de … » : la ligne du TdC qu'une
- * attaque lancée à l'ouverture de la page trouverait est surlignée, comme dans
- * l'info-bulle de la page Membres (même calcul, PartageChasses.arriveeAttaque).
- * Joueurs inventés.
+ * Page d'un membre, bloc des chasses et floods partagés : seul le tableau
+ * « Évolution du TdC de … » (la synthèse, règle du mainteneur), où la ligne du
+ * TdC qu'une attaque lancée à l'ouverture de la page trouverait est surlignée,
+ * comme dans l'info-bulle de la page Membres (même calcul,
+ * PartageChasses.arriveeAttaque). Joueurs inventés.
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js"],
@@ -42,15 +43,20 @@ const PARTAGES = {
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
 // attaque : {secondes} vers Alpha, ou null (son propre profil)
-async function afficher(attaque: { secondes: number | null } | null, terrain = 200000) {
+async function afficher(
+  attaque: { secondes: number | null } | null,
+  terrain = 200000,
+  partages: unknown = PARTAGES,
+  pseudo = "Alpha",
+) {
   page.lire(`(() => {
     localStorage.clear();
     document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>150000</span><div class='boite_membre'>Action</div>";
-    PartageChasses.charger = () => Promise.resolve(${JSON.stringify(PARTAGES)});
+    PartageChasses.charger = () => Promise.resolve(${JSON.stringify(partages)});
     // pages Membres et classement illisibles : TdC des autres lanceurs inconnus
     $.get = () => Promise.resolve("<html></html>");
     let a = ${JSON.stringify(attaque)};
-    PartageChasses.afficherProfil("Alpha", ${terrain}, a && { secondes: a.secondes, depart: Horloge.clic() });
+    PartageChasses.afficherProfil(${JSON.stringify(pseudo)}, ${terrain}, a && { secondes: a.secondes, depart: Horloge.clic() });
   })()`);
   await new Promise((r) => setTimeout(r, 20));
   return page.lire<{ lignes: string[]; surlignee: number; note: string; titre: string }>(`(() => {
@@ -63,6 +69,77 @@ async function afficher(attaque: { secondes: number | null } | null, terrain = 2
     };
   })()`);
 }
+
+describe("page d'un membre : la synthèse seule", () => {
+  const bloc = () =>
+    page.lire<{ titre: string; tableaux: number; titres: string[]; texte: string }>(`({
+      titre: $("#o_chassesPartagees .o_partageSpoiler").first().text(),
+      tableaux: $("#o_chassesPartagees table").length,
+      titres: $("#o_chassesPartagees h3").map((i, h) => h.textContent.replace(/\\s+/g, " ").trim()).get(),
+      texte: $("#o_chassesPartagees").text().replace(/\\s+/g, " ").trim(),
+    })`);
+
+  test("un seul tableau, « Évolution du TdC » : ni le tableau des chasses ni celui des floods", async () => {
+    await afficher({ secondes: 4500 });
+    const b = bloc();
+    expect(espaces(b.titre)).toBe("▼ Chasses et floods en cours partagés avec la OUAF");
+    expect(b.tableaux).toBe(1);
+    expect(b.titres.map(espaces)).toEqual(["Évolution du TdC de Alpha déjà à portée"]);
+    for (const absent of [
+      "Chasses en cours partagées",
+      "Floods en cours depuis ou vers",
+      "Total (",
+    ])
+      expect(b.texte).not.toContain(absent);
+    // chaque chasse et chaque flood y a sa ligne, avec son lanceur et ses unités
+    expect(b.texte).toContain("Beta → Alpha");
+    expect(b.texte).toContain("Gamma → Alpha");
+    expect(b.texte).toContain("Chasse");
+    expect(b.texte).toContain("10 000");
+  });
+
+  test("rien de partagé : une phrase, pas de tableau", async () => {
+    await afficher({ secondes: 4500 }, 200000, { chasses: {}, floods: [] });
+    expect(bloc()).toMatchObject({
+      tableaux: 0,
+      titres: [],
+    });
+    expect(page.lire(`$("#o_chassesPartagees p").text()`)).toBe(
+      "Aucune chasse ni aucun flood en cours partagé.",
+    );
+  });
+
+  test("TdC du joueur illisible sur la page : pas d'évolution, une phrase qui le dit", async () => {
+    await afficher({ secondes: 4500 }, NaN);
+    expect(bloc().tableaux).toBe(0);
+    expect(bloc().texte).toContain("TdC de Alpha illisible sur la page : évolution impossible.");
+  });
+
+  test("pseudo de la page écrit comme du texte, pas comme du HTML", async () => {
+    const pseudo = "<img src=x onerror=alert(1)>";
+    const partages = JSON.parse(
+      JSON.stringify(PARTAGES).replace(/Alpha/g, pseudo).replace(/alpha/g, pseudo.toLowerCase()),
+    );
+    await afficher({ secondes: 4500 }, 200000, partages, pseudo);
+    expect(page.lire(`$("#o_chassesPartagees img").length`)).toBe(0);
+    expect(bloc().titres[0]).toContain("Évolution du TdC de <img src=x onerror=alert(1)>");
+    await afficher({ secondes: 4500 }, NaN, partages, pseudo);
+    expect(page.lire(`$("#o_chassesPartagees img").length`)).toBe(0);
+    expect(bloc().texte).toContain("TdC de <img src=x onerror=alert(1)> illisible");
+  });
+
+  test("case « Évolution du TdC avec les chasses et floods partagés » décochée : rien", async () => {
+    page.lire(`localStorage.setItem("fzzz_affichage_profilPartages", "0")`);
+    page.lire(`(() => {
+      document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><div class='boite_membre'>Action</div>";
+      PartageChasses.charger = () => Promise.resolve(${JSON.stringify(PARTAGES)});
+      PartageChasses.afficherProfil("Alpha", 200000, null);
+    })()`);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(page.lire(`$("#o_chassesPartagees").length`)).toBe(0);
+    page.lire(`localStorage.removeItem("fzzz_affichage_profilPartages")`);
+  });
+});
 
 describe("page d'un membre : « à portée » après le titre", () => {
   test("mon TdC 150 000 (portée de 75 000 à 449 999) : déjà à portée, ou heure d'entrée", async () => {

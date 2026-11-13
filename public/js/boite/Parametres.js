@@ -706,6 +706,10 @@ class BoiteParametre extends Boite {
         <label class='o_affichageFzzz'><input type='checkbox' id='o_partageChasses' ${ExportAuto.coche() ? "checked" : ""}/> Exporter mes chasses automatiquement</label>
         <p class='left o_aideParam'>Deux fois par semaine au plus : à ton premier clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses après le mercredi ou le dimanche 22h (heure du serveur), l'extension lit les rapports de chasse de ta messagerie pas encore exportés et les envoie au Google Sheet où tu exportes tes rapports, une fois les chasses envoyées et après toutes ses autres demandes au jeu ; ceux que tu n'avais pas lus restent marqués non lus. Sans ce clic (chasses lancées avec le formulaire du jeu), rien n'est exporté automatiquement. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Le rappel « Export des chasses à faire » ne s'affiche que si un essai échoue. Décochée : rien n'est lu ni envoyé sans ton clic sur ce bouton, et le rappel s'affiche dès le mercredi et le dimanche 22h.</p>
         <p id='o_partageChassesEtat' class='left small'></p>
+        <p class='o_titreParam'>Sujets communs du forum</p>
+        <p class='left o_aideParam'>Les floods et chasses partagés sont aussi recopiés dans les sujets « BDD générale flood » et « BDD générale chasse » de la section cachée du forum, une section par joueur : l'affichage n'y lit qu'un sujet au lieu d'un par joueur. Ce bouton y reporte les floods et chasses à venir de tous les joueurs, lus dans leurs propres sujets, quand leur section manque ou est plus ancienne : une lecture du forum par joueur à reporter, environ 0,4 s chacune.</p>
+        <p class='left'><button type='button' id='o_partageReporter' class='o_button'>Reporter tous les partages</button></p>
+        <p id='o_partageReporterEtat' class='left small'></p>
       </form>`),
       etat = (message = "") =>
         $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
@@ -719,6 +723,23 @@ class BoiteParametre extends Boite {
     $onglet.find("input[data-partage]").on("change", (e) => {
       SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
       etat();
+    });
+    $onglet.find("#o_partageReporter").on("click", (e) => {
+      e.preventDefault();
+      let $bouton = $(e.currentTarget).prop("disabled", true),
+        afficher = (texte) => {
+          $onglet.find("#o_partageReporterEtat").text(texte);
+          this.ajusterTaille();
+        };
+      PartageChasses.reporterTout(afficher)
+        .then(afficher, (err) =>
+          afficher(
+            err && err.message == "absente"
+              ? SECTION_INTROUVABLE
+              : "Forum de l'alliance illisible : rien n'est reporté, réessaie plus tard.",
+          ),
+        )
+        .then(() => $bouton.prop("disabled", false));
     });
     $onglet.find("#o_partageEnvoyer").on("click", (e) => {
       e.preventDefault();

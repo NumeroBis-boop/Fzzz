@@ -1156,4 +1156,43 @@ describe("Préférences → Partage de données", () => {
     await attendre();
     expect(preferences.lire(`$("#o_partageEnvoyer").prop("disabled")`)).toBe(false);
   });
+
+  test("bouton « Reporter tous les partages » : avancement, puis bilan ; forum illisible ou section cachée dits", async () => {
+    preferences.lire(`localStorage.clear()`);
+    ouvrir();
+    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
+    expect(texte).toContain("Sujets communs du forum");
+    expect(texte).toContain("« BDD générale flood » et « BDD générale chasse »");
+    preferences.lire(`(() => {
+      window.REPORT = { fin: null, echec: null };
+      PartageChasses.reporterTout = (etat) => {
+        etat("« BDD générale flood - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…");
+        return new Promise((ok, non) => { REPORT.fin = ok; REPORT.echec = non; });
+      };
+      $("#o_partageReporter").trigger("click");
+    })()`);
+    const etat = () =>
+      preferences.lire(
+        `[$("#o_partageReporter").prop("disabled"), $("#o_partageReporterEtat").text()]`,
+      );
+    expect(etat()).toEqual([true, "« BDD générale flood - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…"]);
+    preferences.lire(
+      `REPORT.fin("« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées.")`,
+    );
+    await attendre();
+    expect(etat()).toEqual([
+      false,
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées.",
+    ]);
+    preferences.lire(`$("#o_partageReporter").trigger("click")`);
+    preferences.lire(`REPORT.echec(new Error("absente"))`);
+    await attendre();
+    expect(etat()).toEqual([false, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
+    preferences.lire(`$("#o_partageReporter").trigger("click")`);
+    preferences.lire(`REPORT.echec(new Error("forum"))`);
+    await attendre();
+    expect(etat()[1]).toBe(
+      "Forum de l'alliance illisible : rien n'est reporté, réessaie plus tard.",
+    );
+  });
 });

@@ -29,6 +29,8 @@ const page = creerPage(
   ],
   `var chrome = { runtime: { getManifest: () => ({ version: "0" }), getURL: (p) => p } };
    var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
+   // export automatique des chasses : clics notés, exports demandés
+   var ExportAuto = { notes: 0, exports: 0, noterChasse() { this.notes++; }, lancer() { this.exports++; } };
    document.body.innerHTML = "<div class='boite_connexion_titre'>Connexion</div><span id='pseudo'>Test</span><span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>1000000</span><div id='boite_tdc'>TdC</div>";`,
 );
 
@@ -247,8 +249,11 @@ describe("lanceur : armée et niveaux utilisés", () => {
     lire(
       `window.confirm = () => false; window.envois = 0; Armee.posterChasse = () => { window.envois++; return Promise.resolve(""); };`,
     );
+    const notes = lire<number>(`ExportAuto.notes`);
     lire(`$("#o_chasseEnvoyer").trigger("click")`);
     expect(lire(`window.envois`)).toBe(0);
+    // confirmation refusée : rien n'est lancé, rien n'est noté pour l'export automatique
+    expect(lire(`ExportAuto.notes`)).toBe(notes);
     expect(lire(`$("#o_chasseEnvoyer").prop("disabled")`)).toBe(false);
     expect(plan().attArmee).toBeCloseTo(
       lire(`SimulationChasse.attaqueArmee(lanceur._parametres().unites, 12)`),
@@ -528,15 +533,15 @@ describe("lanceur : dans la boîte (page: false)", () => {
       armee3._nbrJSN = armee3.unite[0];
       var boite = new LanceurChasse(armee3, 4, { prefixe: "b_", cadre: false, page: false }).afficher($("#o_tabsChasse4"), "append");
       window.toasts = []; $.toast = (t) => window.toasts.push(t.text);
-      // export des chasses dû : tenté après un lancement, la page n'étant pas rechargée
-      window.exports = 0; window.ExportAuto = { lancer: () => window.exports++ };
+      // export des chasses dû : tenté à la fin de l'envoi, la page n'étant pas rechargée
+      ExportAuto.exports = 0;
     `);
     expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(1);
-    // aucune chasse lancée (la première refusée) : rien à exporter de plus
+    // le clic sur « Envoyer » a noté le lancement : l'export suit la fin de l'envoi, même refusé par le jeu
     lire(`boite._finLancement(0, 3)`);
-    expect(lire(`window.exports`)).toBe(0);
+    expect(lire(`ExportAuto.exports`)).toBe(1);
     lire(`window.toasts = []; boite._finLancement(2, 3)`);
-    expect(lire(`window.exports`)).toBe(1);
+    expect(lire(`ExportAuto.exports`)).toBe(2);
     expect(lire(`window.toasts[0]`)).toContain("2 chasses lancées sur 3");
     expect(lire(`$("#b_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
     // avec partage : la page Ressources est lue puis publiée
@@ -548,7 +553,7 @@ describe("lanceur : dans la boîte (page: false)", () => {
     `);
     expect(lire(`window.lectures[0]`)).toContain("/Ressources.php");
     expect(lire(`window.publie`)).toContain("boite_tdc");
-    expect(lire(`window.exports`)).toBe(2);
+    expect(lire(`ExportAuto.exports`)).toBe(3);
     lire(`$("#o_tabsChasse4").remove()`);
   });
 });
@@ -560,14 +565,34 @@ describe("lanceur : « Envoyer + partager » sur la page Ressources", () => {
       sessionStorage.clear();
       window.relue = 0;
       PageRessource.recharger = () => window.relue++;
-      lanceur._armee.envoyerChasse = (terrain, nombre, indice, intervalle, fin) => { window.fin = fin; };
+      ExportAuto.notes = 0; ExportAuto.exports = 0;
+      lanceur._armee.envoyerChasse = (terrain, nombre, indice, intervalle, fin) => { window.fin = fin; window.notesAvantEnvoi = ExportAuto.notes; };
       $("#o_chasseEnvoyerPartager").trigger("click");
     `);
+    // le clic est noté pour l'export automatique avant l'envoi des chasses ; l'export part sur la page relue
+    expect(lire(`[window.notesAvantEnvoi, ExportAuto.exports]`)).toEqual([1, 0]);
     expect(lire(`Number(sessionStorage.getItem(CLE_PARTAGE_CHASSES_APRES)) > Date.now()`)).toBe(
       true,
     );
     // fin des envois (toutes lancées ou une refusée) : nouvelle lecture de la page
     lire(`window.fin(9, 9)`);
     expect(lire(`window.relue`)).toBe(1);
+  });
+
+  test("« Envoyer » aussi : le clic est noté pour l'export automatique, avant l'envoi", () => {
+    creerLanceur();
+    lire(`
+      ExportAuto.notes = 0;
+      PageRessource.recharger = () => {};
+      lanceur._armee.envoyerChasse = () => { window.notesAvantEnvoi = ExportAuto.notes; };
+      $("#o_chasseEnvoyer").trigger("click");
+    `);
+    expect(lire(`[window.notesAvantEnvoi, ExportAuto.notes]`)).toEqual([1, 1]);
+    // les deux boutons sont désactivés pendant l'envoi : pas de second clic
+    expect(
+      lire(
+        `$("#o_chasseEnvoyer").prop("disabled") && $("#o_chasseEnvoyerPartager").prop("disabled")`,
+      ),
+    ).toBe(true);
   });
 });

@@ -5,12 +5,14 @@ import { creerPage } from "./harnais";
 import { classeurSimule } from "./sheet-simule";
 
 /**
- * Export automatique des chasses (demandes du mainteneur) : quand le joueur
- * lance une chasse alors qu'un export est dû (après le mercredi et le dimanche
- * 22h, donc deux fois par semaine au plus), les rapports de chasse de la
- * messagerie pas encore dans le fichier sont lus et envoyés, pour le rôle
- * Chasseur ; le bouton reste. Le jeu et le forum sont simulés, le fichier l'est
- * avec le vrai script (google-sheet/export-rapports.gs). Rapports inventés.
+ * Export automatique des chasses (demandes du mainteneur) : après un clic sur
+ * « Envoyer » ou « Envoyer + partager » du lanceur de chasses alors qu'un
+ * export est dû (après le mercredi et le dimanche 22h, donc deux fois par
+ * semaine au plus), les rapports de chasse de la messagerie pas encore dans le
+ * fichier sont lus et envoyés, en requêtes de la priorité la plus faible, pour
+ * le rôle Chasseur ; le bouton reste. Le jeu et le forum sont simulés, le
+ * fichier l'est avec le vrai script (google-sheet/export-rapports.gs).
+ * Rapports inventés.
  */
 const page = creerPage(
   [
@@ -116,6 +118,8 @@ function preparer(
       conversations: __conversations,
       // requêtes au jeu, dans l'ordre : page de la messagerie, conversations lues, marquages
       requetes: [], lues: [], marquages: [],
+      // celles qui ne sont pas de fond (Requetes.js : priorité la plus faible)
+      normales: [],
       illisibles: [], session: true, marquageRefuse: false, enAttente: null,
       fichier: [], panneFichier: null,
     };
@@ -124,11 +128,13 @@ function preparer(
       Object.entries(JEU.conversations).map(([id, c]) =>
         '<tr id="conversation_' + id + '" class="en_tete_message"><td class="td_participants"><a>Fourmizzz</a></td><td class="td_objet"><span>21:00</span> <a class="intitule_message">' + c.titre + "</a>" + (c.nonLue ? '<span class="nbr_mess_non_lus_conv"></span>' : "") + "</td></tr>").join("") +
       "</table></div>";
-    $.get = (url) => {
+    const lireJeu = (url, fond) => {
       JEU.requetes.push("GET " + url.replace(location.origin, ""));
+      if (!fond) JEU.normales.push(JEU.requetes.at(-1));
       return Promise.resolve(JEU.session ? "<html><body><div id='centre'>" + listeMessagerie() + "</div></body></html>" : "<html><body><form id='loginForm'></form></body></html>");
     };
-    $.post = (url, d) => {
+    const posterJeu = (url, d, fond) => {
+      if (!fond) JEU.normales.push(d.traitement == "lecture" ? "lecture" : "conversation " + d.conversation);
       if (d.traitement == "lecture") {
         JEU.requetes.push("lecture");
         JEU.marquages.push({ ids: d.id_conversations.slice(), est_lu: d.est_lu });
@@ -144,6 +150,9 @@ function preparer(
       JEU.conversations[d.conversation].nonLue = false;
       return Promise.resolve(JEU.conversations[d.conversation].html);
     };
+    $.get = (url) => lireJeu(url, false);
+    $.post = (url, d) => posterJeu(url, d, false);
+    $.ajax = (o) => (String(o.type).toLowerCase() == "post" ? posterJeu(o.url, o.data, !!o.fond) : lireJeu(o.url, !!o.fond));
     window.GARDE = {};
     window.chrome = {
       storage: { local: {
@@ -159,7 +168,7 @@ function preparer(
   forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
   if (chasse) lancerChasse();
 }
-/** Le jeu confirme une chasse lancée par le lanceur de l'extension (Armee.envoyerChasse). */
+/** Clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses (LanceurChasse). */
 function lancerChasse(quand = JEUDI) {
   regler(quand);
   lire(`ExportAuto.noterChasse()`);
@@ -169,13 +178,17 @@ function lancerChasse(quand = JEUDI) {
 function forum(sujets: { id: string; titre: string; messages: string[] }[]) {
   fenetre.__sujets = sujets;
   lire(`(() => {
-    window.FORUM = { sujets: __sujets, appels: [], echoue: false };
+    window.FORUM = { sujets: __sujets, appels: [], normaux: [], echoue: false };
     PartageChasses.idSection = "7";
     PartageChasses._html = (d) => d;
     PartageChasses.oublierCache();
-    PartageChasses._xajax = (f, args) => {
+    PartageChasses._xajax = (f, args, options) => {
       FORUM.appels.push(f);
+      if (!(options && options.fond)) FORUM.normaux.push(f);
       if (FORUM.echoue) return Promise.reject(new Error("forum"));
+      // liste des sections (section cachée pas encore connue), puis sujets de la section
+      if (f == "callGetForum" && args === undefined)
+        return Promise.resolve('<div id="cat_forum"><span class="forum7">BDD partagée cachée</span></div>');
       if (f == "callGetForum")
         return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) => '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td></tr>').join("") + '</table></form>');
       const s = FORUM.sujets.find((s) => s.id == args);
@@ -208,16 +221,18 @@ describe("déclencheur : une chasse lancée alors qu'un export est dû", () => {
   const riendEnvoye = () =>
     expect([requetesAuJeu(), lire(`FORUM.appels`), jeu("fichier")]).toEqual([[], [], []]);
 
-  test("export dû mais aucune chasse lancée : rien, à aucune page, et pas de rappel", async () => {
+  test("export dû mais aucun clic sur « Envoyer » : rien, à aucune page ; le rappel s'affiche jusqu'au clic", async () => {
     preparer(CHASSES, { chasse: false });
     for (const chemin of ["/Ressources.php", "/Reine.php", "/messagerie.php", "/construction.php"])
       expect(await ouvrir(chemin)).toBe("sans chasse");
     riendEnvoye();
     expect(etat().essais).toBeUndefined();
-    expect(aRappeler()).toBe(false);
-    // la chasse est lancée (lanceur de l'extension) : l'export se fait à la page qui suit
+    // sans ce clic (chasses lancées avec le formulaire du jeu), le rappel garde l'export au bouton
+    expect(aRappeler()).toBe(true);
+    // clic sur « Envoyer » du lanceur : plus de rappel, l'export se fait à la page qui suit
     lancerChasse("2026-11-12 08:10");
     expect(etat().chasse).toBe(lire<number>(`heure`));
+    expect(aRappeler()).toBe(false);
     expect(await ouvrir("/Ressources.php", "2026-11-12 08:10")).toBe("exporté");
     expect(lignesChasse()).toBe(4);
     expect(etat().chasse).toBe(0);
@@ -253,38 +268,12 @@ describe("déclencheur : une chasse lancée alors qu'un export est dû", () => {
     expect(requetesAuJeu()).toEqual([]);
   });
 
-  test("chasse lancée avec le formulaire du jeu : la page « La chasse est lancée. » déclenche l'export", async () => {
-    const LANCEE = "<p>La chasse est lancée.</p>";
+  test("chasse lancée avec le formulaire du jeu : rien, même sur la page « La chasse est lancée. » (détection au clic du lanceur seulement)", async () => {
     for (const chemin of ["/AcquerirTerrain.php", "/Ressources.php"]) {
       preparer(CHASSES, { chasse: false });
-      expect(await ouvrir(chemin, JEUDI, LANCEE)).toBe("exporté");
-      expect(lignesChasse()).toBe(4);
+      expect(await ouvrir(chemin, JEUDI, "<p>La chasse est lancée.</p>")).toBe("sans chasse");
+      riendEnvoye();
     }
-    // la même phrase ailleurs que sur ces deux pages, ou dans un ajout de l'extension : rien
-    preparer(CHASSES, { chasse: false });
-    expect(await ouvrir("/Reine.php", JEUDI, LANCEE)).toBe("sans chasse");
-    expect(
-      await ouvrir(
-        "/Ressources.php",
-        JEUDI,
-        "<table id='o_simulationChasse'><tr><td class='green'>La chasse est lancée.</td></tr></table><div class='o_bloc'>La chasse est lancée.</div><div class='x o_note'>La chasse est lancée.</div>",
-      ),
-    ).toBe("sans chasse");
-    expect(await ouvrir("/Ressources.php", JEUDI, "<p>La chasse n'a pas pu être lancée.</p>")).toBe(
-      "sans chasse",
-    );
-    riendEnvoye();
-  });
-
-  test("formulaire du jeu, rien n'est dû : la page ne déclenche rien, ni plus tard", async () => {
-    preparer(CHASSES, { chasse: false });
-    regler("2026-11-10 12:00");
-    lire(`RappelExport.noterExport()`);
-    expect(await ouvrir("/AcquerirTerrain.php", "2026-11-11 10:00", "La chasse est lancée.")).toBe(
-      "à jour",
-    );
-    expect(await ouvrir("/Reine.php", "2026-11-11 22:30")).toBe("sans chasse");
-    riendEnvoye();
   });
 
   test("export fait au bouton pendant qu'un lancement attendait : le rendez-vous suivant attend une nouvelle chasse", async () => {
@@ -426,7 +415,7 @@ describe("export automatique des chasses : à la page qui suit le lancement", ()
     expect(annonce.hideAfter).toBe(false);
     for (const dit of [
       "Tes rapports de chasse sont maintenant exportés automatiquement vers le Google Sheet de ton alliance",
-      "deux fois par semaine au plus, quand tu lances une chasse après le mercredi ou le dimanche à 22h",
+      "deux fois par semaine au plus, à ton premier clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses après le mercredi ou le dimanche 22h, une fois les chasses envoyées et après toutes les autres demandes de l'extension au jeu",
       "Le premier export se fera à ta prochaine page.",
       "Le bouton « Exporter mes chasses » de la messagerie reste",
       "class='o_ouvrirPartage'>Préférences → Partage de données</a>",
@@ -740,6 +729,29 @@ describe("rappel « Export des chasses à faire »", () => {
     expect(aRappeler()).toBe(false);
   });
 
+  test("texte du rappel : l'export partira au prochain « Envoyer », le bouton pour tout de suite ; court, pour un téléphone", () => {
+    preparer(CHASSES, { chasse: false });
+    regler(JEUDI);
+    const texte = (chemin: string) =>
+      lire<string>(`(() => {
+        history.replaceState(null, "", ${JSON.stringify(chemin)});
+        document.body.innerHTML = "<div id='menu'></div><div id='centre'></div>";
+        RappelExport.afficher();
+        return $("#o_rappelExport .o_rappelExportTexte").text();
+      })()`);
+    expect(texte("/Reine.php")).toBe(
+      "Export des chasses à faire : il partira à ton prochain « Envoyer » du lanceur de chasses, ou tout de suite avec « Exporter mes chasses » dans la messagerie.",
+    );
+    expect(texte("/messagerie.php")).toBe(
+      "Export des chasses à faire : il partira à ton prochain « Envoyer » du lanceur de chasses, ou tout de suite avec « Exporter mes chasses ».",
+    );
+    // case décochée : rien ne partira tout seul, le texte d'avant
+    lire(`ExportAuto.choisir(false)`);
+    expect(texte("/Reine.php")).toBe(
+      "Export des chasses à faire : ouvre la messagerie et clique sur « Exporter mes chasses ».",
+    );
+  });
+
   test("case décochée : le rappel revient, comme avant", () => {
     preparer();
     regler(JEUDI);
@@ -766,7 +778,7 @@ describe("Préférences : où en est l'export", () => {
     preparer(CHASSES, { chasse: false });
     regler(JEUDI);
     expect(lire(`ExportAuto.resume()`)).toBe(
-      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera quand tu lanceras une chasse.",
+      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera après ton prochain clic sur « Envoyer » du lanceur de chasses.",
     );
     lancerChasse();
     expect(lire(`ExportAuto.resume()`)).toBe(
@@ -814,11 +826,13 @@ describe("règles du s5", () => {
     expect(demarrage.indexOf("ExportAuto.lancer()")).toBeGreaterThan(
       demarrage.indexOf("SuiviMembres.lancer()"),
     );
-    // dans la boîte : seulement après des chasses lancées par le clic du joueur
-    expect(source("js/class/LanceurChasse.js")).toContain("if (lancees) ExportAuto.lancer();");
+    // dans la boîte : à la fin de l'envoi des chasses demandé par le clic du joueur
+    const lanceur = source("js/class/LanceurChasse.js");
+    const fin = lanceur.slice(lanceur.indexOf("_finLancement(lancees, total, partager = false) {"));
+    expect(fin.slice(0, fin.indexOf("\n  }\n"))).toContain("ExportAuto.lancer();");
   });
 
-  test("un lancement n'est signalé que par une chasse que le jeu confirme", () => {
+  test("un lancement n'est noté qu'au clic sur « Envoyer » ou « Envoyer + partager » du lanceur", () => {
     const fichiers = readdirSync(join(import.meta.dir, "..", "public", "js"), {
       recursive: true,
     }) as string[];
@@ -830,10 +844,52 @@ describe("règles du s5", () => {
       ])
       .filter(([, n]) => n)
       .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-    // Armee.envoyerChasse (réponse « La chasse est lancée. ») et la page du formulaire du jeu
-    expect(signalements).toEqual([
-      ["class/Armee.js", 1],
-      ["class/ExportAuto.js", 1],
+    expect(signalements).toEqual([["class/LanceurChasse.js", 1]]);
+    // dans le gestionnaire du clic des deux boutons, avant l'envoi des chasses
+    const lanceur = source("js/class/LanceurChasse.js");
+    const clic = lanceur.slice(
+      lanceur.indexOf(`this.$("#o_chasseEnvoyer, #o_chasseEnvoyerPartager").click(`),
+    );
+    expect(clic.indexOf("ExportAuto.noterChasse()")).toBeGreaterThan(0);
+    expect(clic.indexOf("ExportAuto.noterChasse()")).toBeLessThan(
+      clic.indexOf("this._armee.envoyerChasse("),
+    );
+  });
+
+  test("priorité la plus faible de toutes : chaque requête de l'export automatique au jeu et au forum est de fond", async () => {
+    preparer(CHASSES, { annonce: false });
+    // section cachée pas encore connue : la liste des sections est lue aussi
+    lire(`PartageChasses.idSection = null`);
+    // annonce (forum lu), puis export (forum, messagerie, conversations, non lues)
+    expect(await ouvrir()).toBe("annonce");
+    expect(lire(`FORUM.appels.slice(0, 2)`)).toEqual(["callGetForum", "callGetForum"]);
+    expect(await ouvrir("/Reine.php", "2026-11-12 08:01")).toBe("exporté");
+    expect(requetesAuJeu()).toEqual([
+      "GET /messagerie.php",
+      "conversation 11",
+      "conversation 12",
+      "lecture",
     ]);
+    expect(lire(`FORUM.appels.length`)).toBeGreaterThan(0);
+    expect([jeu("normales"), lire(`FORUM.normaux`)]).toEqual([[], []]);
+    // conversations remises « non lues » à la page suivante (page quittée en route) : de fond aussi
+    preparer({ ...CHASSES, 11: { ...CHASSES[11]!, nonLue: true } });
+    lire(`JEU.enAttente = 12`);
+    ouvrir();
+    await new Promise((r) => setTimeout(r, 20));
+    lire(`JEU.enAttente = null`);
+    await ouvrir("/Reine.php", "2026-11-12 08:01");
+    expect(jeu("marquages").length).toBe(1);
+    expect(jeu("normales")).toEqual([]);
+  });
+
+  test("le bouton « Exporter mes chasses » garde la priorité normale : tout de suite", async () => {
+    preparer(CHASSES, { chasse: false });
+    // sur la messagerie, sans clic sur « Envoyer » : seul le bouton exporte
+    expect(await ouvrir("/messagerie.php")).toBe("sans chasse");
+    await lire(`ExportRapports.exporter("chasse")`);
+    expect(lignesChasse()).toBe(4);
+    expect(jeu("normales")).toEqual(["conversation 11", "conversation 12"]);
+    expect(lire(`FORUM.normaux.length`)).toBeGreaterThan(0);
   });
 });

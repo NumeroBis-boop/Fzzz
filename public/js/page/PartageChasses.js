@@ -109,8 +109,11 @@ class PartageChasses {
    * Requête xajax du forum d'alliance (même protocole que la page Forum).
    *
    * @static
+   * @param {String} fonction
+   * @param {any} [args]
+   * @param {Object} [options] réglages de plus pour $.ajax, ex. {fond: true} (Requetes.js)
    */
-  static _xajax(fonction, args) {
+  static _xajax(fonction, args, options = {}) {
     let requete = Promise.resolve(
       $.ajax({
         type: "post",
@@ -119,6 +122,7 @@ class PartageChasses {
           args === undefined
             ? { xajax: fonction, xajaxr: moment().valueOf() }
             : { xajax: fonction, "xajaxargs[]": args, xajaxr: moment().valueOf() },
+        ...options,
       }),
     );
     // sujet créé ou modifié : les lectures gardées ne sont plus à jour
@@ -214,12 +218,13 @@ class PartageChasses {
    *
    * @static
    * @method trouverSection
+   * @param {Object} [options] réglages de plus pour $.ajax (_xajax)
    * @return {Promise<String>} rejetée avec Error("absente") si la section n'est pas
    *   dans la liste (inexistante, ou cachée au grade du joueur)
    */
-  static trouverSection() {
+  static trouverSection(options = {}) {
     if (PartageChasses.idSection) return Promise.resolve(PartageChasses.idSection);
-    return PartageChasses._xajax("callGetForum").then((data) => {
+    return PartageChasses._xajax("callGetForum", undefined, options).then((data) => {
       // DOMParser : le HTML du forum (écrit par des membres) n'exécute rien
       let $span = Utils.parseHtml(PartageChasses._html(data))
           .find("span[class^='forum']")
@@ -250,18 +255,21 @@ class PartageChasses {
    * @static
    * @method sujets
    * @param {Boolean} [cache] lecture de moins d'une minute acceptée (affichage)
+   * @param {Object} [options] réglages de plus pour $.ajax (_xajax)
    */
-  static sujets(cache = false) {
-    return PartageChasses.trouverSection().then((id) =>
-      PartageChasses._enCache("sujets", cache, () => PartageChasses._lireSujets(id)),
+  static sujets(cache = false, options = {}) {
+    return PartageChasses.trouverSection(options).then((id) =>
+      PartageChasses._enCache("sujets", cache, () => PartageChasses._lireSujets(id, options)),
     );
   }
   /**
    * @private
    * @static
+   * @param {String} id
+   * @param {Object} [options]
    */
-  static _lireSujets(id) {
-    return PartageChasses._xajax("callGetForum", id).then((data) => {
+  static _lireSujets(id, options = {}) {
+    return PartageChasses._xajax("callGetForum", id, options).then((data) => {
       let reponse = PartageChasses._html(data);
       if (!reponse.includes("form_cat")) {
         // identifiant périmé (section supprimée puis recréée) : on le relira

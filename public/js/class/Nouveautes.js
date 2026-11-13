@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.110.3",
+    notes: [
+      "Rôle Chasseur : le rappel « Export des chasses à faire » ne s'affiche plus quand l'export automatique est actif. Il revient seulement si un essai d'export échoue, ou si tu décoches l'export automatique (Préférences → Partage de données).",
+      "L'export automatique part seulement après un clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses : avec le formulaire du jeu, tes chasses ne sont pas exportées automatiquement.",
+    ],
+  },
+  {
     version: "1.110.2",
     notes: [
       "Page d'un membre : le bloc « Chasses et floods en cours partagés » ne montre plus que l'évolution du TdC, où chaque chasse et chaque flood a sa ligne. Les tableaux séparés des chasses et des floods sont retirés.",

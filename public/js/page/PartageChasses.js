@@ -72,6 +72,30 @@ const MOIS_FORUM = [
   /^nov/,
   /^d[ée]c/,
 ];
+// sujets communs à l'alliance, un par type, créés à la main avec un premier
+// message modifiable par tous : une section par joueur, recopiée de son sujet
+// « Floods | … » / « Chasses | … » à chaque écriture, pour que l'affichage
+// lise un sujet au lieu d'un par joueur ; titre réécrit tel quel à chaque recopie
+const SUJETS_COMMUNS = {
+  Floods: "BDD générale flood - NE RIEN ÉCRIRE",
+  Chasses: "BDD générale chasse - NE RIEN ÉCRIRE",
+};
+// « --- pseudo · AAAA-MM-JJ HH:mm:ss --- » : heure du serveur de la dernière recopie
+const ENTETE_SECTION = /^\s*---\s*(.+?)\s*·\s*(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\s*---\s*$/;
+// un message du forum a une taille maximale (texte coupé au-delà, relevé du
+// 13/11/2026) : au-delà, la section n'est pas recopiée et les autres membres
+// lisent le sujet du joueur
+const COMMUN_MAX_CARACTERES = 40000;
+const COMMUN_MAX_ENTREES = 100;
+// le forum n'a pas de verrou : un membre qui a lu le sujet commun juste avant
+// une recopie la défait en écrivant le sien ; relu après cette pause, recopié
+// de nouveau sinon
+const PAUSE_VERIF_COMMUN = 4000;
+const ESSAIS_COMMUN = 3;
+// un message ne peut pas être vide
+const COMMUN_VIDE = "Aucun partage en cours.";
+// recopies d'une page dans un même sujet commun, l'une après l'autre
+let fileCommuns = {};
 
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
@@ -307,7 +331,8 @@ class PartageChasses {
       // sujets.exportSheet : sujet de l'adresse du Google Sheet ;
       // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance ;
       // sujets.statsMembres : sujet de l'adresse du fichier des statistiques des membres
-      let sujets = { liste: [], historiques: [] },
+      // sujets.communs : sujets communs par type {type, id, dernier, modifie}
+      let sujets = { liste: [], historiques: [], communs: {} },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
         normaliser = (/** @type {String} */ t) =>
           t
@@ -323,20 +348,23 @@ class PartageChasses {
             h = titre.match(/^Historique (Chasses|Floods) (\d+) \| (.+)$/),
             idSujet =
               $(elt).find("input[name='topic[]']").val() ||
-              (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0];
+              (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0],
+            // colonne « Dernier message » : auteur et minute de la dernière modification
+            dernier = $(elt)
+              .find("td")
+              .slice(2)
+              .contents()
+              .map((i, n) => $(n).text())
+              .get()
+              .join(" ")
+              .replace(/\s+/g, " ")
+              .trim(),
+            commun = Object.keys(SUJETS_COMMUNS).find((type) =>
+              PartageChasses.estCommun(titre, type),
+            );
           if (m && idSujet) {
             // titre écrit par un membre : caractères de balisage retirés
-            let pseudo = PartageChasses.nettoyer(m[2]),
-              // colonne « Dernier message » : auteur et minute de la dernière modification
-              dernier = $(elt)
-                .find("td")
-                .slice(2)
-                .contents()
-                .map((i, n) => $(n).text())
-                .get()
-                .join(" ")
-                .replace(/\s+/g, " ")
-                .trim();
+            let pseudo = PartageChasses.nettoyer(m[2]);
             sujets[`${m[1]} | ${pseudo.toLowerCase()}`] = idSujet;
             sujets.liste.push({
               type: m[1],
@@ -346,6 +374,17 @@ class PartageChasses {
               modifie: PartageChasses.dateListe(dernier),
             });
           }
+          if (
+            commun &&
+            idSujet &&
+            (!sujets.communs[commun] || Number(idSujet) < Number(sujets.communs[commun].id))
+          )
+            sujets.communs[commun] = {
+              type: commun,
+              id: idSujet,
+              dernier,
+              modifie: PartageChasses.dateListe(dernier),
+            };
           // créé deux fois (deux enregistrements au même instant) : le plus ancien fait foi
           if (
             titre == TITRE_EXPORT_SHEET &&
@@ -372,7 +411,9 @@ class PartageChasses {
               id: idSujet,
             });
         });
-      let sansDate = sujets.liste.filter((/** @type {any} */ t) => t.modifie == null);
+      let sansDate = sujets.liste
+        .concat(Object.values(sujets.communs))
+        .filter((/** @type {any} */ t) => t.modifie == null);
       if (sansDate.length)
         Journal.info(
           "Forum",
@@ -485,72 +526,301 @@ class PartageChasses {
    * @static
    */
   static _lireSujet(idSujet) {
-    return PartageChasses._xajax("callGetTopic", idSujet).then((data) => {
-      let texte = PartageChasses.premierMessage(data),
-        chasses = [],
-        floods = [],
-        m,
-        // tolérant aux corrections à la main : 1 ou 2 chiffres, année sur 2 ou
-        // 4 chiffres, « 02:46 » ou « 02h46 », espaces libres autour des « | »
-        D = "(\\d{1,2})/(\\d{1,2})/(\\d{2,4})\\s+(\\d{1,2})[:hH](\\d{2})",
-        N = "(\\d[\\d \\u00a0\\u202f.]*)\\s*cm",
-        reC = new RegExp(`${D}\\s*\\|\\s*${N}`, "g"),
-        // flood : « date | cible | [unités envoyées |] prise cm² [| TdC relevé] [| #id] »
-        // (unités et TdC relevé depuis 1.19 ; numéro d'attaque depuis 1.18.5)
-        U = "(\\d[\\d \\u00a0\\u202f.]*)\\s*unit[ée]s?",
-        reF = new RegExp(
-          `${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*(?:${U}\\s*\\|\\s*)?${N}²?(?:\\s*\\|\\s*TdC\\s*(\\d[\\d \\u00a0\\u202f.]*))?(?:\\s*\\|\\s*#(\\d+))?`,
-          "g",
-        ),
-        // attaque en dôme ou en loge : « date | cible | Dôme | unités [| TdC] [| #id] »
-        reZ = new RegExp(
-          `${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*(Dôme|Loge)\\s*\\|\\s*${U}(?:\\s*\\|\\s*TdC\\s*(\\d[\\d \\u00a0\\u202f.]*))?(?:\\s*\\|\\s*#(\\d+))?`,
-          "g",
-        ),
-        // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF, lus seulement
-        // si le sujet n'a aucune ligne au format actuel
-        reC0 = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
-        reF0 = /FZF\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|([^|\s]+)\|(\d+)\|/g,
-        date = (m) =>
-          moment(
-            `${m[1]}/${m[2]}/${m[3].length == 2 ? "20" + m[3] : m[3]} ${m[4]}:${m[5]}`,
-            "D/M/YYYY H:mm",
-          ).format("YYYY-MM-DD HH:mm"),
-        nombre = (t) => parseInt(t.replace(/\D/g, ""));
-      while ((m = reF.exec(texte)))
+    return PartageChasses._texteSujet(idSujet).then(PartageChasses.lireEntrees);
+  }
+  /**
+   * Premier message d'un sujet, lu au forum (sans les lectures gardées).
+   *
+   * @private
+   * @static
+   * @param {String} idSujet
+   * @return {Promise<String>}
+   */
+  static _texteSujet(idSujet) {
+    return PartageChasses._xajax("callGetTopic", idSujet).then((data) =>
+      PartageChasses.premierMessage(data),
+    );
+  }
+  /**
+   * Chasses et floods des lignes d'un texte : premier message du sujet d'un
+   * joueur, ou sa section d'un sujet commun.
+   *
+   * @static
+   * @method lireEntrees
+   * @param {String} texte
+   * @return {{chasses: Array, floods: Array}}
+   */
+  static lireEntrees(texte) {
+    let chasses = [],
+      floods = [],
+      m,
+      // tolérant aux corrections à la main : 1 ou 2 chiffres, année sur 2 ou
+      // 4 chiffres, « 02:46 » ou « 02h46 », espaces libres autour des « | »
+      D = "(\\d{1,2})/(\\d{1,2})/(\\d{2,4})\\s+(\\d{1,2})[:hH](\\d{2})",
+      N = "(\\d[\\d \\u00a0\\u202f.]*)\\s*cm",
+      reC = new RegExp(`${D}\\s*\\|\\s*${N}`, "g"),
+      // flood : « date | cible | [unités envoyées |] prise cm² [| TdC relevé] [| #id] »
+      // (unités et TdC relevé depuis 1.19 ; numéro d'attaque depuis 1.18.5)
+      U = "(\\d[\\d \\u00a0\\u202f.]*)\\s*unit[ée]s?",
+      reF = new RegExp(
+        `${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*(?:${U}\\s*\\|\\s*)?${N}²?(?:\\s*\\|\\s*TdC\\s*(\\d[\\d \\u00a0\\u202f.]*))?(?:\\s*\\|\\s*#(\\d+))?`,
+        "g",
+      ),
+      // attaque en dôme ou en loge : « date | cible | Dôme | unités [| TdC] [| #id] »
+      reZ = new RegExp(
+        `${D}\\s*\\|\\s*([^|\\n]+?)\\s*\\|\\s*(Dôme|Loge)\\s*\\|\\s*${U}(?:\\s*\\|\\s*TdC\\s*(\\d[\\d \\u00a0\\u202f.]*))?(?:\\s*\\|\\s*#(\\d+))?`,
+        "g",
+      ),
+      // anciens relevés (Fzzz 1.13.0/1.13.1) : codes FZC / FZF, lus seulement
+      // si le sujet n'a aucune ligne au format actuel
+      reC0 = /FZC\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|(\d+)\|/g,
+      reF0 = /FZF\|(\d{4}-\d\d-\d\d \d\d:\d\d)\|([^|\s]+)\|(\d+)\|/g,
+      date = (m) =>
+        moment(
+          `${m[1]}/${m[2]}/${m[3].length == 2 ? "20" + m[3] : m[3]} ${m[4]}:${m[5]}`,
+          "D/M/YYYY H:mm",
+        ).format("YYYY-MM-DD HH:mm"),
+      nombre = (t) => parseInt(t.replace(/\D/g, ""));
+    while ((m = reF.exec(texte)))
+      floods.push({
+        date: date(m),
+        cible: PartageChasses.nettoyer(m[6]),
+        unites: m[7] ? nombre(m[7]) : null,
+        terrain: nombre(m[8]),
+        tdcCible: m[9] ? nombre(m[9]) : null,
+        id: m[10] ? parseInt(m[10]) : null,
+      });
+    while ((m = reZ.exec(texte)))
+      floods.push({
+        date: date(m),
+        cible: PartageChasses.nettoyer(m[6]),
+        unites: nombre(m[8]),
+        terrain: 0,
+        tdcCible: m[9] ? nombre(m[9]) : null,
+        id: m[10] ? parseInt(m[10]) : null,
+        lieu: m[7],
+      });
+    // une ligne de flood contient aussi « date | … » : les chasses sont lues
+    // sur le texte privé des lignes de flood
+    let texteC = texte.replace(reF, "").replace(reZ, "");
+    while ((m = reC.exec(texteC))) chasses.push({ date: date(m), terrain: nombre(m[6]) });
+    if (!chasses.length)
+      while ((m = reC0.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
+    if (!floods.length)
+      while ((m = reF0.exec(texte)))
         floods.push({
-          date: date(m),
-          cible: PartageChasses.nettoyer(m[6]),
-          unites: m[7] ? nombre(m[7]) : null,
-          terrain: nombre(m[8]),
-          tdcCible: m[9] ? nombre(m[9]) : null,
-          id: m[10] ? parseInt(m[10]) : null,
+          date: m[1],
+          cible: PartageChasses.nettoyer(m[2]),
+          terrain: parseInt(m[3]),
         });
-      while ((m = reZ.exec(texte)))
-        floods.push({
-          date: date(m),
-          cible: PartageChasses.nettoyer(m[6]),
-          unites: nombre(m[8]),
-          terrain: 0,
-          tdcCible: m[9] ? nombre(m[9]) : null,
-          id: m[10] ? parseInt(m[10]) : null,
-          lieu: m[7],
-        });
-      // une ligne de flood contient aussi « date | … » : les chasses sont lues
-      // sur le texte privé des lignes de flood
-      let texteC = texte.replace(reF, "").replace(reZ, "");
-      while ((m = reC.exec(texteC))) chasses.push({ date: date(m), terrain: nombre(m[6]) });
-      if (!chasses.length)
-        while ((m = reC0.exec(texte))) chasses.push({ date: m[1], terrain: parseInt(m[2]) });
-      if (!floods.length)
-        while ((m = reF0.exec(texte)))
-          floods.push({
-            date: m[1],
-            cible: PartageChasses.nettoyer(m[2]),
-            terrain: parseInt(m[3]),
-          });
-      return { chasses: chasses, floods: floods };
+    return { chasses: chasses, floods: floods };
+  }
+  /**
+   * Titre d'un sujet commun du type, écrit à la main : casse, accents et
+   * espaces tolérés, suite du titre libre.
+   *
+   * @static
+   * @method estCommun
+   * @param {String} titre
+   * @param {String} type "Floods" ou "Chasses"
+   * @return {Boolean}
+   */
+  static estCommun(titre, type) {
+    let simple = (/** @type {String} */ t) =>
+      String(t)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+    return simple(titre).startsWith(simple(SUJETS_COMMUNS[type].split(" - ")[0]));
+  }
+  /**
+   * Sections d'un sujet commun, une par joueur : son en-tête (ENTETE_SECTION)
+   * puis ses lignes. Le texte avant la première section, écrit à la main, est
+   * gardé tel quel.
+   *
+   * @static
+   * @method sections
+   * @param {String} texte premier message
+   * @return {{preambule: String, sections: Array<any>}} sections : {pseudo,
+   *   ecrit, lignes, chasses, floods}
+   */
+  static sections(texte) {
+    /** @type {Array<String>} */
+    let preambule = [],
+      /** @type {Array<any>} */
+      sections = [],
+      /** @type {any} */
+      courante = null;
+    String(texte || "")
+      .split("\n")
+      .forEach((ligne) => {
+        let m = ligne.match(ENTETE_SECTION);
+        if (m)
+          sections.push(
+            (courante = { pseudo: PartageChasses.nettoyer(m[1]), ecrit: m[2], lignes: [] }),
+          );
+        else if (courante) {
+          if (ligne.trim()) courante.lignes.push(ligne.trim());
+        } else preambule.push(ligne);
+      });
+    return {
+      preambule: preambule.join("\n").trim(),
+      sections: sections.map((s) => ({ ...s, ...PartageChasses.lireEntrees(s.lignes.join("\n")) })),
+    };
+  }
+  /**
+   * Premier message d'un sujet commun : le préambule, puis les sections par
+   * pseudo ; jamais vide.
+   *
+   * @static
+   * @method texteCommun
+   * @param {String} preambule
+   * @param {Array<{pseudo: String, ecrit: String, lignes: Array<String>}>} sections
+   * @return {String}
+   */
+  static texteCommun(preambule, sections) {
+    let corps = sections
+        .slice()
+        .sort((a, b) => a.pseudo.toLowerCase().localeCompare(b.pseudo.toLowerCase()))
+        .map((s) => [`--- ${s.pseudo} · ${s.ecrit} ---`, ...s.lignes].join("\n"))
+        .join("\n"),
+      tete = preambule == COMMUN_VIDE && corps ? "" : preambule;
+    return [tete, corps].filter(Boolean).join("\n") || COMMUN_VIDE;
+  }
+  /**
+   * Sections d'un sujet commun, gardées comme les sujets des joueurs tant que
+   * sa date « Dernier message » ne change pas.
+   *
+   * @private
+   * @static
+   * @param {{id: String, dernier?: String, modifie?: Number|null}} t sujet commun de la liste
+   * @return {Promise<any>} sections()
+   */
+  static _lireCommun(t) {
+    let garde = PartageChasses.sujetGarde(Utils.lireStockage(CLE_SUJETS_GARDES), t);
+    if (garde) {
+      if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
+      return Promise.resolve(garde);
+    }
+    let debut = Horloge.maintenant();
+    return PartageChasses._texteSujet(t.id).then((texte) => {
+      let v = PartageChasses.sections(texte);
+      PartageChasses._garderSujet(t.id, t.dernier || "", debut, v);
+      return v;
     });
+  }
+  /**
+   * Recopie mes entrées à venir (celles que mon sujet du type vient de
+   * recevoir) dans ma section du sujet commun, sans retarder le partage : tant
+   * que ma section est plus ancienne que mon sujet, les autres lisent mon sujet.
+   *
+   * @static
+   * @method recopier
+   * @param {String} type "Chasses" ou "Floods"
+   * @param {Array} entrees mes entrées à venir
+   * @return {Promise<String>} « recopiée », « sans sujet », « trop long » ou « échec »
+   */
+  static recopier(type, entrees) {
+    let p = (fileCommuns[type] || Promise.resolve()).then(() =>
+      PartageChasses._recopier(type, entrees, 1),
+    );
+    fileCommuns[type] = p.catch(() => {});
+    return p;
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} type
+   * @param {Array} entrees
+   * @param {Number} essai
+   * @return {Promise<String>}
+   */
+  static _recopier(type, entrees, essai) {
+    let pseudo = monProfil.pseudo,
+      moi = String(pseudo || "").toLowerCase(),
+      titre = SUJETS_COMMUNS[type];
+    if (!moi) return Promise.resolve("sans joueur");
+    let lignes = entrees
+      .slice()
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0)))
+      .map((e) => PartageChasses._ligne(type, e));
+    if (lignes.length > COMMUN_MAX_ENTREES) {
+      Journal.info(
+        "Forum",
+        `« ${titre} » : ${lignes.length} lignes, trop pour une section ; ton sujet seul fait foi`,
+      );
+      return Promise.resolve("trop long");
+    }
+    return PartageChasses.sujets(true)
+      .then((sujets) => {
+        let commun = (sujets.communs || {})[type];
+        if (!commun) {
+          Journal.info("Forum", `pas de sujet « ${titre} » dans la section : rien n'est recopié`);
+          return "sans sujet";
+        }
+        let ecrit = Horloge.serveur().format("YYYY-MM-DD HH:mm:ss");
+        return PartageChasses._texteSujet(commun.id).then((texte) => {
+          let lu = PartageChasses.sections(texte),
+            autres = lu.sections.filter((/** @type {any} */ s) => s.pseudo.toLowerCase() != moi),
+            message = PartageChasses.texteCommun(
+              lu.preambule,
+              lignes.length
+                ? autres.concat([{ pseudo: PartageChasses.nettoyer(pseudo), ecrit, lignes }])
+                : autres,
+            );
+          if (message.length > COMMUN_MAX_CARACTERES) {
+            Journal.info(
+              "Forum",
+              `« ${titre} » : message de ${message.length} caractères, trop long ; ton sujet seul fait foi`,
+            );
+            return "trop long";
+          }
+          let q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
+          return PartageChasses._xajax(
+            "envoiEditTopic",
+            `<xjxquery><q>IDTopic=${commun.id}&${q}</q></xjxquery>`,
+          )
+            .then(() => PartageChasses._attendre(PAUSE_VERIF_COMMUN))
+            .then(() => PartageChasses._texteSujet(commun.id))
+            .then((relu) => {
+              let miennes = PartageChasses.sections(relu).sections.filter(
+                  (/** @type {any} */ s) => s.pseudo.toLowerCase() == moi,
+                ),
+                // une recopie plus récente d'un autre appareil du joueur compte aussi
+                faite = lignes.length
+                  ? miennes.some((/** @type {any} */ s) => s.ecrit >= ecrit)
+                  : !miennes.some((/** @type {any} */ s) => s.ecrit < ecrit);
+              if (faite) {
+                Journal.info(
+                  "Forum",
+                  `« ${titre} » : section de ${pseudo} recopiée (${lignes.length} ligne(s), essai ${essai})`,
+                );
+                return "recopiée";
+              }
+              if (essai < ESSAIS_COMMUN) return PartageChasses._recopier(type, entrees, essai + 1);
+              Journal.erreur(
+                "Forum",
+                `« ${titre} » : section de ${pseudo} défaite après ${essai} essais ; ton sujet seul fait foi`,
+              );
+              return "échec";
+            });
+        });
+      })
+      .catch((e) => {
+        Journal.erreur("Forum", `« ${titre} » : section non recopiée`, e);
+        return "échec";
+      });
+  }
+  /**
+   * @private
+   * @static
+   * @param {Number} ms
+   * @return {Promise}
+   */
+  static _attendre(ms) {
+    return new Promise((r) => setTimeout(r, ms));
   }
   /**
    * Ajoute des lignes (actions passées, de la plus ancienne à la plus récente)
@@ -728,7 +998,13 @@ class PartageChasses {
                 cle,
               ),
             )
-            .then(() => nouvelles.length);
+            .then(() => {
+              PartageChasses.recopier(
+                type,
+                toutes.filter((e) => e.date >= maintenant),
+              );
+              return nouvelles.length;
+            });
         });
       });
     });
@@ -856,6 +1132,7 @@ class PartageChasses {
               "envoiEditTopic",
               `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
             ).then(() => {
+              PartageChasses.recopier("Chasses", r.lignes);
               $.toast({
                 ...TOAST_INFO,
                 text: `Chasses annulées : partage mis à jour dans le forum de la ${Utils.alliance || "l'alliance"}.`,
@@ -1032,7 +1309,10 @@ class PartageChasses {
             return PartageChasses._xajax(
               "envoiEditTopic",
               `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
-            ).then(() => retires);
+            ).then(() => {
+              PartageChasses.recopier("Floods", gardes);
+              return retires;
+            });
           });
         });
       })
@@ -1206,47 +1486,101 @@ class PartageChasses {
     if (suivi) suivi.prevoir(1);
     return PartageChasses.sujets(true).then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
-        liste = sujets.liste.filter(
-          (t) =>
-            (avecFloods && t.type == "Floods") ||
-            (t.type == "Chasses" && (!voulus || voulus.includes(t.pseudo.toLowerCase()))),
-        ),
+        voulu = (/** @type {String} */ type, /** @type {String} */ pseudo) =>
+          type == "Floods"
+            ? avecFloods
+            : type == "Chasses" && (!voulus || voulus.includes(pseudo.toLowerCase())),
+        liste = sujets.liste.filter((t) => voulu(t.type, t.pseudo)),
         d = { chasses: {}, floods: [] },
         lu = () => suivi && suivi.faite(),
-        gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
-        // sujet par sujet, rangés ensuite dans l'ordre de la liste
-        contenus = new Map(),
-        aLire = liste.filter((t) => {
-          let garde = PartageChasses.sujetGarde(gardes, t);
-          if (!garde) return true;
-          contenus.set(t, garde);
-          if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
-          return false;
-        }),
-        lirePaquet = (k) =>
-          k >= aLire.length
-            ? Promise.resolve()
-            : Promise.all(
-                aLire.slice(k, k + 4).map((t) =>
-                  PartageChasses.lireSujet(t.id, true, t)
-                    .then((r) => void contenus.set(t, r))
-                    .catch(() => {})
-                    .then(lu),
-                ),
-              ).then(() => lirePaquet(k + 4));
+        communs = ["Floods", "Chasses"]
+          .filter((type) => (type == "Floods" ? avecFloods : !voulus || voulus.length))
+          .map((type) => (sujets.communs || {})[type])
+          .filter(Boolean);
       if (suivi) {
         suivi.faite();
-        suivi.prevoir(aLire.length);
+        suivi.prevoir(communs.length);
       }
-      return lirePaquet(0).then(() => {
-        liste.forEach((t) => {
-          let r = contenus.get(t);
-          if (!r) return;
-          if (t.type == "Chasses") d.chasses[t.pseudo.toLowerCase()] = r.chasses;
-          else
-            r.floods.forEach((/** @type {any} */ e) => d.floods.push({ ...e, lanceur: t.pseudo }));
+      return Promise.all(
+        communs.map((c) =>
+          PartageChasses._lireCommun(c)
+            .catch(() => null)
+            .then((v) => {
+              lu();
+              return [c.type, v];
+            }),
+        ),
+      ).then((lus) => {
+        /** @type {any} section la plus récente de chaque joueur, par type */
+        let sections = { Floods: {}, Chasses: {} };
+        lus.forEach(([type, v]) =>
+          (v ? v.sections : []).forEach((/** @type {any} */ s) => {
+            let k = s.pseudo.toLowerCase();
+            if (!sections[type][k] || s.ecrit > sections[type][k].ecrit) sections[type][k] = s;
+          }),
+        );
+        // sujet d'un joueur modifié au plus tard dans la minute de sa section :
+        // la section le recopie (elle est écrite après lui) ; plus récent (autre
+        // appareil, ancienne version, recopie défaite) : c'est lui qui fait foi
+        let couverture = (/** @type {any} */ t) => {
+            let s = sections[t.type][t.pseudo.toLowerCase()];
+            return s &&
+              t.modifie != null &&
+              t.modifie <= moment(s.ecrit, "YYYY-MM-DD HH:mm:ss").startOf("minute").valueOf()
+              ? s
+              : null;
+          },
+          gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
+          // sujet par sujet, rangés ensuite dans l'ordre de la liste
+          contenus = new Map(),
+          aLire = liste.filter((t) => {
+            let garde = couverture(t) || PartageChasses.sujetGarde(gardes, t);
+            if (!garde) return true;
+            contenus.set(t, garde);
+            if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
+            return false;
+          }),
+          lirePaquet = (/** @type {Number} */ k) =>
+            k >= aLire.length
+              ? Promise.resolve()
+              : Promise.all(
+                  aLire.slice(k, k + 4).map((t) =>
+                    PartageChasses.lireSujet(t.id, true, t)
+                      .then((r) => void contenus.set(t, r))
+                      .catch(() => {})
+                      .then(lu),
+                  ),
+                ).then(() => lirePaquet(k + 4)),
+          ranger = (
+            /** @type {String} */ type,
+            /** @type {String} */ pseudo,
+            /** @type {any} */ r,
+          ) => {
+            if (type == "Chasses") d.chasses[pseudo.toLowerCase()] = r.chasses;
+            else
+              r.floods.forEach((/** @type {any} */ e) => d.floods.push({ ...e, lanceur: pseudo }));
+          };
+        if (suivi) suivi.prevoir(aLire.length);
+        return lirePaquet(0).then(() => {
+          liste.forEach((t) => {
+            let r = contenus.get(t);
+            if (r) ranger(t.type, t.pseudo, r);
+          });
+          // joueur qui n'a que sa section (son sujet n'existe pas)
+          ["Floods", "Chasses"].forEach((type) =>
+            Object.keys(sections[type])
+              .sort()
+              .forEach((k) => {
+                let s = sections[type][k];
+                if (
+                  voulu(type, k) &&
+                  !sujets.liste.some((t) => t.type == type && t.pseudo.toLowerCase() == k)
+                )
+                  ranger(type, s.pseudo, s);
+              }),
+          );
+          return d;
         });
-        return d;
       });
     });
   }

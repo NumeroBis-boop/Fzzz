@@ -846,11 +846,17 @@ class ExportRapports {
    * @static
    * @method messages
    * @param {Number} idConv
+   * @param {{fond?: Boolean}} [options] fond : requêtes de la priorité la plus faible (Requetes.js)
    * @return {Promise<Array<{id: Number, date: String, texte: String}>>}
    */
-  static messages(idConv) {
-    let poster = (/** @type {Object} */ donnees) =>
-        Promise.resolve($.post(location.origin + "/messagerie.php", donnees)),
+  static messages(idConv, options = {}) {
+    let adresse = location.origin + "/messagerie.php",
+      poster = (/** @type {Object} */ donnees) =>
+        Promise.resolve(
+          options.fond
+            ? $.ajax({ url: adresse, type: "post", data: donnees, fond: true })
+            : $.post(adresse, donnees),
+        ),
       // DOMParser : le contenu des messages (écrit par d'autres joueurs) n'exécute rien
       lire = (/** @type {String} */ html) => Utils.parseHtml(`<table>${html}</table>`);
     return poster({ traitement: "afficher", conversation: idConv }).then((html) => {
@@ -1016,11 +1022,12 @@ class ExportRapports {
    *
    * @static
    * @method reglageAlliance
+   * @param {Object} [options] réglages de plus pour les requêtes du forum (PartageChasses._xajax)
    * @return {Promise<{autorise: Boolean, adresse: String, illisible?: Boolean}>} illisible : forum pas lu et aucune lecture gardée
    */
-  static reglageAlliance() {
+  static reglageAlliance(options = {}) {
     let pseudo = String(monProfil.pseudo || "").toLowerCase();
-    return ExportRapports._reglageForum().then(
+    return ExportRapports._reglageForum(options).then(
       (r) => {
         let autorise = ExportRapports.autorise(r.joueurs, pseudo),
           adresse = autorise ? r.adresse : "";
@@ -1055,12 +1062,13 @@ class ExportRapports {
   /**
    * @private
    * @static
+   * @param {Object} [options]
    * @return {Promise<{adresse: String, joueurs: Array<String>}>} rien si le sujet n'existe pas ; rejetée si le forum ne se lit pas
    */
-  static _reglageForum() {
-    return PartageChasses.sujets(true).then((sujets) =>
+  static _reglageForum(options = {}) {
+    return PartageChasses.sujets(true, options).then((sujets) =>
       sujets.exportSheet
-        ? PartageChasses._xajax("callGetTopic", sujets.exportSheet).then((data) =>
+        ? PartageChasses._xajax("callGetTopic", sujets.exportSheet, options).then((data) =>
             ExportRapports.lireReglage(data),
           )
         : { adresse: "", joueurs: [] },
@@ -1072,10 +1080,11 @@ class ExportRapports {
    *
    * @static
    * @method cible
+   * @param {Object} [options] réglages de plus pour les requêtes du forum (PartageChasses._xajax)
    * @return {Promise<{url: String, alliance: Boolean, illisible?: Boolean}>} url "" si aucune
    */
-  static cible() {
-    return ExportRapports.reglageAlliance().then((r) =>
+  static cible(options = {}) {
+    return ExportRapports.reglageAlliance(options).then((r) =>
       r.autorise
         ? { url: r.adresse, alliance: true }
         : ExportRapports.adressePersonnelle().then((url) => ({
@@ -1483,17 +1492,18 @@ class ExportRapports {
    * @param {String} url
    * @param {Set<String>} membres membres de l'alliance (combats), vide pour les chasses
    * @param {(etape: String) => void} [progres] reçoit l'étape en cours : « 3/12 », puis « envoi au Google Sheet… »
+   * @param {{fond?: Boolean}} [options] pour la lecture des conversations (messages)
    * @return {Promise<{lues: Number, echecs: Number, bilans: Array<{onglet: String, ajoutees: Number, deja: Number}>, sansRC: Number, sansDate: Number, entete: String}>}
    *   echecs : conversations illisibles ; sansDate : RC sans date lisible, pas exportés (entete : la date lue)
    */
-  static lireEtEnvoyer(type, aLire, url, membres, progres = () => {}) {
+  static lireEtEnvoyer(type, aLire, url, membres, progres = () => {}, options = {}) {
     let /** @type {Array<any>} */ lues = [],
       echecs = 0;
     return aLire
       .reduce(
         (suite, c, k) =>
           suite.then(() =>
-            ExportRapports.messages(c.id)
+            ExportRapports.messages(c.id, options)
               .then(
                 (messages) => {
                   lues.push({ ...c, messages });

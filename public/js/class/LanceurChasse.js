@@ -449,6 +449,9 @@ class LanceurChasse {
               String(Date.now() + nbChasse * intervalle + 5 * 60000),
             );
           } catch (err) {}
+        // export des chasses dû : détecté à ce clic (règle du mainteneur), il part
+        // après l'envoi, en requêtes de la priorité la plus faible (ExportAuto)
+        ExportAuto.noterChasse();
         // chaque chasse relit un jeton neuf (Armee.posterChasse) ; sur la page
         // Ressources, rechargement à la fin ; dans la boîte, un bilan
         this._armee.envoyerChasse(
@@ -498,7 +501,7 @@ class LanceurChasse {
           }),
       );
     // sur la page Ressources, la page rechargée s'en charge ; ici, pas de rechargement
-    if (lancees) ExportAuto.lancer();
+    ExportAuto.lancer();
   }
   /**
    * Mémorise les pertes acceptées, la marge de JSN et le rééquilibrage.

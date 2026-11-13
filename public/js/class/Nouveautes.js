@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.110.1",
+    notes: [
+      "Rôle Chasseur : l'export automatique des chasses part après ton clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses (deux fois par semaine au plus, après le mercredi et le dimanche 22h). Le formulaire du jeu ne le déclenche plus.",
+      "L'export automatique passe après toutes les autres demandes de l'extension au jeu : il ne retarde ni l'envoi des chasses, ni leur partage, ni le reste.",
+      "Jusqu'à ce clic, le rappel « Export des chasses à faire » s'affiche de nouveau : tu peux aussi exporter tout de suite avec le bouton de la messagerie.",
+    ],
+  },
+  {
     version: "1.110.0",
     notes: [
       "Rôle Chasseur : l'export automatique des chasses ne part plus à la première page ouverte après le mercredi et le dimanche 22h, mais quand tu lances une chasse après ces dates (deux fois par semaine au plus). Sans chasse lancée, rien n'est lu ni envoyé ; le bouton « Exporter mes chasses » reste.",

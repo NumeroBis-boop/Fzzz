@@ -1107,7 +1107,9 @@ describe("Préférences → Partage de données", () => {
     for (const dit of [
       "Rapports de chasse (rôle Chasseur)",
       "Exporter mes chasses automatiquement",
-      "Deux fois par semaine au plus, quand tu lances une chasse après le mercredi ou le dimanche à 22h (heure du serveur)",
+      "Deux fois par semaine au plus : à ton premier clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses après le mercredi ou le dimanche 22h (heure du serveur)",
+      "une fois les chasses envoyées et après toutes ses autres demandes au jeu",
+      "Jusqu'à ce clic, le rappel « Export des chasses à faire » s'affiche.",
       "ceux que tu n'avais pas lus restent marqués non lus",
       "Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat.",
       "Décochée : rien n'est lu ni envoyé sans ton clic",
@@ -1117,7 +1119,7 @@ describe("Préférences → Partage de données", () => {
     chasseur();
     expect(chasses()).toEqual([
       true,
-      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera quand tu lanceras une chasse.",
+      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera après ton prochain clic sur « Envoyer » du lanceur de chasses.",
     ]);
     preferences.lire(`$("#o_partageChasses").prop("checked", false).trigger("change")`);
     expect(preferences.lire(`localStorage.getItem("fzzz_partage_exportChasses")`)).toBe("0");

@@ -667,9 +667,14 @@ class AttaqueLancee {
    * @return {Promise}
    */
   static chargerMouvements($bloc, attaques) {
-    let suivi = AttaqueLancee.suiviChargement($bloc);
+    let suivi = AttaqueLancee.suiviChargement($bloc),
+      mesure = { fin: () => {} };
     return AttaqueLancee.apresReplacement()
-      .then(() => AttaqueLancee.reconstituer(attaques, suivi).catch(() => []))
+      .then(() => {
+        // l'attente d'un replacement de l'armée n'est pas mesurée
+        mesure = Journal.mesurer("Bloc « Mes attaques en cours »");
+        return AttaqueLancee.reconstituer(attaques, suivi).catch(() => []);
+      })
       .then((faites) => {
         faites.forEach((a) => {
           let $ligne = $bloc.find(`tr.o_ligneAttaque[data-id='${a.ligne.id}']`);
@@ -681,6 +686,7 @@ class AttaqueLancee {
       .then(() => AttaqueLancee.mouvements(attaques, suivi))
       .then((m) => {
         suivi.fin();
+        mesure.fin();
         if (!attaques.length && !m.chasses.length && !m.recus.length) return void $bloc.remove();
         $bloc.removeClass("o_attaquesVide");
         AttaqueLancee.insererMouvements($bloc, m);

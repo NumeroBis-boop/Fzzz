@@ -96,6 +96,49 @@ class Journal {
     Journal.noter("info", source, message, detail);
   }
   /**
+   * Mesure du chargement d'une vue, notée au journal par `fin` : durée,
+   * requêtes au jeu terminées entre-temps (celles d'autres modules de la page
+   * comprises), dont celles du forum, et lectures servies par le cache d'une
+   * minute. Sert à comparer les façons de ranger les partages dans le forum.
+   *
+   * @static
+   * @method mesurer
+   * @param {String} vue
+   * @return {{fin: () => void}} `fin` ne note qu'une fois
+   */
+  static mesurer(vue) {
+    let compte = () => (typeof COMPTE_REQUETES == "undefined" ? null : { ...COMPTE_REQUETES }),
+      avant = compte(),
+      depart = performance.now(),
+      notee = false;
+    return {
+      fin: () => {
+        if (notee) return;
+        notee = true;
+        let apres = compte(),
+          s = (/** @type {Number} */ ms) => `${numeral(ms / 1000).format("0,0.0")} s`,
+          n = (
+            /** @type {Number} */ x,
+            /** @type {String} */ un,
+            /** @type {String} */ plusieurs,
+          ) => `${numeral(x).format()} ${x > 1 ? plusieurs : un}`,
+          texte = `${vue} : ${s(performance.now() - depart)}`;
+        if (avant && apres) {
+          let forum = apres.forum - avant.forum,
+            dureeForum = apres.dureeForum - avant.dureeForum;
+          texte +=
+            ` ; ${n(apres.nombre - avant.nombre, "requête", "requêtes")} au jeu (${s(apres.duree - avant.duree)})` +
+            `, dont ${numeral(forum).format()} au forum (${s(dureeForum)}` +
+            (forum
+              ? `, ${numeral(dureeForum / forum / 1000).format("0,0.00")} s chacune en moyenne`
+              : "") +
+            `) ; ${n(apres.cache - avant.cache, "lecture servie", "lectures servies")} par le cache d'une minute`;
+        }
+        Journal.info("Mesure", texte);
+      },
+    };
+  }
+  /**
    * Entrées, de la plus récente à la plus ancienne.
    *
    * @static

@@ -149,8 +149,10 @@ class PartageChasses {
       e = cache[cle];
     // lecture gardée par une autre version du script (mise à jour, version
     // TEST) : elle n'a pas forcément retenu les mêmes choses du forum
-    if (accepte && e && e.version === version && Date.now() - e.t < DUREE_CACHE_FORUM)
+    if (accepte && e && e.version === version && Date.now() - e.t < DUREE_CACHE_FORUM) {
+      if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
       return Promise.resolve(e.v);
+    }
     return lire().then((v) => {
       let maintenant = Date.now(),
         garde = Utils.lireStockage(CLE_CACHE_FORUM);
@@ -765,6 +767,7 @@ class PartageChasses {
       return Promise.resolve(false);
     }
     if ($bouton) $bouton.prop("disabled", true);
+    let mesure = Journal.mesurer(`Partage des ${libelle}s`);
     return PartageChasses._partager(type, entrees)
       .then((n) => {
         // floods présents dans le sujet (nouveaux ou déjà publiés) : marqués partagés
@@ -803,7 +806,10 @@ class PartageChasses {
           AttaqueLancee.oublierPartage(entrees.map((x) => x.id));
         return false;
       })
-      .finally(() => $bouton && $bouton.prop("disabled", false));
+      .finally(() => {
+        mesure.fin();
+        if ($bouton) $bouton.prop("disabled", false);
+      });
   }
   /**
    * Retire du sujet « Floods » du joueur des floods (numéros d'attaque) qui ne
@@ -866,6 +872,7 @@ class PartageChasses {
    * @static
    */
   static _retirerFloods(ids, pseudo, titre) {
+    let mesure = Journal.mesurer("Retrait de floods partagés");
     return PartageChasses.sujets()
       .then((sujets) => {
         let idSujet = sujets[`Floods | ${pseudo.toLowerCase()}`];
@@ -915,7 +922,8 @@ class PartageChasses {
         }
         // réessayé à la page suivante, sans message
         console.warn(`[${NOM_EXTENSION}] retrait des floods différé`, e);
-      });
+      })
+      .finally(mesure.fin);
   }
   /**
    * @static
@@ -1546,7 +1554,8 @@ class PartageChasses {
     // chasses du joueur affiché, les miennes et celles des joueurs reliés ;
     // floods de tous les membres : à chaque affichage, une correction faite dans
     // le forum est prise en compte
-    let suivis = monProfil.pseudo ? [pseudo, monProfil.pseudo] : [pseudo];
+    let suivis = monProfil.pseudo ? [pseudo, monProfil.pseudo] : [pseudo],
+      mesure = Journal.mesurer("Page d'un membre");
     PartageChasses.charger(suivis)
       .then((d) => PartageChasses.completer(d, suivis))
       .then(({ d, tdc }) => {
@@ -1586,7 +1595,8 @@ class PartageChasses {
             "</div>",
         );
       })
-      .catch(() => {});
+      .catch(() => {})
+      .then(mesure.fin);
   }
   /**
    * Forum d'alliance : repère la section (et propose de la créer).

@@ -785,7 +785,8 @@ class PageAttaquer {
     $("#o_simulationFlood .o_floodImpactLire")
       .removeClass("souligne cursor o_floodImpactLire")
       .text("Lecture des partages…");
-    let suivis = [monProfil.pseudo, this._cible.pseudo];
+    let suivis = [monProfil.pseudo, this._cible.pseudo],
+      mesure = Journal.mesurer("Page d'attaque, TdC à l'impact");
     this._lectureImpact = Promise.all([
       PartageChasses.charger(suivis),
       Promise.resolve($.get(location.origin + "/Ressources.php"))
@@ -838,7 +839,10 @@ class PageAttaquer {
           "Partages illisibles : <span class='souligne cursor o_floodImpactLire'>réessayer</span>",
         ),
       )
-      .then(() => (this._lectureImpact = null));
+      .then(() => {
+        mesure.fin();
+        this._lectureImpact = null;
+      });
   }
   /**
    * TdC à l'impact d'un flood lancé maintenant (minute du RC), recalculés

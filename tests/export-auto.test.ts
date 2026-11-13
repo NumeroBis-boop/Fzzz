@@ -221,15 +221,15 @@ describe("déclencheur : une chasse lancée alors qu'un export est dû", () => {
   const riendEnvoye = () =>
     expect([requetesAuJeu(), lire(`FORUM.appels`), jeu("fichier")]).toEqual([[], [], []]);
 
-  test("export dû mais aucun clic sur « Envoyer » : rien, à aucune page ; le rappel s'affiche jusqu'au clic", async () => {
+  test("export dû mais aucun clic sur « Envoyer » : rien, à aucune page, et pas de rappel (règle du mainteneur)", async () => {
     preparer(CHASSES, { chasse: false });
     for (const chemin of ["/Ressources.php", "/Reine.php", "/messagerie.php", "/construction.php"])
       expect(await ouvrir(chemin)).toBe("sans chasse");
     riendEnvoye();
     expect(etat().essais).toBeUndefined();
-    // sans ce clic (chasses lancées avec le formulaire du jeu), le rappel garde l'export au bouton
-    expect(aRappeler()).toBe(true);
-    // clic sur « Envoyer » du lanceur : plus de rappel, l'export se fait à la page qui suit
+    // l'export partira tout seul au prochain clic : pas de bandeau en attendant
+    expect(aRappeler()).toBe(false);
+    // clic sur « Envoyer » du lanceur : l'export se fait à la page qui suit
     lancerChasse("2026-11-12 08:10");
     expect(etat().chasse).toBe(lire<number>(`heure`));
     expect(aRappeler()).toBe(false);
@@ -729,27 +729,33 @@ describe("rappel « Export des chasses à faire »", () => {
     expect(aRappeler()).toBe(false);
   });
 
-  test("texte du rappel : l'export partira au prochain « Envoyer », le bouton pour tout de suite ; court, pour un téléphone", () => {
+  test("bandeau : aucun en attendant le clic sur « Envoyer » ; après un essai en échec ou case décochée, le bouton de la messagerie", async () => {
     preparer(CHASSES, { chasse: false });
     regler(JEUDI);
-    const texte = (chemin: string) =>
-      lire<string>(`(() => {
+    const bandeau = (chemin: string) =>
+      lire<string | null>(`(() => {
         history.replaceState(null, "", ${JSON.stringify(chemin)});
         document.body.innerHTML = "<div id='menu'></div><div id='centre'></div>";
         RappelExport.afficher();
-        return $("#o_rappelExport .o_rappelExportTexte").text();
+        return $("#o_rappelExport").length ? $("#o_rappelExport .o_rappelExportTexte").text() : null;
       })()`);
-    expect(texte("/Reine.php")).toBe(
-      "Export des chasses à faire : il partira à ton prochain « Envoyer » du lanceur de chasses, ou tout de suite avec « Exporter mes chasses » dans la messagerie.",
+    const ouvreLaMessagerie =
+      "Export des chasses à faire : ouvre la messagerie et clique sur « Exporter mes chasses ».";
+    expect([bandeau("/Reine.php"), bandeau("/messagerie.php")]).toEqual([null, null]);
+    lancerChasse();
+    lire(`JEU.panneFichier = () => true`);
+    expect(await ouvrir()).toBe("échec");
+    expect(bandeau("/Reine.php")).toBe(ouvreLaMessagerie);
+    expect(bandeau("/messagerie.php")).toBe(
+      "Export des chasses à faire : clique sur « Exporter mes chasses ».",
     );
-    expect(texte("/messagerie.php")).toBe(
-      "Export des chasses à faire : il partira à ton prochain « Envoyer » du lanceur de chasses, ou tout de suite avec « Exporter mes chasses ».",
-    );
-    // case décochée : rien ne partira tout seul, le texte d'avant
+    lire(`JEU.panneFichier = null`);
+    expect(await ouvrir("/Reine.php", "2026-11-12 09:00")).toBe("exporté");
+    expect(bandeau("/Reine.php")).toBeNull();
+    // case décochée : rien ne part tout seul, le bandeau revient au rendez-vous suivant
     lire(`ExportAuto.choisir(false)`);
-    expect(texte("/Reine.php")).toBe(
-      "Export des chasses à faire : ouvre la messagerie et clique sur « Exporter mes chasses ».",
-    );
+    regler("2026-11-15 22:05");
+    expect(bandeau("/Reine.php")).toBe(ouvreLaMessagerie);
   });
 
   test("case décochée : le rappel revient, comme avant", () => {

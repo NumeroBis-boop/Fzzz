@@ -123,12 +123,12 @@ class ExportAuto {
     if (!etat.chasse) ExportAuto._garder({ ...etat, chasse: Horloge.maintenant() });
   }
   /**
-   * L'export automatique s'occupe-t-il de ce rendez-vous ? Oui une fois le
-   * clic sur « Envoyer » noté, tant que son essai n'a pas échoué : pas de
-   * rappel « Export des chasses à faire » pendant ce temps. Avant ce clic, le
-   * rappel reste : un chasseur qui lance ses chasses avec le formulaire du jeu
-   * n'aurait sinon ni export ni rappel, et le jeu supprime les conversations
-   * lues au bout de 7 jours.
+   * L'export automatique s'occupe-t-il de ce rendez-vous ? Oui tant que la
+   * case est cochée et que son dernier essai pour ce rendez-vous n'a pas
+   * échoué, avant comme après le clic sur « Envoyer » qui le déclenche : pas de
+   * rappel « Export des chasses à faire » pendant ce temps (règle du
+   * mainteneur ; un chasseur qui ne lance qu'avec le formulaire du jeu n'a
+   * donc ni export ni rappel).
    *
    * @static
    * @method enCharge
@@ -138,7 +138,7 @@ class ExportAuto {
   static enCharge(rdv) {
     if (!ExportAuto.actif()) return false;
     let e = ExportAuto.etat();
-    return !!e.chasse && !(e.rdv == rdv && e.raison);
+    return !(e.rdv == rdv && e.raison);
   }
   /**
    * Conversations de chasse de la boîte de réception : la liste de la page si

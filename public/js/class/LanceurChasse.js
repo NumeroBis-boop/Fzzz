@@ -497,6 +497,8 @@ class LanceurChasse {
             text: "Chasses lancées, mais la page Ressources n'a pas pu être lue : rien partagé.",
           }),
       );
+    // sur la page Ressources, la page rechargée s'en charge ; ici, pas de rechargement
+    if (lancees) ExportAuto.lancer();
   }
   /**
    * Mémorise les pertes acceptées, la marge de JSN et le rééquilibrage.

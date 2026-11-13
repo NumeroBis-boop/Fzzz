@@ -14,6 +14,20 @@ const METHODE_FLOOD_DEGRESSIVE = 3;
 // rôle du joueur dans l'alliance (Préférences → Rôle)
 const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
 const ROLE_CHASSEUR = 3;
+// chasseurs de l'alliance (liste du mainteneur) : rôle Chasseur par défaut,
+// posé une fois par navigateur
+const CHASSEURS_PAR_DEFAUT = [
+  "DoggyBag",
+  "Grim",
+  "Harkonnen",
+  "Staffie",
+  "Madakai",
+  "LabraDrungor",
+  "Cocop",
+  "Daek",
+  "Vegas",
+];
+const CLE_ROLE_CHASSEUR_DEFAUT = "fzzz_roleChasseurDefaut";
 
 /**
  * Classe pour creer et gérer un joueur
@@ -589,10 +603,35 @@ class Joueur {
         }
         localStorage.setItem(CLE_METHODE_DEGRESSIVE, "1");
       }
+      // « Aucun », le rôle par défaut, est enregistré avec les autres réglages
+      // sans avoir été choisi : pour un chasseur de la liste, il passe en
+      // Chasseur une fois par navigateur ; un rôle choisi ensuite reste
+      if (
+        !localStorage.getItem(CLE_ROLE_CHASSEUR_DEFAUT) &&
+        Joueur.chasseurParDefaut(this.pseudo)
+      ) {
+        if (!parseInt(this._parametre["role"].valeur)) {
+          this._parametre["role"].valeur = ROLE_CHASSEUR;
+          localStorage.setItem("outiiil_parametre", JSON.stringify(this._parametre));
+        }
+        localStorage.setItem(CLE_ROLE_CHASSEUR_DEFAUT, "1");
+      }
     } catch (e) {
       /* stockage indisponible : rien n'est enregistré non plus */
     }
     return this;
+  }
+  /**
+   * @static
+   * @method chasseurParDefaut
+   * @param {String} pseudo
+   * @return {Boolean} joueur de CHASSEURS_PAR_DEFAUT, casse ignorée
+   */
+  static chasseurParDefaut(pseudo) {
+    let p = String(pseudo || "")
+      .trim()
+      .toLowerCase();
+    return !!p && CHASSEURS_PAR_DEFAUT.some((j) => j.toLowerCase() == p);
   }
   /**
    *

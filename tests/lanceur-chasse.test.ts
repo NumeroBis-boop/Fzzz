@@ -528,9 +528,15 @@ describe("lanceur : dans la boîte (page: false)", () => {
       armee3._nbrJSN = armee3.unite[0];
       var boite = new LanceurChasse(armee3, 4, { prefixe: "b_", cadre: false, page: false }).afficher($("#o_tabsChasse4"), "append");
       window.toasts = []; $.toast = (t) => window.toasts.push(t.text);
+      // export des chasses dû : tenté après un lancement, la page n'étant pas rechargée
+      window.exports = 0; window.ExportAuto = { lancer: () => window.exports++ };
     `);
     expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(1);
-    lire(`boite._finLancement(2, 3)`);
+    // aucune chasse lancée (la première refusée) : rien à exporter de plus
+    lire(`boite._finLancement(0, 3)`);
+    expect(lire(`window.exports`)).toBe(0);
+    lire(`window.toasts = []; boite._finLancement(2, 3)`);
+    expect(lire(`window.exports`)).toBe(1);
     expect(lire(`window.toasts[0]`)).toContain("2 chasses lancées sur 3");
     expect(lire(`$("#b_o_chasseEnvoyer").prop("disabled")`)).toBe(true);
     // avec partage : la page Ressources est lue puis publiée
@@ -542,6 +548,7 @@ describe("lanceur : dans la boîte (page: false)", () => {
     `);
     expect(lire(`window.lectures[0]`)).toContain("/Ressources.php");
     expect(lire(`window.publie`)).toContain("boite_tdc");
+    expect(lire(`window.exports`)).toBe(2);
     lire(`$("#o_tabsChasse4").remove()`);
   });
 });

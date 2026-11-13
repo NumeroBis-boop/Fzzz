@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { creerPage } from "./harnais";
 import { classeurSimule } from "./sheet-simule";
 
 /**
- * Export automatique des chasses (demande du mainteneur) : à la première page
- * ouverte après un rendez-vous d'export (mercredi et dimanche 22h), les
- * rapports de chasse de la messagerie pas encore dans le fichier sont lus et
- * envoyés sans clic, pour le rôle Chasseur ; le bouton reste. Le jeu et le
- * forum sont simulés, le fichier l'est avec le vrai script
- * (google-sheet/export-rapports.gs). Rapports inventés.
+ * Export automatique des chasses (demandes du mainteneur) : quand le joueur
+ * lance une chasse alors qu'un export est dû (après le mercredi et le dimanche
+ * 22h, donc deux fois par semaine au plus), les rapports de chasse de la
+ * messagerie pas encore dans le fichier sont lus et envoyés, pour le rôle
+ * Chasseur ; le bouton reste. Le jeu et le forum sont simulés, le fichier l'est
+ * avec le vrai script (google-sheet/export-rapports.gs). Rapports inventés.
  */
 const page = creerPage(
   [
@@ -81,10 +81,11 @@ const regler = (quand: string) =>
 /**
  * Compte, jeu, forum et fichier simulés. JEU.conversations : la messagerie du
  * joueur ; demander une conversation la marque lue, comme le fait le jeu.
+ * Sauf `chasse: false`, le joueur vient de lancer une chasse (jeudi 8h).
  */
 function preparer(
   conversations: Record<number, Conversation> = CHASSES,
-  { role = 3, annonce = true } = {},
+  { role = 3, annonce = true, chasse = true } = {},
 ) {
   fichier = classeurSimule({});
   fenetre.__envoyer = (m: any) => {
@@ -156,6 +157,12 @@ function preparer(
     ${annonce ? `localStorage.setItem("fzzz_exportAuto", JSON.stringify({ doggybag: { annonce: true } }));` : ""}
   })()`);
   forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
+  if (chasse) lancerChasse();
+}
+/** Le jeu confirme une chasse lancée par le lanceur de l'extension (Armee.envoyerChasse). */
+function lancerChasse(quand = JEUDI) {
+  regler(quand);
+  lire(`ExportAuto.noterChasse()`);
 }
 
 /** Forum caché simulé : sujets {id, titre, messages}, appels xajax notés. */
@@ -178,14 +185,14 @@ function forum(sujets: { id: string; titre: string; messages: string[] }[]) {
 }
 
 /** Le joueur ouvre une page : comme content.js, l'export automatique y est lancé une fois. */
-const ouvrir = (chemin = "/Ressources.php", quand = JEUDI) => {
+const ouvrir = (chemin = "/Ressources.php", quand = JEUDI, centre = "") => {
   regler(quand);
   return lire<Promise<string>>(`(() => {
     history.replaceState(null, "", ${JSON.stringify(chemin)});
     // nouvelle page : aucun export en cours, forum relu
     ExportRapports.enCours = false;
     PartageChasses.oublierCache();
-    document.body.innerHTML = (window.SANS_ALLIANCE ? "" : "<span id='tag_alliance'>OUAF</span>") + (/^\\/messagerie\\.php/.test(${JSON.stringify(chemin)}) ? "<div id='messagerie'>" + listeMessagerie() + "</div>" : "<div id='centre'></div>");
+    document.body.innerHTML = (window.SANS_ALLIANCE ? "" : "<span id='tag_alliance'>OUAF</span>") + (/^\\/messagerie\\.php/.test(${JSON.stringify(chemin)}) ? "<div id='messagerie'>" + listeMessagerie() + "</div>" : "<div id='centre'>" + ${JSON.stringify(centre)} + "</div>");
     return ExportAuto.lancer();
   })()`);
 };
@@ -197,7 +204,110 @@ const exportFait = () => lire<number>(`RappelExport.exportFait()`);
 const aRappeler = () => lire<boolean>(`RappelExport.aRappeler()`);
 const requetesAuJeu = () => jeu<string[]>("requetes");
 
-describe("export automatique des chasses : à la première page après le rendez-vous", () => {
+describe("déclencheur : une chasse lancée alors qu'un export est dû", () => {
+  const riendEnvoye = () =>
+    expect([requetesAuJeu(), lire(`FORUM.appels`), jeu("fichier")]).toEqual([[], [], []]);
+
+  test("export dû mais aucune chasse lancée : rien, à aucune page, et pas de rappel", async () => {
+    preparer(CHASSES, { chasse: false });
+    for (const chemin of ["/Ressources.php", "/Reine.php", "/messagerie.php", "/construction.php"])
+      expect(await ouvrir(chemin)).toBe("sans chasse");
+    riendEnvoye();
+    expect(etat().essais).toBeUndefined();
+    expect(aRappeler()).toBe(false);
+    // la chasse est lancée (lanceur de l'extension) : l'export se fait à la page qui suit
+    lancerChasse("2026-11-12 08:10");
+    expect(etat().chasse).toBe(lire<number>(`heure`));
+    expect(await ouvrir("/Ressources.php", "2026-11-12 08:10")).toBe("exporté");
+    expect(lignesChasse()).toBe(4);
+    expect(etat().chasse).toBe(0);
+  });
+
+  test("chasse lancée quand rien n'est dû : elle ne compte pas ; après le rendez-vous, il faut un nouveau lancement", async () => {
+    preparer(CHASSES, { chasse: false });
+    // export fait le mardi : rien n'est dû avant mercredi 22h
+    regler("2026-11-10 12:00");
+    lire(`RappelExport.noterExport()`);
+    lancerChasse("2026-11-11 10:00");
+    expect(etat().chasse).toBeUndefined();
+    expect(await ouvrir("/Ressources.php", "2026-11-11 10:00")).toBe("à jour");
+    // mercredi 22h passé : la première page n'exporte pas
+    expect(await ouvrir("/Reine.php", "2026-11-11 22:30")).toBe("sans chasse");
+    expect(await ouvrir("/Reine.php", "2026-11-12 07:00")).toBe("sans chasse");
+    riendEnvoye();
+    lancerChasse("2026-11-12 07:30");
+    expect(await ouvrir("/Ressources.php", "2026-11-12 07:30")).toBe("exporté");
+    expect(lignesChasse()).toBe(4);
+  });
+
+  test("plusieurs chasses d'un même lancement : un seul export, daté de la première", async () => {
+    preparer(CHASSES, { chasse: false });
+    lancerChasse("2026-11-12 08:00");
+    const premiere = lire<number>(`heure`);
+    lancerChasse("2026-11-12 08:01");
+    lancerChasse("2026-11-12 08:02");
+    expect(etat().chasse).toBe(premiere);
+    expect(await ouvrir("/Ressources.php", "2026-11-12 08:02")).toBe("exporté");
+    lire(`JEU.requetes = []`);
+    expect(await ouvrir("/Ressources.php", "2026-11-12 08:03")).toBe("à jour");
+    expect(requetesAuJeu()).toEqual([]);
+  });
+
+  test("chasse lancée avec le formulaire du jeu : la page « La chasse est lancée. » déclenche l'export", async () => {
+    const LANCEE = "<p>La chasse est lancée.</p>";
+    for (const chemin of ["/AcquerirTerrain.php", "/Ressources.php"]) {
+      preparer(CHASSES, { chasse: false });
+      expect(await ouvrir(chemin, JEUDI, LANCEE)).toBe("exporté");
+      expect(lignesChasse()).toBe(4);
+    }
+    // la même phrase ailleurs que sur ces deux pages, ou dans un ajout de l'extension : rien
+    preparer(CHASSES, { chasse: false });
+    expect(await ouvrir("/Reine.php", JEUDI, LANCEE)).toBe("sans chasse");
+    expect(
+      await ouvrir(
+        "/Ressources.php",
+        JEUDI,
+        "<table id='o_simulationChasse'><tr><td class='green'>La chasse est lancée.</td></tr></table><div class='o_bloc'>La chasse est lancée.</div><div class='x o_note'>La chasse est lancée.</div>",
+      ),
+    ).toBe("sans chasse");
+    expect(await ouvrir("/Ressources.php", JEUDI, "<p>La chasse n'a pas pu être lancée.</p>")).toBe(
+      "sans chasse",
+    );
+    riendEnvoye();
+  });
+
+  test("formulaire du jeu, rien n'est dû : la page ne déclenche rien, ni plus tard", async () => {
+    preparer(CHASSES, { chasse: false });
+    regler("2026-11-10 12:00");
+    lire(`RappelExport.noterExport()`);
+    expect(await ouvrir("/AcquerirTerrain.php", "2026-11-11 10:00", "La chasse est lancée.")).toBe(
+      "à jour",
+    );
+    expect(await ouvrir("/Reine.php", "2026-11-11 22:30")).toBe("sans chasse");
+    riendEnvoye();
+  });
+
+  test("export fait au bouton pendant qu'un lancement attendait : le rendez-vous suivant attend une nouvelle chasse", async () => {
+    preparer();
+    expect(etat().chasse).toBe(lire<number>(`heure`));
+    lire(`RappelExport.noterExport()`);
+    expect(await ouvrir("/Reine.php", "2026-11-12 08:05")).toBe("à jour");
+    expect(etat().chasse).toBe(0);
+    expect(await ouvrir("/Reine.php", "2026-11-15 22:10")).toBe("sans chasse");
+    riendEnvoye();
+  });
+
+  test("autre rôle ou case décochée : un lancement n'est pas retenu", () => {
+    preparer(CHASSES, { role: 1 });
+    expect(etat().chasse).toBeUndefined();
+    preparer(CHASSES, { chasse: false });
+    lire(`ExportAuto.choisir(false)`);
+    lancerChasse();
+    expect(etat().chasse).toBeUndefined();
+  });
+});
+
+describe("export automatique des chasses : à la page qui suit le lancement", () => {
   test("rôle Chasseur, rendez-vous passé : les chasses de la messagerie sont lues et envoyées, sans clic", async () => {
     preparer();
     expect(await ouvrir()).toBe("exporté");
@@ -229,6 +339,7 @@ describe("export automatique des chasses : à la première page après le rendez
     lire(
       `Object.keys(localStorage).filter((k) => /^fzzz_exportCles_|^fzzz_exportChassesFait$/.test(k)).forEach((k) => localStorage.removeItem(k)); TOASTS = []; NOTES = []`,
     );
+    lancerChasse("2026-11-12 09:00");
     expect(await ouvrir("/Reine.php", "2026-11-12 09:00")).toBe("exporté");
     expect(lignesChasse()).toBe(4);
     expect(toasts()).toEqual([]);
@@ -249,6 +360,10 @@ describe("export automatique des chasses : à la première page après le rendez
     lire(
       `JEU.conversations[14] = { titre: "Chasse réussie : vos chasseuses ont conquis 9 cm²", html: ${JSON.stringify(message(106, chasse(5), "15/11/26 à 20h00"))} }`,
     );
+    // rien tant qu'une chasse n'est pas lancée
+    expect(await ouvrir("/Reine.php", "2026-11-15 22:05")).toBe("sans chasse");
+    expect(requetesAuJeu()).toEqual([]);
+    lancerChasse("2026-11-15 22:10");
     expect(await ouvrir("/Reine.php", "2026-11-15 22:10")).toBe("exporté");
     expect(requetesAuJeu()).toEqual(["GET /messagerie.php", "conversation 14"]);
     expect(lignesChasse()).toBe(5);
@@ -261,6 +376,7 @@ describe("export automatique des chasses : à la première page après le rendez
     preparer();
     await ouvrir();
     lire(`TOASTS = []; JEU.requetes = []`);
+    lancerChasse("2026-11-15 22:10");
     expect(await ouvrir("/Reine.php", "2026-11-15 22:10")).toBe("exporté");
     expect(requetesAuJeu()).toEqual(["GET /messagerie.php"]);
     expect(toasts()).toEqual([]);
@@ -310,7 +426,7 @@ describe("export automatique des chasses : à la première page après le rendez
     expect(annonce.hideAfter).toBe(false);
     for (const dit of [
       "Tes rapports de chasse sont maintenant exportés automatiquement vers le Google Sheet de ton alliance",
-      "à la première page que tu ouvres après le mercredi et le dimanche à 22h",
+      "deux fois par semaine au plus, quand tu lances une chasse après le mercredi ou le dimanche à 22h",
       "Le premier export se fera à ta prochaine page.",
       "Le bouton « Exporter mes chasses » de la messagerie reste",
       "class='o_ouvrirPartage'>Préférences → Partage de données</a>",
@@ -647,8 +763,12 @@ describe("Préférences : où en est l'export", () => {
     expect(lire(`ExportAuto.resume()`)).toBe(
       "Ton rôle n'est pas « Chasseur » (Préférences → Rôle) : tes chasses ne sont pas exportées automatiquement.",
     );
-    preparer();
+    preparer(CHASSES, { chasse: false });
     regler(JEUDI);
+    expect(lire(`ExportAuto.resume()`)).toBe(
+      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera quand tu lanceras une chasse.",
+    );
+    lancerChasse();
     expect(lire(`ExportAuto.resume()`)).toBe(
       "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera à ta prochaine page.",
     );
@@ -668,20 +788,52 @@ describe("Préférences : où en est l'export", () => {
 describe("règles du s5", () => {
   const source = (f: string) => readFileSync(join(import.meta.dir, "..", "public", f), "utf8");
 
-  test("aucune minuterie dans le module : tout part d'une page que le joueur ouvre", () => {
+  test("aucune minuterie dans le module : tout part d'une chasse que le joueur lance", () => {
     expect(source("js/class/ExportAuto.js")).not.toMatch(
       /setTimeout|setInterval|requestAnimationFrame/,
     );
   });
 
-  test("un seul appel automatique, au démarrage de la page, après le relevé du jour", () => {
-    const appels = ["js/content.js", "js/boite/Parametres.js", "js/class/RappelExport.js"].map(
-      (f) => source(f).match(/ExportAuto\.lancer\([^)]*\)/g) || [],
-    );
-    expect(appels).toEqual([["ExportAuto.lancer()"], [], []]);
+  test("deux appels seulement : au démarrage de la page, après le relevé du jour, et à la fin d'un lancement fait dans la boîte d'outils", () => {
+    const fichiers = readdirSync(join(import.meta.dir, "..", "public", "js"), {
+      recursive: true,
+    }) as string[];
+    const appels = fichiers
+      .filter((f) => f.endsWith(".js") && !f.startsWith("lib"))
+      .map((f) => [
+        f.replace(/\\/g, "/"),
+        (source("js/" + f).match(/ExportAuto\.lancer\(/g) || []).length,
+      ])
+      .filter(([, n]) => n)
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    expect(appels).toEqual([
+      ["class/LanceurChasse.js", 1],
+      ["content.js", 1],
+    ]);
     const demarrage = source("js/content.js");
     expect(demarrage.indexOf("ExportAuto.lancer()")).toBeGreaterThan(
       demarrage.indexOf("SuiviMembres.lancer()"),
     );
+    // dans la boîte : seulement après des chasses lancées par le clic du joueur
+    expect(source("js/class/LanceurChasse.js")).toContain("if (lancees) ExportAuto.lancer();");
+  });
+
+  test("un lancement n'est signalé que par une chasse que le jeu confirme", () => {
+    const fichiers = readdirSync(join(import.meta.dir, "..", "public", "js"), {
+      recursive: true,
+    }) as string[];
+    const signalements = fichiers
+      .filter((f) => f.endsWith(".js") && !f.startsWith("lib"))
+      .map((f) => [
+        f.replace(/\\/g, "/"),
+        (source("js/" + f).match(/ExportAuto\.noterChasse\(\)/g) || []).length,
+      ])
+      .filter(([, n]) => n)
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    // Armee.envoyerChasse (réponse « La chasse est lancée. ») et la page du formulaire du jeu
+    expect(signalements).toEqual([
+      ["class/Armee.js", 1],
+      ["class/ExportAuto.js", 1],
+    ]);
   });
 });

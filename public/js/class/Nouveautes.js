@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.110.0",
+    notes: [
+      "Rôle Chasseur : l'export automatique des chasses ne part plus à la première page ouverte après le mercredi et le dimanche 22h, mais quand tu lances une chasse après ces dates (deux fois par semaine au plus). Sans chasse lancée, rien n'est lu ni envoyé ; le bouton « Exporter mes chasses » reste.",
+      "Les chasseurs de l'alliance (liste tenue par DoggyBag) ont le rôle « Chasseur » par défaut. Tu peux le changer dans Préférences → Rôle.",
+    ],
+  },
+  {
     version: "1.109.0",
     notes: [
       "Rôle Chasseur : tes rapports de chasse sont maintenant exportés automatiquement vers le Google Sheet, deux fois par semaine, à la première page que tu ouvres après le mercredi et le dimanche à 22h (jamais sur les pages Armée et d'attaque). Tu es prévenu avant le premier export ; les rapports que tu n'avais pas lus restent marqués non lus. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Case dans Préférences → Partage de données.",

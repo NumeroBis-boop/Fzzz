@@ -1091,7 +1091,14 @@ describe("Préférences → Partage de données", () => {
       preferences.lire<[boolean, string]>(
         `[$("#o_partageChasses").prop("checked"), $("#o_partageChassesEtat").text()]`,
       );
-    // sans rôle choisi, rien n'est exporté automatiquement : l'onglet le dit
+    const role = (r: string) =>
+      preferences.lire(`(() => {
+        monProfil.parametre.role.valeur = ${r};
+        $("#o_tabsParametrePartage").empty();
+        boite.ongletPartage();
+      })()`);
+    // un autre rôle que Chasseur : rien n'est exporté automatiquement, l'onglet le dit
+    role("0");
     expect(chasses()).toEqual([
       true,
       "Ton rôle n'est pas « Chasseur » (Préférences → Rôle) : tes chasses ne sont pas exportées automatiquement.",
@@ -1100,22 +1107,17 @@ describe("Préférences → Partage de données", () => {
     for (const dit of [
       "Rapports de chasse (rôle Chasseur)",
       "Exporter mes chasses automatiquement",
-      "à la première page que tu ouvres après le mercredi et le dimanche à 22h (heure du serveur)",
+      "Deux fois par semaine au plus, quand tu lances une chasse après le mercredi ou le dimanche à 22h (heure du serveur)",
       "ceux que tu n'avais pas lus restent marqués non lus",
       "Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat.",
       "Décochée : rien n'est lu ni envoyé sans ton clic",
     ])
       expect(texte).toContain(dit);
-    const chasseur = () =>
-      preferences.lire(`(() => {
-        monProfil.parametre.role.valeur = ROLE_CHASSEUR;
-        $("#o_tabsParametrePartage").empty();
-        boite.ongletPartage();
-      })()`);
+    const chasseur = () => role("ROLE_CHASSEUR");
     chasseur();
     expect(chasses()).toEqual([
       true,
-      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera à ta prochaine page.",
+      "Aucun export des chasses mené au bout depuis ce navigateur pour l'instant. Le prochain export se fera quand tu lanceras une chasse.",
     ]);
     preferences.lire(`$("#o_partageChasses").prop("checked", false).trigger("change")`);
     expect(preferences.lire(`localStorage.getItem("fzzz_partage_exportChasses")`)).toBe("0");

@@ -42,6 +42,73 @@ const profil = (role: number) =>
   })()`);
 const aRappeler = () => page.lire<boolean>(`RappelExport.aRappeler()`);
 
+describe("rôle Chasseur par défaut pour les chasseurs de l'alliance (liste du mainteneur)", () => {
+  // réglages enregistrés par ce navigateur (tous ensemble), puis page ouverte par ce pseudo
+  const ouvrir = (pseudo: string, enregistres: Record<string, unknown> | null = null) =>
+    page.lire<number>(`(() => {
+      localStorage.setItem("fzzz_reserveEnPlus", "1");
+      localStorage.setItem("fzzz_methodeDegressive", "1");
+      ${enregistres ? `localStorage.setItem("outiiil_parametre", ${JSON.stringify(JSON.stringify(enregistres))});` : ""}
+      window.monProfil = new Joueur({ pseudo: ${JSON.stringify(pseudo)} }).getParametre();
+      return parseInt(monProfil.parametre.role.valeur);
+    })()`);
+  const enregistre = () =>
+    page.lire<any>(`JSON.parse(localStorage.getItem("outiiil_parametre") || "null")`);
+
+  test("les neuf joueurs de la liste, casse ignorée ; les autres restent sans rôle", () => {
+    expect(page.lire(`CHASSEURS_PAR_DEFAUT`)).toEqual([
+      "DoggyBag",
+      "Grim",
+      "Harkonnen",
+      "Staffie",
+      "Madakai",
+      "LabraDrungor",
+      "Cocop",
+      "Daek",
+      "Vegas",
+    ]);
+    for (const pseudo of ["DoggyBag", "grim", "HARKONNEN", " Vegas "]) {
+      page.lire(`localStorage.clear()`);
+      expect(ouvrir(pseudo)).toBe(3);
+    }
+    for (const pseudo of ["Canaille", "Doggy", "DoggyBag2", ""]) {
+      page.lire(`localStorage.clear()`);
+      expect(ouvrir(pseudo)).toBe(0);
+      expect(page.lire(`localStorage.getItem("fzzz_roleChasseurDefaut")`)).toBeNull();
+    }
+  });
+
+  test("« Aucun » enregistré sans avoir été choisi : passé en Chasseur, enregistré, une seule fois", () => {
+    page.lire(`localStorage.clear()`);
+    expect(ouvrir("Staffie", { role: 0, methodeFlood: 2 })).toBe(3);
+    expect(enregistre()).toMatchObject({ role: 3, methodeFlood: 2 });
+    // page suivante : le rôle enregistré est gardé
+    expect(ouvrir("Staffie")).toBe(3);
+    // le joueur choisit ensuite « Aucun » : son choix reste
+    expect(ouvrir("Staffie", { role: 0 })).toBe(0);
+    expect(ouvrir("Staffie")).toBe(0);
+  });
+
+  test("Passeur ou Grenier déjà choisi : pas touché, ni plus tard", () => {
+    for (const role of [1, 2]) {
+      page.lire(`localStorage.clear()`);
+      expect(ouvrir("Madakai", { role })).toBe(role);
+      expect(page.lire(`localStorage.getItem("fzzz_roleChasseurDefaut")`)).toBe("1");
+      expect(ouvrir("Madakai", { role: 0 })).toBe(0);
+    }
+  });
+
+  test("devenu Chasseur par défaut : le rappel d'export le concerne", () => {
+    regler("2026-11-11 22:30");
+    page.lire(`localStorage.clear()`);
+    ouvrir("Cocop");
+    expect(aRappeler()).toBe(true);
+    page.lire(`localStorage.clear()`);
+    ouvrir("Canaille");
+    expect(aRappeler()).toBe(false);
+  });
+});
+
 describe("rendez-vous d'export : mercredi et dimanche à 22h", () => {
   test("dernier rendez-vous passé", () => {
     expect(page.lire(`[moment("2026-11-11").day(), moment("2026-11-15").day()]`)).toEqual([3, 0]);

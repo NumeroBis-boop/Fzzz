@@ -2,13 +2,15 @@
 /*
  * ExportAuto.js
  * Partage de données : export automatique des rapports de chasse du rôle
- * Chasseur vers le Google Sheet, deux fois par semaine.
+ * Chasseur vers le Google Sheet, après le lancement d'une chasse, deux fois
+ * par semaine au plus.
  **********************************************************************/
 
 // case décochée : "0" ; cochée par défaut
 const CLE_PARTAGE_EXPORT_CHASSES = "fzzz_partage_exportChasses";
-// par pseudo : rendez-vous traité, essais du jour, raison du dernier échec,
-// annonce déjà montrée, conversations à remettre « non lues », dernier export
+// par pseudo : chasse lancée qui attend son export, rendez-vous traité, essais
+// du jour, raison du dernier échec, annonce déjà montrée, conversations à
+// remettre « non lues », dernier export
 const CLE_EXPORT_AUTO = "fzzz_exportAuto";
 // export qui échoue (jeu, forum ou fichier sans réponse) ou page quittée en
 // route : nouvel essai à une page ouverte plus tard, jamais à chaque page
@@ -19,21 +21,23 @@ const EXPORT_AUTO_PAUSE_ESSAIS = 3600 * 1000;
 const EXPORT_AUTO_LOT = 10;
 
 /**
- * À la première page que le joueur ouvre après un rendez-vous d'export
- * (RappelExport : mercredi et dimanche 22h, un export des 24 h d'avant compte),
+ * Quand le joueur lance une chasse alors qu'un export est dû (RappelExport :
+ * après le mercredi et le dimanche 22h, un export des 24 h d'avant compte),
  * les rapports de chasse de sa messagerie pas encore dans le fichier sont lus
  * et envoyés, comme le fait le bouton « Exporter mes chasses », qui reste pour
- * un export immédiat (demande du mainteneur). Rôle Chasseur seulement, case de
- * Préférences → Partage de données cochée ; le joueur est prévenu avant le
- * premier export.
+ * un export immédiat. Demande du mainteneur : pas à la première page ouverte
+ * après le rendez-vous, mais après un lancement, quand la chasse d'avant vient
+ * de rentrer ; un chasseur qui ne chasse pas n'exporte rien. Rôle Chasseur
+ * seulement, case de Préférences → Partage de données cochée ; le joueur est
+ * prévenu avant le premier export.
  *
  * Le jeu marque « lue » une conversation qu'on lui demande : celles qui ne
  * l'étaient pas sont remises « non lues » (requête du bouton « Marquer comme
  * non lu » de la messagerie), le joueur retrouve sa messagerie comme il l'a
  * laissée.
  *
- * Règles s5 : tout part de l'ouverture d'une page par le joueur, deux fois par
- * semaine ; aucune minuterie, aucune requête répétée.
+ * Règles s5 : tout part d'une chasse que le joueur lance, deux fois par
+ * semaine au plus ; aucune minuterie, aucune requête répétée.
  *
  * @class ExportAuto
  */
@@ -84,7 +88,7 @@ class ExportAuto {
    * @static
    * @method etat
    * @return {any} export automatique du joueur dans ce navigateur :
-   *   {rdv, jour, essais, essai, raison, annonce, aRemettre, dernier}
+   *   {chasse, rdv, jour, essais, essai, raison, annonce, aRemettre, dernier}
    */
   static etat() {
     let e = Utils.lireStockage(CLE_EXPORT_AUTO)[ExportAuto._pseudo()];
@@ -101,6 +105,34 @@ class ExportAuto {
     try {
       localStorage.setItem(CLE_EXPORT_AUTO, JSON.stringify(tous));
     } catch (e) {}
+  }
+  /**
+   * Le joueur vient de lancer une chasse : si un export est dû, il se fera à
+   * la suite (lancer). Lancée quand rien n'est dû, elle ne compte pas : le
+   * rendez-vous suivant attendra un nouveau lancement.
+   *
+   * @static
+   * @method noterChasse
+   */
+  static noterChasse() {
+    if (!ExportAuto._pseudo() || !ExportAuto.actif() || !RappelExport.rendezVousDu()) return;
+    let etat = ExportAuto.etat();
+    if (!etat.chasse) ExportAuto._garder({ ...etat, chasse: Horloge.maintenant() });
+  }
+  /**
+   * Chasse lancée avec le formulaire du jeu : la page qu'il affiche ensuite le
+   * dit (« La chasse est lancée. », la réponse d'AcquerirTerrain.php). Les
+   * ajouts de l'extension ne comptent pas.
+   *
+   * @static
+   * @method chasseLanceeIci
+   * @return {Boolean}
+   */
+  static chasseLanceeIci() {
+    if (!/^\/(AcquerirTerrain|Ressources)\.php$/i.test(location.pathname)) return false;
+    let $jeu = ($("#centre").length ? $("#centre") : $("body")).clone();
+    $jeu.find("[id^='o_'], [class^='o_'], [class*=' o_']").remove();
+    return /La chasse est lancée/.test($jeu.text());
   }
   /**
    * L'export automatique s'occupe-t-il de ce rendez-vous ? Tant que oui, pas
@@ -219,9 +251,10 @@ class ExportAuto {
       .then(() => total);
   }
   /**
-   * Export des chasses dû : fait à cette page, sauf essai trop récent ou page
-   * où l'armée se lance ou se replace (une lecture en cours retarderait un
-   * envoi à la seconde près).
+   * Export des chasses dû et chasse lancée depuis : fait à cette page, sauf
+   * essai trop récent ou page où l'armée se lance ou se replace (une lecture en
+   * cours retarderait un envoi à la seconde près). Appelé à l'ouverture de
+   * chaque page et à la fin d'un lancement fait depuis la boîte d'outils.
    *
    * @static
    * @method lancer
@@ -235,13 +268,27 @@ class ExportAuto {
     if (enSuspens.length) ExportAuto._garder({ ...ExportAuto.etat(), aRemettre: [] });
     let remise = ExportAuto._remettre(enSuspens);
     if (!ExportAuto.actif()) return remise.then(() => "inactif");
-    let rdv = RappelExport.rendezVousDu();
-    if (!rdv) return remise.then(() => "à jour");
-    let instant = Horloge.maintenant(),
-      jour = Horloge.serveur().format("YYYY-MM-DD"),
+    if (ExportAuto.chasseLanceeIci()) ExportAuto.noterChasse();
+    let rdv = RappelExport.rendezVousDu(),
       etat = ExportAuto.etat();
+    if (!rdv) {
+      // exporté entre-temps au bouton : le rendez-vous suivant attendra un nouveau lancement
+      if (etat.chasse) ExportAuto._garder({ ...etat, chasse: 0 });
+      return remise.then(() => "à jour");
+    }
+    if (!etat.chasse) return remise.then(() => "sans chasse");
+    let instant = Horloge.maintenant(),
+      jour = Horloge.serveur().format("YYYY-MM-DD");
     if (etat.rdv != rdv)
-      etat = { annonce: etat.annonce, dernier: etat.dernier, rdv, jour, essais: 0, essai: 0 };
+      etat = {
+        annonce: etat.annonce,
+        dernier: etat.dernier,
+        chasse: etat.chasse,
+        rdv,
+        jour,
+        essais: 0,
+        essai: 0,
+      };
     else if (etat.jour != jour) etat = { ...etat, jour, essais: 0 };
     if (
       ExportRapports.enCours ||
@@ -303,7 +350,9 @@ class ExportAuto {
               JOURNAL_EXPORT,
               `export automatique des chasses mené au bout : ${b.lues} conversation(s) lue(s), ${b.ajoutees} ligne(s) ajoutée(s), ${b.deja} déjà présente(s)`,
             );
+            // le rendez-vous suivant attendra un nouveau lancement de chasse
             return fin("exporté", {
+              chasse: 0,
               dernier: { instant: Horloge.maintenant(), ajoutees: b.ajoutees },
             });
           });
@@ -328,7 +377,7 @@ class ExportAuto {
     $.toast({
       ...TOAST_INFO,
       heading: "Partage de données",
-      text: `Tes rapports de chasse sont maintenant exportés automatiquement vers ${alliance ? "le Google Sheet de ton alliance" : "ton Google Sheet"} : deux fois par semaine, à la première page que tu ouvres après le mercredi et le dimanche à 22h. Le premier export se fera à ta prochaine page. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Tu peux désactiver l'export automatique dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
+      text: `Tes rapports de chasse sont maintenant exportés automatiquement vers ${alliance ? "le Google Sheet de ton alliance" : "ton Google Sheet"} : deux fois par semaine au plus, quand tu lances une chasse après le mercredi ou le dimanche à 22h. Le premier export se fera à ta prochaine page. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Tu peux désactiver l'export automatique dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
       hideAfter: false,
       allowToastClose: true,
     });
@@ -358,7 +407,11 @@ class ExportAuto {
         `Le dernier essai automatique n'a pas abouti : ${e.raison}. Nouvel essai à une page ouverte plus tard (${numeral(EXPORT_AUTO_ESSAIS_PAR_JOUR).format()} essais par jour au plus) ; le bouton « Exporter mes chasses » de la messagerie marche aussi.`,
       );
     else if (ExportAuto.coche() && rdv)
-      phrases.push("Le prochain export se fera à ta prochaine page.");
+      phrases.push(
+        e.chasse
+          ? "Le prochain export se fera à ta prochaine page."
+          : "Le prochain export se fera quand tu lanceras une chasse.",
+      );
     return phrases.join(" ");
   }
 }

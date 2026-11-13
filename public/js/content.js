@@ -843,8 +843,9 @@ const DATEPICKER_OPTION = {
           console.error("Fzzz : reprise des partages", e);
         }
         // relevé du jour pour le fichier de l'alliance, après les lectures de la
-        // page ; puis l'export des chasses dû (rôle Chasseur), l'un après l'autre :
-        // la liste des sujets du forum n'est lue qu'une fois pour les deux
+        // page ; puis l'export des chasses dû, si le joueur vient de lancer une
+        // chasse (rôle Chasseur), l'un après l'autre : la liste des sujets du
+        // forum n'est lue qu'une fois pour les deux
         let releve = Promise.resolve("");
         try {
           releve = SuiviMembres.lancer();

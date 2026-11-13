@@ -74,4 +74,20 @@ describe("Armee.envoyerChasse", () => {
     expect(page.lire(`JSON.stringify(window.bilan)`)).toBe("[1,3]");
     expect(page.lire(`window.postes`)).toBe(2);
   });
+
+  test("chaque chasse que le jeu confirme est signalée à l'export automatique, pas une chasse refusée", async () => {
+    page.lire(`
+      var monProfil = { niveauRecherche: [0, 0, 0, 0, 0, 0] };
+      var TroupesDehors = { enregistrerChasse() {} };
+      window.notees = 0;
+      var ExportAuto = { noterChasse: () => window.notees++ };
+      window.reponses = ["La chasse est lancée.", "La chasse est lancée.", "Erreur"]; window.postes = 0;
+      Armee.posterChasse = () => Promise.resolve(window.reponses[window.postes++]);
+      var a = new Armee(); a._repartition = [[1], [1], [1]];
+      a.envoyerChasse(10, 3, 0, 0, () => {});
+    `);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(page.lire(`window.notees`)).toBe(2);
+    page.lire(`ExportAuto = undefined`);
+  });
 });

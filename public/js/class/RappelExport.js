@@ -19,10 +19,10 @@ const MINUTES_MASQUAGE_RAPPEL = 60;
 /**
  * Rendez-vous d'export des chasses du rôle Chasseur, le mercredi et le
  * dimanche à 22h, sauf export dans les 24 h d'avant. L'export automatique
- * (ExportAuto) s'en charge à la première page ouverte ensuite ; le rappel
- * « Export des chasses à faire », un bandeau sous le menu sans aucune requête
- * au jeu, ne reste que s'il ne peut pas le faire : case décochée, ou essai en
- * échec. Le joueur ouvre alors la messagerie et clique.
+ * (ExportAuto) s'en charge quand le joueur lance ensuite une chasse ; le
+ * rappel « Export des chasses à faire », un bandeau sous le menu sans aucune
+ * requête au jeu, ne reste que s'il ne peut pas le faire : case décochée, ou
+ * essai en échec. Le joueur ouvre alors la messagerie et clique.
  *
  * @class RappelExport
  */

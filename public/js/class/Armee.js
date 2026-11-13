@@ -641,6 +641,8 @@ class Armee {
       Armee.posterChasse(terrainChasse, this._repartition[indice]).then((data) => {
         if (data.indexOf("La chasse est lancée.") > -1) {
           TroupesDehors.enregistrerChasse(this._repartition[indice]);
+          // un export des chasses dû se fait après un lancement
+          if (typeof ExportAuto != "undefined") ExportAuto.noterChasse();
           $("#o_simulationChasse tr:eq(" + (indice + 1) + ")").html(
             `<td class='green'>${indice + 1}</td><td colspan='14' class='green'>La chasse est lancée.</td>`,
           );

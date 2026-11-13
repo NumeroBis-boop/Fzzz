@@ -704,7 +704,7 @@ class BoiteParametre extends Boite {
         <p class='left'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>
         <p class='o_titreParam'>Rapports de chasse <span class='o_aideParam'>(rôle Chasseur)</span></p>
         <label class='o_affichageFzzz'><input type='checkbox' id='o_partageChasses' ${ExportAuto.coche() ? "checked" : ""}/> Exporter mes chasses automatiquement</label>
-        <p class='left o_aideParam'>Deux fois par semaine, à la première page que tu ouvres après le mercredi et le dimanche à 22h (heure du serveur), l'extension lit les rapports de chasse de ta messagerie pas encore exportés et les envoie au Google Sheet où tu exportes tes rapports ; ceux que tu n'avais pas lus restent marqués non lus. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Décochée : rien n'est lu ni envoyé sans ton clic, et le rappel « Export des chasses à faire » revient.</p>
+        <p class='left o_aideParam'>Deux fois par semaine au plus, quand tu lances une chasse après le mercredi ou le dimanche à 22h (heure du serveur), l'extension lit les rapports de chasse de ta messagerie pas encore exportés et les envoie au Google Sheet où tu exportes tes rapports ; ceux que tu n'avais pas lus restent marqués non lus. Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat. Décochée : rien n'est lu ni envoyé sans ton clic, et le rappel « Export des chasses à faire » revient.</p>
         <p id='o_partageChassesEtat' class='left small'></p>
       </form>`),
       etat = (message = "") =>

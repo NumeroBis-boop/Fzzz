@@ -48,7 +48,8 @@ const PAUSE_AVANT_FOND = 1000;
  * Requêtes au jeu terminées depuis l'ouverture de la page, pour la mesure du
  * chargement des vues (Journal.mesurer) : nombre et durée de l'envoi à la
  * réponse (attente dans la file exclue), celles du forum à part, et lectures
- * servies par le cache d'une minute (PartageChasses._enCache).
+ * évitées : faites il y a moins d'une minute (PartageChasses._enCache) ou
+ * sujet inchangé (PartageChasses.sujetGarde).
  */
 const COMPTE_REQUETES = { nombre: 0, duree: 0, forum: 0, dureeForum: 0, cache: 0 };
 

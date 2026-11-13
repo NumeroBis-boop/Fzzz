@@ -48,6 +48,30 @@ let retraitsEnCours = new Set();
 // autre appareil a pu écrire)
 const CLE_CACHE_FORUM = "fzzz_cacheForum";
 const DUREE_CACHE_FORUM = 60000;
+// sujets de suivi lus pour l'affichage, gardés tant que leur date « Dernier
+// message » dans la liste des sujets ne change pas : elle change quand le
+// premier message est modifié, mais à la minute près, sans les secondes
+const CLE_SUJETS_GARDES = "fzzz_sujetsGardes";
+// une lecture faite pendant la minute affichée a pu précéder une modification
+// de la même minute : elle ne fait foi qu'après la fin de cette minute, plus
+// cette marge (écart entre l'heure du serveur estimée et la vraie)
+const MARGE_MINUTE_SUJET = 5000;
+const DUREE_SUJETS_GARDES = 24 * 3600 * 1000;
+// mois de la colonne « Dernier message » (« 13 nov. à 22h20 »)
+const MOIS_FORUM = [
+  /^janv?/,
+  /^f[ée]vr?/,
+  /^mars?/,
+  /^avr/,
+  /^mai/,
+  /^juin/,
+  /^juil/,
+  /^ao[uû]t?/,
+  /^sept?/,
+  /^oct/,
+  /^nov/,
+  /^d[ée]c/,
+];
 
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
@@ -302,9 +326,25 @@ class PartageChasses {
               (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0];
           if (m && idSujet) {
             // titre écrit par un membre : caractères de balisage retirés
-            let pseudo = PartageChasses.nettoyer(m[2]);
+            let pseudo = PartageChasses.nettoyer(m[2]),
+              // colonne « Dernier message » : auteur et minute de la dernière modification
+              dernier = $(elt)
+                .find("td")
+                .slice(2)
+                .contents()
+                .map((i, n) => $(n).text())
+                .get()
+                .join(" ")
+                .replace(/\s+/g, " ")
+                .trim();
             sujets[`${m[1]} | ${pseudo.toLowerCase()}`] = idSujet;
-            sujets.liste.push({ type: m[1], pseudo: pseudo, id: idSujet });
+            sujets.liste.push({
+              type: m[1],
+              pseudo: pseudo,
+              id: idSujet,
+              dernier,
+              modifie: PartageChasses.dateListe(dernier),
+            });
           }
           // créé deux fois (deux enregistrements au même instant) : le plus ancien fait foi
           if (
@@ -332,8 +372,52 @@ class PartageChasses {
               id: idSujet,
             });
         });
+      let sansDate = sujets.liste.filter((/** @type {any} */ t) => t.modifie == null);
+      if (sansDate.length)
+        Journal.info(
+          "Forum",
+          `date « Dernier message » illisible pour ${sansDate.length} sujet(s) de suivi : ils sont relus à chaque affichage`,
+          `Exemple : « ${sansDate[0].dernier} »`,
+        );
       return sujets;
     });
+  }
+  /**
+   * Minute de la dernière modification d'un sujet, dans la colonne « Dernier
+   * message » de la liste des sujets (« 13 nov. à 22h20 », l'année en plus si
+   * ce n'est pas l'année en cours, « aujourd'hui à … », « hier à … »), à
+   * l'heure du jeu.
+   *
+   * @static
+   * @method dateListe
+   * @param {String} texte
+   * @return {Number|null} ms ; null si aucune date n'est lisible
+   */
+  static dateListe(texte) {
+    let t = String(texte || "")
+        .toLowerCase()
+        .replace(/[’‘`]/g, "'")
+        .replace(/\s+/g, " "),
+      maintenant = Horloge.serveur(),
+      d = t.match(/(\d{1,2}) ([a-zéû]+)\.?(?: (\d{4}))? à (\d{1,2}) ?h ?(\d{2})/),
+      r = t.match(/(aujourd'hui|hier) à (\d{1,2}) ?h ?(\d{2})/),
+      date = null;
+    if (d) {
+      let mois = MOIS_FORUM.findIndex((m) => m.test(d[2]));
+      if (mois < 0) return null;
+      date = moment(
+        `${d[3] || maintenant.year()}-${mois + 1}-${d[1]} ${d[4]}:${d[5]}`,
+        "YYYY-M-D H:mm",
+        true,
+      );
+      // sans année : une date à venir est celle de l'an passé
+      if (!d[3] && date.isValid() && date.valueOf() > maintenant.valueOf() + 24 * 3600 * 1000)
+        date.subtract(1, "year");
+    } else if (r) {
+      date = moment(`${maintenant.format("YYYY-MM-DD")} ${r[2]}:${r[3]}`, "YYYY-MM-DD H:mm", true);
+      if (r[1] == "hier") date.subtract(1, "day");
+    }
+    return date && date.isValid() ? date.valueOf() : null;
   }
   /**
    * Lignes de données (codes FZC / FZF) du premier message d'un sujet.
@@ -342,11 +426,59 @@ class PartageChasses {
    * @method lireSujet
    * @param {String} idSujet
    * @param {Boolean} [cache] lecture de moins d'une minute acceptée (affichage)
+   * @param {{dernier?: String}|null} [liste] sujet tel que la liste des sujets
+   *   le donne : la lecture est gardée tant que sa date « Dernier message » ne
+   *   change pas (sujetGarde)
    */
-  static lireSujet(idSujet, cache = false) {
-    return PartageChasses._enCache("sujet " + idSujet, cache, () =>
-      PartageChasses._lireSujet(idSujet),
-    );
+  static lireSujet(idSujet, cache = false, liste = null) {
+    if (!liste)
+      return PartageChasses._enCache("sujet " + idSujet, cache, () =>
+        PartageChasses._lireSujet(idSujet),
+      );
+    // avant la requête : l'heure de lecture gardée n'est jamais trop tardive
+    let debut = Horloge.maintenant();
+    return PartageChasses._lireSujet(idSujet).then((v) => {
+      PartageChasses._garderSujet(idSujet, liste.dernier || "", debut, v);
+      return v;
+    });
+  }
+  /**
+   * Lecture gardée d'un sujet de suivi, si elle fait encore foi : même date
+   * « Dernier message » qu'à la lecture, et lecture faite après la fin de la
+   * minute affichée (une modification de la même minute ne change pas la
+   * date), ou il y a moins d'une minute, comme les autres lectures gardées.
+   *
+   * @static
+   * @method sujetGarde
+   * @param {any} gardes lectures gardées (CLE_SUJETS_GARDES)
+   * @param {{id: String, dernier?: String, modifie?: Number|null}} t sujet de la liste
+   * @return {any} {chasses, floods}, ou null : à relire
+   */
+  static sujetGarde(gardes, t) {
+    let e = gardes[t.id];
+    if (!e || e.version !== PartageChasses._version() || e.dernier !== (t.dernier || ""))
+      return null;
+    let apresLaMinute = t.modifie != null && e.lu >= t.modifie + 60000 + MARGE_MINUTE_SUJET;
+    return apresLaMinute || Horloge.maintenant() - e.lu < DUREE_CACHE_FORUM ? e.v : null;
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} id
+   * @param {String} dernier date « Dernier message » de la liste lue avant
+   * @param {Number} lu heure du serveur juste avant la lecture
+   * @param {any} v contenu lu
+   */
+  static _garderSujet(id, dernier, lu, v) {
+    let gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
+      version = PartageChasses._version();
+    for (let k in gardes)
+      if (gardes[k].version !== version || lu - gardes[k].lu > DUREE_SUJETS_GARDES)
+        delete gardes[k];
+    gardes[id] = { dernier, lu, v, version };
+    try {
+      localStorage.setItem(CLE_SUJETS_GARDES, JSON.stringify(gardes));
+    } catch (e) {}
   }
   /**
    * @private
@@ -1081,25 +1213,41 @@ class PartageChasses {
         ),
         d = { chasses: {}, floods: [] },
         lu = () => suivi && suivi.faite(),
+        gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
+        // sujet par sujet, rangés ensuite dans l'ordre de la liste
+        contenus = new Map(),
+        aLire = liste.filter((t) => {
+          let garde = PartageChasses.sujetGarde(gardes, t);
+          if (!garde) return true;
+          contenus.set(t, garde);
+          if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
+          return false;
+        }),
         lirePaquet = (k) =>
-          k >= liste.length
+          k >= aLire.length
             ? Promise.resolve()
             : Promise.all(
-                liste.slice(k, k + 4).map((t) =>
-                  PartageChasses.lireSujet(t.id, true)
-                    .then((r) => {
-                      if (t.type == "Chasses") d.chasses[t.pseudo.toLowerCase()] = r.chasses;
-                      else r.floods.forEach((e) => d.floods.push({ ...e, lanceur: t.pseudo }));
-                    })
+                aLire.slice(k, k + 4).map((t) =>
+                  PartageChasses.lireSujet(t.id, true, t)
+                    .then((r) => void contenus.set(t, r))
                     .catch(() => {})
                     .then(lu),
                 ),
               ).then(() => lirePaquet(k + 4));
       if (suivi) {
         suivi.faite();
-        suivi.prevoir(liste.length);
+        suivi.prevoir(aLire.length);
       }
-      return lirePaquet(0).then(() => d);
+      return lirePaquet(0).then(() => {
+        liste.forEach((t) => {
+          let r = contenus.get(t);
+          if (!r) return;
+          if (t.type == "Chasses") d.chasses[t.pseudo.toLowerCase()] = r.chasses;
+          else
+            r.floods.forEach((/** @type {any} */ e) => d.floods.push({ ...e, lanceur: t.pseudo }));
+        });
+        return d;
+      });
     });
   }
   /**

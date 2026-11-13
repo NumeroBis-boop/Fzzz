@@ -98,8 +98,9 @@ class Journal {
   /**
    * Mesure du chargement d'une vue, notée au journal par `fin` : durée,
    * requêtes au jeu terminées entre-temps (celles d'autres modules de la page
-   * comprises), dont celles du forum, et lectures servies par le cache d'une
-   * minute. Sert à comparer les façons de ranger les partages dans le forum.
+   * comprises), dont celles du forum, et lectures évitées (sujet inchangé ou
+   * lu il y a moins d'une minute). Sert à comparer les façons de lire les
+   * partages dans le forum.
    *
    * @static
    * @method mesurer
@@ -132,7 +133,7 @@ class Journal {
             (forum
               ? `, ${numeral(dureeForum / forum / 1000).format("0,0.00")} s chacune en moyenne`
               : "") +
-            `) ; ${n(apres.cache - avant.cache, "lecture servie", "lectures servies")} par le cache d'une minute`;
+            `) ; ${n(apres.cache - avant.cache, "lecture évitée", "lectures évitées")} (sujet inchangé ou lu il y a moins d'une minute)`;
         }
         Journal.info("Mesure", texte);
       },

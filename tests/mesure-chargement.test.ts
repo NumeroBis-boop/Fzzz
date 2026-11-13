@@ -6,7 +6,7 @@ import { creerPage } from "./harnais";
 /**
  * Mesure du chargement des vues des mouvements en cours, notée au journal du
  * mainteneur (version TEST) : durée, requêtes au jeu, dont celles du forum,
- * et lectures servies par le cache d'une minute. Elle sert à comparer les
+ * et lectures évitées (sujet inchangé ou lu il y a moins d'une minute). Elle sert à comparer les
  * façons de ranger les partages dans le forum ; elle n'envoie aucune requête.
  */
 const page = creerPage(
@@ -85,7 +85,7 @@ describe("requêtes au jeu comptées", () => {
     expect(compte()).toEqual([1, 400, 0, 0, 0]);
   });
 
-  test("lecture servie par le cache d'une minute du forum : comptée, sans requête", async () => {
+  test("lecture de moins d'une minute réutilisée : comptée comme évitée, sans requête", async () => {
     preparer();
     await lire(`PartageChasses._enCache("sujet 5", true, () => Promise.resolve(1))`);
     await lire(`PartageChasses._enCache("sujet 5", true, () => Promise.resolve(2))`);
@@ -104,7 +104,7 @@ describe("mesure notée au journal", () => {
     await lire(`PartageChasses._enCache("sujets", true, () => Promise.resolve({}))`);
     lire(`T = 1234; M.fin()`);
     expect(mesures()).toEqual([
-      "Page d'un membre : 1,2 s ; 3 requêtes au jeu (1,1 s), dont 2 au forum (0,6 s, 0,30 s chacune en moyenne) ; 1 lecture servie par le cache d'une minute",
+      "Page d'un membre : 1,2 s ; 3 requêtes au jeu (1,1 s), dont 2 au forum (0,6 s, 0,30 s chacune en moyenne) ; 1 lecture évitée (sujet inchangé ou lu il y a moins d'une minute)",
     ]);
   });
 
@@ -118,7 +118,7 @@ describe("mesure notée au journal", () => {
     await attendre();
     lire(`T = 2100; M.fin(); M.fin()`);
     expect(mesures()).toEqual([
-      "Bloc « Mes attaques en cours » : 1,0 s ; 1 requête au jeu (0,5 s), dont 0 au forum (0,0 s) ; 0 lecture servie par le cache d'une minute",
+      "Bloc « Mes attaques en cours » : 1,0 s ; 1 requête au jeu (0,5 s), dont 0 au forum (0,0 s) ; 0 lecture évitée (sujet inchangé ou lu il y a moins d'une minute)",
     ]);
     // une entrée revenue dans la minute serait comptée deux fois dans la même ligne
     expect(
@@ -157,7 +157,7 @@ describe("vues mesurées", () => {
     for (let i = 0; i < 5; i++) await attendre();
     expect(lire<number>(`$("#o_chassesPartagees").length`)).toBe(1);
     expect(mesures()).toEqual([
-      "Page d'un membre : 0,0 s ; 0 requête au jeu (0,0 s), dont 0 au forum (0,0 s) ; 0 lecture servie par le cache d'une minute",
+      "Page d'un membre : 0,0 s ; 0 requête au jeu (0,0 s), dont 0 au forum (0,0 s) ; 0 lecture évitée (sujet inchangé ou lu il y a moins d'une minute)",
     ]);
   });
 

@@ -54,6 +54,54 @@ describe("file des requêtes : actions du joueur d'abord", () => {
     expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/Membre.php?Pseudo=C");
     page.lire(`terminer()`);
   });
+  test("requêtes de fond (export automatique des chasses) : après toutes les autres", async () => {
+    await attendre(2600);
+    page.lire(`envoyees.length = 0; options.length = 0;
+      $.get("/Reine.php"); $.ajax({ url: "/messagerie.php?fond=1", fond: true });`);
+    expect(page.lire(`envoyees.slice()`)).toEqual(["/Reine.php"]);
+    // demandées après la requête de fond, deux lectures passent quand même avant elle
+    page.lire(`$.get("/Membre.php?Pseudo=D"); terminer()`);
+    await attendre();
+    expect(page.lire(`envoyees.slice()`)).toEqual(["/Reine.php", "/Membre.php?Pseudo=D"]);
+    page.lire(`$.ajax({ url: "/messagerie.php?fond=2", fond: true }); terminer()`);
+    await attendre();
+    // une lecture demandée juste après la fin d'une autre (enchaînement) passe aussi avant
+    page.lire(`$.get("/Membre.php?Pseudo=E")`);
+    await attendre();
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/Membre.php?Pseudo=E");
+    // la dernière lecture finie : le fond attend PAUSE_AVANT_FOND (une seconde)
+    page.lire(`terminer()`);
+    await attendre(800);
+    expect(page.lire(`envoyees.length`)).toBe(3);
+    await attendre(400);
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/messagerie.php?fond=1");
+    // l'option reste dans la file, le jeu ne la reçoit pas
+    expect(page.lire(`options[3].includes("fond")`)).toBe(false);
+    // les requêtes de fond s'enchaînent entre elles sans pause
+    page.lire(`terminer()`);
+    await attendre();
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/messagerie.php?fond=2");
+    page.lire(`terminer()`);
+    await attendre();
+  });
+  test("requête de fond après une action : elle attend la pause des lectures, puis celle du fond", async () => {
+    page.lire(`envoyees.length = 0;
+      $.ajax({ url: "/AcquerirTerrain.php", type: "post", data: { t: 1 } }); $.ajax({ url: "/messagerie.php?fond=3", fond: true });`);
+    page.lire(`terminer()`);
+    await attendre(2300);
+    expect(page.lire(`envoyees.length`)).toBe(1);
+    await attendre(400);
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/messagerie.php?fond=3");
+    // une requête de fond en cours ne s'interrompt pas ; la lecture demandée pendant passe juste après
+    page.lire(`$.ajax({ url: "/messagerie.php?fond=4", fond: true }); $.get("/Reine.php?apres");`);
+    page.lire(`terminer()`);
+    await attendre();
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/Reine.php?apres");
+    page.lire(`terminer()`);
+    await attendre(1100);
+    expect(page.lire(`envoyees.slice(-1)[0]`)).toBe("/messagerie.php?fond=4");
+    page.lire(`terminer()`);
+  });
   test("attaques, chasses, annulations reconnues comme actions", () => {
     const action = (url: string, methode = "GET") =>
       page.lire<boolean>(

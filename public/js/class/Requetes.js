@@ -36,6 +36,14 @@ const REQUETES_ACTION = [
   { url: /\/Ressources\.php\?annuler=/i },
 ];
 const PAUSE_APRES_ACTION = 2500;
+/**
+ * Requêtes de fond (option `fond: true` de $.ajax) : l'export automatique des
+ * chasses, la priorité la plus faible de toutes (règle du mainteneur). Elles ne
+ * partent que quand aucune autre n'attend, et PAUSE_AVANT_FOND après la fin de
+ * la dernière autre : la requête suivante d'un enchaînement (partage, lecture
+ * d'une page), envoyée à la réponse de la précédente, passe avant elles.
+ */
+const PAUSE_AVANT_FOND = 1000;
 
 (function () {
   const ajaxOriginal = $.ajax,
@@ -46,9 +54,12 @@ const PAUSE_APRES_ACTION = 2500;
     DELAI_MAX = 30000;
   let enCours = false,
     finAction = 0,
+    // fin de la dernière requête qui n'est pas de fond
+    finAutre = 0,
     attente = null,
     actions = [],
-    lectures = [];
+    lectures = [],
+    fonds = [];
 
   let versLeJeu = (url) =>
     typeof url == "string" && (url.startsWith(location.origin) || url.startsWith("/"));
@@ -63,25 +74,32 @@ const PAUSE_APRES_ACTION = 2500;
     );
   };
 
-  // une requête à la fois : les actions d'abord, les lectures ensuite
+  // une requête à la fois : les actions d'abord, les lectures ensuite, les
+  // requêtes de fond en dernier
   let suivante = () => {
     if (enCours) return;
     let envoi = actions.shift(),
-      action = !!envoi;
-    if (!envoi && lectures.length) {
-      let reste = finAction + PAUSE_APRES_ACTION - Date.now();
+      file = envoi ? "action" : "";
+    if (!envoi && (lectures.length || fonds.length)) {
+      let reste =
+        Math.max(
+          finAction + PAUSE_APRES_ACTION,
+          lectures.length ? 0 : finAutre + PAUSE_AVANT_FOND,
+        ) - Date.now();
       if (reste > 0) {
         clearTimeout(attente);
         attente = setTimeout(suivante, reste);
         return;
       }
-      envoi = lectures.shift();
+      file = lectures.length ? "lecture" : "fond";
+      envoi = (lectures.length ? lectures : fonds).shift();
     }
     if (!envoi) return;
     enCours = true;
     envoi().then(() => {
       enCours = false;
-      if (action) finAction = Date.now();
+      if (file != "fond") finAutre = Date.now();
+      if (file == "action") finAction = finAutre;
       suivante();
     });
   };
@@ -95,7 +113,7 @@ const PAUSE_APRES_ACTION = 2500;
     if (!versLeJeu(url)) return ajaxOriginal.call(this, options);
     // les callbacks sont appelés une seule fois, sur le résultat final, et pas à
     // chaque essai refusé
-    let { success, error, complete, context, action, ...requete } = options,
+    let { success, error, complete, context, action, fond, ...requete } = options,
       differe = $.Deferred(),
       appeler = (f, args) => {
         if (f) [].concat(f).forEach((g) => g.apply(context || requete, args));
@@ -126,7 +144,7 @@ const PAUSE_APRES_ACTION = 2500;
           },
         );
       });
-    (action || estAction(requete) ? actions : lectures).push(() => envoyer(1));
+    (action || estAction(requete) ? actions : fond ? fonds : lectures).push(() => envoyer(1));
     suivante();
     return differe.promise();
   };

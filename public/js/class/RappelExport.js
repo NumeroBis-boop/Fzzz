@@ -21,9 +21,9 @@ const MINUTES_MASQUAGE_RAPPEL = 60;
  * dimanche à 22h, sauf export dans les 24 h d'avant. L'export automatique
  * (ExportAuto) s'en charge après le clic suivant sur « Envoyer » du lanceur de
  * chasses ; le rappel « Export des chasses à faire », un bandeau sous le menu
- * sans aucune requête au jeu, reste jusqu'à ce clic, et revient si l'essai
- * échoue ou si la case est décochée. Le joueur peut aussi exporter au bouton
- * de la messagerie.
+ * sans aucune requête au jeu, ne s'affiche que s'il ne peut pas le faire :
+ * case décochée, ou essai en échec. Le joueur ouvre alors la messagerie et
+ * clique.
  *
  * @class RappelExport
  */
@@ -135,11 +135,7 @@ class RappelExport {
     // déplacerait les boutons sous le doigt
     if (Utils.pageSansAlertePonte(location) || !RappelExport.aRappeler()) return;
     let surMessagerie = /^\/messagerie\.php$/i.test(location.pathname),
-      // export automatique actif : il partira au prochain « Envoyer » du lanceur ; court, pour un téléphone
-      texte =
-        typeof ExportAuto != "undefined" && ExportAuto.actif()
-          ? `<strong>Export des chasses à faire</strong> : il partira à ton prochain « Envoyer » du lanceur de chasses, ou tout de suite avec « Exporter mes chasses »${surMessagerie ? "" : " dans la messagerie"}.`
-          : `<strong>Export des chasses à faire</strong> : ${surMessagerie ? "clique sur" : "ouvre la messagerie et clique sur"} « Exporter mes chasses ».`,
+      texte = `<strong>Export des chasses à faire</strong> : ${surMessagerie ? "clique sur" : "ouvre la messagerie et clique sur"} « Exporter mes chasses ».`,
       $bandeau = $(`<div id="o_rappelExport" role="status">
         <span class="o_rappelExportSymbole" aria-hidden="true">⏰</span>
         ${

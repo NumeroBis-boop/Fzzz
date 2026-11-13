@@ -1157,38 +1157,45 @@ describe("Préférences → Partage de données", () => {
     expect(preferences.lire(`$("#o_partageEnvoyer").prop("disabled")`)).toBe(false);
   });
 
-  test("bouton « Reporter tous les partages » : avancement, puis bilan ; forum illisible ou section cachée dits", async () => {
+  test("boutons « Reporter les floods » et « Reporter les chasses » : chacun son type, avancement, puis bilan ; forum illisible ou section cachée dits", async () => {
     preferences.lire(`localStorage.clear()`);
     ouvrir();
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     expect(texte).toContain("Sujets communs du forum");
     expect(texte).toContain("« BDD générale flood » et « BDD générale chasse »");
+    expect(texte).toContain("Reste sur la page jusqu'au bilan.");
+    expect(
+      preferences.lire(
+        `$(".o_partageReporter").map((i, b) => b.textContent + " " + b.dataset.type).get()`,
+      ),
+    ).toEqual(["Reporter les floods Floods", "Reporter les chasses Chasses"]);
     preferences.lire(`(() => {
-      window.REPORT = { fin: null, echec: null };
-      PartageChasses.reporterTout = (etat) => {
-        etat("« BDD générale flood - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…");
+      window.REPORT = { fin: null, echec: null, types: [] };
+      PartageChasses.reporterTout = (etat, types) => {
+        REPORT.types.push(types);
+        etat("« BDD générale chasse - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…");
         return new Promise((ok, non) => { REPORT.fin = ok; REPORT.echec = non; });
       };
-      $("#o_partageReporter").trigger("click");
+      $(".o_partageReporter[data-type='Chasses']").trigger("click");
     })()`);
     const etat = () =>
       preferences.lire(
-        `[$("#o_partageReporter").prop("disabled"), $("#o_partageReporterEtat").text()]`,
+        `[$(".o_partageReporter:disabled").length, $("#o_partageReporterEtat").text()]`,
       );
-    expect(etat()).toEqual([true, "« BDD générale flood - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…"]);
+    // un report à la fois : les deux boutons attendent
+    expect(etat()).toEqual([2, "« BDD générale chasse - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…"]);
+    expect(preferences.lire(`REPORT.types`)).toEqual([["Chasses"]]);
     preferences.lire(
-      `REPORT.fin("« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées.")`,
+      `REPORT.fin("« BDD générale chasse - NE RIEN ÉCRIRE » : 2 sections reportées.")`,
     );
     await attendre();
-    expect(etat()).toEqual([
-      false,
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées.",
-    ]);
-    preferences.lire(`$("#o_partageReporter").trigger("click")`);
+    expect(etat()).toEqual([0, "« BDD générale chasse - NE RIEN ÉCRIRE » : 2 sections reportées."]);
+    preferences.lire(`$(".o_partageReporter[data-type='Floods']").trigger("click")`);
+    expect(preferences.lire(`REPORT.types`)).toEqual([["Chasses"], ["Floods"]]);
     preferences.lire(`REPORT.echec(new Error("absente"))`);
     await attendre();
-    expect(etat()).toEqual([false, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
-    preferences.lire(`$("#o_partageReporter").trigger("click")`);
+    expect(etat()).toEqual([0, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
+    preferences.lire(`$(".o_partageReporter[data-type='Floods']").trigger("click")`);
     preferences.lire(`REPORT.echec(new Error("forum"))`);
     await attendre();
     expect(etat()[1]).toBe(

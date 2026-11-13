@@ -902,24 +902,26 @@ class PartageChasses {
     });
   }
   /**
-   * Bouton « Reporter tous les partages » (Préférences → Partage de données) :
-   * les floods et chasses à venir de chaque joueur, lus dans son sujet
-   * « Floods | … » / « Chasses | … », sont reportés dans sa section du sujet
-   * commun quand elle manque ou est plus ancienne que son sujet. La section
-   * reportée est datée de la minute qui précède la lecture du sujet : une
-   * modification faite dans la minute de la lecture fait relire son sujet.
+   * Boutons « Reporter les floods » et « Reporter les chasses » (Préférences →
+   * Partage de données) : les entrées à venir de chaque joueur, lues dans son
+   * sujet « Floods | … » / « Chasses | … », sont reportées dans sa section du
+   * sujet commun quand elle manque ou est plus ancienne que son sujet. La
+   * section reportée est datée de la minute qui précède la lecture du sujet :
+   * une modification faite dans la minute de la lecture le fait reporter de
+   * nouveau au report suivant.
    *
    * @static
    * @method reporterTout
    * @param {(texte: String) => void} [etat] avancement affiché
+   * @param {Array<String>} [demandes] types à reporter, "Floods" et/ou "Chasses"
    * @return {Promise<String>} bilan à afficher
    */
-  static reporterTout(etat = () => {}) {
+  static reporterTout(etat = () => {}, demandes = ["Floods", "Chasses"]) {
     etat("Lecture de la liste des sujets…");
     return PartageChasses.sujets().then((sujets) => {
-      let types = ["Floods", "Chasses"].filter((type) => (sujets.communs || {})[type]);
+      let types = demandes.filter((type) => (sujets.communs || {})[type]);
       if (!types.length)
-        return `Aucun sujet « ${SUJETS_COMMUNS.Floods} » ni « ${SUJETS_COMMUNS.Chasses} » dans la section : rien à reporter.`;
+        return `Aucun sujet ${demandes.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(" ni ")} dans la section : rien à reporter.`;
       /** @type {Array<String>} */
       let bilans = [];
       return types

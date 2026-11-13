@@ -679,6 +679,38 @@ describe("bouton « Reporter tous les partages »", () => {
     );
   });
 
+  test("bouton des chasses : seul le sujet commun des chasses est écrit", async () => {
+    preparerReport();
+    const bilan = await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Chasses"])`);
+    expect(bilan).toBe("« BDD générale chasse - NE RIEN ÉCRIRE » : 1 section reportée.");
+    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["11"]);
+    expect(sectionsDe("11").map((s) => [s.pseudo, s.chasses.map((c: any) => c.terrain)])).toEqual([
+      ["Alpha", [1500]],
+    ]);
+    // aucun sujet de floods lu
+    expect(
+      lire<string[]>(`FORUM.lectures.filter((id) => ["1", "2", "5", "6", "10"].includes(id))`),
+    ).toEqual([]);
+  });
+
+  test("bouton des floods : seul le sujet commun des floods est écrit", async () => {
+    preparerReport();
+    const bilan = await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Floods"])`);
+    expect(bilan).toBe(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour.",
+    );
+    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["10"]);
+  });
+
+  test("bouton des chasses sans sujet commun des chasses : le bilan le dit", async () => {
+    preparerReport();
+    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);
+    expect(await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Chasses"])`)).toBe(
+      "Aucun sujet « BDD générale chasse - NE RIEN ÉCRIRE » dans la section : rien à reporter.",
+    );
+    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
+  });
+
   test("pas de sujet commun : rien n'est lu, le bilan le dit", async () => {
     preparer(null);
     lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);

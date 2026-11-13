@@ -1530,8 +1530,8 @@ class PartageChasses {
     return html;
   }
   /**
-   * Page membre : chasses et floods partagés du joueur consulté, et évolution
-   * de son TdC (unités envoyées et prise estimée à l'impact pour chaque flood),
+   * Page d'un membre : évolution de son TdC avec ses chasses et les floods
+   * partagés (unités envoyées et prise estimée à l'impact pour chaque flood),
    * où est surlignée la ligne du TdC à l'arrivée d'une attaque lancée à
    * l'ouverture de la page.
    *
@@ -1554,34 +1554,17 @@ class PartageChasses {
         if (monProfil.pseudo) page[monProfil.pseudo] = Utils.terrain;
         let sim = PartageChasses.simuler(d, PartageChasses.tdcConnus(tdc, page)),
           vars = PartageChasses.chronologie(sim, pseudo),
-          chasses = vars.filter((v) => !v.flood),
-          floods = vars.filter((v) => v.flood),
-          date = (v) => moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM/YY HH:mm"),
-          lien = (p) =>
-            `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}'>${Utils.echapper(p)}</a>`,
-          tableau = (titre, lignes, colonnes, cellules, total) => {
-            let html = `<h3 class='o_partageTitre'>${titre} (${lignes.length})</h3>`;
-            if (!lignes.length) return html + "<p class='centre'>Aucun partage en cours.</p>";
-            html += `<table class='centre' cellspacing='0'><tr class='o_partageEntete'>${colonnes.map((t) => `<td>${t}</td>`).join("")}</tr>`;
-            lignes.forEach((v, i) => {
-              html += `<tr${i % 2 ? "" : " class='ligne_paire'"}>${cellules(v)
-                .map((t) => `<td>${t}</td>`)
-                .join("")}</tr>`;
-            });
-            return (
-              html +
-              `<tr class='o_syntheseTotal'>${total.map((t) => `<td>${t}</td>`).join("")}</tr></table>`
-            );
-          };
-        let synthese = "";
-        if (vars.length && terrain > 0) {
+          // la synthèse seule (règle du mainteneur) : chaque chasse et chaque flood y a sa ligne
+          contenu = "<p class='centre'>Aucune chasse ni aucun flood en cours partagé.</p>";
+        if (vars.length && !(terrain > 0))
+          contenu = `<p class='centre'>TdC de ${Utils.echapper(pseudo)} illisible sur la page : évolution impossible.</p>`;
+        else if (vars.length) {
           let arrivee = attaque
             ? PartageChasses.arriveeAttaque(vars, attaque.secondes, attaque.depart)
             : null;
-          synthese =
-            "<div class='o_partageSeparation'></div>" +
+          contenu =
             `<div class='o_partageSynthese'>` +
-            `<h3 class='o_partageTitre'>Évolution du TdC de ${pseudo}${attaque ? PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, Utils.terrain)) : ""}</h3>
+            `<h3 class='o_partageTitre'>Évolution du TdC de ${Utils.echapper(pseudo)}${attaque ? PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, Utils.terrain)) : ""}</h3>
               <table class='centre' cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "o_partageEntete")}</table>` +
             PartageChasses.noteArrivee(
               arrivee,
@@ -1589,45 +1572,14 @@ class PartageChasses {
             ) +
             "</div>";
         }
-        let unitesFloods = floods.reduce((t, v) => t + (v.unites || 0), 0),
-          netFloods = floods.reduce((t, v) => t + v.delta, 0);
         $("#o_chassesPartagees").remove();
         // entre le bloc « Action » et la suite de la page
         let $action = $(".boite_membre").filter((i, e) => /^\s*Action/.test($(e).text()));
         ($action.length ? $action.first() : $(".boite_membre").last()).after(
           `<div id='o_chassesPartagees' class='boite_membre'>` +
-            // un seul dépliant pour tout l'encart
             Utils.spoiler(
               `Chasses et floods en cours partagés avec la ${Utils.alliance}`,
-              tableau(
-                `Chasses en cours partagées avec la ${Utils.alliance}`,
-                chasses,
-                ["Heure d'impact", "TdC chassé"],
-                (v) => [date(v), numeral(v.delta).format() + " cm²"],
-                [
-                  `Total (${chasses.length})`,
-                  numeral(chasses.reduce((t, v) => t + v.delta, 0)).format() + " cm²",
-                ],
-              ) +
-                "<div class='o_partageSeparation'></div>" +
-                tableau(
-                  `Floods en cours depuis ou vers ${pseudo} partagés avec la ${Utils.alliance}`,
-                  floods,
-                  ["Arrivée", "Unités envoyées", "TdC pris (estimé)", "Lanceur → cible"],
-                  (v) => [
-                    date(v),
-                    v.unites != null ? numeral(v.unites).format() : "?",
-                    PartageChasses.libellePrise(v),
-                    `${lien(v.lanceur)} → ${lien(v.cible)}`,
-                  ],
-                  [
-                    `Total (${floods.length})`,
-                    numeral(unitesFloods).format(),
-                    PartageChasses.libellePrise({ delta: netFloods }),
-                    "",
-                  ],
-                ) +
-                synthese,
+              contenu,
               "profilPartages",
               "o_partageTitre o_partageSpoiler",
             ) +

@@ -234,7 +234,7 @@ const COULEURS_MESSAGES = {
   autre: { libelle: "Autres messages", classe: "o_titreAutre", defaut: "#ffffff" },
 };
 
-// affichages de la page Convois ; seul le suivi OUAF se règle (Préférences → Grenier)
+// affichages de la page Convois ; seul le suivi OUAF se règle (Préférences → Convois)
 const AFFICHAGES_CONVOIS = {
   convoisInfoEtable: "Ligne « Niveau d'étable, 1 ouvrière peut transporter… »",
   convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
@@ -300,7 +300,7 @@ const AFFICHAGES_REGLABLES = {
   convoisSuiviLignes: true,
 };
 // colonnes au choix de la vue « Floods et chasses en cours » de la page Membres,
-// dans l'ordre de la liste du mainteneur (cases de Préférences → Affichage)
+// dans l'ordre de la liste du mainteneur (cases de Préférences → Alliance)
 const MEMBRES_COLONNES_FLOODS = [
   "membresFloodsRang",
   "membresFloodsPseudo",
@@ -1249,7 +1249,7 @@ class Utils {
   }
   /**
    * Bandeau d'alerte sous le menu du jeu : la reine ne pond plus, ou sa file
-   * se termine sous le seuil (Préférences → Options). La file est lue sur la
+   * se termine sous le seuil (Préférences → Général). La file est lue sur la
    * page Reine à chaque chargement de page. Rien sur la page Reine. La croix
    * masque le bandeau 10 min, ou jusqu'à ce que la file repasse au-dessus du
    * seuil (ponte relancée) : la fin de ponte suivante est alors signalée.
@@ -1283,7 +1283,7 @@ class Utils {
     let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0,
       // une ligne dans la console (F12) pour comprendre une alerte absente
       noter = (texte) => console.info(`[${NOM_EXTENSION}] alerte de ponte : ${texte}`);
-    if (!seuil) return noter("désactivée dans Préférences → Options");
+    if (!seuil) return noter("désactivée dans Préférences → Général");
     // pages où l'on lance ou replace l'armée : un bandeau ajouté après coup
     // déplacerait les boutons sous le doigt
     if (Utils.pageSansAlertePonte(location)) return noter("pas sur cette page");

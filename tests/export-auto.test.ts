@@ -653,7 +653,7 @@ describe("échecs : nouvel essai à une page ouverte plus tard, jamais à chaque
     lire(`SANS_ALLIANCE = true; FORUM.echoue = true`);
     expect(await ouvrir()).toBe("sans fichier");
     expect(etat().raison).toBe(
-      "tu n'as pas d'alliance et aucune adresse de Google Sheet n'est renseignée dans Préférences → Messagerie",
+      "tu n'as pas d'alliance et aucune adresse de Google Sheet n'est renseignée dans Préférences → Partage de données",
     );
     expect(toasts()).toEqual([]);
     expect(await ouvrir("/Reine.php", "2026-11-12 12:00")).toBe("attente");
@@ -787,7 +787,7 @@ describe("Préférences : où en est l'export", () => {
     preparer(CHASSES, { role: 1 });
     regler(JEUDI);
     expect(lire(`ExportAuto.resume()`)).toBe(
-      "Ton rôle n'est pas « Chasseur » (Préférences → Options) : tes chasses ne sont pas exportées automatiquement.",
+      "Ton rôle n'est pas « Chasseur » (Préférences → Général) : tes chasses ne sont pas exportées automatiquement.",
     );
     preparer(CHASSES, { chasse: false });
     regler(JEUDI);

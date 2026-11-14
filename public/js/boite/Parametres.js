@@ -3,57 +3,56 @@
  * Hraesvelg
  **********************************************************************/
 
-/**
- * Onglets des préférences : un par page du jeu que l'extension modifie (la
- * page Construction n'affiche que la rentabilité de l'étable, réglée avec le
- * Laboratoire). `affichages` : clés de AFFICHAGES_FZZZ / AFFICHAGES_CONVOIS ;
- * un affichage présent sur deux pages figure dans les deux onglets.
- */
 // dernière version publiée du script utilisateur (si le gestionnaire ne donne pas son adresse)
 const SCRIPT_UTILISATEUR =
   "https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js";
-// onglets de la liste du mainteneur (14/11/2026) : ses sous-catégories, puis
-// les réglages des rôles (montrés à tous), les pages où l'extension agit et « À
-// propos » ; affichages : cases d'AFFICHAGES_REGLABLES, dans l'ordre de l'onglet
+// onglets rangés par page du jeu, dans l'ordre de son menu (réorganisation
+// approuvée par le mainteneur, 14/11/2026) : « Général » pour toutes les pages,
+// « Partage de données » pour ce qui sort du navigateur. affichages : cases
+// d'AFFICHAGES_REGLABLES de l'onglet ; pages : groupes de PAGES_EXTENSION dont
+// la case décochée rend ses réglages sans effet
 const ONGLETS_PARAMETRE = [
+  { id: "General", titre: "Général", pages: ["General"], affichages: ["horloge", "nouveautes"] },
   {
-    id: "Options",
-    titre: "Options",
-    affichages: ["horloge", "nouveautes", "affectationOuvrieres"],
+    id: "Ressources",
+    titre: "Ressources",
+    pages: ["Ressources"],
+    affichages: ["affectationOuvrieres", "lanceurChasse"],
   },
-  { id: "Partage", titre: "Partage de données", affichages: [] },
-  { id: "MiseEnPage", titre: "Mise en page", affichages: ["armeeMiseEnPage"] },
   {
-    id: "ArmeeFloods",
-    titre: "Armée et floods",
-    affichages: [
-      "replacerArmee",
-      "armeeStatistiques",
-      "listeAttaques",
-      "couleurAttaquer",
-      "statArmee",
-      "lanceurFlood",
-    ],
+    id: "Armee",
+    titre: "Armée",
+    pages: ["Armee"],
+    affichages: ["armeeMiseEnPage", "armeeStatistiques", "listeAttaques", "replacerArmee"],
   },
+  {
+    id: "Attaque",
+    titre: "Attaque",
+    pages: ["Attaque"],
+    affichages: ["couleurAttaquer", "statArmee", "lanceurFlood"],
+  },
+  { id: "Convois", titre: "Convois", pages: ["Convois"], affichages: ["convoisSuiviLignes"] },
   {
     id: "Messagerie",
     titre: "Messagerie",
+    pages: ["Messagerie"],
     affichages: [
+      "messagerieRanger",
+      "messagerieCompacte",
+      "messagerieNonLus",
       "messagerieCouleurs",
       "messagerieCopie",
       "messagerieAnalyse",
       "messagerieExport",
-      "messagerieRanger",
-      "messagerieCompacte",
-      "messagerieNonLus",
       "messagerieMiseEnForme",
       "messagerieSmileys",
       "messagerieSmileysAlliance",
     ],
   },
   {
-    id: "Affichage",
-    titre: "Affichage",
+    id: "Alliance",
+    titre: "Alliance",
+    pages: ["Membre", "Chat", "Forum"],
     affichages: [
       "membresTableau",
       "membresFloods",
@@ -75,11 +74,12 @@ const ONGLETS_PARAMETRE = [
       "forumSmileysAlliance",
     ],
   },
-  { id: "Chasseur", titre: "Chasseur", affichages: ["rappelExport", "lanceurChasse"] },
-  { id: "Grenier", titre: "Grenier", affichages: ["convoisSuiviLignes"] },
-  { id: "Pages", titre: "Pages", affichages: [] },
-  { id: "Apropos", titre: "À propos", affichages: [] },
+  { id: "Partage", titre: "Partage de données", pages: [], affichages: ["rappelExport"] },
+  { id: "Pages", titre: "Pages", pages: [], affichages: [] },
+  { id: "Apropos", titre: "À propos", pages: [], affichages: [] },
 ];
+// dernier onglet ouvert, gardé dans ce navigateur
+const CLE_ONGLET_PARAMETRE = "fzzz_ongletParametre";
 // pages où l'extension agit, chacune désactivable (Préférences → Pages ; ids lus
 // par bootstrap.js, ONGLET_PAGE, et stockés sous CLE_ORIGINE + id)
 const PAGES_EXTENSION = [
@@ -113,8 +113,11 @@ class BoiteParametre extends Boite {
   constructor() {
     super(
       "o_boiteParametre",
-      "Paramètres",
-      `<div id='o_tabsParametre' class='o_tabs'><ul>${ONGLETS_PARAMETRE.map((o) => `<li><a href='#o_tabsParametre${o.id}'>${o.titre}</a></li>`).join("")}</ul>${ONGLETS_PARAMETRE.map((o) => `<div id='o_tabsParametre${o.id}'/>`).join("")}</div>`,
+      "Préférences",
+      `<div class='o_rechercheParam'><input type='search' id='o_rechercheParam' placeholder='Rechercher un réglage' autocomplete='off' spellcheck='false'/>
+        <ul id='o_rechercheResultats' hidden></ul>
+        <p class='o_aideParam'>La plupart des changements s'appliquent au prochain chargement de la page.</p></div>
+      <div id='o_tabsParametre' class='o_tabs'><ul>${ONGLETS_PARAMETRE.map((o) => `<li><a href='#o_tabsParametre${o.id}'>${o.titre}</a></li>`).join("")}</ul>${ONGLETS_PARAMETRE.map((o) => `<div id='o_tabsParametre${o.id}'/>`).join("")}</div>`,
     );
     this._paramGeneral = [
       "affectationRessource",
@@ -141,33 +144,80 @@ class BoiteParametre extends Boite {
     ];
   }
   /**
-   * Affiche la boite.
+   * Affiche la boite, sur le dernier onglet ouvert dans ce navigateur.
    *
    * @method afficher
    */
   afficher() {
     if (super.afficher()) {
       $("#o_tabsParametre")
-        .tabs({ activate: () => this.css().ajusterTaille() })
+        .tabs({
+          active: Math.max(
+            0,
+            ONGLETS_PARAMETRE.findIndex((o) => o.id == BoiteParametre.ongletRetenu()),
+          ),
+          activate: (e, ui) => {
+            BoiteParametre.retenirOnglet(
+              String(ui.newPanel.attr("id")).replace("o_tabsParametre", ""),
+            );
+            this.css().ajusterTaille();
+          },
+        })
         .removeClass("ui-widget");
-      this.ongletOptions()
-        .ongletPartage()
-        .ongletMiseEnPage()
-        .ongletArmeeFloods()
-        .ongletMessagerie()
-        .ongletAffichage()
-        .ongletChasseur()
-        .ongletGrenier()
-        .ongletPages()
-        .apropos()
-        .css()
-        .event();
+      this.construireOnglets().css().event();
       $(window).on("resize.o_boiteParametre", () => this.ajusterTaille());
     }
     // après l'effet d'ouverture : la taille n'est mesurable qu'une fois affichée
     $("#o_boiteParametre")
       .promise()
       .done(() => this.ajusterTaille());
+  }
+  /**
+   * Contenu de tous les onglets, dans l'ordre de ONGLETS_PARAMETRE.
+   *
+   * @method construireOnglets
+   */
+  construireOnglets() {
+    this.ongletGeneral()
+      .ongletRessources()
+      .ongletArmee()
+      .ongletAttaque()
+      .ongletConvois()
+      .ongletMessagerie()
+      .ongletAlliance()
+      .ongletPartage()
+      .ongletPages()
+      .apropos();
+    ONGLETS_PARAMETRE.filter((o) => o.pages.length).forEach((o) =>
+      $(`#o_tabsParametre${o.id}`).prepend(
+        `<p class='o_pageDesactivee' data-pages='${o.pages.join(" ")}' hidden></p>`,
+      ),
+    );
+    return this.majPagesDesactivees();
+  }
+  /**
+   * Dernier onglet ouvert dans ce navigateur (id de ONGLETS_PARAMETRE).
+   *
+   * @static
+   * @method ongletRetenu
+   * @return {String|null}
+   */
+  static ongletRetenu() {
+    try {
+      return localStorage.getItem(CLE_ONGLET_PARAMETRE);
+    } catch (e) {
+      return null;
+    }
+  }
+  /**
+   * @static
+   * @method retenirOnglet
+   * @param {String} id
+   */
+  static retenirOnglet(id) {
+    try {
+      localStorage.setItem(CLE_ONGLET_PARAMETRE, id);
+    } catch (e) {}
   }
   /**
    * La boîte tient dans la fenêtre : seul le contenu de l'onglet défile, le
@@ -215,11 +265,13 @@ class BoiteParametre extends Boite {
         $("#ratioRecolteGroupe").toggle(e.currentTarget.value == "3");
       })
       .trigger("change");
-    // unités gardées au flood par défaut ; le nombre d'antisondes suit celui réglé plus haut
-    this._gardees.brancher().afficher();
-    $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", () =>
-      this._gardees.afficher(),
-    );
+    // unités gardées au flood par défaut ; le nombre d'antisondes suit celui réglé dans l'onglet Armée
+    if (this._gardees) {
+      this._gardees.brancher().afficher();
+      $("#uniteAntisondeTerrain, #uniteAntisondeDome").on("spinchange spinstop", () =>
+        this._gardees.afficher(),
+      );
+    }
     // réglages du flood utiles à la méthode par défaut
     let afficherFlood = () => {
       let methode = $("#methodeFlood").val();
@@ -249,10 +301,25 @@ class BoiteParametre extends Boite {
           localStorage.removeItem(CLE_ORIGINE + e.currentTarget.dataset.page);
         else localStorage.setItem(CLE_ORIGINE + e.currentTarget.dataset.page, "1");
       } catch (err) {}
+      this.majPagesDesactivees();
+    });
+    // rôle : son étiquette en couleur
+    $("#role").on("change", () => this.majEtiquettes());
+    $("#o_boiteParametre").on("click", ".o_lienOnglet", (e) => {
+      e.preventDefault();
+      BoiteParametre.ouvrirOnglet(e.currentTarget.dataset.onglet);
+    });
+    $("#o_boiteParametre").on("input", "#o_rechercheParam", (e) =>
+      this.afficherRecherche(e.currentTarget.value),
+    );
+    $("#o_boiteParametre").on("click", "#o_rechercheResultats a", (e) => {
+      e.preventDefault();
+      let r = this._resultats[parseInt(e.currentTarget.dataset.i)];
+      if (r) BoiteParametre.montrerReglage(r.onglet, r.element);
     });
     // Réinitialiser (À propos) : la page rechargée reconstruit monProfil par défaut
     $("#o_resetParametres").click(() => {
-      if (confirm("Réinitialiser tous les paramètres aux valeurs par défaut ?")) {
+      if (confirm("Remettre les réglages chiffrés ou à choix à leur valeur par défaut ?")) {
         localStorage.removeItem("outiiil_parametre");
         location.reload();
       }
@@ -278,18 +345,35 @@ class BoiteParametre extends Boite {
       );
   }
   /**
+   * Ouvre l'onglet d'un réglage trouvé par la recherche et le fait clignoter.
+   *
+   * @static
+   * @method montrerReglage
+   * @param {String} onglet id de l'onglet
+   * @param {Element} element ligne du réglage
+   */
+  static montrerReglage(onglet, element) {
+    BoiteParametre.ouvrirOnglet(onglet);
+    let $e = $(element).removeClass("o_reglageTrouve");
+    // relancer l'animation : la classe est retirée, puis remise après un rendu
+    void element.offsetWidth;
+    $e.addClass("o_reglageTrouve");
+    if (element.scrollIntoView) element.scrollIntoView({ block: "center" });
+  }
+  /**
    * Case d'un affichage réglable (AFFICHAGES_REGLABLES).
    *
    * @method caseAffichage
    * @param {String} cle
+   * @param {String} [apres] HTML ajouté après le libellé (étiquette de rôle)
    * @return {String}
    */
-  caseAffichage(cle) {
+  caseAffichage(cle, apres = "") {
     let libelles = { ...AFFICHAGES_FZZZ, ...AFFICHAGES_CONVOIS };
-    return `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichageCoche(cle) ? "checked" : ""}/> ${libelles[cle]}</label>`;
+    return `<label class='o_affichageFzzz'><input type='checkbox' data-affichage='${cle}' ${Utils.affichageCoche(cle) ? "checked" : ""}/> ${libelles[cle]}${apres}</label>`;
   }
   /**
-   * Cases des affichages d'un onglet, sous un titre.
+   * Cases des affichages d'un onglet.
    *
    * @method cases
    * @param {String} id identifiant de l'onglet (ONGLETS_PARAMETRE)
@@ -297,57 +381,279 @@ class BoiteParametre extends Boite {
    * @return {String}
    */
   cases(id, cles = ONGLETS_PARAMETRE.find((o) => o.id == id).affichages) {
-    if (!cles.length) return "";
-    return `<p class='o_titreParam'>Affichages <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
-      ${cles.map((cle) => this.caseAffichage(cle)).join("")}`;
+    return cles.map((cle) => this.caseAffichage(cle)).join("");
   }
   /**
-   * Options : horloge, nouveautés, alerte de ponte, rôle, répartition des
-   * ouvrières, mise à jour.
+   * Section d'un onglet : un titre, puis ses réglages.
    *
-   * @method ongletOptions
+   * @method section
+   * @param {String} titre HTML du titre
+   * @param {String} contenu
+   * @return {String}
    */
-  ongletOptions() {
-    let p = monProfil.parametre;
-    $("#o_tabsParametreOptions").append(`<form>
-        ${this.cases("Options", ["horloge", "nouveautes"])}
-        <p class='o_titreParam'>Ponte</p>
-        ${p["alertePonte"].getForm("Alerte si la ponte finit dans moins de")}
-        <p class='o_titreParam'>Rôle</p>
-        ${p["role"].getForm("Ton rôle dans l'alliance")}
-        <p class='left o_aideParam'>Chasseur : tes rapports de chasse sont exportés deux fois par semaine (onglet « Partage de données ») et, si cet export ne peut pas se faire, le rappel « Export des chasses à faire » s'affiche à partir du mercredi et du dimanche 22h, heure du serveur (onglet « Chasseur »). Le jeu supprime les conversations lues au bout de 7 jours.</p>
-        <p class='o_titreParam'>Ouvrières <span class='o_aideParam'>(répartition préparée à l'ouverture de la page Ressources, à valider dans le formulaire du jeu${Utils.comptePlus ? " ; le mode Ratio coupe l'affectation automatique du C+" : ""})</span></p>
-        ${this.caseAffichage("affectationOuvrieres")}
-        ${p["affectationRessource"].getForm("Affectation")}
-        ${p["ratioRecolte"].getForm()}
-      </form>
-      <p class='o_titreParam'>Mise à jour (v${VERSION})</p>
-      <p class='left'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour l'extension</button></p>
-      <p id='o_majFzzzEtat' class='left small'></p>`);
-    $("#o_majFzzz").on("click", (e) => {
-      e.preventDefault();
-      BoiteParametre.mettreAJour($(e.currentTarget), $("#o_majFzzzEtat"));
+  section(titre, contenu) {
+    return `<div class='o_sectionParam'><p class='o_titreParam'>${titre}</p>${contenu}</div>`;
+  }
+  /**
+   * Aide d'un réglage : une ligne, le détail derrière « En savoir plus ».
+   *
+   * @method aide
+   * @param {String} texte
+   * @param {String} [plus]
+   * @return {String}
+   */
+  aide(texte, plus = "") {
+    return `<div class='left o_aideParam'>${texte}${plus ? ` <details class='o_aidePlus'><summary>En savoir plus</summary>${plus}</details>` : ""}</div>`;
+  }
+  /**
+   * Étiquette du rôle concerné par un réglage, en couleur pour le rôle choisi.
+   *
+   * @method etiquette
+   * @param {String} role nom de ROLES
+   * @return {String}
+   */
+  etiquette(role) {
+    return `<span class='o_etiquetteRole' data-role='${role}' title='Réglage du rôle ${role}'>${role}</span>`;
+  }
+  /**
+   * @method majEtiquettes
+   */
+  majEtiquettes() {
+    let role = ROLES[parseInt($("#role").val() ?? monProfil.parametre["role"].valeur)];
+    $("#o_tabsParametre .o_etiquetteRole").each((i, e) =>
+      $(e).toggleClass("o_etiquetteMienne", e.dataset.role == role),
+    );
+    return this;
+  }
+  /**
+   * Lien qui ouvre un autre onglet des Préférences.
+   *
+   * @method lienOnglet
+   * @param {String} id identifiant de l'onglet
+   * @param {String} texte
+   * @return {String}
+   */
+  lienOnglet(id, texte) {
+    return `<a href='#' class='o_lienOnglet' data-onglet='${id}'>${texte}</a>`;
+  }
+  /**
+   * En haut d'un onglet dont une page est décochée dans « Pages » : ses
+   * réglages y sont sans effet.
+   *
+   * @method majPagesDesactivees
+   */
+  majPagesDesactivees() {
+    $("#o_tabsParametre .o_pageDesactivee").each((i, p) => {
+      let pages = String(p.dataset.pages).split(" "),
+        toutes = Utils.origine("General"),
+        coupees = PAGES_EXTENSION.filter((g) => pages.includes(g.id) && Utils.origine(g.id));
+      $(p)
+        .prop("hidden", !toutes && !coupees.length)
+        .html(
+          `L'extension est désactivée ${
+            toutes
+              ? "sur toutes les pages"
+              : `sur : ${coupees.map((g) => (g.id == "General" ? "toutes les pages" : g.libelle)).join(", ")}`
+          } (${this.lienOnglet("Pages", "onglet « Pages »")}) : ces réglages y sont sans effet.`,
+        );
     });
     return this;
   }
   /**
-   * @method ongletMiseEnPage
+   * Accents, majuscules, apostrophes et espaces ignorés.
+   *
+   * @static
+   * @method normaliser
+   * @param {String} texte
+   * @return {String}
    */
-  ongletMiseEnPage() {
-    $("#o_tabsParametreMiseEnPage").append(`<form>${this.cases("MiseEnPage")}</form>`);
+  static normaliser(texte) {
+    return String(texte)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[’`]/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  /**
+   * Réglages trouvés pour une recherche : ceux dont le libellé ou le titre de
+   * la section contient tous les mots tapés, puis les sections dont l'aide
+   * les contient.
+   *
+   * @method chercher
+   * @param {String} texte
+   * @return {Array} [{onglet, titreOnglet, section, libelle, element}]
+   */
+  chercher(texte) {
+    let mots = BoiteParametre.normaliser(texte).split(" ").filter(Boolean),
+      contient = (t) => {
+        let n = BoiteParametre.normaliser(t);
+        return mots.every((m) => n.includes(m));
+      },
+      reglages = [],
+      sections = [];
+    if (!mots.length) return [];
+    ONGLETS_PARAMETRE.forEach((o) =>
+      $(`#o_tabsParametre${o.id} .o_sectionParam`).each((i, s) => {
+        let titre = $(s).children(".o_titreParam").first().clone(),
+          aide = $(s).find(".o_aideParam").text();
+        titre.find(".o_etiquetteRole, .o_aideParam, button").remove();
+        let section = titre.text().trim(),
+          // libellé d'une ligne : sans le texte des options de ses listes
+          libelle = (e) =>
+            $(e).clone().find("select, option").remove().end().text().replace(/\s+/g, " ").trim(),
+          trouves = $(s)
+            .find("label.o_affichageFzzz, .o_ligneParam, .o_reglage")
+            .get()
+            .filter((e) => contient(section + " " + libelle(e)))
+            .map((e) => ({
+              onglet: o.id,
+              titreOnglet: o.titre,
+              section,
+              libelle: libelle(e),
+              element: e,
+            }));
+        reglages.push(...trouves);
+        if (!trouves.length && contient(section + " " + aide))
+          sections.push({ onglet: o.id, titreOnglet: o.titre, section, libelle: "", element: s });
+      }),
+    );
+    return [...reglages, ...sections];
+  }
+  /**
+   * @method afficherRecherche
+   * @param {String} texte
+   */
+  afficherRecherche(texte) {
+    const MAX = 40;
+    let trouves = this.chercher(texte),
+      coupe = (t) => (t.length > 90 ? t.slice(0, 89) + "…" : t);
+    this._resultats = trouves.slice(0, MAX);
+    $("#o_rechercheResultats")
+      .prop("hidden", !String(texte).trim())
+      .html(
+        trouves.length
+          ? this._resultats
+              .map(
+                (r, i) =>
+                  `<li><a href='#' data-i='${i}'>${[r.titreOnglet, r.section, coupe(r.libelle)].filter(Boolean).join(" › ")}</a></li>`,
+              )
+              .join("") +
+              (trouves.length > MAX
+                ? `<li class='o_aideParam'>… et ${trouves.length - MAX} autres</li>`
+                : "")
+          : "<li class='o_aideParam'>Aucun réglage trouvé.</li>",
+      );
+    this.ajusterTaille();
     return this;
   }
   /**
-   * Armée et floods : page Armée (replacement, antisondes), pages d'attaque,
-   * lanceur de flood, unités gardées et sonde.
+   * Général : ce qui agit sur toutes les pages, rôle et mise à jour.
    *
-   * @method ongletArmeeFloods
+   * @method ongletGeneral
    */
-  ongletArmeeFloods() {
+  ongletGeneral() {
+    let p = monProfil.parametre;
+    $("#o_tabsParametreGeneral").append(`<form>
+        ${this.section("Horloge et nouveautés", this.cases("General"))}
+        ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}
+        ${this.section(
+          "Rôle",
+          p["role"].getForm("Ton rôle dans l'alliance") +
+            this.aide(
+              `Les réglages propres à un rôle portent son étiquette, en couleur pour le tien. Chasseur : export automatique de tes chasses et rappel d'export (${this.lienOnglet("Partage", "onglet Partage de données")}), lanceur de chasses (${this.lienOnglet("Ressources", "onglet Ressources")}).`,
+              "Le jeu supprime les conversations lues au bout de 7 jours : l'export de tes chasses se fait deux fois par semaine.",
+            ),
+        )}
+      </form>
+      ${this.section(
+        `Mise à jour (v${VERSION})`,
+        `<p class='left o_reglage'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour l'extension</button></p>
+        <p id='o_majFzzzEtat' class='left small'></p>`,
+      )}`);
+    $("#o_majFzzz").on("click", (e) => {
+      e.preventDefault();
+      BoiteParametre.mettreAJour($(e.currentTarget), $("#o_majFzzzEtat"));
+    });
+    this.majEtiquettes();
+    return this;
+  }
+  /**
+   * Ressources : répartition des ouvrières et lanceur de chasses.
+   *
+   * @method ongletRessources
+   */
+  ongletRessources() {
+    let p = monProfil.parametre;
+    $("#o_tabsParametreRessources").append(`<form>
+        ${this.section(
+          "Répartition des ouvrières",
+          this.caseAffichage("affectationOuvrieres") +
+            p["affectationRessource"].getForm("Affectation") +
+            p["ratioRecolte"].getForm() +
+            this.aide(
+              `Préparée à l'ouverture de la page Ressources, à valider dans le formulaire du jeu.${Utils.comptePlus ? " Le mode Ratio coupe l'affectation automatique du Compte+." : ""}`,
+            ),
+        )}
+        ${this.section(
+          `Lanceur de chasses ${this.etiquette("Chasseur")}`,
+          this.caseAffichage("lanceurChasse") +
+            p["tdcArriveeMax"].getForm("TdC à l'arrivée proposé, au plus", " cm²") +
+            this.aide(
+              "Le TdC à l'arrivée proposé est le TdC courant, jusqu'à cette valeur.",
+              "Au-delà, les chasses durent trop pour que le TdC du moment soit une prévision : à renseigner soi-même.",
+            ) +
+            p["ratioPlancher"].getForm("Ratio plancher") +
+            this.aide(
+              "Ratio plancher quand le ratio est libre (pertes acceptées fixées).",
+              "À 7,2 plus aucune chance de réplique à 50 % ; à 6, l'ancien plancher du lanceur par budget, 65 % des chasses subissent 30 % de réplique mais le budget sert en entier.",
+            ),
+        )}
+      </form>`);
+    this.majEtiquettes();
+    return this;
+  }
+  /**
+   * Armée : affichages de la page, replacement et antisondes.
+   *
+   * @method ongletArmee
+   */
+  ongletArmee() {
     let p = monProfil.parametre;
     ["uniteAntisondeTerrainType", "uniteAntisondeDomeType"].forEach(
       (cle) => (p[cle].valeurPossible = ["Première disponible", ...NOM_UNITE.slice(1)]),
     );
+    $("#o_tabsParametreArmee").append(`<form>
+        ${this.section(
+          "Affichages de la page",
+          this.cases("Armee", ["armeeMiseEnPage", "armeeStatistiques", "listeAttaques"]),
+        )}
+        ${this.section(
+          "Replacer l'armée",
+          this.caseAffichage("replacerArmee") +
+            p["replacerArmeeAuto"].getForm(
+              "Signaler une armée à replacer à l'ouverture de la page Armée",
+            ),
+        )}
+        ${this.section(
+          "Antisondes <span class='o_aideParam'>(nombre tiré entre 90 % du max et le max)</span>",
+          `<div class='o_grilleParam o_grille2'>${p["uniteAntisondeTerrain"].getForm("Max en terrain")}${p["uniteAntisondeTerrainType"].getForm("Unité")}${p["uniteAntisondeDome"].getForm("Max en dôme")}${p["uniteAntisondeDomeType"].getForm("Unité")}</div>` +
+            this.aide(
+              `Pour le replacement de l'armée et les unités gardées au flood (${this.lienOnglet("Attaque", "onglet Attaque")}).`,
+            ),
+        )}
+      </form>`);
+    return this;
+  }
+  /**
+   * Attaque : affichages des pages d'attaque, lanceur de flood, unités
+   * gardées et sonde.
+   *
+   * @method ongletAttaque
+   */
+  ongletAttaque() {
+    let p = monProfil.parametre;
     p["sondeUnite"].valeurPossible = NOM_UNITE.slice(1);
     this._gardees = new UnitesGardees(
       "o_gardeesDefaut",
@@ -358,44 +664,40 @@ class BoiteParametre extends Boite {
       },
       { titre: null, preferences: true },
     );
-    $("#o_tabsParametreArmeeFloods").append(`<form>
-        ${this.cases("ArmeeFloods")}
-        ${p["replacerArmeeAuto"].getForm("Signaler une armée à replacer à l'ouverture de la page Armée")}
-        <p class='o_titreParam'>Antisondes <span class='o_aideParam'>(nombre tiré entre 90 % du max et le max)</span></p>
-        <div class='o_grilleParam o_grille2'>${p["uniteAntisondeTerrain"].getForm("Max en terrain")}${p["uniteAntisondeTerrainType"].getForm("Unité")}${p["uniteAntisondeDome"].getForm("Max en dôme")}${p["uniteAntisondeDomeType"].getForm("Unité")}</div>
-        <p class='o_titreParam'>Flood</p>
-        ${p["methodeFlood"].getForm("Méthode de flood par défaut")}
-        ${p["floodAttaques"].getForm("Nombre d'attaques proposées")}
-        ${p["degressifBase"].getForm("Dégressive : 1re attaque", "<span class='o_aideParam'>% du TdC de la cible</span>")}
-        ${p["degressifRegle"].getForm("Dégressive : attaques suivantes")}
-        ${p["floodImpactAuto"].getForm("TdC à l'impact dès l'ouverture", "<span class='o_aideParam'>sans clic, mis dans les champs ; une valeur tapée est gardée</span>")}
-        <p class='o_titreParam'>Unités gardées au flood <span class='o_aideParam'>(par défaut, modifiables à chaque attaque)</span></p>
-        ${this._gardees.html()}
-        <p class='o_titreParam'>Sonder</p>
-        ${p["sondeUnite"].getForm("Unité envoyée en sonde")}
-        ${p["sondeQuantite"].getForm("Nombre d'unités (au plus)")}
-        ${p["sondeLieu"].getForm("Lieu de sonde")}
+    $("#o_tabsParametreAttaque").append(`<form>
+        ${this.section("Affichages de la page", this.cases("Attaque", ["couleurAttaquer", "statArmee"]))}
+        ${this.section(
+          "Lanceur de Flood",
+          this.caseAffichage("lanceurFlood") +
+            p["methodeFlood"].getForm("Méthode de flood par défaut") +
+            p["floodAttaques"].getForm("Nombre d'attaques proposées") +
+            p["degressifBase"].getForm(
+              "Dégressive : 1re attaque",
+              "<span class='o_aideParam'>% du TdC de la cible</span>",
+            ) +
+            p["degressifRegle"].getForm("Dégressive : attaques suivantes") +
+            p["floodImpactAuto"].getForm(
+              "TdC à l'impact dès l'ouverture",
+              "<span class='o_aideParam'>sans clic, mis dans les champs ; une valeur tapée est gardée</span>",
+            ),
+        )}
+        ${this.section(
+          "Unités gardées au flood <span class='o_aideParam'>(par défaut, modifiables à chaque attaque)</span>",
+          this._gardees.html() +
+            this.aide(`Nombre d'antisondes : ${this.lienOnglet("Armee", "onglet Armée")}.`),
+        )}
+        ${this.section(
+          "Sonder",
+          p["sondeUnite"].getForm("Unité envoyée en sonde") +
+            p["sondeQuantite"].getForm("Nombre d'unités (au plus)") +
+            p["sondeLieu"].getForm("Lieu de sonde"),
+        )}
       </form>`);
     return this;
   }
   /**
-   * Chasseur : rappel d'export et lanceur de chasses (montré à tous les rôles).
+   * Messagerie : liste des messages, couleurs des titres, rapports, écriture.
    *
-   * @method ongletChasseur
-   */
-  ongletChasseur() {
-    let p = monProfil.parametre;
-    $("#o_tabsParametreChasseur").append(`<form>
-        ${this.cases("Chasseur")}
-        <p class='left o_aideParam'>Le rappel « Export des chasses à faire » ne concerne que le rôle Chasseur (onglet « Options ») : il s'affiche à partir du mercredi et du dimanche 22h (heure du serveur) quand l'export automatique de tes chasses ne peut pas se faire.</p>
-        <p class='o_titreParam'>Lanceur de chasses <span class='o_aideParam'>(le TdC à l'arrivée proposé est le TdC courant, jusqu'à cette valeur ; au-delà, les chasses durent trop pour que le TdC du moment soit une prévision : à renseigner soi-même)</span></p>
-        ${p["tdcArriveeMax"].getForm("TdC à l'arrivée proposé, au plus", " cm²")}
-        <p class='o_aideParam'>Ratio plancher quand le ratio est libre (pertes acceptées fixées) : à 7,2 plus aucune chance de réplique à 50 % ; à 6, l'ancien plancher du lanceur par budget, 65 % des chasses subissent 30 % de réplique mais le budget sert en entier.</p>
-        ${p["ratioPlancher"].getForm("Ratio plancher")}
-      </form>`);
-    return this;
-  }
-  /**
    * @method ongletMessagerie
    */
   ongletMessagerie() {
@@ -407,13 +709,27 @@ class BoiteParametre extends Boite {
       })
       .join("");
     let $onglet = $("#o_tabsParametreMessagerie").append(`<form>
-        ${this.cases("Messagerie")}
-        <p class='o_titreParam'>Couleurs des titres <span class='o_aideParam'>(case décochée : couleur du jeu)</span>
-          <button type='button' id='o_couleursMessagesDefaut' class='o_button'>Par défaut</button></p>
-        <div class='o_grilleParam'>${couleurs}</div>
-        <div id='o_exportSheetReglage'></div>
+        ${this.section(
+          "Liste des messages",
+          this.cases("Messagerie", ["messagerieRanger", "messagerieCompacte", "messagerieNonLus"]),
+        )}
+        ${this.section(
+          "Couleurs des titres <span class='o_aideParam'>(couleur décochée : celle du jeu)</span> <button type='button' id='o_couleursMessagesDefaut' class='o_button'>Par défaut</button>",
+          this.caseAffichage("messagerieCouleurs") + `<div class='o_grilleParam'>${couleurs}</div>`,
+        )}
+        ${this.section(
+          "Rapports",
+          this.cases("Messagerie", ["messagerieCopie", "messagerieAnalyse", "messagerieExport"]),
+        )}
+        ${this.section(
+          "Écrire un message",
+          this.cases("Messagerie", [
+            "messagerieMiseEnForme",
+            "messagerieSmileys",
+            "messagerieSmileysAlliance",
+          ]),
+        )}
       </form>`);
-    this.reglageExport();
     let enregistrer = (type) => {
       let active = $onglet.find(`input[data-couleur-active='${type}']`).prop("checked"),
         couleur = $onglet.find(`input[data-couleur='${type}']`).val();
@@ -457,11 +773,11 @@ class BoiteParametre extends Boite {
    * @method reglageExportPersonnel
    */
   reglageExportPersonnel() {
-    let $zone = $("#o_exportSheetReglage").html(`
-        <p class='o_titreParam'>Export vers le Google Sheet</p>
+    let $zone = $("#o_exportSheetReglage").addClass("o_sectionParam").html(`
+        <p class='o_titreParam'>Adresse de ton Google Sheet</p>
         <p id='o_exportSheetEtat' class='left small'></p>
-        <p class='left small'><em>Pour exporter tes rapports (boutons « Exporter mes chasses » et « Exporter mes RC » de la messagerie), renseigne l'adresse du script de ton propre Google Sheet. Elle reste dans ton navigateur. Les joueurs de la liste du forum caché (sujet « ${TITRE_EXPORT_SHEET} ») n'ont rien à régler.</em></p>
-        <p class='left small'><label for='o_exportSheet'>Adresse du script :</label>
+        <p class='left small'><em>Pour exporter tes rapports (boutons « Exporter mes chasses » et « Exporter mes RC »), renseigne l'adresse du script de ton propre Google Sheet. Elle reste dans ton navigateur. Les joueurs de la liste du forum caché (sujet « ${TITRE_EXPORT_SHEET} ») n'ont rien à régler.</em></p>
+        <p class='left small o_reglage'><label for='o_exportSheet'>Adresse du script :</label>
           <input type='password' id='o_exportSheet' autocomplete='new-password' spellcheck='false' placeholder='https://script.google.com/macros/s/…/exec' style='width:16em; max-width:100%'/>
           <button type='button' id='o_exportSheetVoir' class='o_button' title="Afficher l'adresse enregistrée">👁 Afficher</button>
           <button type='button' id='o_exportSheetEnregistrer' class='o_button f_success'>Enregistrer</button>
@@ -532,31 +848,44 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
-   * Grenier : suivi OUAF de la page Convois, convoi avant la récolte, et mot
+   * Convois : suivi OUAF de la page Convois, convoi avant la récolte, et mot
    * de passe du site de suivi des convois de la OUAF (seul endroit où il se
-   * renseigne). Il est gardé dans le stockage
-   * de l'extension, que le jeu ne peut pas lire, et n'est placé dans le champ
-   * que si le joueur clique « Afficher ».
+   * renseigne). Il est gardé dans le stockage de l'extension, que le jeu ne
+   * peut pas lire, et n'est placé dans le champ que si le joueur clique
+   * « Afficher ».
    *
-   * @method ongletGrenier
+   * @method ongletConvois
    */
-  ongletGrenier() {
-    $("#o_tabsParametreGrenier").append(`<form autocomplete='off'>
-            ${this.cases("Grenier")}
-            <p class='o_titreParam'>Convoi avant la récolte</p>
-            ${monProfil.parametre["convoisAvantRecolte"].getForm("Compter les ouvrières qui reviennent de convoi ou sont pondues avant la récolte")}
-            <p class='left o_aideParam'>Efficace seulement avec le Compte+ réglé sur l'affectation automatique Nourriture ou Matériaux (page Ressources) : les ouvrières qui arrivent y sont mises au travail d'elles-mêmes. Au clic sur un montant du Récapitulatif (page Convois), l'extension lit tes pages Ressources (prochaine récolte, chasses en cours) et Reine (pontes) : les ouvrières dont la minute de retour (« Retour le » du jeu) ou de ponte finit avant une récolte peuvent partir en plus, le terrain restant exploité à chaque récolte. Sans Compte+, ou réglé sur la croix ou « Ratio », il faut les affecter soi-même avant chaque récolte, et le jeu n'affiche pas le retour des convois : seules les pontes comptent. Le terrain que prendront tes attaques en cours n'est pas compté.</p>
-            <p class='o_titreParam'>Suivi des convois de la OUAF</p>
+  ongletConvois() {
+    $("#o_tabsParametreConvois").append(`<form autocomplete='off'>
+        ${this.section(
+          `Suivi des convois de la OUAF ${this.etiquette("Grenier")}`,
+          `${this.cases("Convois")}
             <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
-            <p class='left small'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
+            <p class='left small o_reglage'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
               <input type='password' id='o_ouafCode' autocomplete='new-password' spellcheck='false' style='width:12em'/>
               <button type='button' id='o_ouafCodeVoir' class='o_button' title='Afficher le mot de passe enregistré'>👁 Afficher</button>
               <button type='button' id='o_ouafCodeEnregistrer' class='o_button f_success'>Enregistrer</button>
               <button type='button' id='o_ouafCodeEffacer' class='o_button f_error'>Effacer</button></p>
             <p id='o_ouafCodeEtat' class='left small'></p>
-            <p class='left small'><em>Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension. Il n'est envoyé qu'au site de suivi : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif et le lien « Ouvrir le site de suivi OUAF ».</em></p>
-            <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>
-        </form>`);
+            ${this.aide(
+              "Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension.",
+              "Il n'est envoyé qu'au site de suivi : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif et le lien « Ouvrir le site de suivi OUAF ».",
+            )}
+            <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>`,
+        )}
+        ${this.section(
+          `Convoi avant la récolte ${this.etiquette("Grenier")}`,
+          monProfil.parametre["convoisAvantRecolte"].getForm(
+            "Compter les ouvrières qui reviennent de convoi ou sont pondues avant la récolte",
+          ) +
+            this.aide(
+              "Efficace seulement avec le Compte+ réglé sur l'affectation automatique Nourriture ou Matériaux (page Ressources) : les ouvrières qui arrivent y sont mises au travail d'elles-mêmes.",
+              "Au clic sur un montant du Récapitulatif (page Convois), l'extension lit tes pages Ressources (prochaine récolte, chasses en cours) et Reine (pontes) : les ouvrières dont la minute de retour (« Retour le » du jeu) ou de ponte finit avant une récolte peuvent partir en plus, le terrain restant exploité à chaque récolte. Sans Compte+, ou réglé sur la croix ou « Ratio », il faut les affecter soi-même avant chaque récolte, et le jeu n'affiche pas le retour des convois : seules les pontes comptent. Le terrain que prendront tes attaques en cours n'est pas compté.",
+            ),
+        )}
+      </form>`);
+    this.majEtiquettes();
     let etat = (code) =>
         $("#o_ouafCodeEtat").html(
           code
@@ -596,65 +925,93 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
-   * Affichage : page Membres de l'alliance, chats et forum.
+   * Alliance : page Membres de l'alliance, chats et forum.
    *
-   * @method ongletAffichage
+   * @method ongletAlliance
    */
-  ongletAffichage() {
-    $("#o_tabsParametreAffichage").append(`<form>
-        <p class='o_titreParam'>Membres de l'alliance <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
-        ${["membresTableau", "membresFloods", "membresMoi"].map((cle) => this.caseAffichage(cle)).join("")}
-        ${monProfil.parametre["vueMembres"].getForm("Vue par défaut de la page Membres de l'alliance")}
-        <p class='o_titreParam'>Colonnes de la vue « Floods et chasses en cours » <span class='o_aideParam'>(au prochain chargement de la page)</span></p>
-        ${MEMBRES_COLONNES_FLOODS.map((cle) => this.caseAffichage(cle)).join("")}
-        <p class='left o_aideParam'>Prochain mouvement : la première minute où le TdC du membre change d'après les floods et chasses partagés (minute du rapport de combat), ceux de cette minute comptés ensemble (multi-flood) ; sa variation est leur somme. Les floods hors portée, sans effet sur le TdC, ne comptent pas. Temps de trajet : à ta Vitesse d'attaque (page Laboratoire), avec les coordonnées gardées par l'extension (Carte de l'alliance, sinon export des joueurs du jeu, lu une fois si besoin). Aucune colonne cochée : le pseudo seul.</p>
-        <p class='o_titreParam'>Chats</p>
-        ${["chatMesGif", "chatGifAlliance", "chatSmileysAlliance"].map((cle) => this.caseAffichage(cle)).join("")}
-        <p class='o_titreParam'>Forum de l'alliance</p>
-        ${["forumGif", "forumSmileysAlliance"].map((cle) => this.caseAffichage(cle)).join("")}
+  ongletAlliance() {
+    $("#o_tabsParametreAlliance").append(`<form>
+        ${this.section(
+          "Membres de l'alliance",
+          this.cases("Alliance", ["membresTableau", "membresFloods", "membresMoi"]) +
+            monProfil.parametre["vueMembres"].getForm(
+              "Vue par défaut de la page Membres de l'alliance",
+            ),
+        )}
+        ${this.section(
+          "Colonnes de la vue « Floods et chasses en cours »",
+          this.cases("Alliance", MEMBRES_COLONNES_FLOODS) +
+            this.aide(
+              "Aucune colonne cochée : le pseudo seul.",
+              "Prochain mouvement : la première minute où le TdC du membre change d'après les floods et chasses partagés (minute du rapport de combat), ceux de cette minute comptés ensemble (multi-flood) ; sa variation est leur somme. Les floods hors portée, sans effet sur le TdC, ne comptent pas. Temps de trajet : à ta Vitesse d'attaque (page Laboratoire), avec les coordonnées gardées par l'extension (Carte de l'alliance, sinon export des joueurs du jeu, lu une fois si besoin).",
+            ),
+        )}
+        ${this.section("Chats", this.cases("Alliance", ["chatMesGif", "chatGifAlliance", "chatSmileysAlliance"]))}
+        ${this.section("Forum de l'alliance", this.cases("Alliance", ["forumGif", "forumSmileysAlliance"]))}
       </form>`);
     return this;
   }
   /**
    * Partage de données : une case par information relevée chaque jour pour le
-   * fichier de l'alliance (SuiviMembres), puis celle de l'export automatique
-   * des chasses (ExportAuto), toutes cochées par défaut, et les boutons
-   * d'export des rapports, utilisables de toutes les pages.
+   * fichier de l'alliance (SuiviMembres), puis l'export automatique des
+   * chasses (ExportAuto) et son rappel, les boutons d'export des rapports,
+   * utilisables de toutes les pages, et l'adresse du Google Sheet personnel.
    *
    * @method ongletPartage
    */
   ongletPartage() {
     let $onglet = $("#o_tabsParametrePartage").append(`<form>
-        <p class='left o_aideParam'>Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance, avec ton pseudo et la version de l'extension. Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (sujet « ${TITRE_STATS_MEMBRES} ») : sans ce sujet, rien n'est relevé ni envoyé.</p>
-        <p class='o_titreParam'>Informations partagées <span class='o_aideParam'>(décochée : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas)</span></p>
-        ${DONNEES_PARTAGEES.map(
-          (d) =>
-            `<label class='o_affichageFzzz'><input type='checkbox' data-partage='${d.cle}' ${SuiviMembres.partage(d.cle) ? "checked" : ""}/> ${d.libelle}</label>`,
-        ).join("")}
-        <p class='left o_aideParam'>Réglage propre à ce navigateur. Un changement est envoyé à ta prochaine page.</p>
-        <p class='o_titreParam'>Envoi</p>
-        <p id='o_partageEtat' class='left small'></p>
-        <p class='left'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>
-        <p class='o_titreParam'>Rapports de chasse <span class='o_aideParam'>(rôle Chasseur)</span></p>
-        <label class='o_affichageFzzz'><input type='checkbox' id='o_partageChasses' ${ExportAuto.coche() ? "checked" : ""}/> Exporter mes chasses automatiquement</label>
-        <p class='left o_aideParam'>Deux fois par semaine au plus : à ton premier clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses après le mercredi ou le dimanche 22h (heure du serveur), l'extension lit les rapports de chasse de ta messagerie pas encore exportés et les envoie au Google Sheet où tu exportes tes rapports, une fois les chasses envoyées et après toutes ses autres demandes au jeu ; ceux que tu n'avais pas lus restent marqués non lus. Sans ce clic (chasses lancées avec le formulaire du jeu), rien n'est exporté automatiquement. Le bouton « Exporter mes chasses » ci-dessous reste, pour un export immédiat. Le rappel « Export des chasses à faire » ne s'affiche que si un essai échoue. Décochée : rien n'est lu ni envoyé sans ton clic sur ce bouton, et le rappel s'affiche dès le mercredi et le dimanche 22h.</p>
-        <p id='o_partageChassesEtat' class='left small'></p>
-        <p class='o_titreParam'>Exporter maintenant</p>
-        <p class='left'><button type='button' class='o_button f_info o_exporterRapports' data-quoi='chasse'>Exporter mes chasses</button> <button type='button' class='o_button f_info o_exporterRapports' data-quoi='combat'>Exporter mes RC</button></p>
-        <p class='left o_aideParam'>Les conversations de ta boîte de réception dont un rapport manque au Google Sheet où tu exportes tes rapports sont lues une à une, puis envoyées : chasses (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») ; attaques (« ${EXPORTS_RAPPORTS.attaque.onglet} »), défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») et floods avec les membres de l'alliance (« ${EXPORTS_RAPPORTS.interne.onglet} »). Les mêmes boutons peuvent aussi s'afficher dans la messagerie (onglet « Messagerie »).</p>
+        ${this.section(
+          "Statistiques des membres",
+          this.aide(
+            `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance, avec ton pseudo et la version de l'extension.`,
+            `Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (sujet « ${TITRE_STATS_MEMBRES} ») : sans ce sujet, rien n'est relevé ni envoyé.`,
+          ) +
+            DONNEES_PARTAGEES.map(
+              (d) =>
+                `<label class='o_affichageFzzz'><input type='checkbox' data-partage='${d.cle}' ${SuiviMembres.partage(d.cle) ? "checked" : ""}/> ${d.libelle}</label>`,
+            ).join("") +
+            this.aide(
+              "Décochée : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas. Réglage propre à ce navigateur, envoyé à ta prochaine page.",
+            ) +
+            `<p id='o_partageEtat' class='left small'></p>
+            <p class='left o_reglage'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>`,
+        )}
+        ${this.section(
+          "Rapports de chasse et de combat",
+          `<label class='o_affichageFzzz'><input type='checkbox' id='o_partageChasses' ${ExportAuto.coche() ? "checked" : ""}/> Exporter mes chasses automatiquement${this.etiquette("Chasseur")}</label>` +
+            this.aide(
+              "Deux fois par semaine au plus : à ton premier clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses après le mercredi ou le dimanche 22h (heure du serveur), l'extension lit les rapports de chasse de ta messagerie pas encore exportés et les envoie au Google Sheet où tu exportes tes rapports.",
+              "Elle le fait une fois les chasses envoyées et après toutes ses autres demandes au jeu ; ceux que tu n'avais pas lus restent marqués non lus. Sans ce clic (chasses lancées avec le formulaire du jeu), rien n'est exporté automatiquement. Le bouton « Exporter mes chasses » ci-dessous reste, pour un export immédiat. Le rappel « Export des chasses à faire » ne s'affiche que si un essai échoue. Décochée : rien n'est lu ni envoyé sans ton clic sur ce bouton, et le rappel s'affiche dès le mercredi et le dimanche 22h.",
+            ) +
+            `<p id='o_partageChassesEtat' class='left small'></p>` +
+            this.cases("Partage") +
+            `<p class='left o_reglage'><button type='button' class='o_button f_info o_exporterRapports' data-quoi='chasse'>Exporter mes chasses</button> <button type='button' class='o_button f_info o_exporterRapports' data-quoi='combat'>Exporter mes RC</button></p>` +
+            this.aide(
+              "Les conversations de ta boîte de réception dont un rapport manque au Google Sheet où tu exportes tes rapports sont lues une à une, puis envoyées.",
+              `Chasses (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») ; attaques (« ${EXPORTS_RAPPORTS.attaque.onglet} »), défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») et floods avec les membres de l'alliance (« ${EXPORTS_RAPPORTS.interne.onglet} »). Les mêmes boutons peuvent aussi s'afficher dans la messagerie (${this.lienOnglet("Messagerie", "onglet Messagerie")}).`,
+            ),
+        )}
+        <div id='o_exportSheetReglage'></div>
         ${
           // réservé au mainteneur, comme le journal
           Journal.pourCeJoueur()
-            ? `<p class='o_titreParam'>Ranger le forum</p>
-        <p class='left o_aideParam'>Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une réponse par joueur, que son extension écrit et modifie. Ce bouton retire les floods et chasses des anciens formats : les sections du premier message de ces deux sujets, et les sujets « Floods | pseudo » et « Chasses | pseudo », supprimés. Les entrées passées vont d'abord dans l'historique de leur joueur ; celles à venir sont supprimées, chaque joueur les partage de nouveau. Un joueur pas encore à jour peut les réécrire : reclique plus tard. Il faut les droits de gestion du forum. Une lecture du forum par joueur concerné, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
-        <p class='left'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
-        <p id='o_partageRangerEtat' class='left small'></p>`
+            ? this.section(
+                "Ranger le forum",
+                this.aide(
+                  `Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une réponse par joueur, que son extension écrit et modifie.`,
+                  "Ce bouton retire les floods et chasses des anciens formats : les sections du premier message de ces deux sujets, et les sujets « Floods | pseudo » et « Chasses | pseudo », supprimés. Les entrées passées vont d'abord dans l'historique de leur joueur ; celles à venir sont supprimées, chaque joueur les partage de nouveau. Un joueur pas encore à jour peut les réécrire : reclique plus tard. Il faut les droits de gestion du forum. Une lecture du forum par joueur concerné, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.",
+                ) +
+                  `<p class='left o_reglage'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
+                  <p id='o_partageRangerEtat' class='left small'></p>`,
+              )
             : ""
         }
       </form>`),
       etat = (message = "") =>
         $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
       etatChasses = () => $onglet.find("#o_partageChassesEtat").text(ExportAuto.resume());
+    this.reglageExport().majEtiquettes();
     etat();
     etatChasses();
     $onglet.find("#o_partageChasses").on("change", (e) => {
@@ -718,11 +1075,13 @@ class BoiteParametre extends Boite {
    */
   ongletPages() {
     $("#o_tabsParametrePages").append(`<form>
-        <p class='o_titreParam'>Pages où l'extension agit <span class='o_aideParam'>(décochée : la page reste telle que le jeu l'affiche, au prochain chargement)</span></p>
-        ${PAGES_EXTENSION.map(
-          (g) =>
-            `<label class='o_affichageFzzz'><input type='checkbox' data-page='${g.id}' ${Utils.origine(g.id) ? "" : "checked"}/> ${g.libelle}</label>`,
-        ).join("")}
+        ${this.section(
+          "Pages où l'extension agit <span class='o_aideParam'>(décochée : la page reste telle que le jeu l'affiche, au prochain chargement)</span>",
+          PAGES_EXTENSION.map(
+            (g) =>
+              `<label class='o_affichageFzzz'><input type='checkbox' data-page='${g.id}' ${Utils.origine(g.id) ? "" : "checked"}/> ${g.libelle}</label>`,
+          ).join(""),
+        )}
       </form>`);
     return this;
   }
@@ -743,9 +1102,11 @@ class BoiteParametre extends Boite {
       <p class='left reduce'>Développement : DoggyBag ; chasses : Grim.</p>
       <p class='left reduce'>Fork de <a href='https://github.com/GuiEpi/toolzzz' target='_blank' rel='noopener'>Toolzzz</a> (GuiEpi), lui-même fork d'<a href='https://github.com/Hraesvelg/Outiiil' target='_blank' rel='noopener'>Outiiil</a> (Hraesvelg), sous licence <a href='${repo}/blob/main/LICENSE' target='_blank' rel='noopener'>GPL-3.0</a>.</p>
       <hr class='o_marginT15' style='border:0; border-top:1px dashed currentColor; opacity:0.35;'/>
-      <p class='o_titreParam'>Réinitialiser les paramètres</p>
-      <p class='left small'><em>Remet toutes les options (dock, flood, antisondes, signalement de l'armée à replacer, etc.) aux valeurs par défaut. La page sera rechargée.</em></p>
-      <button id='o_resetParametres' class='o_button f_error'>Réinitialiser</button>
+      ${this.section(
+        "Réinitialiser les réglages",
+        `<p class='left small'><em>Remet les réglages chiffrés ou à choix à leur valeur par défaut : rôle, alerte de ponte, répartition des ouvrières, lanceur de chasses, antisondes, signalement de l'armée à replacer, flood, unités gardées, sonde, vue de la page Membres, convoi avant la récolte. Les cases d'affichage, de pages et de partage et les couleurs des messages ne changent pas. La page sera rechargée.</em></p>
+        <p class='left o_reglage'><button id='o_resetParametres' class='o_button f_error'>Réinitialiser</button></p>`,
+      )}
     `);
     return this;
   }

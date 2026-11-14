@@ -1252,7 +1252,7 @@ class ExportRapports {
       ? `l'adresse du Google Sheet de l'alliance n'est pas encore postée dans le forum caché (sujet « ${TITRE_EXPORT_SHEET} »)`
       : illisible
         ? `le forum de l'alliance n'a pas pu être lu (liste des joueurs autorisés à partager des RC, sujet « ${TITRE_EXPORT_SHEET} »). Réessaie dans un instant`
-        : `ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC (forum caché, sujet « ${TITRE_EXPORT_SHEET} ») et aucune adresse de Google Sheet n'est renseignée dans Préférences → Messagerie`;
+        : `ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC (forum caché, sujet « ${TITRE_EXPORT_SHEET} ») et aucune adresse de Google Sheet n'est renseignée dans Préférences → Partage de données`;
   }
   /**
    * Statistiques du joueur sur une période, calculées par le script du fichier

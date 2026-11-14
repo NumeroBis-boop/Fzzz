@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.117.0",
+    notes: [
+      "Préférences rangées par page du jeu : Général, Ressources, Armée, Attaque, Convois, Messagerie, Alliance, Partage de données, Pages et À propos. Tes réglages sont gardés.",
+      "En haut de la fenêtre, « Rechercher un réglage » ; les aides longues se déplient avec « En savoir plus » ; les réglages d'un rôle portent son étiquette (Chasseur, Grenier), en couleur pour le tien ; la fenêtre se rouvre sur le dernier onglet utilisé.",
+    ],
+  },
+  {
     version: "1.116.0",
     notes: [
       "Page Convois : nouvelle option « Convoi avant la récolte » (Préférences → Grenier, décochée par défaut). Au clic sur un montant du Récapitulatif, les ouvrières qui reviennent de convoi ou sont pondues avant la prochaine récolte peuvent partir aussi, le terrain restant exploité à chaque récolte.",

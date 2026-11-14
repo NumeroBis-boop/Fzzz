@@ -18,7 +18,7 @@ class UnitesGardees {
    * @param {String} id identifiant du bloc dans la page
    * @param {Function} auChangement appelé après chaque modification
    * @param {{titre?: String|null, preferences?: Boolean}} [options] preferences :
-   *   bloc de l'onglet « Armée et floods », sans liste des unités gardées ni lien
+   *   bloc de l'onglet « Attaque », sans liste des unités gardées ni lien
    */
   constructor(
     id,
@@ -115,7 +115,7 @@ class UnitesGardees {
     });
     $bloc.on("click", ".o_gardeesDefaut", (e) => {
       e.preventDefault();
-      BoiteParametre.ouvrirOnglet("ArmeeFloods");
+      BoiteParametre.ouvrirOnglet("Attaque");
     });
     $bloc.find(".o_gardeesNombre").spinner({ min: 0 });
     return this;
@@ -147,7 +147,7 @@ class UnitesGardees {
     $bloc
       .find(".o_gardeesNbAntisondes")
       .text(
-        `(${numeral(p["uniteAntisondeTerrain"].valeur).format()} en terrain + ${numeral(p["uniteAntisondeDome"].valeur).format()} en dôme${this._preferences ? ", réglées plus haut" : ""})`,
+        `(${numeral(p["uniteAntisondeTerrain"].valeur).format()} en terrain + ${numeral(p["uniteAntisondeDome"].valeur).format()} en dôme${this._preferences ? ", réglées dans l'onglet Armée" : ""})`,
       );
     $bloc.find(".o_gardeesAide").toggle(this._reglage.autres.some((ligne) => ligne.unite > 0));
     $bloc.find(".o_gardeesResultat").toggle(!!armee);

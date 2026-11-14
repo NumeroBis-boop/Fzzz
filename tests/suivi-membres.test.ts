@@ -1102,11 +1102,11 @@ describe("Préférences → Partage de données", () => {
     role("0");
     expect(chasses()).toEqual([
       true,
-      "Ton rôle n'est pas « Chasseur » (Préférences → Options) : tes chasses ne sont pas exportées automatiquement.",
+      "Ton rôle n'est pas « Chasseur » (Préférences → Général) : tes chasses ne sont pas exportées automatiquement.",
     ]);
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     for (const dit of [
-      "Rapports de chasse (rôle Chasseur)",
+      "Rapports de chasse et de combat",
       "Exporter mes chasses automatiquement",
       "Deux fois par semaine au plus : à ton premier clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses après le mercredi ou le dimanche 22h (heure du serveur)",
       "une fois les chasses envoyées et après toutes ses autres demandes au jeu",

@@ -298,7 +298,7 @@ class ExportAuto {
           // joueur sans alliance : pas de forum à relire
           let seul = !Utils.alliance,
             raison = seul
-              ? "tu n'as pas d'alliance et aucune adresse de Google Sheet n'est renseignée dans Préférences → Messagerie"
+              ? "tu n'as pas d'alliance et aucune adresse de Google Sheet n'est renseignée dans Préférences → Partage de données"
               : ExportRapports.sansAdresse(alliance, !!illisible);
           // forum pas lu : un échec comme un autre
           if (illisible && !seul) throw new Error(raison);
@@ -379,7 +379,7 @@ class ExportAuto {
    */
   static resume() {
     if (!RappelExport.chasseur())
-      return "Ton rôle n'est pas « Chasseur » (Préférences → Options) : tes chasses ne sont pas exportées automatiquement.";
+      return "Ton rôle n'est pas « Chasseur » (Préférences → Général) : tes chasses ne sont pas exportées automatiquement.";
     let e = ExportAuto.etat(),
       fait = RappelExport.exportFait(),
       rdv = RappelExport.rendezVousDu(),

@@ -1140,6 +1140,69 @@ form > .o_titreParam:first-child {
 .o_grilleParam.o_grille2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+form > .o_sectionParam:first-child > .o_titreParam:first-child {
+  margin-top: 0;
+}
+/* recherche d'un réglage, au-dessus des onglets */
+.o_rechercheParam {
+  margin: 0 0 6px;
+  text-align: left;
+}
+#o_rechercheParam {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
+}
+#o_rechercheResultats {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  max-height: 35vh;
+  overflow-y: auto;
+}
+#o_rechercheResultats li {
+  margin: 2px 0;
+}
+@keyframes o_reglageTrouve {
+  from {
+    background-color: rgba(255, 210, 0, 0.55);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.o_reglageTrouve {
+  animation: o_reglageTrouve 2.5s ease-out;
+}
+/* rôle concerné par un réglage ; en couleur pour le rôle choisi */
+.o_etiquetteRole {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: var(--fzzz-petit);
+  font-weight: normal;
+  font-style: normal;
+  opacity: 0.55;
+}
+.o_etiquetteRole.o_etiquetteMienne {
+  color: var(--fzzz-succes);
+  opacity: 1;
+}
+.o_aidePlus > summary {
+  width: fit-content;
+  cursor: pointer;
+  text-decoration: underline;
+}
+/* page décochée dans l'onglet « Pages » : réglages de l'onglet sans effet */
+.o_pageDesactivee {
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--fzzz-alerte);
+  text-align: left;
+  font-size: var(--fzzz-reduit);
+}
 
 /* Commande - Rang */
 .o_rangForm,

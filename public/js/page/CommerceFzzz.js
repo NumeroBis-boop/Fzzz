@@ -127,7 +127,7 @@ class CommerceFzzz {
    * un bouton « 📤 Envoyer au suivi », qui le transmet au site de suivi puis le
    * note dans le sujet. Transmis mais pas noté (écriture du forum en échec) :
    * bouton « 📝 Noter dans le forum », qui ne renvoie rien au site. Le mot de
-   * passe du site se renseigne seulement dans Préférences → Grenier. L'état va
+   * passe du site se renseigne seulement dans Préférences → Convois. L'état va
    * dans une colonne à part (CommerceFzzz.colonnes).
    *
    * @static
@@ -908,7 +908,7 @@ class CommerceFzzz {
       reste = (p) => {
         if (ouaf.etat == "attente") return "<span class='small'>…</span>";
         if (ouaf.etat == "code")
-          return "<span class='small' title='Mot de passe du site de suivi à renseigner dans Préférences → Grenier'>—</span>";
+          return "<span class='small' title='Mot de passe du site de suivi à renseigner dans Préférences → Convois'>—</span>";
         if (ouaf.etat == "erreur")
           return `<span class='small' title='${Utils.echapper(ouaf.erreur || "")}'>?</span>`;
         let r = ouaf.restes.get(p.toLowerCase());
@@ -1062,7 +1062,7 @@ class CommerceFzzz {
           ...TOAST_WARNING,
           text:
             err.name == "code"
-              ? "Mot de passe du site de suivi à enregistrer dans Préférences → Grenier : connecte-toi sur le site."
+              ? "Mot de passe du site de suivi à enregistrer dans Préférences → Convois : connecte-toi sur le site."
               : "Connexion automatique impossible : connecte-toi sur le site.",
         });
       });
@@ -1110,7 +1110,7 @@ class CommerceFzzz {
     });
   }
   /**
-   * Premier envoi sans mot de passe : ouvre Préférences → Grenier, sur le champ
+   * Premier envoi sans mot de passe : ouvre Préférences → Convois, sur le champ
    * du mot de passe du site de suivi.
    *
    * @static
@@ -1119,10 +1119,10 @@ class CommerceFzzz {
   static ouvrirParametresOuaf() {
     $.toast({
       ...TOAST_INFO,
-      text: "Renseigne d'abord le mot de passe du site de suivi (Préférences → Grenier), puis relance l'envoi.",
+      text: "Renseigne d'abord le mot de passe du site de suivi (Préférences → Convois), puis relance l'envoi.",
       hideAfter: 8000,
     });
-    BoiteParametre.ouvrirOnglet("Grenier");
+    BoiteParametre.ouvrirOnglet("Convois");
     setTimeout(() => $("#o_ouafCode").trigger("focus").addClass("o_champSignale"), 400);
   }
   /**

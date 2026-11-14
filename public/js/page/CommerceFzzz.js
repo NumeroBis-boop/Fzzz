@@ -875,7 +875,8 @@ class CommerceFzzz {
    * suivi, temps de trajet (avec la Vitesse d'attaque), heure de retour d'un
    * convoi lancé maintenant, et reste à livrer d'après le site de suivi OUAF
    * (lu une fois à l'ouverture, si le mot de passe est enregistré). Les
-   * coordonnées viennent du cache de l'alliance (Membres → Temps de trajet).
+   * positions viennent du cache de la Carte de l'alliance, relu au clic sur
+   * « Actualiser les positions » (PageAlliance.actualiserPositions).
    *
    * @static
    * @method membresSuivis
@@ -930,7 +931,7 @@ class CommerceFzzz {
         let t = trajet(p);
         return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
           <td>${reste(p)}</td>
-          <td>${t == null ? "<span class='small' title='Coordonnées inconnues : Alliance → Membres → Temps de trajet'>?</span>" : hms(t)}</td>
+          <td>${t == null ? "<span class='small' title='Position inconnue : « Actualiser les positions » en bas de ce tableau'>?</span>" : hms(t)}</td>
           <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
           <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
       },
@@ -940,9 +941,9 @@ class CommerceFzzz {
           <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
             <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th><th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
-            <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a></td></tr></tfoot>
+            <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a><a href='#' class='o_convoisPositions' title='Relit les positions des membres de l&#39;alliance, comme « Charger / Actualiser » de la Carte (un nouveau membre, une fourmilière déplacée)'>Actualiser les positions</a></td></tr></tfoot>
           </table>
-          ${Object.keys(connus).length ? "" : "<p class='small'>Positions des membres inconnues : ouvre Alliance → Membres → « Temps de trajet » une fois pour les charger.</p>"}
+          ${Object.keys(connus).length ? "" : "<p class='small o_convoisPositionsInconnues'>Positions des membres inconnues : « Actualiser les positions » en bas de ce tableau.</p>"}
           <p class='o_convoisLienOuaf'><a href='${OUAF_SITE}' target='_blank' rel='noopener' title='Ouvre le site de suivi, connecté avec le mot de passe enregistré (Préférences → Convois)'>Ouvrir le site de suivi OUAF</a></p>
         </div>`),
       // tri par colonne : croissant, décroissant, puis ordre d'ajout (col null)
@@ -987,12 +988,20 @@ class CommerceFzzz {
                 : "Trier par ordre croissant",
             );
         }),
+      // « Actualiser les positions » seulement quand un temps de trajet est
+      // inconnu faute de position (demande du mainteneur)
+      majPositions = () => {
+        let inconnus = suivis.some((p) => trajet(p) == null);
+        $bloc.find(".o_convoisPositions:not(.o_enCours)").toggle(inconnus);
+        $bloc.find(".o_convoisPositionsInconnues").toggle(inconnus);
+      },
       afficher = () => {
         let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
         $bloc
           .find("tbody")
           .html(ordonnes().map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
         icones();
+        majPositions();
       };
     // sous les convois en cours (dernier élément de la section)
     let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours")),
@@ -1071,6 +1080,40 @@ class CommerceFzzz {
       e.preventDefault();
       if ($bloc.find(".o_convoisMembreVide").length) return;
       $bloc.find("tbody").append(ligne(""));
+    });
+    // positions relues au clic seulement (règles s5), comme le bouton de la Carte
+    $bloc.on("click", ".o_convoisPositions", (e) => {
+      e.preventDefault();
+      let $lien = $(e.currentTarget);
+      if ($lien.hasClass("o_enCours")) return;
+      $lien.addClass("o_enCours").text("Actualisation des positions…");
+      PageAlliance.actualiserPositions((faits, total) =>
+        $lien.text(`Actualisation des positions… (${faits}/${total})`),
+      )
+        .then(
+          ({ members }) => {
+            for (let p in connus) delete connus[p];
+            members.forEach((m) => {
+              if (m.pseudo && m.pseudo != monProfil.pseudo) connus[m.pseudo] = m;
+            });
+            $bloc.find(".o_convoisPositionsInconnues").remove();
+            afficher();
+            let toujours = suivis.filter((p) => trajet(p) == null);
+            $.toast({
+              ...TOAST_SUCCESS,
+              text: `Positions mises à jour : ${numeral(members.length).format()} membres.${toujours.length ? ` Toujours inconnue${toujours.length > 1 ? "s" : ""} : ${toujours.map(Utils.echapper).join(", ")} (plus dans l'alliance ?).` : ""}`,
+            });
+          },
+          (err) =>
+            $.toast({
+              ...TOAST_ERROR,
+              text: `Positions non mises à jour : ${Utils.echapper((err && err.message) || "lecture impossible")}`,
+            }),
+        )
+        .then(() => {
+          $lien.removeClass("o_enCours").text("Actualiser les positions");
+          majPositions();
+        });
     });
     // heure de retour : recalculée toutes les 30 s (affichage seulement)
     setInterval(() => {

@@ -324,18 +324,49 @@ class PageAlliance {
     return this;
   }
   /**
-   * Coordonnées de tous les membres + persistance localStorage. Lues dans
-   * l'export public des joueurs (une requête) ; les pages de profil ne sont
-   * lues que pour les membres absents de l'export (arrivés depuis), ou pour
-   * tous si l'export ne répond pas.
-   * Ne touche pas à l'UI — résolveurs (Carte / tableau Membres) gèrent leur propre feedback.
+   * Coordonnées de tous les membres de la page, gardées pour la Carte, la vue
+   * « Temps de trajet » et le Récapitulatif de la page Convois.
    *
    * @private
    * @method _fetchAndCacheCoords
    * @returns {Promise<{members, timestamp}>}
    */
   _fetchAndCacheCoords(progres = () => {}) {
-    const pseudos = Object.keys(this._alliance.joueurs);
+    return PageAlliance.chargerPositions(this._alliance.joueurs, progres);
+  }
+  /**
+   * Positions des membres depuis une autre page que Membres (Récapitulatif de
+   * la page Convois, au clic) : leur liste est lue comme pour les TdC (page
+   * Membres, sinon page de l'alliance au classement), puis comme « Charger /
+   * Actualiser » de la Carte.
+   *
+   * @static
+   * @method actualiserPositions
+   * @param {Function} [progres] (faits, total)
+   * @returns {Promise<{members, timestamp}>}
+   */
+  static actualiserPositions(progres = () => {}) {
+    return PartageChasses.tdcMembres().then((tdc) => {
+      let joueurs = {};
+      for (let pseudo in tdc) joueurs[pseudo] = new Joueur({ pseudo, terrain: tdc[pseudo] });
+      return PageAlliance.chargerPositions(joueurs, progres);
+    });
+  }
+  /**
+   * Coordonnées des membres + persistance localStorage. Lues dans l'export
+   * public des joueurs (une requête) ; les pages de profil ne sont lues que
+   * pour les membres absents de l'export (arrivés depuis), ou pour tous si
+   * l'export ne répond pas. Ne touche pas à l'affichage : chaque page appelante
+   * donne son propre retour.
+   *
+   * @static
+   * @method chargerPositions
+   * @param {Object} joueurs {pseudo: Joueur}
+   * @param {Function} [progres] (faits, total)
+   * @returns {Promise<{members, timestamp}>}
+   */
+  static chargerPositions(joueurs, progres = () => {}) {
+    const pseudos = Object.keys(joueurs);
     if (!pseudos.length) {
       return Promise.reject(new Error("Aucun membre détecté dans l'alliance."));
     }
@@ -345,7 +376,7 @@ class PageAlliance {
       .then((exportJoueurs) => {
         let faits = 0;
         const promises = pseudos.map((pseudo) => {
-          const joueur = this._alliance.joueurs[pseudo],
+          const joueur = joueurs[pseudo],
             exporte = exportJoueurs.get(pseudo);
           if (exporte) {
             Object.assign(joueur, { id: exporte.id, x: exporte.x, y: exporte.y });

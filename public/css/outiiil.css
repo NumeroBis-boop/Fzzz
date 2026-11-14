@@ -2936,6 +2936,20 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   text-align: left;
   padding-top: 4px;
 }
+/* lien discret, à droite sous le tableau : positions des membres relues au clic */
+.o_convoisPositions,
+.o_convoisPositions:visited {
+  float: right;
+  margin-left: 12px;
+  color: var(--fzzz-secondaire);
+  font-size: var(--fzzz-petit);
+  font-style: italic;
+  opacity: 0.85;
+}
+.o_convoisPositions.o_enCours {
+  pointer-events: none;
+  opacity: 0.6;
+}
 .o_triIcone {
   display: inline-block;
   min-width: 1.1em;

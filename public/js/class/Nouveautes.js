@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.117.1",
+    notes: [
+      "Page Convois, Récapitulatif : quand un temps de trajet est inconnu (nouveau membre de l'alliance), un lien « Actualiser les positions » apparaît en bas du tableau (même lecture que « Charger / Actualiser » de la Carte).",
+    ],
+  },
+  {
     version: "1.117.0",
     notes: [
       "Préférences rangées par page du jeu : Général, Ressources, Armée, Attaque, Convois, Messagerie, Alliance, Partage de données, Pages et À propos. Tes réglages sont gardés.",

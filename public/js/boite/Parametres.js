@@ -624,6 +624,15 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Exporter maintenant</p>
         <p class='left'><button type='button' class='o_button f_info o_exporterRapports' data-quoi='chasse'>Exporter mes chasses</button> <button type='button' class='o_button f_info o_exporterRapports' data-quoi='combat'>Exporter mes RC</button></p>
         <p class='left o_aideParam'>Les conversations de ta boîte de réception dont un rapport manque au Google Sheet où tu exportes tes rapports sont lues une à une, puis envoyées : chasses (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») ; attaques (« ${EXPORTS_RAPPORTS.attaque.onglet} »), défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») et floods avec les membres de l'alliance (« ${EXPORTS_RAPPORTS.interne.onglet} »). Les mêmes boutons peuvent aussi s'afficher dans la messagerie (onglet « Messagerie »).</p>
+        ${
+          // réservé au mainteneur, comme le journal
+          Journal.pourCeJoueur()
+            ? `<p class='o_titreParam'>Sujets communs du forum</p>
+        <p class='left o_aideParam'>Cette version lit et écrit les floods et les chasses seulement dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une section par joueur. Les joueurs de la version finale partagent encore dans leurs sujets « Floods | pseudo » et « Chasses | pseudo » : ces boutons reportent leurs floods ou leurs chasses à venir dans leur section, quand elle manque ou est plus ancienne que leur sujet. Une lecture du forum par joueur à reporter, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
+        <p class='left'><button type='button' class='o_button o_partageReporter' data-type='Floods'>Reporter les floods</button> <button type='button' class='o_button o_partageReporter' data-type='Chasses'>Reporter les chasses</button></p>
+        <p id='o_partageReporterEtat' class='left small'></p>`
+            : ""
+        }
       </form>`),
       etat = (message = "") =>
         $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
@@ -646,6 +655,24 @@ class BoiteParametre extends Boite {
     $onglet.find("input[data-partage]").on("change", (e) => {
       SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
       etat();
+    });
+    $onglet.find(".o_partageReporter").on("click", (e) => {
+      e.preventDefault();
+      // un report à la fois
+      let $boutons = $onglet.find(".o_partageReporter").prop("disabled", true),
+        afficher = (/** @type {String} */ texte) => {
+          $onglet.find("#o_partageReporterEtat").text(texte);
+          this.ajusterTaille();
+        };
+      PartageChasses.reporterTout(afficher, [e.currentTarget.dataset.type])
+        .then(afficher, (err) =>
+          afficher(
+            err && err.message == "absente"
+              ? SECTION_INTROUVABLE
+              : "Forum de l'alliance illisible : rien n'est reporté, réessaie plus tard.",
+          ),
+        )
+        .then(() => $boutons.prop("disabled", false));
     });
     $onglet.find("#o_partageEnvoyer").on("click", (e) => {
       e.preventDefault();

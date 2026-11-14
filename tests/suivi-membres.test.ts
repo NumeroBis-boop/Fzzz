@@ -1180,4 +1180,61 @@ describe("Préférences → Partage de données", () => {
       ["combat", "Exporter mes RC", ["liste combat"]],
     ]);
   });
+
+  test("boutons « Reporter les floods » et « Reporter les chasses » : pour le mainteneur seulement ; chacun son type, avancement, puis bilan", async () => {
+    preferences.lire(`localStorage.clear()`);
+    ouvrir();
+    // un autre joueur : ni le bloc ni les boutons
+    expect(preferences.lire(`$(".o_partageReporter").length`)).toBe(0);
+    expect(preferences.lire<string>(`$("#o_tabsParametrePartage").text()`)).not.toContain(
+      "Sujets communs du forum",
+    );
+    preferences.lire(`(() => {
+      $("body").append("<span id='pseudo'>DoggyBag</span>");
+      $("#o_tabsParametrePartage").empty();
+      boite.ongletPartage();
+    })()`);
+    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
+    expect(texte).toContain("Sujets communs du forum");
+    expect(texte).toContain("« Floods | pseudo » et « Chasses | pseudo »");
+    expect(texte).toContain("reste sur la page jusqu'au bilan.");
+    expect(
+      preferences.lire(
+        `$(".o_partageReporter").map((i, b) => b.textContent + " " + b.dataset.type).get()`,
+      ),
+    ).toEqual(["Reporter les floods Floods", "Reporter les chasses Chasses"]);
+    preferences.lire(`(() => {
+      window.REPORT = { fin: null, echec: null, types: [] };
+      PartageChasses.reporterTout = (etat, types) => {
+        REPORT.types.push(types);
+        etat("« BDD générale chasse - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…");
+        return new Promise((ok, non) => { REPORT.fin = ok; REPORT.echec = non; });
+      };
+      $(".o_partageReporter[data-type='Chasses']").trigger("click");
+    })()`);
+    const etat = () =>
+      preferences.lire(
+        `[$(".o_partageReporter:disabled").length, $("#o_partageReporterEtat").text()]`,
+      );
+    // un report à la fois : les deux boutons attendent
+    expect(etat()).toEqual([2, "« BDD générale chasse - NE RIEN ÉCRIRE » : sujet 1 / 2 (Beta)…"]);
+    expect(preferences.lire(`REPORT.types`)).toEqual([["Chasses"]]);
+    preferences.lire(
+      `REPORT.fin("« BDD générale chasse - NE RIEN ÉCRIRE » : 2 sections reportées.")`,
+    );
+    await attendre();
+    expect(etat()).toEqual([0, "« BDD générale chasse - NE RIEN ÉCRIRE » : 2 sections reportées."]);
+    preferences.lire(`$(".o_partageReporter[data-type='Floods']").trigger("click")`);
+    expect(preferences.lire(`REPORT.types`)).toEqual([["Chasses"], ["Floods"]]);
+    preferences.lire(`REPORT.echec(new Error("absente"))`);
+    await attendre();
+    expect(etat()).toEqual([0, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
+    preferences.lire(`$(".o_partageReporter[data-type='Floods']").trigger("click")`);
+    preferences.lire(`REPORT.echec(new Error("forum"))`);
+    await attendre();
+    expect(etat()[1]).toBe(
+      "Forum de l'alliance illisible : rien n'est reporté, réessaie plus tard.",
+    );
+    preferences.lire(`$("#pseudo").remove()`);
+  });
 });

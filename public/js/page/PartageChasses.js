@@ -322,12 +322,14 @@ class PartageChasses {
         throw new Error("section inaccessible");
       }
       // clé « Convois | pseudo en minuscules » → id du sujet des convois du joueur ;
+      // sujets.liste : sujets « Floods | … » / « Chasses | … » des joueurs de la
+      // version finale {type, pseudo, id, dernier, modifie}, lus par le report seulement ;
       // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
       // sujets.exportSheet : sujet de l'adresse du Google Sheet ;
       // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance ;
       // sujets.statsMembres : sujet de l'adresse du fichier des statistiques des membres
       // sujets.communs : sujets communs par type {type, id, dernier, modifie}
-      let sujets = { historiques: [], communs: {} },
+      let sujets = { liste: [], historiques: [], communs: {} },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
         normaliser = (/** @type {String} */ t) =>
           t
@@ -340,6 +342,7 @@ class PartageChasses {
         .each((i, elt) => {
           let titre = $(elt).find("td:eq(1)").text().trim(),
             m = titre.match(/^Convois \| (.+)$/),
+            suivi = titre.match(/^(Chasses|Floods) \| (.+)$/),
             h = titre.match(/^Historique (Chasses|Floods) (\d+) \| (.+)$/),
             idSujet =
               $(elt).find("input[name='topic[]']").val() ||
@@ -360,6 +363,14 @@ class PartageChasses {
           // titre écrit par un membre : caractères de balisage retirés
           if (m && idSujet)
             sujets[`Convois | ${PartageChasses.nettoyer(m[1]).toLowerCase()}`] = idSujet;
+          if (suivi && idSujet)
+            sujets.liste.push({
+              type: suivi[1],
+              pseudo: PartageChasses.nettoyer(suivi[2]),
+              id: idSujet,
+              dernier,
+              modifie: PartageChasses.dateListe(dernier),
+            });
           if (
             commun &&
             idSujet &&
@@ -805,6 +816,231 @@ class PartageChasses {
    */
   static _attendre(ms) {
     return new Promise((r) => setTimeout(r, ms));
+  }
+  /**
+   * Le sujet d'un joueur est-il recopié par sa section ? Oui s'il a été
+   * modifié au plus tard dans la minute où elle a été écrite (elle l'est après
+   * lui) ; plus récent (joueur de la version finale), c'est lui qui fait foi.
+   *
+   * @static
+   * @method couvert
+   * @param {{modifie?: Number|null}} t sujet du joueur dans la liste
+   * @param {{ecrit: String}|null|undefined} s sa section la plus récente
+   * @return {Boolean}
+   */
+  static couvert(t, s) {
+    return (
+      !!s &&
+      t.modifie != null &&
+      t.modifie <= moment(s.ecrit, "YYYY-MM-DD HH:mm:ss").startOf("minute").valueOf()
+    );
+  }
+  /**
+   * Boutons « Reporter les floods » et « Reporter les chasses » (Préférences →
+   * Partage de données, réservés au mainteneur) : les joueurs de la version
+   * finale partagent encore dans leur sujet « Floods | … » / « Chasses | … »,
+   * que cette version ne lit plus ; leurs entrées à venir sont reportées dans
+   * leur section du sujet commun quand elle manque ou est plus ancienne que
+   * leur sujet. La section reportée est datée de la minute qui précède la
+   * lecture du sujet : une modification faite dans la minute de la lecture le
+   * fait reporter de nouveau au report suivant.
+   *
+   * @static
+   * @method reporterTout
+   * @param {(texte: String) => void} [etat] avancement affiché
+   * @param {Array<String>} [demandes] types à reporter, "Floods" et/ou "Chasses"
+   * @return {Promise<String>} bilan à afficher
+   */
+  static reporterTout(etat = () => {}, demandes = ["Floods", "Chasses"]) {
+    etat("Lecture de la liste des sujets…");
+    return PartageChasses.sujets().then((sujets) => {
+      let types = demandes.filter((type) => (sujets.communs || {})[type]);
+      if (!types.length)
+        return `Aucun sujet ${demandes.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(" ni ")} dans la section : rien à reporter.`;
+      /** @type {Array<String>} */
+      let bilans = [];
+      return types
+        .reduce(
+          (suite, type) =>
+            suite.then(() =>
+              PartageChasses._reporter(type, sujets, etat).then((b) => void bilans.push(b)),
+            ),
+          Promise.resolve(),
+        )
+        .then(() => bilans.join(" "));
+    });
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} type
+   * @param {any} sujets
+   * @param {(texte: String) => void} etat
+   * @return {Promise<String>}
+   */
+  static _reporter(type, sujets, etat) {
+    let titre = SUJETS_COMMUNS[type],
+      commun = sujets.communs[type],
+      nombre = (
+        /** @type {Number} */ n,
+        /** @type {String} */ un,
+        /** @type {String} */ plusieurs,
+      ) => `${numeral(n).format()} ${n > 1 ? plusieurs : un}`;
+    etat(`« ${titre} » : lecture…`);
+    return PartageChasses._texteSujet(commun.id).then((texte) => {
+      let recentes = PartageChasses.sectionsRecentes(PartageChasses.sections(texte).sections),
+        joueurs = sujets.liste.filter((/** @type {any} */ t) => t.type == type),
+        aLire = joueurs.filter(
+          (/** @type {any} */ t) => !PartageChasses.couvert(t, recentes[t.pseudo.toLowerCase()]),
+        ),
+        /** @type {Array<any>} */
+        nouvelles = [],
+        illisibles = 0,
+        coupes = 0,
+        k = 0,
+        maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm");
+      return aLire
+        .reduce(
+          (suite, /** @type {any} */ t) =>
+            suite.then(() => {
+              etat(`« ${titre} » : sujet ${++k} / ${aLire.length} (${t.pseudo})…`);
+              return PartageChasses._lireDate(t).then(
+                ({ v, lu }) => {
+                  // les plus proches d'abord : ce sont elles que l'affichage montre en premier
+                  let entrees = (type == "Chasses" ? v.chasses : v.floods)
+                    .filter((/** @type {any} */ e) => e.date >= maintenant)
+                    .sort((/** @type {any} */ a, /** @type {any} */ b) =>
+                      a.date < b.date ? -1 : a.date > b.date ? 1 : (a.id || 0) - (b.id || 0),
+                    );
+                  if (entrees.length > COMMUN_MAX_ENTREES) coupes++;
+                  nouvelles.push({
+                    pseudo: t.pseudo,
+                    ecrit: moment(lu)
+                      .startOf("minute")
+                      .subtract(1, "second")
+                      .format("YYYY-MM-DD HH:mm:ss"),
+                    lignes: PartageChasses._lignesSection(
+                      type,
+                      entrees.slice(0, COMMUN_MAX_ENTREES),
+                    ),
+                  });
+                },
+                () => void illisibles++,
+              );
+            }),
+          Promise.resolve(),
+        )
+        .then(() => {
+          etat(`« ${titre} » : écriture…`);
+          return PartageChasses._reporterSections(type, commun.id, nouvelles);
+        })
+        .then((r) => {
+          let aJour = joueurs.length - aLire.length,
+            details = [
+              nombre(r.ecrites, "section reportée", "sections reportées"),
+              aJour ? nombre(aJour, "déjà à jour", "déjà à jour") : "",
+              illisibles ? nombre(illisibles, "sujet illisible", "sujets illisibles") : "",
+              coupes
+                ? `${nombre(coupes, "sujet coupé", "sujets coupés")} aux ${COMMUN_MAX_ENTREES} entrées les plus proches`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(", "),
+            bilan =
+              r.etat == "écrites"
+                ? `« ${titre} » : ${details}.`
+                : r.etat == "trop long"
+                  ? `« ${titre} » : rien n'est écrit, le message dépasserait la taille d'un message du forum (${numeral(r.longueur).format()} caractères).`
+                  : `« ${titre} » : écriture défaite par d'autres membres après ${r.essai} essais, réessaie plus tard.`;
+          if (r.etat == "écrites") Journal.info("Forum", bilan);
+          else Journal.erreur("Forum", bilan);
+          return bilan;
+        });
+    });
+  }
+  /**
+   * Contenu du sujet d'un joueur et heure du serveur de sa lecture : la
+   * lecture gardée si elle fait foi, sinon une lecture neuve.
+   *
+   * @private
+   * @static
+   * @param {any} t sujet de la liste
+   * @return {Promise<{v: any, lu: Number}>}
+   */
+  static _lireDate(t) {
+    let gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
+      garde = PartageChasses.sujetGarde(gardes, t);
+    if (garde) return Promise.resolve({ v: garde, lu: gardes[t.id].lu });
+    // avant la requête : l'heure de lecture gardée n'est jamais trop tardive
+    let debut = Horloge.maintenant();
+    return PartageChasses._texteSujet(t.id).then((texte) => {
+      let v = PartageChasses.lireEntrees(texte);
+      PartageChasses._garderSujet(t.id, t.dernier || "", debut, v);
+      return { v, lu: debut };
+    });
+  }
+  /**
+   * Sections reportées pour d'autres joueurs : chacune remplace celle de son
+   * joueur, sauf si celle-ci est plus récente (il a partagé depuis avec cette
+   * version) ; une section sans ligne retire la sienne. Relu après
+   * PAUSE_VERIF_COMMUN, écrit de nouveau si un membre l'a défait.
+   *
+   * @private
+   * @static
+   * @param {String} type
+   * @param {String} idSujet
+   * @param {Array<{pseudo: String, ecrit: String, lignes: Array<String>}>} nouvelles
+   * @param {Number} [essai]
+   * @return {Promise<{etat: String, essai: Number, ecrites: Number, longueur: Number}>}
+   *   etat : « écrites », « défaites » ou « trop long »
+   */
+  static _reporterSections(type, idSujet, nouvelles, essai = 1) {
+    let cle = (/** @type {String} */ p) => String(p).toLowerCase(),
+      bilan = (/** @type {String} */ etat, ecrites = 0, longueur = 0) => ({
+        etat,
+        essai,
+        ecrites,
+        longueur,
+      });
+    return PartageChasses._texteSujet(idSujet).then((texte) => {
+      let lu = PartageChasses.sections(texte),
+        siennes = (/** @type {Array<any>} */ sections, /** @type {any} */ n) =>
+          sections.filter((s) => cle(s.pseudo) == cle(n.pseudo)),
+        // un joueur sans ligne ni section : rien à changer
+        retenues = nouvelles.filter(
+          (n) =>
+            !siennes(lu.sections, n).some((s) => s.ecrit > n.ecrit) &&
+            (n.lignes.length || siennes(lu.sections, n).length),
+        ),
+        remplaces = new Set(retenues.map((n) => cle(n.pseudo))),
+        message = PartageChasses.texteCommun(
+          lu.preambule,
+          lu.sections
+            .filter((/** @type {any} */ s) => !remplaces.has(cle(s.pseudo)))
+            .concat(retenues.filter((n) => n.lignes.length)),
+        );
+      if (!retenues.length) return bilan("écrites");
+      if (message.length > COMMUN_MAX_CARACTERES) return bilan("trop long", 0, message.length);
+      let q = `sujet=${encodeURIComponent(SUJETS_COMMUNS[type])}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
+      return PartageChasses._xajax(
+        "envoiEditTopic",
+        `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
+      )
+        .then(() => PartageChasses._attendre(PAUSE_VERIF_COMMUN))
+        .then(() => PartageChasses._texteSujet(idSujet))
+        .then((relu) => {
+          let apres = PartageChasses.sections(relu).sections,
+            // une section plus récente du même joueur (il a partagé entre-temps) compte aussi
+            faite = (/** @type {any} */ n) =>
+              n.lignes.length
+                ? siennes(apres, n).some((s) => s.ecrit >= n.ecrit)
+                : !siennes(apres, n).some((s) => s.ecrit < n.ecrit);
+          if (retenues.every(faite)) return bilan("écrites", retenues.length, message.length);
+          if (essai < ESSAIS_COMMUN)
+            return PartageChasses._reporterSections(type, idSujet, nouvelles, essai + 1);
+          return bilan("défaites");
+        });
+    });
   }
   /**
    * Ajoute des lignes (actions passées, de la plus ancienne à la plus récente)

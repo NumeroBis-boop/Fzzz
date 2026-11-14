@@ -542,3 +542,238 @@ describe("écriture de ma section", () => {
     }
   });
 });
+
+describe("boutons « Reporter les floods » et « Reporter les chasses » (mainteneur) : sujets des joueurs de la version finale vers leur section", () => {
+  const G5 = flood("2026-11-13 23:45", "Alpha", 51);
+  /** Gamma : section ancienne, sujet modifié depuis ; Delta : sujet vide, sans section. */
+  function preparerReport() {
+    preparer(
+      [
+        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
+        section("Gamma", "2026-11-13 22:10:00", [
+          ligne("Floods", flood("2026-11-13 23:05", "Old", 9)),
+        ]),
+      ].join("\n"),
+    );
+    lire(`(() => {
+      FORUM.sujets.push({ id: "5", titre: "Floods | Gamma", dernier: "13 nov. à 22h27", texte: ${JSON.stringify(ligne("Floods", G5))} });
+      FORUM.sujets.push({ id: "6", titre: "Floods | Delta", dernier: "13 nov. à 22h00", texte: "Aucun flood en cours." });
+    })()`);
+    regler("2026-11-13 22:30:40");
+  }
+  const reporter = () =>
+    lire<Promise<string>>(
+      `(() => { window.ETATS = []; return PartageChasses.reporterTout((t) => ETATS.push(t)); })()`,
+    );
+  const sectionsDe = (id: string) =>
+    lire<any[]>(
+      `PartageChasses.sections(FORUM.sujets.find((s) => s.id == ${JSON.stringify(id)}).texte).sections`,
+    );
+
+  test("reporte les joueurs sans section ou dont la section est plus ancienne que leur sujet ; bilan", async () => {
+    preparerReport();
+    expect(await reporter()).toBe(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour. « BDD générale chasse - NE RIEN ÉCRIRE » : 1 section reportée.",
+    );
+    // datée de la minute qui précède la lecture de son sujet
+    expect(
+      sectionsDe("10").map((s) => [s.pseudo, s.ecrit, s.floods.map((f: any) => f.id)]),
+    ).toEqual([
+      ["Alpha", "2026-11-13 22:20:30", [11]],
+      ["Beta", "2026-11-13 22:29:59", [21]],
+      ["Gamma", "2026-11-13 22:29:59", [51]],
+    ]);
+    expect(sectionsDe("11").map((s) => [s.pseudo, s.chasses.map((c: any) => c.terrain)])).toEqual([
+      ["Alpha", [1500]],
+    ]);
+    // le texte écrit à la main reste ; une écriture par sujet commun, puis sa vérification
+    expect(sujet("10").texte.startsWith("NE RIEN ÉCRIRE ICI\n")).toBe(true);
+    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["10", "11"]);
+    expect(lire<string[]>(`ETATS`)).toContain(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : sujet 1 / 3 (Beta)…",
+    );
+    expect(notes()).toContain(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour.",
+    );
+  });
+
+  test("seuls les floods à venir sont reportés, pas ceux déjà arrivés", async () => {
+    preparerReport();
+    lire(
+      `(() => { FORUM.sujets.find((s) => s.id == "2").texte = ${JSON.stringify([ligne("Floods", F21), ligne("Floods", flood("2026-11-13 22:00", "Passe", 8))].join("\n"))}; })()`,
+    );
+    await reporter();
+    expect(
+      sectionsDe("10")
+        .find((s) => s.pseudo == "Beta")
+        .floods.map((f: any) => f.id),
+    ).toEqual([21]);
+  });
+
+  test("ensuite, l'affichage ne lit plus que les sujets communs", async () => {
+    preparerReport();
+    await reporter();
+    regler("2026-11-13 22:40:00");
+    const d = await charger();
+    expect(lectures().filter((id) => !["10", "11"].includes(id))).toEqual([]);
+    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
+      ["Alpha", 11],
+      ["Beta", 21],
+      ["Gamma", 51],
+    ]);
+  });
+
+  test("une modification du sujet dans la minute de sa lecture : ce joueur est reporté de nouveau au report suivant", async () => {
+    preparerReport();
+    await reporter();
+    // Beta modifie son sujet à 22:30:50, après la lecture du report (22:30:40) : même minute
+    lire(`(() => {
+      const s = FORUM.sujets.find((s) => s.id == "2");
+      s.dernier = "13 nov. à 22h30";
+      s.texte = ${JSON.stringify(ligne("Floods", flood("2026-11-13 23:59", "Zeta", 22)))};
+      FORUM.lectures.length = 0;
+    })()`);
+    regler("2026-11-13 22:40:00");
+    expect(await reporter()).toStartWith(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 1 section reportée, 2 déjà à jour.",
+    );
+    expect(lire<string[]>(`FORUM.lectures`)).toContain("2");
+    expect(
+      sectionsDe("10")
+        .find((s) => s.pseudo == "Beta")
+        .floods.map((f: any) => f.id),
+    ).toEqual([22]);
+  });
+
+  test("une section plus récente que le report (son joueur l'a recopiée entre-temps) est gardée", async () => {
+    preparer(
+      section("Beta", "2026-11-13 22:35:00", [
+        ligne("Floods", flood("2026-11-13 23:59", "Zeta", 77)),
+      ]),
+    );
+    const r = await lire<Promise<any>>(
+      `PartageChasses._reporterSections("Floods", "10", [{ pseudo: "Beta", ecrit: "2026-11-13 22:29:59", lignes: ["x"] }])`,
+    );
+    expect([r.etat, r.ecrites]).toEqual(["écrites", 0]);
+    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
+  });
+
+  test("tout est déjà à jour : rien n'est écrit", async () => {
+    preparerReport();
+    await reporter();
+    lire(`(() => { FORUM.ecritures.length = 0; })()`);
+    regler("2026-11-13 22:45:00");
+    expect(await reporter()).toBe(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 0 section reportée, 3 déjà à jour. « BDD générale chasse - NE RIEN ÉCRIRE » : 0 section reportée, 1 déjà à jour.",
+    );
+    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
+  });
+
+  test("sujet d'un joueur illisible : compté, les autres sont reportés", async () => {
+    preparerReport();
+    lire(`(() => { FORUM.echoue.push("5"); })()`);
+    expect(await reporter()).toStartWith(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 1 section reportée, 1 déjà à jour, 1 sujet illisible.",
+    );
+  });
+
+  test("joueur avec trop de floods à venir pour une section : les plus proches reportés, compté", async () => {
+    preparerReport();
+    const beaucoup = Array.from({ length: 101 }, (_, i) =>
+      flood("2026-11-13 23:40", "Cible", 100 + i),
+    );
+    lire(
+      `(() => { FORUM.sujets.find((s) => s.id == "5").texte = ${JSON.stringify(beaucoup.map((f) => ligne("Floods", f)).join("\n"))}; })()`,
+    );
+    expect(await reporter()).toStartWith(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour, 1 sujet coupé aux 100 entrées les plus proches.",
+    );
+    const gamma = sectionsDe("10").find((s) => s.pseudo == "Gamma");
+    expect([gamma.floods.length, gamma.floods.some((f: any) => f.id == 200)]).toEqual([100, false]);
+  });
+
+  test("sujet lu il y a peu (lecture gardée qui fait foi) : pas relu, daté de cette lecture", async () => {
+    preparerReport();
+    await reporter();
+    // la section de Beta est défaite : le report suivant reprend la lecture gardée de son sujet
+    lire(`(() => {
+      const s = FORUM.sujets.find((s) => s.id == "10");
+      s.texte = s.texte.replace(/--- Beta[^\\n]*\\n[^\\n]*\\n?/, "");
+      FORUM.lectures.length = 0;
+    })()`);
+    expect(sectionsDe("10").map((s) => s.pseudo)).toEqual(["Alpha", "Gamma"]);
+    regler("2026-11-13 22:31:50");
+    await reporter();
+    expect(lire<string[]>(`FORUM.lectures.filter((id) => ["2", "5", "6"].includes(id))`)).toEqual(
+      [],
+    );
+    expect(sectionsDe("10").find((s) => s.pseudo == "Beta").ecrit).toBe("2026-11-13 22:29:59");
+  });
+
+  test("message trop long : rien n'est écrit, le bilan le dit", async () => {
+    preparerReport();
+    // texte écrit à la main avant les sections, gardé à chaque écriture
+    lire(
+      `(() => { const s = FORUM.sujets.find((s) => s.id == "10"); s.texte = "x".repeat(40000) + "\\n" + s.texte; })()`,
+    );
+    expect(await reporter()).toStartWith(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : rien n'est écrit, le message dépasserait la taille d'un message du forum",
+    );
+    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["11"]);
+  });
+
+  test("écriture défaite à chaque essai : le bilan dit de réessayer", async () => {
+    preparerReport();
+    lire(`(() => {
+      const avant = FORUM.sujets.find((s) => s.id == "10").texte;
+      FORUM.pendant = () => {
+        FORUM.sujets.find((s) => s.id == "10").texte = avant;
+        return Promise.resolve();
+      };
+    })()`);
+    expect(await reporter()).toStartWith(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : écriture défaite par d'autres membres après 3 essais, réessaie plus tard.",
+    );
+  });
+
+  test("bouton des chasses : seul le sujet commun des chasses est écrit", async () => {
+    preparerReport();
+    const bilan = await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Chasses"])`);
+    expect(bilan).toBe("« BDD générale chasse - NE RIEN ÉCRIRE » : 1 section reportée.");
+    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["11"]);
+    expect(sectionsDe("11").map((s) => [s.pseudo, s.chasses.map((c: any) => c.terrain)])).toEqual([
+      ["Alpha", [1500]],
+    ]);
+    // aucun sujet de floods lu
+    expect(
+      lire<string[]>(`FORUM.lectures.filter((id) => ["1", "2", "5", "6", "10"].includes(id))`),
+    ).toEqual([]);
+  });
+
+  test("bouton des floods : seul le sujet commun des floods est écrit", async () => {
+    preparerReport();
+    const bilan = await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Floods"])`);
+    expect(bilan).toBe(
+      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour.",
+    );
+    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["10"]);
+  });
+
+  test("bouton des chasses sans sujet commun des chasses : le bilan le dit", async () => {
+    preparerReport();
+    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);
+    expect(await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Chasses"])`)).toBe(
+      "Aucun sujet « BDD générale chasse - NE RIEN ÉCRIRE » dans la section : rien à reporter.",
+    );
+    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
+  });
+
+  test("pas de sujet commun : rien n'est lu, le bilan le dit", async () => {
+    preparer(null);
+    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);
+    expect(await reporter()).toBe(
+      "Aucun sujet « BDD générale flood - NE RIEN ÉCRIRE » ni « BDD générale chasse - NE RIEN ÉCRIRE » dans la section : rien à reporter.",
+    );
+    expect(lire<string[]>(`FORUM.lectures`)).toEqual([]);
+  });
+});

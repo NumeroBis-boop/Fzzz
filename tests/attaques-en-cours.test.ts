@@ -42,7 +42,7 @@ const page = creerPage(
 const lire = <T = any>(e: string) => page.lire<T>(e);
 // remis en place avant chaque test (un test les remplace)
 lire(
-  `window.ORIGINE = { simuler: PartageChasses.simuler, erreur: console.error, charger: PartageChasses.charger, sujets: PartageChasses.sujets, lireSujet: PartageChasses.lireSujet, instant: performance.now }`,
+  `window.ORIGINE = { simuler: PartageChasses.simuler, erreur: console.error, charger: PartageChasses.charger, sujets: PartageChasses.sujets, texteSujet: PartageChasses._texteSujet, instant: performance.now }`,
 );
 const attendre = () => new Promise((r) => setTimeout(r, 20));
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
@@ -98,7 +98,7 @@ beforeEach(() => {
     window.FORUM = ${JSON.stringify(FORUM)};
     window.ECRITS = { floods: [], chasses: [], retraits: [], partage: true, illisible: false };
     PartageChasses.simuler = ORIGINE.simuler; console.error = ORIGINE.erreur;
-    PartageChasses.sujets = ORIGINE.sujets; PartageChasses.lireSujet = ORIGINE.lireSujet; performance.now = ORIGINE.instant;
+    PartageChasses.sujets = ORIGINE.sujets; PartageChasses._texteSujet = ORIGINE.texteSujet; performance.now = ORIGINE.instant;
     AttaqueLancee.recharger = () => JEU.rechargements++;
     PartageChasses.charger = (de = null, avecFloods = true) => {
       if (ECRITS.illisible) return Promise.reject(new Error("forum"));
@@ -467,12 +467,14 @@ describe("chargement : avancement dans le titre du bloc", () => {
       window.FINIR = {};
       let differe = (cle, valeur) => new Promise((r) => (FINIR[cle] = () => r(valeur)));
       PartageChasses.charger = ORIGINE.charger;
-      PartageChasses.sujets = () => differe("liste", { liste: [
-        { type: "Floods", pseudo: "Autre", id: "1" }, { type: "Floods", pseudo: "Moi", id: "2" }, { type: "Chasses", pseudo: "Moi", id: "3" },
-        { type: "Chasses", pseudo: "Lassie", id: "4" } ] });
-      PartageChasses.lireSujet = (id) => differe("sujet" + id, id == "1"
-        ? { chasses: [], floods: [${JSON.stringify({ ...flood(700, "10:25", "Autre", "Moi", 30000), lanceur: undefined })}] }
-        : id == "3" ? { chasses: FORUM.chasses.moi, floods: [] } : { chasses: [], floods: [] });
+      // sujets communs : les floods de chaque membre (Autre me floode), les chasses (les miennes, celles de Lassie)
+      PartageChasses.sujets = () => differe("liste", { historiques: [], communs: {
+        Floods: { type: "Floods", id: "10", dernier: "", modifie: null },
+        Chasses: { type: "Chasses", id: "11", dernier: "", modifie: null } } });
+      PartageChasses._texteSujet = (id) => differe("sujet" + id, id == "10"
+        ? ["--- Autre · 2026-11-12 09:00:00 ---", PartageChasses._ligne("Floods", ${JSON.stringify({ ...flood(700, "10:25", "Autre", "Moi", 30000), lanceur: undefined })})].join("\\n")
+        : ["--- Moi · 2026-11-12 09:00:00 ---", ...FORUM.chasses.moi.map((c) => PartageChasses._ligne("Chasses", c)),
+           "--- Lassie · 2026-11-12 09:00:00 ---", "12/11/26 12:00 | 700 cm²"].join("\\n"));
       let get = $.get;
       $.get = (url) => String(url).endsWith("/Ressources.php") ? (JEU.lues.push("/Ressources.php"), differe("ressources", "<div id='boite_tdc'></div>")) : get(url);
     })()`);
@@ -489,17 +491,16 @@ describe("chargement : avancement dans le titre du bloc", () => {
     // « TdC après » de mes attaques en attente
     expect(cases().map((l) => l[5])).toEqual(["…", "…"]);
     await finir("liste", 1000);
-    // 3 sujets à lire : les floods de chaque membre et mes chasses (pas celles de Lassie)
-    expect(etat()).toBe("chargement 1 / 5");
+    // 2 sujets à lire : le sujet commun des floods et celui des chasses
+    expect(etat()).toBe("chargement 1 / 4");
     await finir("ressources", 2000);
-    // 2 lectures en 2 s, il en reste 3
-    expect(etat()).toBe("chargement 2 / 5, encore ≈ 3 s");
-    await finir("sujet1", 2500);
-    expect(etat()).toBe("chargement 3 / 5, encore ≈ 2 s");
-    await finir("sujet2", 3000);
-    await finir("sujet3", 3500);
-    // Autre me floode : ses chasses (liste des sujets relue) et la page Membres en plus
-    expect(etat()).toBe("chargement 6 / 7, encore ≈ 1 s");
+    // 2 lectures en 2 s, il en reste 2
+    expect(etat()).toBe("chargement 2 / 4, encore ≈ 2 s");
+    await finir("sujet10", 2500);
+    expect(etat()).toBe("chargement 3 / 4, encore ≈ 1 s");
+    await finir("sujet11", 3000);
+    // Autre me floode : ses chasses (liste des sujets relue, sujet commun gardé) et la page Membres en plus
+    expect(etat()).toBe("chargement 5 / 6, encore ≈ 1 s");
     await finir("liste", 4000);
     expect(lire(`$("#o_attaquesLancees .o_attaquesChargement").length`)).toBe(0);
     expect(cases().map((l) => l[5])).toEqual(["103 000", "82 400", "87 400", "91 400", "92 400"]);
@@ -517,9 +518,8 @@ describe("chargement : avancement dans le titre du bloc", () => {
     for (const [cle, t] of [
       ["liste", 100],
       ["ressources", 200],
-      ["sujet1", 300],
-      ["sujet2", 400],
-      ["sujet3", 500],
+      ["sujet10", 300],
+      ["sujet11", 400],
       ["liste", 600],
     ] as [string, number][])
       await finir(cle, t);
@@ -568,7 +568,8 @@ describe("chargement : avancement dans le titre du bloc", () => {
     differer();
     lire(`FORUM.chasses.moi = []; PageRessource.lireChasses = () => [];`);
     lire(`(() => {
-      PartageChasses.lireSujet = ((lire) => (id) => (id == "1" ? (FINIR.sujet1 = () => {}, Promise.resolve({ chasses: [], floods: [] })) : lire(id)))(PartageChasses.lireSujet);
+      // personne ne me floode : le sujet commun des floods est vide
+      PartageChasses._texteSujet = ((lire) => (id) => (id == "10" ? (FINIR.sujet10 = () => {}, Promise.resolve("")) : lire(id)))(PartageChasses._texteSujet);
       document.body.innerHTML = ${JSON.stringify(armee())};
       AttaqueLancee.afficherTableaux();
     })()`);
@@ -582,8 +583,7 @@ describe("chargement : avancement dans le titre du bloc", () => {
     expect(etat()).toBe("chargement 0 / 2");
     await finir("liste", 500);
     await finir("ressources", 600);
-    await finir("sujet2", 700);
-    await finir("sujet3", 800);
+    await finir("sujet11", 800);
     expect(lire(`$("#o_attaquesLancees").length`)).toBe(0);
     const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8");
     expect(css).toMatch(

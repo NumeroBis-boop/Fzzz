@@ -150,7 +150,7 @@ describe("« GIF de l'alliance » : premier message du sujet caché", () => {
     sujet("5", "Convois | DoggyBag");
     const s = await lire<Promise<any>>(`PartageChasses.sujets()`);
     expect(s.gifAlliance).toBe("4");
-    expect(s.liste.map((t: any) => t.id)).toEqual(["5"]);
+    expect(s["Convois | doggybag"]).toBe("5");
   });
 
   const lectures = () => lire<string[]>(`FORUM.appels`).filter((a) => a == "callGetTopic").length;

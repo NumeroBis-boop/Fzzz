@@ -187,12 +187,13 @@ class AllianceFzzz {
     fixerLargeur();
   }
   /**
-   * Lit les sujets « Chasses » et « Floods » de la section du forum, remplit
+   * Lit les sujets communs des chasses et des floods du forum, remplit
    * les colonnes Fzzz et prépare l'infobulle de chaque ligne.
    *
    * @private
    */
   static _charger(api, tempsTrajet, ouverture) {
+    let mesure = Journal.mesurer("Page Membres, vue « Floods et chasses en cours »");
     PartageChasses.charger()
       .then((d) => AllianceFzzz._remplir(api, d, tempsTrajet, ouverture))
       .catch(() => {
@@ -200,7 +201,8 @@ class AllianceFzzz {
         api
           .rows()[0]
           .forEach((r) => $(api.cell(r, n - ALLIANCE_COLONNES_FZZZ.length).node()).text("—"));
-      });
+      })
+      .then(mesure.fin);
   }
   /**
    * Variation signée et colorée ; « ~ » si une prise n'est qu'estimée au lancement.

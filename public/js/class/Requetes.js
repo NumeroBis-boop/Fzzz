@@ -44,6 +44,14 @@ const PAUSE_APRES_ACTION = 2500;
  * d'une page), envoyée à la réponse de la précédente, passe avant elles.
  */
 const PAUSE_AVANT_FOND = 1000;
+/**
+ * Requêtes au jeu terminées depuis l'ouverture de la page, pour la mesure du
+ * chargement des vues (Journal.mesurer) : nombre et durée de l'envoi à la
+ * réponse (attente dans la file exclue), celles du forum à part, et lectures
+ * évitées : faites il y a moins d'une minute (PartageChasses._enCache) ou
+ * sujet inchangé (PartageChasses.sujetGarde).
+ */
+const COMPTE_REQUETES = { nombre: 0, duree: 0, forum: 0, dureeForum: 0, cache: 0 };
 
 (function () {
   const ajaxOriginal = $.ajax,
@@ -144,7 +152,20 @@ const PAUSE_AVANT_FOND = 1000;
           },
         );
       });
-    (action || estAction(requete) ? actions : fond ? fonds : lectures).push(() => envoyer(1));
+    let forum = /\/alliance\.php\?forum_menu/i.test(String(url)),
+      tache = () => {
+        let depart = performance.now();
+        return envoyer(1).then(() => {
+          let duree = performance.now() - depart;
+          COMPTE_REQUETES.nombre++;
+          COMPTE_REQUETES.duree += duree;
+          if (forum) {
+            COMPTE_REQUETES.forum++;
+            COMPTE_REQUETES.dureeForum += duree;
+          }
+        });
+      };
+    (action || estAction(requete) ? actions : fond ? fonds : lectures).push(tache);
     suivante();
     return differe.promise();
   };

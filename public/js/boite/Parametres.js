@@ -624,6 +624,15 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Exporter maintenant</p>
         <p class='left'><button type='button' class='o_button f_info o_exporterRapports' data-quoi='chasse'>Exporter mes chasses</button> <button type='button' class='o_button f_info o_exporterRapports' data-quoi='combat'>Exporter mes RC</button></p>
         <p class='left o_aideParam'>Les conversations de ta boîte de réception dont un rapport manque au Google Sheet où tu exportes tes rapports sont lues une à une, puis envoyées : chasses (onglet « ${EXPORTS_RAPPORTS.chasse.onglet} ») ; attaques (« ${EXPORTS_RAPPORTS.attaque.onglet} »), défenses (« ${EXPORTS_RAPPORTS.defense.onglet} ») et floods avec les membres de l'alliance (« ${EXPORTS_RAPPORTS.interne.onglet} »). Les mêmes boutons peuvent aussi s'afficher dans la messagerie (onglet « Messagerie »).</p>
+        ${
+          // réservé au mainteneur, comme le journal
+          Journal.pourCeJoueur()
+            ? `<p class='o_titreParam'>Ranger le forum</p>
+        <p class='left o_aideParam'>Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une section par joueur. Un joueur qui n'a pas encore mis l'extension à jour partage toujours dans ses sujets « Floods | pseudo » et « Chasses | pseudo » : ce bouton reporte ses floods et chasses à venir dans sa section, puis supprime chaque ancien sujet dont toutes les entrées à venir sont dans cette section, après avoir ajouté ses entrées passées à son historique. Il faut les droits de gestion du forum. Une lecture du forum par ancien sujet, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
+        <p class='left'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
+        <p id='o_partageRangerEtat' class='left small'></p>`
+            : ""
+        }
       </form>`),
       etat = (message = "") =>
         $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
@@ -646,6 +655,30 @@ class BoiteParametre extends Boite {
     $onglet.find("input[data-partage]").on("change", (e) => {
       SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
       etat();
+    });
+    $onglet.find(".o_partageRanger").on("click", (e) => {
+      e.preventDefault();
+      // supprimer des sujets ne se défait pas
+      if (
+        !confirm(
+          "Reporter les floods et chasses des anciens sujets « Floods | pseudo » et « Chasses | pseudo » dans les sujets communs, puis supprimer ces anciens sujets du forum ?",
+        )
+      )
+        return;
+      let $bouton = $(e.currentTarget).prop("disabled", true),
+        afficher = (/** @type {String} */ texte) => {
+          $onglet.find("#o_partageRangerEtat").text(texte);
+          this.ajusterTaille();
+        };
+      PartageChasses.rangerForum(afficher)
+        .then(afficher, (err) =>
+          afficher(
+            err && err.message == "absente"
+              ? SECTION_INTROUVABLE
+              : "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
+          ),
+        )
+        .then(() => $bouton.prop("disabled", false));
     });
     $onglet.find("#o_partageEnvoyer").on("click", (e) => {
       e.preventDefault();

@@ -3,14 +3,19 @@ import { creerPage } from "./harnais";
 
 const page = creerPage(["js/class/Utils.js", "js/page/PartageChasses.js"]);
 
-/** Lit un sujet dont le premier message est `html`, sans requête. */
+/** Lignes d'un premier message `html` (ou d'une section), sans requête. */
 function lireSujet(html: string) {
-  page.lire(`PartageChasses._xajax = () => Promise.resolve(null);
-    PartageChasses._html = () => ${JSON.stringify(html)};`);
-  return page.lire(`PartageChasses.lireSujet(1).then((r) => JSON.stringify(r))`).then(JSON.parse);
+  page.lire(`PartageChasses._html = () => ${JSON.stringify(html)};`);
+  return Promise.resolve(
+    JSON.parse(
+      page.lire<string>(
+        `JSON.stringify(PartageChasses.lireEntrees(PartageChasses.premierMessage(null)))`,
+      ),
+    ),
+  );
 }
 
-describe("PartageChasses.lireSujet", () => {
+describe("lecture des lignes (PartageChasses.lireEntrees)", () => {
   test("format actuel : chasses et floods complets", async () => {
     const r = await lireSujet(
       "01/12/26 10:00 | 777 cm²<br>26/12/26 02:46 | DoggyBag | 3 000 unités | 3 000 cm² | TdC 19 095 | #50",
@@ -86,29 +91,41 @@ describe("section cachée du forum", () => {
   });
 });
 
+/** Sujet commun des floods simulé : ma section `lignes`, écritures notées dans ECRITS. */
+const forumFloods = (lignes: string[], ecritureOk = true) =>
+  page.lire(`(() => {
+    window.ECRITS = [];
+    window.TEXTE = ${JSON.stringify(["--- Moi · 2026-11-03 11:00:00 ---", ...lignes].join("\n"))};
+    PartageChasses.sujets = () => Promise.resolve({ communs: { Floods: { type: "Floods", id: "10" } }, historiques: [] });
+    PartageChasses._attendre = () => Promise.resolve();
+    PartageChasses._texteSujet = () => Promise.resolve(TEXTE);
+    PartageChasses._xajax = (fn, q) => {
+      if (fn != "envoiEditTopic") return Promise.resolve();
+      if (!${ecritureOk}) return Promise.reject(new Error("réseau"));
+      TEXTE = decodeURIComponent(/message=([^&]*)/.exec(q)[1]);
+      ECRITS.push(TEXTE);
+      return Promise.resolve();
+    };
+  })()`);
+
 describe("retrait automatique des floods disparus de la liste", () => {
-  // sujet « Floods | Moi » : un flood à venir (#20) et un arrivé (#21)
+  // ma section : un flood à venir (#20) et un arrivé (#21)
   const sujet = (ecrits: string[]) => {
-    page.lire(`var ECRITS = []; var monProfil = { pseudo: "Moi" };
+    page.lire(`var monProfil = { pseudo: "Moi" };
       var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm").valueOf() };
       var AttaqueLancee = { majPartages() {} };
-      $.toast = () => {}; var TOAST_SUCCESS = {}, TOAST_ERROR = {}, TOAST_INFO = {};
-      PartageChasses.sujets = () => Promise.resolve({ "Floods | moi": 5 });
-      PartageChasses._xajax = (fn, q) => { if (fn == "envoiEditTopic") ECRITS.push(decodeURIComponent(q)); return Promise.resolve(); };
-      PartageChasses.lireSujet = () => Promise.resolve({ chasses: [], floods: [
-        { date: "2026-11-03 18:00", cible: "A", terrain: 100, id: 20 },
-        { date: "2026-11-03 10:00", cible: "B", terrain: 100, id: 21 },
-      ] });`);
+      $.toast = () => {}; var TOAST_SUCCESS = {}, TOAST_ERROR = {}, TOAST_INFO = {};`);
+    forumFloods(["03/11/26 18:00 | A | 100 cm² | #20", "03/11/26 10:00 | B | 100 cm² | #21"]);
     return ecrits;
   };
-  test("flood à venir annulé : retiré du sujet", async () => {
+  test("flood à venir annulé : retiré de ma section", async () => {
     sujet([]);
     await page.lire(`PartageChasses.retirerFloods([20])`);
     const ecrits = page.lire<string[]>("ECRITS");
     expect(ecrits).toHaveLength(1);
     expect(ecrits[0]).not.toContain("#20");
   });
-  test("aucun de ces floods dans le sujet : rien n'est écrit", async () => {
+  test("aucun de ces floods dans ma section : rien n'est écrit", async () => {
     sujet([]);
     await page.lire(`PartageChasses.retirerFloods([99])`);
     expect(page.lire<string[]>("ECRITS")).toHaveLength(0);
@@ -116,21 +133,15 @@ describe("retrait automatique des floods disparus de la liste", () => {
 });
 
 describe("retraits repris après une page quittée trop tôt", () => {
-  const preparer = (ecritureOk: boolean) =>
-    page.lire(`var ECRITS = []; var monProfil = { pseudo: "Moi" };
+  const preparer = (ecritureOk: boolean) => {
+    page.lire(`var monProfil = { pseudo: "Moi" };
       var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm").valueOf() };
       var PARTAGES_REPRIS = 0;
       var AttaqueLancee = { majPartages() {}, partagerMarquees() { PARTAGES_REPRIS++; return Promise.resolve(); } };
       $.toast = () => {}; var TOAST_SUCCESS = {}, TOAST_ERROR = {}, TOAST_INFO = {};
-      PartageChasses.sujets = () => Promise.resolve({ "Floods | moi": 5 });
-      PartageChasses._xajax = (fn, q) => {
-        if (fn != "envoiEditTopic") return Promise.resolve();
-        if (!${ecritureOk}) return Promise.reject(new Error("réseau"));
-        ECRITS.push(decodeURIComponent(q)); return Promise.resolve();
-      };
-      PartageChasses.lireSujet = () => Promise.resolve({ chasses: [], floods: [
-        { date: "2026-11-03 18:00", cible: "A", terrain: 100, id: 20 } ] });
       localStorage.removeItem("fzzz_floodsARetirer");`);
+    forumFloods(["03/11/26 18:00 | A | 100 cm² | #20"], ecritureOk);
+  };
   const enAttente = () => page.lire<number[]>(`Utils.lireStockage("fzzz_floodsARetirer", [])`);
 
   test("noté avant l'écriture, effacé une fois le forum modifié", async () => {
@@ -163,14 +174,17 @@ describe("attaques en dôme ou en loge partagées", () => {
       `PartageChasses._ligne("Floods", { date: "2026-11-04 21:30", cible: "Spike", unites: 20000, terrain: 0, tdcCible: 93059, id: 77, lieu: "Loge" })`,
     );
     expect(ligne).toBe("04/11/26 21:30 | Spike | Loge | 20 000 unités | TdC 93 059 | #77");
-    page2.lire(`PartageChasses._xajax = () => Promise.resolve(null);
-      PartageChasses._html = () => ${JSON.stringify(
+    page2.lire(
+      `PartageChasses._html = () => ${JSON.stringify(
         ligne +
           "<br>04/11/26 21:40 | Spike | Dôme | 1 unités<br>04/11/26 22:00 | Spike | 3 000 unités | 3 000 cm² | #78<br>05/11/26 08:00 | 500 cm²",
-      )};`);
-    const r = await page2
-      .lire<Promise<string>>(`PartageChasses.lireSujet(1).then((r) => JSON.stringify(r))`)
-      .then(JSON.parse);
+      )};`,
+    );
+    const r = JSON.parse(
+      page2.lire<string>(
+        `JSON.stringify(PartageChasses.lireEntrees(PartageChasses.premierMessage(null)))`,
+      ),
+    );
     expect(r.chasses).toEqual([{ date: "2026-11-05 08:00", terrain: 500 }]);
     expect(
       r.floods.map((f: { lieu?: string; id: number | null; terrain: number }) => [

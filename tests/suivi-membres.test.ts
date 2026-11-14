@@ -1180,4 +1180,57 @@ describe("Préférences → Partage de données", () => {
       ["combat", "Exporter mes RC", ["liste combat"]],
     ]);
   });
+
+  test("bouton « Ranger le forum » : pour le mainteneur seulement ; confirmé, avancement, puis bilan", async () => {
+    preferences.lire(`localStorage.clear()`);
+    ouvrir();
+    // un autre joueur : ni le bloc ni le bouton
+    expect(preferences.lire(`$(".o_partageRanger").length`)).toBe(0);
+    expect(preferences.lire<string>(`$("#o_tabsParametrePartage").text()`)).not.toContain(
+      "Ranger le forum",
+    );
+    preferences.lire(`(() => {
+      $("body").append("<span id='pseudo'>DoggyBag</span>");
+      $("#o_tabsParametrePartage").empty();
+      boite.ongletPartage();
+    })()`);
+    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
+    expect(texte).toContain("« Floods | pseudo » et « Chasses | pseudo »");
+    expect(texte).toContain("puis supprime chaque ancien sujet");
+    expect(texte).toContain("Il faut les droits de gestion du forum.");
+    preferences.lire(`(() => {
+      window.RANGE = { fin: null, echec: null, appels: 0, confirmer: false };
+      window.confirm = () => RANGE.confirmer;
+      PartageChasses.rangerForum = (etat) => {
+        RANGE.appels++;
+        etat("Anciens sujets : 1 / 4 (Floods | Beta)…");
+        return new Promise((ok, non) => { RANGE.fin = ok; RANGE.echec = non; });
+      };
+      $(".o_partageRanger").trigger("click");
+    })()`);
+    // supprimer des sujets ne se défait pas : rien sans confirmation
+    expect(preferences.lire(`RANGE.appels`)).toBe(0);
+    preferences.lire(
+      `(() => { RANGE.confirmer = true; $(".o_partageRanger").trigger("click"); })()`,
+    );
+    const etat = () =>
+      preferences.lire(
+        `[$(".o_partageRanger").prop("disabled"), $("#o_partageRangerEtat").text()]`,
+      );
+    expect(etat()).toEqual([true, "Anciens sujets : 1 / 4 (Floods | Beta)…"]);
+    preferences.lire(`RANGE.fin("Anciens sujets : 4 supprimés.")`);
+    await attendre();
+    expect(etat()).toEqual([false, "Anciens sujets : 4 supprimés."]);
+    preferences.lire(`$(".o_partageRanger").trigger("click")`);
+    preferences.lire(`RANGE.echec(new Error("absente"))`);
+    await attendre();
+    expect(etat()).toEqual([false, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
+    preferences.lire(`$(".o_partageRanger").trigger("click")`);
+    preferences.lire(`RANGE.echec(new Error("forum"))`);
+    await attendre();
+    expect(etat()[1]).toBe(
+      "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
+    );
+    preferences.lire(`$("#pseudo").remove()`);
+  });
 });

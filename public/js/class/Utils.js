@@ -204,6 +204,10 @@ const AFFICHAGES_FZZZ = {
     "Bouton « GIF » des chats (alliance et général), liste « GIF de l'alliance » : ceux du sujet du même nom du forum caché",
   chatSmileysAlliance:
     "Bouton « Smileys » des chats (alliance et général) : les smileys du sujet « Smileys de l'alliance » du forum caché, leurs codes {nom} remplacés par les images à l'envoi",
+  forumGif:
+    "Bouton « GIF » du forum de l'alliance (nouveau sujet, réponse, modification) : listes « Mes GIF » et « GIF de l'alliance », comme dans les chats",
+  forumSmileysAlliance:
+    "Bouton « Smileys » du forum de l'alliance : les smileys du sujet « Smileys de l'alliance », leurs codes {nom} remplacés par les images à l'envoi",
   forumSection:
     "Bouton pour créer la section cachée du partage des chasses, quand elle n'existe pas encore",
   menuRapide:
@@ -267,6 +271,9 @@ const AFFICHAGES_REGLABLES = {
   chatMesGif: true,
   chatGifAlliance: true,
   chatSmileysAlliance: true,
+  // forum : demande du mainteneur, 14/11/2026 (« l'option de mettre des smileys et GIF dans les forums »)
+  forumGif: true,
+  forumSmileysAlliance: true,
   rappelExport: true,
   lanceurChasse: true,
   convoisSuiviLignes: true,

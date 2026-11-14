@@ -799,6 +799,10 @@ const DATEPICKER_OPTION = {
             case location.href.indexOf("/alliance.php?forum_menu") > 0:
               // Fzzz : repère la section du forum qui stocke les chasses partagées
               PartageChasses.observerForum();
+              ChatGif.forum({
+                gif: Utils.affichage("forumGif"),
+                smileys: Utils.affichage("forumSmileysAlliance"),
+              });
               break;
             case location.href.indexOf("/alliance.php?Membres") > 0:
               page = new PageAlliance();

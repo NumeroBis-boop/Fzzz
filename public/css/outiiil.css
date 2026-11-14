@@ -681,6 +681,19 @@ html:not(.o_origineGenerale) #recherche {
   opacity: 0.75;
   white-space: nowrap;
 }
+/* numéro de version : vert à jour, rouge quand une version plus récente est publiée */
+.o_versionExtension.o_versionAJour {
+  color: #7ddc6f;
+  opacity: 1;
+}
+.o_versionExtension.o_versionAncienne {
+  color: #ff8a80;
+  opacity: 1;
+}
+/* le jeu met en normal les liens de ses encadrés */
+.boite_compte_plus .o_majDisponible a {
+  font-weight: bold;
+}
 /* Fzzz : boîte « Journal » sous « Extension OUAF » */
 /* fond sombre de l'encadré : teintes claires */
 .o_journalCompte {

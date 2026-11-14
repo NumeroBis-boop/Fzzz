@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.115.2",
+    notes: [
+      "Boîte « Extension OUAF » : le numéro de version est en vert quand l'extension est à jour, en rouge dès qu'une nouvelle version est publiée ; le lien « mettre à jour » est en gras.",
+    ],
+  },
+  {
     version: "1.115.1",
     notes: [
       "Page Membres de l'alliance, vue « Floods et chasses en cours » : « Date du prochain mouvement » donne la prochaine minute où le TdC du membre change ; les floods hors portée, sans effet sur son TdC, ne comptent plus.",

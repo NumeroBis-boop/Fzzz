@@ -43,20 +43,17 @@ class MiseAJour {
     return 0;
   }
   /**
-   * Version publiée à `adresse` si elle est plus récente que `installee` : lue
-   * au plus une fois par heure, sinon celle lue la dernière fois.
+   * Version publiée à `adresse`, lue au plus une fois par heure, sinon celle
+   * lue la dernière fois ; null quand GitHub n'a pas répondu.
    *
    * @static
-   * @method verifier
+   * @method publiee
    * @param {String} adresse adresse de mise à jour du script installé
-   * @param {String} installee version installée
    * @return {Promise<String|null>}
    */
-  static verifier(adresse, installee) {
+  static publiee(adresse) {
     let lu = Utils.lireStockage(CLE_VERIFICATION_MAJ),
       maintenant = Date.now(),
-      plusRecente = (/** @type {String|null} */ v) =>
-        v && MiseAJour.comparer(v, installee) > 0 ? v : null,
       noter = (/** @type {String|null} */ version) => {
         try {
           localStorage.setItem(
@@ -66,13 +63,27 @@ class MiseAJour {
         } catch (e) {
           /* stockage plein : nouvelle lecture au prochain chargement */
         }
-        return plusRecente(version);
+        return version;
       };
     if (lu.adresse == adresse && lu.t <= maintenant && maintenant - lu.t < DELAI_VERIFICATION_MAJ)
-      return Promise.resolve(plusRecente(lu.version));
+      return Promise.resolve(lu.version || null);
     return fetch(adresse, { cache: "no-store" })
       .then((r) => (r.ok ? r.text() : ""))
       .then((texte) => noter(MiseAJour.versionPubliee(texte)))
       .catch(() => noter(null));
+  }
+  /**
+   * Version publiée à `adresse` si elle est plus récente que `installee`.
+   *
+   * @static
+   * @method verifier
+   * @param {String} adresse adresse de mise à jour du script installé
+   * @param {String} installee version installée
+   * @return {Promise<String|null>}
+   */
+  static verifier(adresse, installee) {
+    return MiseAJour.publiee(adresse).then((v) =>
+      v && MiseAJour.comparer(v, installee) > 0 ? v : null,
+    );
   }
 }

@@ -138,8 +138,10 @@ class Dock {
     [1000, 3000].forEach((ms) => setTimeout(verifier, ms));
   }
   /**
-   * Script utilisateur : version plus récente publiée, avec le lien qui
-   * l'ouvre dans le gestionnaire de scripts (« Mettre à jour »).
+   * Script utilisateur : numéro de version vert quand il est à jour, rouge
+   * quand une version plus récente est publiée, avec alors le lien qui l'ouvre
+   * dans le gestionnaire de scripts (« mettre à jour »). Version publiée
+   * inconnue (GitHub injoignable) : couleur d'origine.
    *
    * @static
    * @method signalerMiseAJour
@@ -150,11 +152,23 @@ class Dock {
     Promise.resolve(chrome.runtime.sendMessage({ type: "fzzz_majVerifier" }))
       .then((r) =>
         r && r.url
-          ? MiseAJour.verifier(r.url, VERSION).then((version) => version && { version, url: r.url })
+          ? MiseAJour.publiee(r.url).then((version) => version && { version, url: r.url })
           : null,
       )
       .then((maj) => {
-        if (!maj || $boite.find(".o_majDisponible").length) return;
+        if (!maj) return;
+        let ancienne = MiseAJour.comparer(maj.version, VERSION) > 0;
+        $boite
+          .find(".o_versionExtension")
+          .toggleClass("o_versionAJour", !ancienne)
+          .toggleClass("o_versionAncienne", ancienne)
+          .attr(
+            "title",
+            ancienne
+              ? `Version installée ; la v${maj.version} est publiée`
+              : "Version installée : à jour",
+          );
+        if (!ancienne || $boite.find(".o_majDisponible").length) return;
         $("<div class='o_majDisponible'></div>")
           .text(`Nouvelle version v${maj.version} : `)
           .append(

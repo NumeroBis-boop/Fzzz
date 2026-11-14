@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { creerPage } from "./harnais";
 
 const FINALE = "https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.user.js";
@@ -89,7 +91,7 @@ describe("encadré « Extension OUAF »", () => {
       ${scriptUtilisateur ? "window.FZZZ_USERSCRIPT = true;" : "delete window.FZZZ_USERSCRIPT;"}
       ${gestionnaire ? `window.GM_info = { scriptHandler: ${JSON.stringify(gestionnaire)} };` : "delete window.GM_info;"}
       window.chrome = { runtime: { sendMessage: () => Promise.resolve({ statut: "userscript", url: ${JSON.stringify(FINALE)} }) } };
-      document.body.innerHTML = '<div id="o_boiteExtension"><div class="contenu_boite_compte_plus"></div></div>';
+      document.body.innerHTML = '<div id="o_boiteExtension" class="boite_compte_plus"><div class="titre_colonne_cliquable"><span class="o_versionExtension" title="Version installée">v1.85.1</span></div><div class="contenu_boite_compte_plus"></div></div>';
       Dock.signalerMiseAJour($("#o_boiteExtension"));
     })()`);
     await new Promise((r) => setTimeout(r, 20));
@@ -122,11 +124,55 @@ describe("encadré « Extension OUAF »", () => {
     }
   });
 
-  test("déjà à jour, ou extension de navigateur : rien", async () => {
+  test("déjà à jour, ou extension de navigateur : pas de ligne de mise à jour", async () => {
     remettre("1.85.1");
     expect((await encadre(true)).texte).toBe("");
     remettre("1.85.2");
     expect((await encadre(false)).texte).toBe("");
     expect(lectures()).toBe(0);
+  });
+
+  const version = () =>
+    page.lire<{ classes: string; titre: string }>(
+      `({ classes: $(".o_versionExtension").attr("class"), titre: $(".o_versionExtension").attr("title") })`,
+    );
+
+  test("numéro de version : vert à jour, rouge quand une version plus récente est publiée", async () => {
+    remettre("1.85.1");
+    await encadre(true);
+    expect(version()).toEqual({
+      classes: "o_versionExtension o_versionAJour",
+      titre: "Version installée : à jour",
+    });
+    // version publiée plus ancienne (TEST plus récente installée) : à jour aussi
+    remettre("1.85.0");
+    await encadre(true);
+    expect(version().classes).toBe("o_versionExtension o_versionAJour");
+    remettre("1.85.2");
+    await encadre(true);
+    expect(version()).toEqual({
+      classes: "o_versionExtension o_versionAncienne",
+      titre: "Version installée ; la v1.85.2 est publiée",
+    });
+  });
+
+  test("version publiée inconnue (GitHub injoignable) ou extension de navigateur : couleur d'origine", async () => {
+    remettre("1.85.2");
+    page.lire(`enPanne = true`);
+    await encadre(true);
+    expect(version().classes).toBe("o_versionExtension");
+    remettre("1.85.2");
+    await encadre(false);
+    expect(version().classes).toBe("o_versionExtension");
+  });
+
+  test("couleurs et lien en gras, plus forts que le style des encadrés du jeu", () => {
+    const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8"),
+      regle = (selecteur: string) =>
+        new RegExp(`${selecteur.replace(/[.]/g, "\\.")} \\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+    expect(regle(".o_versionExtension.o_versionAJour")).toContain("color: #7ddc6f");
+    expect(regle(".o_versionExtension.o_versionAncienne")).toContain("color: #ff8a80");
+    // le jeu : .boite_compte_plus a { font-weight: normal } ; plus précis que lui
+    expect(regle(".boite_compte_plus .o_majDisponible a")).toContain("font-weight: bold");
   });
 });

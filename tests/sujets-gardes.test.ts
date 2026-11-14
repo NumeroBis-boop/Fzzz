@@ -3,10 +3,10 @@ import { creerPage } from "./harnais";
 
 /**
  * Sujets communs du forum (« BDD générale flood / chasse - NE RIEN ÉCRIRE »)
- * gardés d'une lecture à l'autre tant que leur date « Dernier message » ne
- * change pas dans la liste des sujets (elle change quand le premier message
- * est modifié, relevé du mainteneur le 13/11/2026), à la minute près : une
- * lecture faite pendant la minute affichée ne fait foi qu'après cette minute.
+ * gardés une minute d'une lecture à l'autre : la colonne « Dernier message »
+ * de la liste des sujets ne change pas quand leur premier message est modifié
+ * (relevé du mainteneur le 14/11/2026, contraire à celui du 13/11, sur lequel
+ * la 1.113.0 gardait une lecture tant que la colonne ne changeait pas).
  * Joueurs inventés.
  */
 const page = creerPage(
@@ -149,28 +149,10 @@ describe("date « Dernier message » de la liste des sujets", () => {
     // les anciens sujets des joueurs ne servent plus aux floods ni aux chasses
     expect(sujets["Floods | alpha"]).toBeUndefined();
   });
-
-  test("date illisible d'un sujet commun : notée au journal du mainteneur, avec un exemple", async () => {
-    preparer();
-    lire(
-      `(() => { journalInstalle = true; SUJETS[0].dernier = null; SUJETS[1].dernier = null; })()`,
-    );
-    await lire(`PartageChasses.sujets()`);
-    const notes = lire<any[]>(
-      `Journal.entrees().filter((e) => e.s == "Forum").map((e) => [e.m, e.d])`,
-    );
-    lire(`(() => { journalInstalle = false; })()`);
-    expect(notes).toEqual([
-      [
-        "date « Dernier message » illisible pour 1 sujet(s) commun(s) : relu(s) à chaque affichage",
-        "Exemple : «  »",
-      ],
-    ]);
-  });
 });
 
-describe("sujets communs gardés tant que leur date ne change pas", () => {
-  test("première page : les deux sujets communs sont lus ; page suivante, liste inchangée : rien n'est relu", async () => {
+describe("sujets communs gardés une minute", () => {
+  test("première page : les deux sujets communs sont lus ; dans la minute qui suit : rien n'est relu", async () => {
     preparer();
     const premiere = await afficher("2026-11-13 22:30:00");
     // l'ancien sujet « Floods | Alpha » n'est jamais lu
@@ -180,62 +162,36 @@ describe("sujets communs gardés tant que leur date ne change pas", () => {
       ["Beta", 21],
     ]);
     expect(premiere.d.chasses.alpha.map((c: any) => c.terrain)).toEqual([1500]);
-    const suivante = await afficher("2026-11-13 22:35:00");
+    const suivante = await afficher("2026-11-13 22:30:50");
     expect(suivante.lus).toEqual([]);
     expect(suivante.d).toEqual(premiere.d);
     // lectures évitées, comptées pour la mesure du journal
     expect(lire<number>(`COMPTE_REQUETES.cache`)).toBe(2);
   });
 
-  test("sujet modifié (nouvelle date) : lui seul est relu, les nouveaux floods sont pris", async () => {
+  test("un membre modifie le sujet, la colonne « Dernier message » ne change pas (relevé du 14/11) : relu dès que la lecture a plus d'une minute", async () => {
     preparer();
     await afficher("2026-11-13 22:30:00");
-    modifier("Beta", "13 nov. à 22h36", [flood("2026-11-13 23:20", "Alpha", 22)]);
-    const r = await afficher("2026-11-13 22:40:00");
-    expect(r.lus).toEqual(["10"]);
+    // Beta partage un flood : son premier message change, la colonne reste « 13 nov. à 22h20 »
+    modifier("Beta", "13 nov. à 22h20", [flood("2026-11-13 23:20", "Alpha", 22)]);
+    expect((await afficher("2026-11-13 22:30:40")).lus).toEqual([]);
+    const r = await afficher("2026-11-13 22:31:10");
+    expect(r.lus).toEqual(["10", "11"]);
     expect(r.d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
       ["Alpha", 11],
       ["Beta", 22],
     ]);
+    // une heure plus tard, toujours la même colonne : relu aussi
+    expect((await afficher("2026-11-13 23:31:10")).lus).toEqual(["10", "11"]);
   });
 
-  test("lu pendant la minute affichée : une modification de la même minute est prise une minute plus tard", async () => {
+  test("texte de la colonne changé (réponse postée dans le sujet) : relu sans attendre la minute", async () => {
     preparer();
     await afficher("2026-11-13 22:30:00");
-    // Beta écrit à 22:36:10, la page lit à 22:36:20, Beta écrit encore à 22:36:50 : la date reste « 22h36 »
-    modifier("Beta", "13 nov. à 22h36", [flood("2026-11-13 23:20", "Alpha", 22)]);
-    expect((await afficher("2026-11-13 22:36:20")).lus).toEqual(["10"]);
-    modifier("Beta", "13 nov. à 22h36", [flood("2026-11-13 23:25", "Alpha", 23)]);
-    // moins d'une minute après la lecture : gardée, comme toute lecture de moins d'une minute
-    expect((await afficher("2026-11-13 22:36:40")).lus).toEqual([]);
-    // plus d'une minute après, et lue avant la fin de la minute affichée (+ marge) : relue
-    const r = await afficher("2026-11-13 22:37:30");
+    modifier("Beta", "13 nov. à 22h30", [flood("2026-11-13 23:20", "Alpha", 22)]);
+    const r = await afficher("2026-11-13 22:30:20");
     expect(r.lus).toEqual(["10"]);
-    expect(r.d.floods.map((f: any) => f.id)).toEqual([11, 23]);
-    // lue après la fin de la minute affichée : elle fait foi
-    expect((await afficher("2026-11-13 22:45:00")).lus).toEqual([]);
-  });
-
-  test("la marge : une lecture juste après la fin de la minute affichée ne fait pas encore foi", async () => {
-    preparer();
-    await afficher("2026-11-13 22:30:00");
-    modifier("Beta", "13 nov. à 22h36", [flood("2026-11-13 23:20", "Alpha", 22)]);
-    // 22:37:03 : moins de 5 s après la fin de la minute 22h36
-    expect((await afficher("2026-11-13 22:37:03")).lus).toEqual(["10"]);
-    expect((await afficher("2026-11-13 22:39:00")).lus).toEqual(["10"]);
-    expect((await afficher("2026-11-13 22:41:00")).lus).toEqual([]);
-  });
-
-  test("date illisible : relu dès que la lecture a plus d'une minute", async () => {
-    preparer();
-    lire(`(() => { SUJETS[1].dernier = "DoggyBag"; })()`);
-    await afficher("2026-11-13 22:30:00");
-    expect((await afficher("2026-11-13 22:30:40")).lus).toEqual([]);
-    expect((await afficher("2026-11-13 22:31:30")).lus).toEqual(["10"]);
-    expect((await afficher("2026-11-13 22:40:00")).lus).toEqual(["10"]);
-    // le texte de la colonne change, même illisible : relu sans attendre la minute
-    lire(`(() => { SUJETS[1].dernier = "Grim"; })()`);
-    expect((await afficher("2026-11-13 22:40:20")).lus).toEqual(["10"]);
+    expect(r.d.floods.map((f: any) => f.id)).toEqual([11, 22]);
   });
 
   test("floods rangés par joueur, quel que soit l'ordre des sections, relues ou gardées", async () => {
@@ -243,21 +199,21 @@ describe("sujets communs gardés tant que leur date ne change pas", () => {
     lire(`(() => { CONTENUS[10].reverse(); })()`);
     const lu = await afficher("2026-11-13 22:30:00");
     expect(lu.d.floods.map((f: any) => f.lanceur)).toEqual(["Alpha", "Beta"]);
-    modifier("Alpha", "13 nov. à 22h36", [flood("2026-11-13 23:40", "Beta", 12)]);
+    modifier("Alpha", "13 nov. à 22h20", [flood("2026-11-13 23:40", "Beta", 12)]);
     const r = await afficher("2026-11-13 22:40:00");
-    expect(r.lus).toEqual(["10"]);
+    expect(r.lus).toEqual(["10", "11"]);
     expect(r.d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
       ["Alpha", 12],
       ["Beta", 21],
     ]);
-    expect((await afficher("2026-11-13 22:45:00")).d).toEqual(r.d);
+    expect((await afficher("2026-11-13 22:40:30")).d).toEqual(r.d);
   });
 
   test("lecture gardée par une autre version du script : relue", async () => {
     preparer();
     await afficher("2026-11-13 22:30:00");
     lire(`(() => { VERSION = "1.111.0"; })()`);
-    expect((await afficher("2026-11-13 22:35:00")).lus).toEqual(["10", "11"]);
+    expect((await afficher("2026-11-13 22:30:30")).lus).toEqual(["10", "11"]);
   });
 
   test("sujet commun illisible : l'affichage échoue (il manquerait des joueurs), relu à la page suivante", async () => {
@@ -267,14 +223,14 @@ describe("sujets communs gardés tant que leur date ne change pas", () => {
     expect(await lire(`PartageChasses.charger().then(() => "lu", (e) => e.message)`)).toBe("forum");
     lire(`(() => { ECHECS.length = 0; })()`);
     // le sujet des chasses, lu sans erreur, est gardé
-    expect((await afficher("2026-11-13 22:35:00")).lus).toEqual(["10"]);
+    expect((await afficher("2026-11-13 22:30:30")).lus).toEqual(["10"]);
   });
 
   test("avancement affiché (bloc « Mes attaques en cours ») : seules les lectures faites sont prévues", async () => {
     preparer();
     await afficher("2026-11-13 22:30:00");
-    modifier("Alpha", "13 nov. à 22h40", [flood("2026-11-13 23:40", "Beta", 12)]);
-    regler("2026-11-13 22:45:00");
+    modifier("Alpha", "13 nov. à 22h30", [flood("2026-11-13 23:40", "Beta", 12)]);
+    regler("2026-11-13 22:30:40");
     lire(`(() => { PartageChasses.oublierCache(); window.AVANCE = { prevues: 0, faites: 0 }; })()`);
     await lire(
       `PartageChasses.charger(null, true, { prevoir: (n) => (AVANCE.prevues += n), faite: () => AVANCE.faites++ })`,

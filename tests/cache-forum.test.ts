@@ -4,12 +4,14 @@ import { creerPage } from "./harnais";
 const page = creerPage(["js/class/Utils.js", "js/page/PartageChasses.js"]);
 page.lire(`var lectures = 0, decalage = 0, vraiNow = Date.now;
   Date.now = () => vraiNow() + decalage;
-  PartageChasses._lireSujet = (id) => { lectures++; return Promise.resolve({ chasses: [], floods: [{ id: lectures }] }); };
+  PartageChasses._lireSujets = (id) => { lectures++; return Promise.resolve({ historiques: [], communs: {} }); };
   $.ajax = () => $.Deferred().resolve("<xjx></xjx>").promise();`);
 const lire = (cache: boolean) =>
-  page.lire<Promise<number>>(`PartageChasses.lireSujet(5, ${cache}).then(() => lectures)`);
+  page.lire<Promise<number>>(
+    `(PartageChasses.idSection = "7", PartageChasses.sujets(${cache}).then(() => lectures))`,
+  );
 
-describe("sujets du forum gardés une minute pour l'affichage", () => {
+describe("liste des sujets du forum gardée une minute pour l'affichage", () => {
   test("relu une fois par minute ; lecture neuve toujours possible", async () => {
     page.lire(`localStorage.clear(); lectures = 0; decalage = 0;`);
     expect(await lire(true)).toBe(1);

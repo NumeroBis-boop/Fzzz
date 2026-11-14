@@ -101,6 +101,7 @@ function forum(sujets: { id: string; titre: string; messages: string[] }[]) {
     window.FORUM = { sujets: __sujets, appels: [], prochain: 500, echoue: null };
     PartageChasses.idSection = "7";
     PartageChasses._html = (d) => d;
+    PartageChasses._attendre = () => Promise.resolve();
     PartageChasses.oublierCache();
     const q = (args, k) => { const m = new RegExp("[&>]" + k + "=([^&<]*)").exec(args); return m ? decodeURIComponent(m[1]) : null; };
     PartageChasses._xajax = (f, args) => {
@@ -150,12 +151,24 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
   const sujetsDe = (titre: string) =>
     lire<number>(`FORUM.sujets.filter((s) => s.titre == ${JSON.stringify(titre)}).length`);
   const groupe = `[{ impact: moment("2026-10-29 12:00", "YYYY-MM-DD HH:mm"), terrain: 20000 }]`;
+  const COMMUN = "BDD générale chasse - NE RIEN ÉCRIRE";
+  /** Sujet commun des chasses avec ma section (ses lignes). */
+  const commun = (lignes: string[]) => ({
+    id: "1",
+    titre: COMMUN,
+    messages: [["--- DoggyBag · 2026-10-29 08:00:00 ---", ...lignes].join("\n")],
+  });
+  const maSection = () =>
+    lire<string | null>(`(() => {
+      const s = PartageChasses.sectionsRecentes(PartageChasses.sections(FORUM.sujets.find((s) => s.id == "1").messages[0]).sections).doggybag;
+      return s ? s.lignes.join("\\n") : null;
+    })()`);
 
   beforeEach(() => {
     lire(
       `localStorage.clear(); window.TOASTS = []; $.toast = (o) => { TOASTS.push(o.text); return {}; }; monProfil.pseudo = "DoggyBag";`,
     );
-    forum([{ id: "1", titre: "Chasses | DoggyBag", messages: [PASSE] }]);
+    forum([commun([PASSE])]);
   });
 
   test("partage des chasses en double (double clic, page rechargée) : historique sans doublon", async () => {
@@ -165,27 +178,27 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
     ]);
     expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(1);
     expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(message1("Chasses | DoggyBag")).toBe("29/10/26 12:00 | 20 000 cm²");
+    expect(maSection()).toBe("29/10/26 12:00 | 20 000 cm²");
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain("déjà partagées");
   });
 
-  test("sujet de suivi non réécrit après l'historique (page fermée) : au nouvel essai, pas de doublon", async () => {
+  test("ma section non réécrite après l'historique (page fermée) : au nouvel essai, pas de doublon", async () => {
     lire(
-      `FORUM.echoue = (f, args) => f == "envoiEditTopic" && decodeURIComponent(args).includes("sujet=Chasses | DoggyBag");`,
+      `FORUM.echoue = (f, args) => f == "envoiEditTopic" && decodeURIComponent(args).includes("sujet=" + ${JSON.stringify(COMMUN)});`,
     );
     await lire(`PartageChasses.partager(${groupe}, null)`);
     expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(message1("Chasses | DoggyBag")).toBe(PASSE);
+    expect(maSection()).toBe(PASSE);
     lire(`FORUM.echoue = null;`);
     await lire(`PartageChasses.partager(${groupe}, null)`);
     expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(message1("Chasses | DoggyBag")).toBe("29/10/26 12:00 | 20 000 cm²");
+    expect(maSection()).toBe("29/10/26 12:00 | 20 000 cm²");
   });
 
   test("page d'historique créée deux fois (deux onglets) : suite dans la plus ancienne, sans répéter de ligne", async () => {
     const DEJA = "28/10/26 08:00 | 5 000 cm²";
     forum([
-      { id: "1", titre: "Chasses | DoggyBag", messages: [`${PASSE}\n28/10/26 08:00 | 5 000 cm²`] },
+      commun([PASSE, "28/10/26 08:00 | 5 000 cm²"]),
       { id: "3", titre: "Historique Chasses 1 | DoggyBag", messages: [DEJA] },
       {
         id: "2",

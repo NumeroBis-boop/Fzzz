@@ -187,7 +187,7 @@ class AllianceFzzz {
     fixerLargeur();
   }
   /**
-   * Lit les sujets « Chasses » et « Floods » de la section du forum, remplit
+   * Lit les sujets communs des chasses et des floods du forum, remplit
    * les colonnes Fzzz et prépare l'infobulle de chaque ligne.
    *
    * @private

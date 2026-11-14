@@ -27,7 +27,7 @@ const TITRE_SMILEYS_ALLIANCE = "Smileys de l'alliance";
 // relevé quotidien des statistiques des membres (SuiviMembres)
 const TITRE_STATS_MEMBRES = "Stats membres";
 
-// numéros des attaques déjà publiées dans le sujet « Floods » du joueur
+// numéros des attaques déjà publiées dans la section du joueur (sujet commun des floods)
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
 // floods à retirer du forum, notés avant l'écriture : une page quittée trop
 // tôt n'empêche pas le retrait, repris au chargement de la page suivante
@@ -38,7 +38,7 @@ const CLE_FLOODS_A_RETIRER = "fzzz_floodsARetirer";
 const CLE_FIN_CHASSES_PARTAGEES = "fzzz_finChassesPartagees";
 // échéance (ms) du partage des chasses demandé par « Envoyer + partager »
 const CLE_PARTAGE_CHASSES_APRES = "fzzz_partageChassesApres";
-// lectures et écritures du sujet « Floods » d'une page, l'une après l'autre :
+// lectures et écritures de mes partages d'une page, l'une après l'autre :
 // une lecture partie avant une écriture rendrait un état périmé
 let fileFloodsForum = Promise.resolve();
 // numéros dont le retrait est déjà en cours sur cette page
@@ -48,7 +48,7 @@ let retraitsEnCours = new Set();
 // autre appareil a pu écrire)
 const CLE_CACHE_FORUM = "fzzz_cacheForum";
 const DUREE_CACHE_FORUM = 60000;
-// sujets de suivi lus pour l'affichage, gardés tant que leur date « Dernier
+// sujets communs lus pour l'affichage, gardés tant que leur date « Dernier
 // message » dans la liste des sujets ne change pas : elle change quand le
 // premier message est modifié, mais à la minute près, sans les secondes
 const CLE_SUJETS_GARDES = "fzzz_sujetsGardes";
@@ -73,53 +73,48 @@ const MOIS_FORUM = [
   /^d[ée]c/,
 ];
 // sujets communs à l'alliance, un par type, créés à la main avec un premier
-// message modifiable par tous : une section par joueur, recopiée de son sujet
-// « Floods | … » / « Chasses | … » à chaque écriture, pour que l'affichage
-// lise un sujet au lieu d'un par joueur ; titre réécrit tel quel à chaque recopie
+// message modifiable par tous : une section par joueur, ses floods ou ses
+// chasses en cours ; l'affichage lit un sujet au lieu d'un par joueur. Titre
+// réécrit tel quel à chaque écriture
 const SUJETS_COMMUNS = {
   Floods: "BDD générale flood - NE RIEN ÉCRIRE",
   Chasses: "BDD générale chasse - NE RIEN ÉCRIRE",
 };
-// « --- pseudo · AAAA-MM-JJ HH:mm:ss --- » : heure du serveur de la dernière recopie
+// « --- pseudo · AAAA-MM-JJ HH:mm:ss --- » : heure du serveur de sa dernière écriture
 const ENTETE_SECTION = /^\s*---\s*(.+?)\s*·\s*(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\s*---\s*$/;
-// un message du forum a une taille maximale (texte coupé au-delà, relevé du
-// 13/11/2026) : au-delà, la section n'est pas recopiée et les autres membres
-// lisent le sujet du joueur
+// un message du forum est coupé au-delà d'une taille maximale (relevé du
+// 13/11/2026 : 63 253 caractères gardés, 65 484 octets) : au-delà de ce seuil
+// prudent, le partage est refusé plutôt que coupé
 const COMMUN_MAX_CARACTERES = 40000;
+// entrées à venir gardées par section (les plus proches) : un joueur seul ne remplit pas le sujet
 const COMMUN_MAX_ENTREES = 100;
 // le forum n'a pas de verrou : un membre qui a lu le sujet commun juste avant
-// une recopie la défait en écrivant le sien ; relu après cette pause, recopié
+// une écriture la défait en écrivant la sienne ; relu après cette pause, écrit
 // de nouveau sinon
 const PAUSE_VERIF_COMMUN = 4000;
 const ESSAIS_COMMUN = 3;
 // un message ne peut pas être vide
 const COMMUN_VIDE = "Aucun partage en cours.";
-// recopies d'une page dans un même sujet commun, l'une après l'autre
-let fileCommuns = {};
 
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
- * (aucun serveur tiers). Deux sujets par joueur dans la section
- * « BDD partagée cachée » : « Chasses | pseudo » et « Floods | pseudo » (et
- * « Convois | pseudo », voir ConvoisForum). Le message unique du sujet
- * contient les entrées en cours, une ligne par entrée, et chaque partage le
- * réécrit (fusion sans doublon) ; les chasses et floods passés partent dans
- * « Historique <type> N | pseudo » (voir archiver). La page membre lit les
- * deux sujets du joueur consulté.
- *
- * Chaque ligne porte un code lisible par Fzzz (« FZC|date|cm²| » pour une
- * chasse, « FZF|date|cible|cm²| » pour un flood) après le texte pour les humains.
+ * (aucun serveur tiers), section « BDD partagée cachée » : deux sujets
+ * communs (SUJETS_COMMUNS), une section par joueur dans leur premier message
+ * avec ses entrées en cours, une ligne par entrée ; chaque partage réécrit la
+ * section du joueur (fusion sans doublon) et les chasses et floods passés
+ * partent dans « Historique <type> N | pseudo » (voir archiver). Les convois
+ * restent dans « Convois | pseudo » (ConvoisForum).
  *
  * Requêtes : au clic sur Partager, au chargement de page qui suit un envoi
  * « + partager » ou l'annulation d'un flood partagé, et la lecture des sujets
- * à l'ouverture d'une page membre ou de la page Armée (bloc « Mes attaques en
- * cours »). Rien de périodique.
+ * communs à l'ouverture d'une page membre ou de la page Armée (bloc « Mes
+ * attaques en cours »). Rien de périodique.
  *
  * @class PartageChasses
  */
 class PartageChasses {
   /**
-   * Passe `action` (lecture ou écriture du sujet « Floods ») après les
+   * Passe `action` (lecture ou écriture de mes partages) après les
    * précédentes de la page.
    *
    * @static
@@ -300,7 +295,7 @@ class PartageChasses {
       .trim();
   }
   /**
-   * Sujets de la section : {"Chasses | pseudo": idSujet, ...}.
+   * Sujets de la section : {"Convois | pseudo": idSujet, communs, historiques…}.
    *
    * @static
    * @method sujets
@@ -326,13 +321,13 @@ class PartageChasses {
         PartageChasses.idSection = null;
         throw new Error("section inaccessible");
       }
-      // clé « Type | pseudo en minuscules » → id ; sujets.liste garde la casse ;
+      // clé « Convois | pseudo en minuscules » → id du sujet des convois du joueur ;
       // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
       // sujets.exportSheet : sujet de l'adresse du Google Sheet ;
       // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance ;
       // sujets.statsMembres : sujet de l'adresse du fichier des statistiques des membres
       // sujets.communs : sujets communs par type {type, id, dernier, modifie}
-      let sujets = { liste: [], historiques: [], communs: {} },
+      let sujets = { historiques: [], communs: {} },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
         normaliser = (/** @type {String} */ t) =>
           t
@@ -344,7 +339,7 @@ class PartageChasses {
         .find("#form_cat tr")
         .each((i, elt) => {
           let titre = $(elt).find("td:eq(1)").text().trim(),
-            m = titre.match(/^(Chasses|Floods|Convois) \| (.+)$/),
+            m = titre.match(/^Convois \| (.+)$/),
             h = titre.match(/^Historique (Chasses|Floods) (\d+) \| (.+)$/),
             idSujet =
               $(elt).find("input[name='topic[]']").val() ||
@@ -362,18 +357,9 @@ class PartageChasses {
             commun = Object.keys(SUJETS_COMMUNS).find((type) =>
               PartageChasses.estCommun(titre, type),
             );
-          if (m && idSujet) {
-            // titre écrit par un membre : caractères de balisage retirés
-            let pseudo = PartageChasses.nettoyer(m[2]);
-            sujets[`${m[1]} | ${pseudo.toLowerCase()}`] = idSujet;
-            sujets.liste.push({
-              type: m[1],
-              pseudo: pseudo,
-              id: idSujet,
-              dernier,
-              modifie: PartageChasses.dateListe(dernier),
-            });
-          }
+          // titre écrit par un membre : caractères de balisage retirés
+          if (m && idSujet)
+            sujets[`Convois | ${PartageChasses.nettoyer(m[1]).toLowerCase()}`] = idSujet;
           if (
             commun &&
             idSujet &&
@@ -411,13 +397,13 @@ class PartageChasses {
               id: idSujet,
             });
         });
-      let sansDate = sujets.liste
-        .concat(Object.values(sujets.communs))
-        .filter((/** @type {any} */ t) => t.modifie == null);
+      let sansDate = Object.values(sujets.communs).filter(
+        (/** @type {any} */ t) => t.modifie == null,
+      );
       if (sansDate.length)
         Journal.info(
           "Forum",
-          `date « Dernier message » illisible pour ${sansDate.length} sujet(s) de suivi : ils sont relus à chaque affichage`,
+          `date « Dernier message » illisible pour ${sansDate.length} sujet(s) commun(s) : relu(s) à chaque affichage`,
           `Exemple : « ${sansDate[0].dernier} »`,
         );
       return sujets;
@@ -461,30 +447,7 @@ class PartageChasses {
     return date && date.isValid() ? date.valueOf() : null;
   }
   /**
-   * Lignes de données (codes FZC / FZF) du premier message d'un sujet.
-   *
-   * @static
-   * @method lireSujet
-   * @param {String} idSujet
-   * @param {Boolean} [cache] lecture de moins d'une minute acceptée (affichage)
-   * @param {{dernier?: String}|null} [liste] sujet tel que la liste des sujets
-   *   le donne : la lecture est gardée tant que sa date « Dernier message » ne
-   *   change pas (sujetGarde)
-   */
-  static lireSujet(idSujet, cache = false, liste = null) {
-    if (!liste)
-      return PartageChasses._enCache("sujet " + idSujet, cache, () =>
-        PartageChasses._lireSujet(idSujet),
-      );
-    // avant la requête : l'heure de lecture gardée n'est jamais trop tardive
-    let debut = Horloge.maintenant();
-    return PartageChasses._lireSujet(idSujet).then((v) => {
-      PartageChasses._garderSujet(idSujet, liste.dernier || "", debut, v);
-      return v;
-    });
-  }
-  /**
-   * Lecture gardée d'un sujet de suivi, si elle fait encore foi : même date
+   * Lecture gardée d'un sujet commun, si elle fait encore foi : même date
    * « Dernier message » qu'à la lecture, et lecture faite après la fin de la
    * minute affichée (une modification de la même minute ne change pas la
    * date), ou il y a moins d'une minute, comme les autres lectures gardées.
@@ -520,13 +483,6 @@ class PartageChasses {
     try {
       localStorage.setItem(CLE_SUJETS_GARDES, JSON.stringify(gardes));
     } catch (e) {}
-  }
-  /**
-   * @private
-   * @static
-   */
-  static _lireSujet(idSujet) {
-    return PartageChasses._texteSujet(idSujet).then(PartageChasses.lireEntrees);
   }
   /**
    * Premier message d'un sujet, lu au forum (sans les lectures gardées).
@@ -707,119 +663,33 @@ class PartageChasses {
     return recentes;
   }
   /**
-   * Le sujet d'un joueur est-il recopié par sa section ? Oui s'il a été
-   * modifié au plus tard dans la minute où elle a été écrite (elle l'est après
-   * lui) ; plus récent (autre appareil, ancienne version, recopie défaite),
-   * c'est lui qui fait foi.
-   *
-   * @static
-   * @method couvert
-   * @param {{modifie?: Number|null}} t sujet du joueur dans la liste
-   * @param {{ecrit: String}|null|undefined} s sa section la plus récente
-   * @return {Boolean}
-   */
-  static couvert(t, s) {
-    return (
-      !!s &&
-      t.modifie != null &&
-      t.modifie <= moment(s.ecrit, "YYYY-MM-DD HH:mm:ss").startOf("minute").valueOf()
-    );
-  }
-  /**
-   * Sections d'un sujet commun, gardées comme les sujets des joueurs tant que
-   * sa date « Dernier message » ne change pas.
+   * Sections d'un sujet commun, gardées tant que sa date « Dernier message » ne
+   * change pas.
    *
    * @private
    * @static
    * @param {{id: String, dernier?: String, modifie?: Number|null}} t sujet commun de la liste
+   * @param {{prevoir: (n: Number) => void, faite: () => void}|null} [suivi] prévenu d'une
+   *   lecture au forum seulement : une lecture gardée fausserait la durée moyenne affichée
    * @return {Promise<any>} sections()
    */
-  static _lireCommun(t) {
+  static _lireCommun(t, suivi = null) {
     let garde = PartageChasses.sujetGarde(Utils.lireStockage(CLE_SUJETS_GARDES), t);
     if (garde) {
       if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
       return Promise.resolve(garde);
     }
+    if (suivi) suivi.prevoir(1);
     let debut = Horloge.maintenant();
     return PartageChasses._texteSujet(t.id).then((texte) => {
       let v = PartageChasses.sections(texte);
       PartageChasses._garderSujet(t.id, t.dernier || "", debut, v);
+      if (suivi) suivi.faite();
       return v;
     });
   }
   /**
-   * Recopie mes entrées à venir (celles que mon sujet du type vient de
-   * recevoir) dans ma section du sujet commun, sans retarder le partage : tant
-   * que ma section est plus ancienne que mon sujet, les autres lisent mon sujet.
-   *
-   * @static
-   * @method recopier
-   * @param {String} type "Chasses" ou "Floods"
-   * @param {Array} entrees mes entrées à venir
-   * @return {Promise<String>} « recopiée », « sans sujet », « trop long » ou « échec »
-   */
-  static recopier(type, entrees) {
-    let p = (fileCommuns[type] || Promise.resolve()).then(() =>
-      PartageChasses._recopier(type, entrees),
-    );
-    fileCommuns[type] = p.catch(() => {});
-    return p;
-  }
-  /**
-   * @private
-   * @static
-   * @param {String} type
-   * @param {Array} entrees
-   * @return {Promise<String>}
-   */
-  static _recopier(type, entrees) {
-    let pseudo = monProfil.pseudo,
-      titre = SUJETS_COMMUNS[type];
-    if (!pseudo) return Promise.resolve("sans joueur");
-    let lignes = PartageChasses._lignesSection(type, entrees);
-    if (lignes.length > COMMUN_MAX_ENTREES) {
-      Journal.info(
-        "Forum",
-        `« ${titre} » : ${lignes.length} lignes, trop pour une section ; ton sujet seul fait foi`,
-      );
-      return Promise.resolve("trop long");
-    }
-    let ecrit = Horloge.serveur().format("YYYY-MM-DD HH:mm:ss");
-    return PartageChasses._ecrireSections(type, [
-      { pseudo: PartageChasses.nettoyer(pseudo), ecrit, lignes },
-    ])
-      .then((r) => {
-        if (r.etat == "sans sujet") {
-          Journal.info("Forum", `pas de sujet « ${titre} » dans la section : rien n'est recopié`);
-          return "sans sujet";
-        }
-        if (r.etat == "trop long") {
-          Journal.info(
-            "Forum",
-            `« ${titre} » : message de ${r.longueur} caractères, trop long ; ton sujet seul fait foi`,
-          );
-          return "trop long";
-        }
-        if (r.etat == "défaites") {
-          Journal.erreur(
-            "Forum",
-            `« ${titre} » : section de ${pseudo} défaite après ${r.essai} essais ; ton sujet seul fait foi`,
-          );
-          return "échec";
-        }
-        Journal.info(
-          "Forum",
-          `« ${titre} » : section de ${pseudo} recopiée (${lignes.length} ligne(s), essai ${r.essai})`,
-        );
-        return "recopiée";
-      })
-      .catch((e) => {
-        Journal.erreur("Forum", `« ${titre} » : section non recopiée`, e);
-        return "échec";
-      });
-  }
-  /**
-   * Lignes d'une section, au format des sujets des joueurs, la plus tardive d'abord.
+   * Lignes d'une section, la plus tardive d'abord.
    *
    * @private
    * @static
@@ -834,202 +704,98 @@ class PartageChasses {
       .map((e) => PartageChasses._ligne(type, e));
   }
   /**
-   * Écrit des sections dans le sujet commun du type : chacune remplace celle
-   * de son joueur, sauf si celle-ci est plus récente ; une section sans ligne
-   * la retire. Le forum n'a pas de verrou : le sujet est relu après
-   * PAUSE_VERIF_COMMUN et l'écriture refaite si un autre membre, qui avait lu
-   * le sujet avant elle, l'a défaite en écrivant le sien.
+   * Mes entrées dans ma section la plus récente d'un sujet commun.
+   *
+   * @private
+   * @static
+   * @param {String} type "Chasses" ou "Floods"
+   * @param {Array<any>} sections sections()
+   * @return {Array<any>}
+   */
+  static _mesEntrees(type, sections) {
+    let s =
+      PartageChasses.sectionsRecentes(sections)[
+        PartageChasses.nettoyer(monProfil.pseudo).toLowerCase()
+      ];
+    return s ? (type == "Chasses" ? s.chasses : s.floods) : [];
+  }
+  /**
+   * Écrit mes changements (lignes ajoutées et retirées) dans ma section du
+   * sujet commun, sur mes entrées relues au forum (un autre de mes appareils a
+   * pu écrire), les sections des autres joueurs gardées telles quelles. Le
+   * forum n'a pas de verrou : le sujet est relu après PAUSE_VERIF_COMMUN, et
+   * l'écriture refaite si un membre qui l'avait lu avant elle l'a défaite.
    *
    * @private
    * @static
    * @param {String} type
-   * @param {Array<{pseudo: String, ecrit: String, lignes: Array<String>}>} nouvelles
+   * @param {String} idSujet
+   * @param {Array<any>} ajouts
+   * @param {Array<any>} retraits
+   * @param {String|null} [texte] premier message lu juste avant, sinon relu
    * @param {Number} [essai]
-   * @return {Promise<{etat: String, essai: Number, ecrites: Number, longueur: Number}>}
-   *   etat : « écrites », « défaites », « sans sujet » ou « trop long »
+   * @return {Promise<{etat: String, essai: Number, longueur: Number}>} etat :
+   *   « écrite », « défaites » ou « trop long »
    */
-  static _ecrireSections(type, nouvelles, essai = 1) {
-    let cle = (/** @type {String} */ p) => String(p).toLowerCase(),
-      bilan = (/** @type {String} */ etat, ecrites = 0, longueur = 0) => ({
-        etat,
-        essai,
-        ecrites,
-        longueur,
-      });
-    return PartageChasses.sujets(true).then((sujets) => {
-      let commun = (sujets.communs || {})[type];
-      if (!commun) return bilan("sans sujet");
-      return PartageChasses._texteSujet(commun.id).then((texte) => {
-        let lu = PartageChasses.sections(texte),
-          siennes = (/** @type {Array<any>} */ sections, /** @type {any} */ n) =>
-            sections.filter((s) => cle(s.pseudo) == cle(n.pseudo)),
-          // une section plus récente (son joueur l'a recopiée entre-temps) reste ;
-          // un joueur sans ligne ni section : rien à changer
-          retenues = nouvelles.filter(
-            (n) =>
-              !siennes(lu.sections, n).some((s) => s.ecrit > n.ecrit) &&
-              (n.lignes.length || siennes(lu.sections, n).length),
+  static _ecrireSection(type, idSujet, ajouts, retraits, texte = null, essai = 1) {
+    let pseudo = PartageChasses.nettoyer(monProfil.pseudo),
+      ligne = (/** @type {any} */ e) => PartageChasses._ligne(type, e),
+      sans = new Set(retraits.map(ligne)),
+      bilan = (/** @type {String} */ etat, longueur = 0) => ({ etat, essai, longueur });
+    return (texte == null ? PartageChasses._texteSujet(idSujet) : Promise.resolve(texte)).then(
+      (lu) => {
+        let avant = PartageChasses.sections(lu),
+          miennes = PartageChasses._mesEntrees(type, avant.sections).filter(
+            (e) => !sans.has(ligne(e)),
           ),
-          remplaces = new Set(retenues.map((n) => cle(n.pseudo))),
+          deja = new Set(miennes.map(ligne)),
+          toutes = miennes.concat(ajouts.filter((e) => !deja.has(ligne(e)))),
           message = PartageChasses.texteCommun(
-            lu.preambule,
-            lu.sections
-              .filter((/** @type {any} */ s) => !remplaces.has(cle(s.pseudo)))
-              .concat(retenues.filter((n) => n.lignes.length)),
+            avant.preambule,
+            avant.sections
+              .filter((s) => s.pseudo.toLowerCase() != pseudo.toLowerCase())
+              .concat(
+                toutes.length
+                  ? [
+                      {
+                        pseudo,
+                        ecrit: Horloge.serveur().format("YYYY-MM-DD HH:mm:ss"),
+                        lignes: PartageChasses._lignesSection(type, toutes),
+                      },
+                    ]
+                  : [],
+              ),
           );
-        if (!retenues.length) return bilan("écrites");
-        if (message.length > COMMUN_MAX_CARACTERES) return bilan("trop long", 0, message.length);
+        if (message.length > COMMUN_MAX_CARACTERES) return bilan("trop long", message.length);
         let q = `sujet=${encodeURIComponent(SUJETS_COMMUNS[type])}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
         return PartageChasses._xajax(
           "envoiEditTopic",
-          `<xjxquery><q>IDTopic=${commun.id}&${q}</q></xjxquery>`,
+          `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
         )
           .then(() => PartageChasses._attendre(PAUSE_VERIF_COMMUN))
-          .then(() => PartageChasses._texteSujet(commun.id))
+          .then(() => PartageChasses._texteSujet(idSujet))
           .then((relu) => {
-            let apres = PartageChasses.sections(relu).sections,
-              // une recopie plus récente du même joueur (autre appareil) compte aussi
-              faite = (/** @type {any} */ n) =>
-                n.lignes.length
-                  ? siennes(apres, n).some((s) => s.ecrit >= n.ecrit)
-                  : !siennes(apres, n).some((s) => s.ecrit < n.ecrit);
-            if (retenues.every(faite)) return bilan("écrites", retenues.length, message.length);
+            let presentes = new Set(
+              PartageChasses._mesEntrees(type, PartageChasses.sections(relu).sections).map(ligne),
+            );
+            if (
+              ajouts.every((e) => presentes.has(ligne(e))) &&
+              !retraits.some((e) => presentes.has(ligne(e)))
+            )
+              return bilan("écrite", message.length);
             if (essai < ESSAIS_COMMUN)
-              return PartageChasses._ecrireSections(type, nouvelles, essai + 1);
+              return PartageChasses._ecrireSection(
+                type,
+                idSujet,
+                ajouts,
+                retraits,
+                null,
+                essai + 1,
+              );
             return bilan("défaites");
           });
-      });
-    });
-  }
-  /**
-   * Boutons « Reporter les floods » et « Reporter les chasses » (Préférences →
-   * Partage de données) : les entrées à venir de chaque joueur, lues dans son
-   * sujet « Floods | … » / « Chasses | … », sont reportées dans sa section du
-   * sujet commun quand elle manque ou est plus ancienne que son sujet. La
-   * section reportée est datée de la minute qui précède la lecture du sujet :
-   * une modification faite dans la minute de la lecture le fait reporter de
-   * nouveau au report suivant.
-   *
-   * @static
-   * @method reporterTout
-   * @param {(texte: String) => void} [etat] avancement affiché
-   * @param {Array<String>} [demandes] types à reporter, "Floods" et/ou "Chasses"
-   * @return {Promise<String>} bilan à afficher
-   */
-  static reporterTout(etat = () => {}, demandes = ["Floods", "Chasses"]) {
-    etat("Lecture de la liste des sujets…");
-    return PartageChasses.sujets().then((sujets) => {
-      let types = demandes.filter((type) => (sujets.communs || {})[type]);
-      if (!types.length)
-        return `Aucun sujet ${demandes.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(" ni ")} dans la section : rien à reporter.`;
-      /** @type {Array<String>} */
-      let bilans = [];
-      return types
-        .reduce(
-          (suite, type) =>
-            suite.then(() =>
-              PartageChasses._reporter(type, sujets, etat).then((b) => void bilans.push(b)),
-            ),
-          Promise.resolve(),
-        )
-        .then(() => bilans.join(" "));
-    });
-  }
-  /**
-   * @private
-   * @static
-   * @param {String} type
-   * @param {any} sujets
-   * @param {(texte: String) => void} etat
-   * @return {Promise<String>}
-   */
-  static _reporter(type, sujets, etat) {
-    let titre = SUJETS_COMMUNS[type],
-      commun = sujets.communs[type],
-      nombre = (
-        /** @type {Number} */ n,
-        /** @type {String} */ un,
-        /** @type {String} */ plusieurs,
-      ) => `${numeral(n).format()} ${n > 1 ? plusieurs : un}`;
-    etat(`« ${titre} » : lecture…`);
-    return PartageChasses._texteSujet(commun.id).then((texte) => {
-      let recentes = PartageChasses.sectionsRecentes(PartageChasses.sections(texte).sections),
-        joueurs = sujets.liste.filter((/** @type {any} */ t) => t.type == type),
-        aLire = joueurs.filter(
-          (/** @type {any} */ t) => !PartageChasses.couvert(t, recentes[t.pseudo.toLowerCase()]),
-        ),
-        /** @type {Array<any>} */
-        nouvelles = [],
-        illisibles = 0,
-        tropLongues = 0,
-        k = 0,
-        maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm");
-      return aLire
-        .reduce(
-          (suite, /** @type {any} */ t) =>
-            suite.then(() => {
-              etat(`« ${titre} » : sujet ${++k} / ${aLire.length} (${t.pseudo})…`);
-              return PartageChasses._lireDate(t).then(
-                ({ v, lu }) => {
-                  let entrees = (type == "Chasses" ? v.chasses : v.floods).filter(
-                    (/** @type {any} */ e) => e.date >= maintenant,
-                  );
-                  if (entrees.length > COMMUN_MAX_ENTREES) return void tropLongues++;
-                  nouvelles.push({
-                    pseudo: t.pseudo,
-                    ecrit: moment(lu)
-                      .startOf("minute")
-                      .subtract(1, "second")
-                      .format("YYYY-MM-DD HH:mm:ss"),
-                    lignes: PartageChasses._lignesSection(type, entrees),
-                  });
-                },
-                () => void illisibles++,
-              );
-            }),
-          Promise.resolve(),
-        )
-        .then(() => {
-          etat(`« ${titre} » : écriture…`);
-          return PartageChasses._ecrireSections(type, nouvelles);
-        })
-        .then((r) => {
-          let aJour = joueurs.length - aLire.length,
-            details = [
-              nombre(r.ecrites, "section reportée", "sections reportées"),
-              aJour ? nombre(aJour, "déjà à jour", "déjà à jour") : "",
-              illisibles ? nombre(illisibles, "sujet illisible", "sujets illisibles") : "",
-              tropLongues ? nombre(tropLongues, "sujet trop long", "sujets trop longs") : "",
-            ]
-              .filter(Boolean)
-              .join(", "),
-            bilan =
-              r.etat == "écrites"
-                ? `« ${titre} » : ${details}.`
-                : r.etat == "trop long"
-                  ? `« ${titre} » : rien n'est écrit, le message dépasserait la taille d'un message du forum (${numeral(r.longueur).format()} caractères).`
-                  : `« ${titre} » : écriture défaite par d'autres membres après ${r.essai} essais, réessaie plus tard.`;
-          if (r.etat == "écrites") Journal.info("Forum", bilan);
-          else Journal.erreur("Forum", bilan);
-          return bilan;
-        });
-    });
-  }
-  /**
-   * Contenu d'un sujet de joueur et heure du serveur de sa lecture : la
-   * lecture gardée si elle fait foi, sinon une lecture neuve.
-   *
-   * @private
-   * @static
-   * @param {any} t sujet de la liste
-   * @return {Promise<{v: any, lu: Number}>}
-   */
-  static _lireDate(t) {
-    let gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
-      garde = PartageChasses.sujetGarde(gardes, t);
-    if (garde) return Promise.resolve({ v: garde, lu: gardes[t.id].lu });
-    let debut = Horloge.maintenant();
-    return PartageChasses.lireSujet(t.id, true, t).then((v) => ({ v, lu: debut }));
+      },
+    );
   }
   /**
    * @private
@@ -1147,7 +913,55 @@ class PartageChasses {
     );
   }
   /**
-   * Fusionne des entrées dans le sujet du joueur (créé au premier partage).
+   * Modifie ma section du sujet commun du type : `changer` reçoit mes entrées
+   * relues au forum et rend toutes celles à garder, ou null s'il n'y a rien à
+   * écrire ; seuls les changements sont écrits et vérifiés (_ecrireSection).
+   * `changer` rend un tableau quand il n'a rien écrit au forum : le texte lu
+   * sert alors à l'écriture, sans le relire.
+   *
+   * @private
+   * @static
+   * @param {String} type "Chasses" ou "Floods"
+   * @param {(anciennes: Array<any>, sujets: any) => any} changer rend un
+   *   tableau d'entrées, null, ou leur promesse
+   * @return {Promise<Array<any>|null>} entrées gardées ; rejetée avec
+   *   Error("absente"), Error("sans sujet commun"), Error("défaites") ou
+   *   Error("trop long"), titre du sujet commun dans .titre
+   */
+  static _modifierSection(type, changer) {
+    let titre = SUJETS_COMMUNS[type],
+      ligne = (/** @type {any} */ e) => PartageChasses._ligne(type, e),
+      refus = (/** @type {String} */ code) =>
+        Promise.reject(Object.assign(new Error(code), { titre }));
+    return PartageChasses.sujets().then((sujets) => {
+      let commun = (sujets.communs || {})[type];
+      if (!commun) return refus("sans sujet commun");
+      return PartageChasses._texteSujet(commun.id).then((texte) => {
+        let anciennes = PartageChasses._mesEntrees(type, PartageChasses.sections(texte).sections),
+          rendu = changer(anciennes, sujets),
+          lu = Array.isArray(rendu) ? texte : null;
+        return Promise.resolve(rendu).then((/** @type {Array<any>|null} */ toutes) => {
+          if (!toutes) return null;
+          let avant = new Set(anciennes.map(ligne)),
+            apres = new Set(toutes.map(ligne)),
+            ajouts = toutes.filter((e) => !avant.has(ligne(e))),
+            retraits = anciennes.filter((e) => !apres.has(ligne(e)));
+          if (!ajouts.length && !retraits.length) return toutes;
+          return PartageChasses._ecrireSection(type, commun.id, ajouts, retraits, lu).then((r) => {
+            if (r.etat == "écrite" && r.essai > 1)
+              Journal.info(
+                "Forum",
+                `« ${titre} » : section écrite à l'essai ${r.essai} (sujet écrit au même moment par un autre membre ou appareil)`,
+              );
+            return r.etat == "écrite" ? toutes : refus(r.etat);
+          });
+        });
+      });
+    });
+  }
+  /**
+   * Fusionne des entrées dans ma section du sujet commun du type ; les entrées
+   * passées partent d'abord dans mon historique.
    *
    * @private
    * @param {String} type "Chasses" ou "Floods"
@@ -1155,108 +969,58 @@ class PartageChasses {
    * @return {Promise<Integer>} nombre d'entrées nouvelles
    */
   static _partager(type, entrees) {
-    let pseudo = monProfil.pseudo,
-      titre = `${type} | ${pseudo}`,
-      // une chasse par minute ; un flood par attaque du jeu (un multi-flood
-      // envoie plusieurs attaques sur la même cible à la même minute)
-      cle = (e) => e.date + "|" + (e.cible || "") + "|" + (e.cible ? e.terrain : "");
-    return PartageChasses.sujets().then((sujets) => {
-      let idSujet = sujets[`${type} | ${pseudo.toLowerCase()}`];
-      return (
-        idSujet
-          ? PartageChasses.lireSujet(idSujet).then((d) =>
-              type == "Chasses" ? d.chasses : d.floods,
-            )
-          : Promise.resolve([])
-      ).then((anciennes) => {
-        let ids = anciennes.filter((e) => e.id).map((e) => e.id),
-          // anciennes lignes sans numéro d'attaque : chacune ne couvre qu'un envoi
-          sansId = anciennes.filter((e) => !e.id).map(cle),
-          nouvelles = entrees.filter((e) => {
-            if (e.id && ids.includes(e.id)) return false;
-            let k = sansId.indexOf(cle(e));
-            if (type == "Chasses" ? k != -1 : k != -1 && !e.id) return false;
-            if (k != -1) {
-              sansId.splice(k, 1);
-              return false;
-            }
-            return true;
-          });
-        if (type == "Chasses") PartageChasses.noterFinChasses(entrees.map((e) => e.date));
-        // les entrées passées quittent le sujet pour l'historique du joueur
-        let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-          aVenir = anciennes.filter((e) => e.date >= maintenant),
-          passees = anciennes.concat(nouvelles).filter((e) => e.date < maintenant);
-        if (!nouvelles.length && aVenir.length == anciennes.length) return 0;
-        return PartageChasses.archiverPassees(type, passees, sujets).then((archivees) => {
-          let toutes = (archivees ? aVenir : anciennes)
-              .concat(archivees ? nouvelles.filter((e) => e.date >= maintenant) : nouvelles)
-              .sort((a, b) =>
-                a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0),
-              )
-              .slice(0, PARTAGE_MAX_ENTREES),
-            message = toutes.map((e) => PartageChasses._ligne(type, e)).join("\n"),
-            q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
-          return (
-            idSujet
-              ? PartageChasses._xajax(
-                  "envoiEditTopic",
-                  `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
-                )
-              : PartageChasses._xajax(
-                  "envoiNouveauSujet",
-                  `<xjxquery><q>cat=${PartageChasses.idSection}&${q}&type=normal&question=&reponse[]=&reponse[]=&reponse[]=</q></xjxquery>`,
-                )
-          )
-            .then(() =>
-              PartageChasses._verifierPartage(
-                type,
-                idSujet,
-                nouvelles.filter((e) => toutes.includes(e)),
-                cle,
-              ),
-            )
-            .then(() => {
-              PartageChasses.recopier(
-                type,
-                toutes.filter((e) => e.date >= maintenant),
-              );
-              return nouvelles.length;
-            });
+    // une chasse par minute ; un flood par attaque du jeu (un multi-flood
+    // envoie plusieurs attaques sur la même cible à la même minute)
+    let cle = (/** @type {any} */ e) =>
+        e.date + "|" + (e.cible || "") + "|" + (e.cible ? e.terrain : ""),
+      ajoutees = 0;
+    return PartageChasses._modifierSection(type, (anciennes, sujets) => {
+      let ids = anciennes.filter((e) => e.id).map((e) => e.id),
+        // anciennes lignes sans numéro d'attaque : chacune ne couvre qu'un envoi
+        sansId = anciennes.filter((e) => !e.id).map(cle),
+        nouvelles = entrees.filter((e) => {
+          if (e.id && ids.includes(e.id)) return false;
+          let k = sansId.indexOf(cle(e));
+          if (type == "Chasses" ? k != -1 : k != -1 && !e.id) return false;
+          if (k != -1) {
+            sansId.splice(k, 1);
+            return false;
+          }
+          return true;
         });
-      });
-    });
-  }
-  /**
-   * Relit le forum après l'écriture d'un partage : il ne signale pas une
-   * écriture refusée (grade sans droit d'écrire dans la section, premier
-   * message bloqué par une réponse). Sujet créé : il doit être dans la liste ;
-   * sujet modifié : les entrées écrites doivent y être.
-   *
-   * @private
-   * @static
-   * @param {String} type "Chasses" ou "Floods"
-   * @param {String|undefined} idSujet sujet modifié, absent s'il a été créé
-   * @param {Array} ecrites entrées nouvelles écrites dans le sujet
-   * @param {(e: any) => String} cle entrée sans numéro d'attaque
-   * @return {Promise} rejetée avec Error("non créé") ou Error("non modifié")
-   */
-  static _verifierPartage(type, idSujet, ecrites, cle) {
-    let pseudo = monProfil.pseudo,
-      refus = (/** @type {String} */ code) =>
-        Promise.reject(Object.assign(new Error(code), { titre: `${type} | ${pseudo}` }));
-    if (!idSujet)
-      return PartageChasses.sujets().then((sujets) =>
-        sujets[`${type} | ${pseudo.toLowerCase()}`] ? undefined : refus("non créé"),
-      );
-    if (!ecrites.length) return Promise.resolve();
-    return PartageChasses.lireSujet(idSujet).then((d) => {
-      let relues = type == "Chasses" ? d.chasses : d.floods,
-        ids = relues.filter((e) => e.id).map((e) => e.id),
-        cles = relues.map(cle);
-      if (ecrites.some((e) => !(e.id ? ids.includes(e.id) : cles.includes(cle(e)))))
-        return refus("non modifié");
-    });
+      if (type == "Chasses") PartageChasses.noterFinChasses(entrees.map((e) => e.date));
+      // les entrées passées quittent la section pour l'historique du joueur
+      let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+        aVenir = anciennes.filter((e) => e.date >= maintenant),
+        passees = anciennes.concat(nouvelles).filter((e) => e.date < maintenant);
+      if (!nouvelles.length && aVenir.length == anciennes.length) return null;
+      ajoutees = nouvelles.length;
+      let garder = (/** @type {Boolean} */ archivees) => {
+        let toutes = (archivees ? aVenir : anciennes).concat(
+            archivees ? nouvelles.filter((e) => e.date >= maintenant) : nouvelles,
+          ),
+          prochaines = toutes
+            .filter((e) => e.date >= maintenant)
+            .sort((a, b) =>
+              a.date < b.date ? -1 : a.date > b.date ? 1 : (a.id || 0) - (b.id || 0),
+            );
+        if (prochaines.length > COMMUN_MAX_ENTREES) {
+          Journal.info(
+            "Forum",
+            `${prochaines.length} ${type == "Chasses" ? "chasses" : "floods"} à venir : les ${COMMUN_MAX_ENTREES} plus proches partagés`,
+          );
+          ajoutees -= prochaines
+            .slice(COMMUN_MAX_ENTREES)
+            .filter((e) => nouvelles.includes(e)).length;
+        }
+        return toutes
+          .filter((e) => e.date < maintenant)
+          .concat(prochaines.slice(0, COMMUN_MAX_ENTREES));
+      };
+      return passees.length
+        ? PartageChasses.archiverPassees(type, passees, sujets).then(garder)
+        : garder(true);
+    }).then(() => ajoutees);
   }
   /**
    * @private
@@ -1299,8 +1063,9 @@ class PartageChasses {
   }
   /**
    * Page Ressources : chasses partagées puis annulées (en masse ou une par
-   * une) retirées du sujet « Chasses » du joueur. Le forum n'est lu que si une
-   * chasse partagée est encore à venir (ou la première fois, repère inconnu).
+   * une) retirées de ma section du sujet commun des chasses. Le forum n'est lu
+   * que si une chasse partagée est encore à venir (ou la première fois, repère
+   * inconnu).
    *
    * @static
    * @method recalerChasses
@@ -1309,59 +1074,45 @@ class PartageChasses {
    */
   static recalerChasses(groupes) {
     let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-      pseudo = monProfil.pseudo,
       fin = null;
     try {
       fin = localStorage.getItem(CLE_FIN_CHASSES_PARTAGEES);
     } catch (e) {}
-    // "-" : aucune chasse à venir dans le sujet ; null : jamais vérifié
-    if ((fin != null && fin < maintenant) || !pseudo) return Promise.resolve();
-    let titre = `Chasses | ${pseudo}`;
+    // "-" : aucune chasse à venir dans ma section ; null : jamais vérifié
+    if ((fin != null && fin < maintenant) || !monProfil.pseudo) return Promise.resolve();
+    let retenir = (/** @type {Array<any>} */ lignes) => {
+      try {
+        localStorage.setItem(
+          CLE_FIN_CHASSES_PARTAGEES,
+          lignes
+            .map((e) => e.date)
+            .sort()
+            .pop() || "-",
+        );
+      } catch (e) {}
+    };
     return PartageChasses.enFile(() =>
-      PartageChasses.sujets().then((sujets) => {
-        let idSujet = sujets[`Chasses | ${pseudo.toLowerCase()}`],
-          retenir = (lignes) => {
-            try {
-              localStorage.setItem(
-                CLE_FIN_CHASSES_PARTAGEES,
-                lignes
-                  .map((e) => e.date)
-                  .sort()
-                  .pop() || "-",
-              );
-            } catch (e) {}
-          };
-        if (!idSujet) return retenir([]);
-        return PartageChasses.lireSujet(idSujet).then((d) => {
-          let r = PartageChasses.recalerListeChasses(d.chasses, groupes, maintenant);
-          retenir(r.lignes);
-          if (!r.change) return;
-          // passées : vers l'historique ; annulées : retirées
-          let passees = d.chasses.filter((e) => e.date < maintenant);
-          return PartageChasses.archiverPassees("Chasses", passees, sujets).then((archivees) => {
-            // un sujet ne peut pas être vide : ligne neutre, ignorée à la lecture
-            let message =
-                r.lignes
-                  .concat(archivees ? [] : passees)
-                  .map((e) => PartageChasses._ligne("Chasses", e))
-                  .join("\n") || "Aucune chasse en cours.",
-              q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
-            return PartageChasses._xajax(
-              "envoiEditTopic",
-              `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
-            ).then(() => {
-              PartageChasses.recopier("Chasses", r.lignes);
-              $.toast({
-                ...TOAST_INFO,
-                text: `Chasses annulées : partage mis à jour dans le forum de la ${Utils.alliance || "l'alliance"}.`,
-              });
-            });
+      PartageChasses._modifierSection("Chasses", (anciennes, sujets) => {
+        let r = PartageChasses.recalerListeChasses(anciennes, groupes, maintenant);
+        retenir(r.lignes);
+        if (!r.change) return null;
+        // passées : vers l'historique ; annulées : retirées
+        let passees = anciennes.filter((e) => e.date < maintenant);
+        return passees.length
+          ? PartageChasses.archiverPassees("Chasses", passees, sujets).then((archivees) =>
+              r.lignes.concat(archivees ? [] : passees),
+            )
+          : r.lignes;
+      }).then((ecrites) => {
+        if (ecrites)
+          $.toast({
+            ...TOAST_INFO,
+            text: `Chasses annulées : partage mis à jour dans le forum de la ${Utils.alliance || "l'alliance"}.`,
           });
-        });
       }),
     ).catch((e) => {
-      // pas de section de partage dans le forum : rien à recaler, ne plus le lire
-      if (e && e.message == "absente")
+      // pas de section ou de sujet commun dans le forum : rien à recaler, ne plus le lire
+      if (e && (e.message == "absente" || e.message == "sans sujet commun"))
         try {
           localStorage.setItem(CLE_FIN_CHASSES_PARTAGEES, "-");
         } catch (err) {}
@@ -1421,15 +1172,20 @@ class PartageChasses {
           text:
             code == "absente"
               ? SECTION_INTROUVABLE
-              : code == "non créé"
-                ? `Partage non enregistré : le sujet « ${e.titre} » n'apparaît pas dans le forum après l'envoi. Ton grade n'a peut-être pas le droit d'écrire dans la section « ${FORUM_SECTIONS_CHASSES[0]} » : demande à un chef.`
-                : code == "non modifié"
-                  ? `Partage non enregistré : le sujet « ${e.titre} » n'a pas été modifié. Si quelqu'un y a répondu, son premier message n'est plus modifiable (un chef peut supprimer la réponse) ; sinon, ton grade n'a peut-être pas le droit d'y écrire : demande à un chef.`
-                  : `Partage impossible : le forum de l'alliance n'a pas pu être lu ou modifié.`,
+              : code == "sans sujet commun"
+                ? `Partage impossible : pas de sujet « ${e.titre} » dans la section « ${FORUM_SECTIONS_CHASSES[0]} » du forum. Demande à un chef de le créer, avec un premier message modifiable par tous les membres.`
+                : code == "défaites"
+                  ? `Partage non enregistré : le sujet « ${e.titre} » n'a pas été modifié. Si quelqu'un y a répondu, son premier message n'est plus modifiable (un chef peut supprimer la réponse) ; sinon, ton grade n'a peut-être pas le droit d'y écrire (demande à un chef), ou d'autres membres l'écrivaient au même moment : réessaie.`
+                  : code == "trop long"
+                    ? `Partage non enregistré : le sujet « ${e.titre} » est plein (un message du forum a une taille maximale) : préviens un chef.`
+                    : `Partage impossible : le forum de l'alliance n'a pas pu être lu ou modifié.`,
         });
         // refus du forum : un nouvel essai à chaque page n'y changerait rien
         // (le bouton Partager de la liste des attaques reste)
-        if (type == "Floods" && ["absente", "non créé", "non modifié"].includes(code))
+        if (
+          type == "Floods" &&
+          ["absente", "sans sujet commun", "défaites", "trop long"].includes(code)
+        )
           AttaqueLancee.oublierPartage(entrees.map((x) => x.id));
         return false;
       })
@@ -1439,12 +1195,12 @@ class PartageChasses {
       });
   }
   /**
-   * Retire du sujet « Floods » du joueur des floods (numéros d'attaque) qui ne
-   * sont plus dans la liste du jeu, annulés ou arrivés : un flood ne quitte le
-   * forum que pour cette raison (règle du mainteneur, pas de retrait à la
-   * main). Les entrées passées sont purgées au passage, comme lors d'un
-   * partage ; rien n'est écrit si aucun de ces floods n'est dans le sujet, et
-   * un message seulement si un flood à venir est retiré.
+   * Retire de ma section du sujet commun des floods des floods (numéros
+   * d'attaque) qui ne sont plus dans la liste du jeu, annulés ou arrivés : un
+   * flood ne quitte le forum que pour cette raison (règle du mainteneur, pas
+   * de retrait à la main). Les entrées passées sont purgées au passage, comme
+   * lors d'un partage ; rien n'est écrit si aucun de ces floods n'est dans ma
+   * section, et un message seulement si un flood à venir est retiré.
    *
    * @static
    * @method retirerFloods
@@ -1452,14 +1208,12 @@ class PartageChasses {
    * @return {Promise}
    */
   static retirerFloods(ids) {
-    let pseudo = monProfil.pseudo,
-      titre = `Floods | ${pseudo}`;
     ids = ids.filter((id) => !retraitsEnCours.has(id));
     if (!ids.length) return Promise.resolve();
     PartageChasses.noterARetirer(ids, true);
     ids.forEach((id) => retraitsEnCours.add(id));
-    return PartageChasses.enFile(() => PartageChasses._retirerFloods(ids, pseudo, titre)).finally(
-      () => ids.forEach((id) => retraitsEnCours.delete(id)),
+    return PartageChasses.enFile(() => PartageChasses._retirerFloods(ids)).finally(() =>
+      ids.forEach((id) => retraitsEnCours.delete(id)),
     );
   }
   /**
@@ -1497,56 +1251,40 @@ class PartageChasses {
   /**
    * @private
    * @static
+   * @param {Array<Number>} ids
+   * @return {Promise}
    */
-  static _retirerFloods(ids, pseudo, titre) {
-    let mesure = Journal.mesurer("Retrait de floods partagés");
-    return PartageChasses.sujets()
-      .then((sujets) => {
-        let idSujet = sujets[`Floods | ${pseudo.toLowerCase()}`];
-        if (!idSujet) return 0;
-        return PartageChasses.lireSujet(idSujet).then((d) => {
-          let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-            gardes = d.floods.filter((e) => e.date >= maintenant && !ids.includes(e.id)),
-            presents = d.floods.filter((e) => ids.includes(e.id)),
-            // un flood arrivé n'est plus « retiré » : il serait purgé de toute façon
-            retires = presents.filter((e) => e.date >= maintenant).length;
-          if (!presents.length) return 0;
-          // arrivés (minute passée) : vers l'historique ; annulés à venir : retirés
-          let passees = d.floods.filter((e) => e.date < maintenant);
-          return PartageChasses.archiverPassees("Floods", passees, sujets).then((archivees) => {
-            // un sujet ne peut pas être vide : ligne neutre, ignorée à la lecture
-            let message =
-                gardes
-                  .concat(archivees ? [] : passees)
-                  .sort((a, b) =>
-                    a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0),
-                  )
-                  .map((e) => PartageChasses._ligne("Floods", e))
-                  .join("\n") || "Aucun flood en cours.",
-              q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(message)}&modifiable=envoyer&send=Envoyer`;
-            return PartageChasses._xajax(
-              "envoiEditTopic",
-              `<xjxquery><q>IDTopic=${idSujet}&${q}</q></xjxquery>`,
-            ).then(() => {
-              PartageChasses.recopier("Floods", gardes);
-              return retires;
-            });
-          });
-        });
-      })
-      .then((n) => {
+  static _retirerFloods(ids) {
+    let mesure = Journal.mesurer("Retrait de floods partagés"),
+      retires = 0;
+    return PartageChasses._modifierSection("Floods", (anciennes, sujets) => {
+      let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
+        gardes = anciennes.filter((e) => e.date >= maintenant && !ids.includes(e.id)),
+        presents = anciennes.filter((e) => ids.includes(e.id));
+      // un flood arrivé n'est plus « retiré » : il serait purgé de toute façon
+      retires = presents.filter((e) => e.date >= maintenant).length;
+      if (!presents.length) return null;
+      // arrivés (minute passée) : vers l'historique ; annulés à venir : retirés
+      let passees = anciennes.filter((e) => e.date < maintenant);
+      return passees.length
+        ? PartageChasses.archiverPassees("Floods", passees, sujets).then((archivees) =>
+            gardes.concat(archivees ? [] : passees),
+          )
+        : gardes;
+    })
+      .then(() => {
         PartageChasses.oublierFloodsPartages(ids);
         PartageChasses.noterARetirer(ids, false);
         AttaqueLancee.majPartages();
-        if (n)
+        if (retires)
           $.toast({
             ...TOAST_SUCCESS,
-            text: `${n} flood${n > 1 ? "s annulés retirés" : " annulé retiré"} du forum de la ${Utils.alliance}.`,
+            text: `${retires} flood${retires > 1 ? "s annulés retirés" : " annulé retiré"} du forum de la ${Utils.alliance}.`,
           });
       })
       .catch((e) => {
-        // pas de section de partage : rien à retirer, inutile de réessayer
-        if (e && e.message == "absente") {
+        // pas de section de partage ni de sujet commun : rien à retirer, inutile de réessayer
+        if (e && (e.message == "absente" || e.message == "sans sujet commun")) {
           PartageChasses.oublierFloodsPartages(ids);
           PartageChasses.noterARetirer(ids, false);
         }
@@ -1567,7 +1305,7 @@ class PartageChasses {
     } catch (e) {}
   }
   /**
-   * Numéros des attaques déjà publiées dans le sujet « Floods » du joueur :
+   * Numéros des attaques déjà publiées dans ma section du sujet commun des floods :
    * {id: date du marquage (ms)}. Tenu à jour à chaque partage depuis ce
    * navigateur, et sur la page Armée d'après la lecture du forum.
    *
@@ -1690,8 +1428,9 @@ class PartageChasses {
       .filter((e) => e.terrain > 0 || (e.lieu && e.unites));
   }
   /**
-   * Lit dans le forum les chasses (des joueurs demandés, ou de tous) et les
-   * floods de tous les membres, par paquets de 4 sujets.
+   * Lit dans les sujets communs du forum les chasses (des joueurs demandés,
+   * ou de tous) et les floods de tous les membres, une section par joueur.
+   * Rejetée avec Error("sans sujet commun") si un sujet commun manque.
    *
    * @static
    * @method charger
@@ -1704,81 +1443,41 @@ class PartageChasses {
     if (suivi) suivi.prevoir(1);
     return PartageChasses.sujets(true).then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
-        // floods de tous les joueurs ; chasses des joueurs demandés
-        voulu = (/** @type {String} */ type, /** @type {String} */ pseudo) =>
-          type == "Floods" ? avecFloods : !voulus || voulus.includes(pseudo.toLowerCase()),
         types = ["Floods", "Chasses"].filter((type) =>
           type == "Floods" ? avecFloods : !voulus || voulus.length,
         ),
-        communs = types.map((type) => (sujets.communs || {})[type]).filter(Boolean),
-        // les sujets des joueurs ne sont lus que pour un type sans sujet commun
-        sansCommun = types.filter((type) => !(sujets.communs || {})[type]),
-        liste = sujets.liste.filter((t) => sansCommun.includes(t.type) && voulu(t.type, t.pseudo)),
-        d = { chasses: {}, floods: [] },
-        lu = () => suivi && suivi.faite(),
-        ranger = (
-          /** @type {String} */ type,
-          /** @type {String} */ pseudo,
-          /** @type {any} */ r,
-        ) => {
-          if (type == "Chasses") d.chasses[pseudo.toLowerCase()] = r.chasses;
-          else r.floods.forEach((/** @type {any} */ e) => d.floods.push({ ...e, lanceur: pseudo }));
-        };
-      if (sansCommun.length)
+        manquants = types.filter((type) => !(sujets.communs || {})[type]),
+        d = { chasses: {}, floods: [] };
+      if (manquants.length) {
         Journal.info(
           "Forum",
-          `pas de sujet ${sansCommun.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(" ni ")} dans la section : sujets des joueurs lus`,
+          `pas de sujet ${manquants.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(" ni ")} dans la section : partages illisibles`,
         );
-      if (suivi) {
-        suivi.faite();
-        suivi.prevoir(communs.length);
+        throw Object.assign(new Error("sans sujet commun"), {
+          titre: SUJETS_COMMUNS[manquants[0]],
+        });
       }
-      // un sujet commun illisible fait échouer la lecture : sans lui, il manquerait des joueurs
+      if (suivi) suivi.faite();
       return Promise.all(
-        communs.map((c) =>
-          PartageChasses._lireCommun(c).then((v) => {
-            lu();
-            return [c.type, v];
-          }),
+        types.map((type) =>
+          PartageChasses._lireCommun(sujets.communs[type], suivi).then((v) => [type, v]),
         ),
       ).then((lus) => {
+        // floods de tous les joueurs ; chasses des joueurs demandés
         lus.forEach(([type, v]) => {
           let recentes = PartageChasses.sectionsRecentes(v.sections);
           Object.keys(recentes)
             .sort()
             .forEach((k) => {
-              if (voulu(type, k)) ranger(type, recentes[k].pseudo, recentes[k]);
+              let s = recentes[k];
+              if (type == "Floods")
+                s.floods.forEach((/** @type {any} */ e) =>
+                  d.floods.push({ ...e, lanceur: s.pseudo }),
+                );
+              else if (!voulus || voulus.includes(k)) d.chasses[k] = s.chasses;
             });
         });
-        let gardes = Utils.lireStockage(CLE_SUJETS_GARDES),
-          // sujet par sujet, rangés ensuite dans l'ordre de la liste
-          contenus = new Map(),
-          aLire = liste.filter((t) => {
-            let garde = PartageChasses.sujetGarde(gardes, t);
-            if (!garde) return true;
-            contenus.set(t, garde);
-            if (typeof COMPTE_REQUETES != "undefined") COMPTE_REQUETES.cache++;
-            return false;
-          }),
-          lirePaquet = (/** @type {Number} */ k) =>
-            k >= aLire.length
-              ? Promise.resolve()
-              : Promise.all(
-                  aLire.slice(k, k + 4).map((t) =>
-                    PartageChasses.lireSujet(t.id, true, t)
-                      .then((r) => void contenus.set(t, r))
-                      .catch(() => {})
-                      .then(lu),
-                  ),
-                ).then(() => lirePaquet(k + 4));
-        if (suivi) suivi.prevoir(aLire.length);
-        return lirePaquet(0).then(() => {
-          liste.forEach((t) => {
-            let r = contenus.get(t);
-            if (r) ranger(t.type, t.pseudo, r);
-          });
-          return d;
-        });
+        return d;
       });
     });
   }

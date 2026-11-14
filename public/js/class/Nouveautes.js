@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.112.0",
+    notes: [
+      "Forum de l'alliance : boutons « GIF » et « Smileys » sous le message que tu écris (nouveau sujet, réponse, modification), avec les mêmes listes que dans les chats. Les codes des smileys deviennent des images à l'envoi.",
+      "Deux cases dans Préférences → Affichage pour les masquer.",
+    ],
+  },
+  {
     version: "1.111.0",
     notes: [
       "Préférences réorganisées : Options, Partage de données, Mise en page, Armée et floods, Messagerie, Affichage, Chasseur, Grenier, Pages et À propos. Seuls les réglages choisis par l'alliance restent modifiables ; les autres ajouts de l'extension sont toujours affichés.",

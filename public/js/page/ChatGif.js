@@ -53,6 +53,9 @@ let codesSmileysJeu = null;
 /** @type {Record<String, Promise<any>>} */
 let lecturesAlliance = {};
 let envoisMessagerieSuivis = false;
+// forum : listes cochées dans les Préférences, envois suivis une fois par page
+let sectionsForum = { gif: false, smileys: false };
+let envoisForumSuivis = false;
 
 /**
  * @typedef {{nom: String, adresse: String}} Smiley
@@ -798,6 +801,144 @@ class ChatGif {
     document.addEventListener("click", (e) => ChatGif._avantEnvoiMessagerie(e), true);
   }
   /**
+   * Forum de l'alliance : boutons « GIF » et « Smileys » sous chaque message à
+   * écrire (nouveau sujet, réponse, modification : champ « message » des
+   * formulaires du jeu), ajoutés quand le jeu les affiche ; leurs codes
+   * deviennent des images à l'envoi. Rien n'est lu au forum avant le premier
+   * clic sur un bouton.
+   *
+   * @static
+   * @method forum
+   * @param {{gif: Boolean, smileys: Boolean}} sections cases cochées dans les Préférences
+   */
+  static forum(sections) {
+    let $alliance = $("#alliance");
+    if (!$alliance.length || (!sections.gif && !sections.smileys)) return;
+    sectionsForum = sections;
+    lecturesAlliance = {};
+    let equiper = () =>
+      $alliance
+        .find("textarea[name='message']")
+        .not("[data-o-gif]")
+        .each((i, champ) => ChatGif._equiperForum(/** @type {HTMLTextAreaElement} */ (champ)));
+    equiper();
+    new MutationObserver(equiper).observe($alliance[0], { childList: true, subtree: true });
+    if (envoisForumSuivis) return;
+    envoisForumSuivis = true;
+    // avant le jeu, qui lit le formulaire au clic sur son bouton
+    document.addEventListener("click", (e) => ChatGif._avantEnvoiForum(e), true);
+    document.addEventListener("submit", (e) => ChatGif._avantEnvoiForum(e), true);
+  }
+  /**
+   * @private
+   * @static
+   * @param {HTMLTextAreaElement} champ
+   */
+  static _equiperForum(champ) {
+    champ.setAttribute("data-o-gif", "1");
+    let classe =
+        $(champ).closest("form").find("input[name='send'], input[type='submit']").attr("class") ||
+        "",
+      $zone = $(`<div class="o_forumGif"><div class="o_forumGifBoutons"></div></div>`).insertAfter(
+        champ,
+      ),
+      /** @type {Array<any>} */
+      postes = [],
+      ajouter = (/** @type {String} */ libelle, /** @type {String} */ classePanneau) => {
+        let poste = {
+          champ,
+          $bouton: $(`<input type="button" aria-expanded="false"/>`)
+            .attr("value", libelle)
+            .addClass(classe),
+          $panneau: $(`<div class="${classePanneau}" hidden></div>`),
+        };
+        // boutons sur une ligne, panneaux dessous
+        $zone.children(".o_forumGifBoutons").append(poste.$bouton);
+        $zone.append(poste.$panneau);
+        postes.push(poste);
+        return poste;
+      };
+    if (sectionsForum.gif) {
+      let poste = ajouter("GIF", "o_gifPanneauForum");
+      poste.$bouton.on("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ChatGif._basculerForum(poste, postes, () => {
+          ChatGif._montrerMes(
+            ChatGif._section("mes", "Mes GIF").addClass("o_gifMes").appendTo(poste.$panneau),
+            (adresse) => ChatGif.choisirGif(poste, adresse),
+          );
+          ChatGif._section("alliance", "GIF de l'alliance")
+            .append(`<div class="o_gifAlliance"></div>`)
+            .appendTo(poste.$panneau);
+          ChatGif.afficherAlliance("gif", poste);
+        });
+      });
+    }
+    if (sectionsForum.smileys) {
+      let poste = ajouter(ChatGif.libelleSmileys(), "o_smileysPanneau");
+      poste.$bouton.on("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ChatGif._basculerForum(poste, postes, () => {
+          poste.$panneau.html(`<div class="o_smileysAlliance"></div>`);
+          ChatGif.afficherAlliance("smileys", poste);
+        });
+      });
+    }
+  }
+  /**
+   * Ouvre ou ferme le panneau d'un bouton du forum ; l'autre se ferme.
+   *
+   * @private
+   * @static
+   * @param {PosteSmileys} poste
+   * @param {Array<PosteSmileys>} postes ceux du même message
+   * @param {() => void} remplir contenu du panneau, à l'ouverture
+   */
+  static _basculerForum(poste, postes, remplir) {
+    let ouvrir = poste.$panneau.prop("hidden");
+    postes.forEach((p) => ChatGif._fermer(p.$panneau, p.$bouton));
+    if (!ouvrir) return;
+    poste.$panneau.empty().prop("hidden", false);
+    poste.$bouton.attr("aria-expanded", "true");
+    remplir();
+  }
+  /**
+   * Envoi d'un message du forum (clic sur un bouton du jeu de son formulaire,
+   * ou validation du formulaire) : les codes des smileys deviennent leurs
+   * images, et les GIF envoyés rejoignent « Mes GIF ».
+   *
+   * @private
+   * @static
+   * @param {Event} e
+   */
+  static _avantEnvoiForum(e) {
+    let cible = /** @type {any} */ (e.target);
+    if (!cible || typeof cible.closest != "function") return;
+    let formulaire = e.type == "submit" ? cible : cible.closest("form"),
+      champ = formulaire && formulaire.querySelector("textarea[data-o-gif]");
+    if (e.type == "click") {
+      let commande = cible.closest("input[type='button'], input[type='submit'], button, a");
+      if (!commande || commande.closest(".o_forumGif")) return;
+      // envoi du jeu : bouton « send » ou de validation, ou action xajax « envoi… » ;
+      // pas un bouton de mise en forme, le code resterait visible jusqu'à l'envoi
+      let action = `${commande.getAttribute("onclick") || ""} ${commande.getAttribute("href") || ""}`,
+        libelle = String(commande.value || commande.textContent || "").trim();
+      if (
+        !commande.matches("[name='send'], [type='submit']") &&
+        !/envoi/i.test(action) &&
+        !/^(envoyer|répondre|poster|valider|modifier)/i.test(libelle)
+      )
+        return;
+      // bouton ou lien d'envoi du jeu hors d'un formulaire
+      if (!champ && !formulaire) champ = document.querySelector("#alliance textarea[data-o-gif]");
+    }
+    if (!champ) return;
+    if (sectionsForum.smileys && !ChatGif.avantEnvoi(champ, e)) return;
+    if (sectionsForum.gif) ChatGif.noterEnvoi(champ.value);
+  }
+  /**
    * Clic sur « Envoyer » ou sur « Répondre » d'une conversation : les codes
    * des smileys du message envoyé deviennent leurs images.
    *
@@ -928,8 +1069,9 @@ class ChatGif {
    * @private
    * @static
    * @param {any} $section
+   * @param {(adresse: String) => void} [choisir] par défaut, dans le message du chat
    */
-  static _montrerMes($section) {
+  static _montrerMes($section, choisir = undefined) {
     $section.find(".o_gifGrille, .o_gifNote").remove();
     let liste = ChatGif.mesGif();
     if (!liste.length) {
@@ -939,10 +1081,14 @@ class ChatGif {
       return;
     }
     $section.append(
-      ChatGif.grille(liste, (adresse) => {
-        ChatGif.retirer(adresse);
-        ChatGif._montrerMes($section);
-      }),
+      ChatGif.grille(
+        liste,
+        (adresse) => {
+          ChatGif.retirer(adresse);
+          ChatGif._montrerMes($section, choisir);
+        },
+        choisir,
+      ),
     );
   }
   /**
@@ -952,9 +1098,10 @@ class ChatGif {
    * @method grille
    * @param {Array<String>} adresses
    * @param {(adresse: String) => void} [retirer]
+   * @param {(adresse: String) => void} [choisir] par défaut, dans le message du chat
    * @return {any} jQuery
    */
-  static grille(adresses, retirer) {
+  static grille(adresses, retirer, choisir = (adresse) => ChatGif.choisir(adresse)) {
     let $grille = $(`<div class="o_gifGrille"></div>`);
     adresses.forEach((adresse, i) => {
       let $case = $(`<span class="o_gifCase">
@@ -963,7 +1110,8 @@ class ChatGif {
       $case.find("img").attr({ src: adresse, alt: `GIF ${i + 1}` });
       $case.find(".o_gifChoix").on("click", (e) => {
         e.preventDefault();
-        ChatGif.choisir(adresse);
+        e.stopPropagation();
+        choisir(adresse);
       });
       if (retirer)
         $(
@@ -1020,6 +1168,21 @@ class ChatGif {
       return;
     }
     ChatGif._fermer(liste.panneau, liste.bouton);
+  }
+  /**
+   * GIF mis dans un message du forum, puis son panneau se ferme.
+   *
+   * @static
+   * @method choisirGif
+   * @param {PosteSmileys} poste champ du message, bouton et panneau des GIF
+   * @param {String} adresse
+   */
+  static choisirGif(poste, adresse) {
+    if (!ChatGif.inserer(poste.champ, adresse)) {
+      ChatGif._tropLong(poste.champ, ChatGif._liste("gif").ce);
+      return;
+    }
+    ChatGif._fermer(poste.$panneau, poste.$bouton);
   }
   /**
    * Code du smiley mis dans le message, puis son panneau se ferme.
@@ -1116,7 +1279,14 @@ class ChatGif {
       return;
     }
     if (sections.length && poste) ChatGif._montrerSmileys($zone, sections, poste);
-    else if (type != "smileys" && r.gifs.length) $zone.append(ChatGif.grille(r.gifs));
+    else if (type != "smileys" && r.gifs.length)
+      $zone.append(
+        ChatGif.grille(
+          r.gifs,
+          undefined,
+          poste ? (adresse) => ChatGif.choisirGif(poste, adresse) : undefined,
+        ),
+      );
     else
       $zone.append(
         `<p class="reduce o_gifNote">Aucune adresse d'image dans le premier message du sujet « ${liste.titre} ».</p>`,

@@ -1523,14 +1523,23 @@ html:not(.o_originePage) #color {
     rgba(215, 195, 132, 1) 100%
   );
 }
-/* chats et Messagerie : boutons « GIF » et « Smileys », leurs listes (ChatGif) */
+/* chats, Messagerie et forum : boutons « GIF » et « Smileys », leurs listes (ChatGif) */
 #o_gifBouton,
 #o_smileysBouton,
 .o_smileysBouton {
   margin-left: 6px;
 }
+/* forum : sous le message à écrire, les boutons sur une ligne (qui passe à la ligne sur téléphone), leurs panneaux dessous */
+.o_forumGif {
+  margin: 4px 0;
+  text-align: left;
+}
+.o_forumGifBoutons > input + input {
+  margin-left: 6px;
+}
 #o_gifPanneau,
 #o_smileysPanneau,
+.o_gifPanneauForum,
 .o_smileysPanneau {
   box-sizing: border-box;
   max-width: 100%;
@@ -1545,6 +1554,7 @@ html:not(.o_originePage) #color {
 }
 #o_gifPanneau[hidden],
 #o_smileysPanneau[hidden],
+.o_gifPanneauForum[hidden],
 .o_smileysPanneau[hidden] {
   display: none !important;
 }

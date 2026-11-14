@@ -61,6 +61,8 @@ const ONGLETS_PARAMETRE = [
       "chatMesGif",
       "chatGifAlliance",
       "chatSmileysAlliance",
+      "forumGif",
+      "forumSmileysAlliance",
     ],
   },
   { id: "Chasseur", titre: "Chasseur", affichages: ["rappelExport", "lanceurChasse"] },
@@ -579,7 +581,7 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
-   * Affichage : page Membres de l'alliance et chats.
+   * Affichage : page Membres de l'alliance, chats et forum.
    *
    * @method ongletAffichage
    */
@@ -590,6 +592,8 @@ class BoiteParametre extends Boite {
         ${monProfil.parametre["vueMembres"].getForm("Vue par défaut de la page Membres de l'alliance")}
         <p class='o_titreParam'>Chats</p>
         ${["chatMesGif", "chatGifAlliance", "chatSmileysAlliance"].map((cle) => this.caseAffichage(cle)).join("")}
+        <p class='o_titreParam'>Forum de l'alliance</p>
+        ${["forumGif", "forumSmileysAlliance"].map((cle) => this.caseAffichage(cle)).join("")}
       </form>`);
     return this;
   }

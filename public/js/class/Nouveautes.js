@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.114.1",
+    notes: [
+      "Boîte « Extension OUAF » : avec Violentmonkey, « mettre à jour » n'ouvre plus un onglet vide en plus (Firefox Android) ; la page du jeu reste ouverte.",
+    ],
+  },
+  {
     version: "1.114.0",
     notes: [
       "Floods et chasses partagés : chaque joueur a maintenant sa propre réponse dans les sujets « BDD générale flood » et « BDD générale chasse », que seule son extension modifie. Un partage ne peut plus effacer celui d'un autre membre.",

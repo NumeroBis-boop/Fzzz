@@ -84,9 +84,10 @@ describe("nouvelle version publiée du script utilisateur", () => {
 });
 
 describe("encadré « Extension OUAF »", () => {
-  const encadre = async (scriptUtilisateur: boolean) => {
+  const encadre = async (scriptUtilisateur: boolean, gestionnaire: string | null = null) => {
     page.lire(`(() => {
       ${scriptUtilisateur ? "window.FZZZ_USERSCRIPT = true;" : "delete window.FZZZ_USERSCRIPT;"}
+      ${gestionnaire ? `window.GM_info = { scriptHandler: ${JSON.stringify(gestionnaire)} };` : "delete window.GM_info;"}
       window.chrome = { runtime: { sendMessage: () => Promise.resolve({ statut: "userscript", url: ${JSON.stringify(FINALE)} }) } };
       document.body.innerHTML = '<div id="o_boiteExtension"><div class="contenu_boite_compte_plus"></div></div>';
       Dock.signalerMiseAJour($("#o_boiteExtension"));
@@ -103,6 +104,22 @@ describe("encadré « Extension OUAF »", () => {
       texte: "Nouvelle version v1.85.2 : mettre à jour",
       lien: FINALE,
     });
+  });
+
+  const cible = () => page.lire<string | undefined>(`$(".o_majDisponible a").attr("target")`);
+
+  test("Violentmonkey : le lien s'ouvre dans l'onglet du jeu, sa page d'installation dans un nouvel onglet (sinon un onglet vide de plus sur Firefox Android)", async () => {
+    remettre("1.85.2");
+    expect((await encadre(true, "Violentmonkey")).lien).toBe(FINALE);
+    expect(cible()).toBeUndefined();
+  });
+
+  test("Tampermonkey, Userscripts (iPhone) ou gestionnaire inconnu : nouvel onglet, le jeu garde le sien", async () => {
+    for (const gestionnaire of ["Tampermonkey", "Userscripts", null]) {
+      remettre("1.85.2");
+      await encadre(true, gestionnaire);
+      expect(cible()).toBe("_blank");
+    }
   });
 
   test("déjà à jour, ou extension de navigateur : rien", async () => {

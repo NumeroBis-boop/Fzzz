@@ -158,8 +158,13 @@ class Dock {
         $("<div class='o_majDisponible'></div>")
           .text(`Nouvelle version v${maj.version} : `)
           .append(
-            $("<a target='_blank' rel='noopener'>mettre à jour</a>")
+            $("<a rel='noopener'>mettre à jour</a>")
               .attr("href", maj.url)
+              // Violentmonkey ouvre sa page d'installation dans un nouvel onglet ;
+              // un lien vers un nouvel onglet en laissait un vide de plus (Firefox
+              // Android, 14/11/2026). Ailleurs (Userscripts sur iPhone : le script
+              // s'affiche dans l'onglet ouvert), le jeu garde le sien
+              .attr("target", Dock.violentmonkey() ? null : "_blank")
               .attr(
                 "title",
                 "Ouvre la nouvelle version : « Mettre à jour » dans Violentmonkey ou Tampermonkey, puis recharge la page.",
@@ -168,6 +173,17 @@ class Dock {
           .appendTo($boite.find(".contenu_boite_compte_plus"));
       })
       .catch(() => {});
+  }
+  /**
+   * @static
+   * @method violentmonkey
+   * @return {Boolean} script utilisateur installé avec Violentmonkey
+   */
+  static violentmonkey() {
+    return (
+      typeof GM_info != "undefined" &&
+      /violentmonkey/i.test((GM_info && GM_info.scriptHandler) || "")
+    );
   }
   /**
    * Remonte visuellement l'encadré Compte+ (translation, sans toucher à la

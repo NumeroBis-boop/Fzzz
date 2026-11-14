@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.117.2",
+    notes: [
+      "Boîte « Extension OUAF » : toute la ligne « Nouvelle version … : mettre à jour » est le lien de mise à jour, en rouge et en gras.",
+    ],
+  },
+  {
     version: "1.117.1",
     notes: [
       "Page Convois, Récapitulatif : quand un temps de trajet est inconnu (nouveau membre de l'alliance), un lien « Actualiser les positions » apparaît en bas du tableau (même lecture que « Charger / Actualiser » de la Carte).",

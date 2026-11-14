@@ -170,9 +170,9 @@ class Dock {
           );
         if (!ancienne || $boite.find(".o_majDisponible").length) return;
         $("<div class='o_majDisponible'></div>")
-          .text(`Nouvelle version v${maj.version} : `)
           .append(
-            $("<a rel='noopener'>mettre à jour</a>")
+            $("<a rel='noopener'></a>")
+              .text(`Nouvelle version v${maj.version} : mettre à jour`)
               .attr("href", maj.url)
               // Violentmonkey ouvre sa page d'installation dans un nouvel onglet ;
               // un lien vers un nouvel onglet en laissait un vide de plus (Firefox

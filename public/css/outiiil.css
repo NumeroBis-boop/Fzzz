@@ -690,8 +690,10 @@ html:not(.o_origineGenerale) #recherche {
   color: #ff8a80;
   opacity: 1;
 }
-/* le jeu met en normal les liens de ses encadrés */
-.boite_compte_plus .o_majDisponible a {
+/* le jeu met en normal les liens de ses encadrés ; rouge du numéro de version périmé */
+.boite_compte_plus .o_majDisponible a,
+.boite_compte_plus .o_majDisponible a:visited {
+  color: #ff8a80;
   font-weight: bold;
 }
 /* Fzzz : boîte « Journal » sous « Extension OUAF » */

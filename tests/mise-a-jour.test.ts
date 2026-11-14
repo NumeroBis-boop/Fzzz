@@ -100,12 +100,15 @@ describe("encadré « Extension OUAF »", () => {
     );
   };
 
-  test("nouvelle version : ligne avec le lien du script", async () => {
+  test("nouvelle version : toute la ligne est le lien du script", async () => {
     remettre("1.85.2");
     expect(await encadre(true)).toEqual({
       texte: "Nouvelle version v1.85.2 : mettre à jour",
       lien: FINALE,
     });
+    expect(page.lire(`$(".o_majDisponible a").text()`)).toBe(
+      "Nouvelle version v1.85.2 : mettre à jour",
+    );
   });
 
   const cible = () => page.lire<string | undefined>(`$(".o_majDisponible a").attr("target")`);
@@ -166,13 +169,18 @@ describe("encadré « Extension OUAF »", () => {
     expect(version().classes).toBe("o_versionExtension");
   });
 
-  test("couleurs et lien en gras, plus forts que le style des encadrés du jeu", () => {
+  test("couleurs, et lien de mise à jour rouge et en gras, plus forts que le style des encadrés du jeu", () => {
     const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8"),
       regle = (selecteur: string) =>
         new RegExp(`${selecteur.replace(/[.]/g, "\\.")} \\{([^}]*)\\}`).exec(css)?.[1] ?? "";
     expect(regle(".o_versionExtension.o_versionAJour")).toContain("color: #7ddc6f");
     expect(regle(".o_versionExtension.o_versionAncienne")).toContain("color: #ff8a80");
-    // le jeu : .boite_compte_plus a { font-weight: normal } ; plus précis que lui
-    expect(regle(".boite_compte_plus .o_majDisponible a")).toContain("font-weight: bold");
+    // le jeu : .boite_compte_plus a { font-weight: normal } ; plus précis que lui, lien visité compris
+    const lien = regle(".boite_compte_plus .o_majDisponible a:visited");
+    expect(lien).toContain("font-weight: bold");
+    expect(lien).toContain("color: #ff8a80");
+    expect(css).toContain(
+      ".boite_compte_plus .o_majDisponible a,\n.boite_compte_plus .o_majDisponible a:visited {",
+    );
   });
 });

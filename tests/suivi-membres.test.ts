@@ -1196,7 +1196,8 @@ describe("Préférences → Partage de données", () => {
     })()`);
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     expect(texte).toContain("« Floods | pseudo » et « Chasses | pseudo »");
-    expect(texte).toContain("puis supprime chaque ancien sujet");
+    expect(texte).toContain("une réponse par joueur, que son extension écrit et modifie");
+    expect(texte).toContain("Les entrées passées vont d'abord dans l'historique de leur joueur");
     expect(texte).toContain("Il faut les droits de gestion du forum.");
     preferences.lire(`(() => {
       window.RANGE = { fin: null, echec: null, appels: 0, confirmer: false };

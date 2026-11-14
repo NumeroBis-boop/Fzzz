@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 
 /**
  * Historique des actions passées (floods, chasses) dans des sujets à part,
- * « Historique <type> N | pseudo » : une réponse dans un sujet empêche de
- * modifier son premier message, le suivi ne peut donc pas garder un second
- * message. Le suivi ne lit que le premier message de ses sujets (les sujets
- * communs « BDD générale … », une section par joueur). Les convois arrivés sont
- * seulement retirés de leur sujet (1.97.2, règle du mainteneur).
+ * « Historique <type> N | pseudo », pour que le suivi ne garde que les
+ * entrées en cours : la réponse de chaque joueur dans les sujets communs
+ * « BDD générale … », le premier message de « Convois | pseudo ». Les convois
+ * arrivés sont seulement retirés de leur sujet (1.97.2, règle du mainteneur).
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js", "js/page/ConvoisForum.js"],
@@ -17,8 +17,9 @@ const page = creerPage(
    var OUAF_ECART_ARRIVEE = 120000;`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+lire(FORUM_SIMULE);
 
-// forum simulé : sujets {id, titre, messages}, appels xajax notés dans l'ordre
+// forum simulé : sujets {id, titre, messages: [premier message], reponses}, appels xajax notés dans l'ordre
 beforeEach(() => {
   lire(`(() => {
     localStorage.clear();
@@ -27,17 +28,12 @@ beforeEach(() => {
     window.FORUM = { sujets: [], appels: [], prochain: 500, echoue: null };
     PartageChasses.idSection = "7";
     PartageChasses._html = (d) => d;
-    PartageChasses._attendre = () => Promise.resolve();
-    const q = (args, k) => { const m = new RegExp("[&>]" + k + "=([^&<]*)").exec(args); return m ? decodeURIComponent(m[1]) : null; };
+    const q = SIM.q;
     PartageChasses._xajax = (f, args) => {
-      FORUM.appels.push(f + (f.startsWith("envoi") ? " " + q(args, "sujet") : ""));
+      FORUM.appels.push(f + (f.startsWith("envoi") && q(args, "sujet") ? " " + q(args, "sujet") : ""));
       if (FORUM.echoue && FORUM.echoue(f, args)) return Promise.reject(new Error("forum"));
       if (f == "callGetForum")
         return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) => '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td></tr>').join("") + '</table></form>');
-      if (f == "callGetTopic") {
-        const s = FORUM.sujets.find((s) => s.id == args);
-        return Promise.resolve(s ? s.messages.map((m) => '<div class="messageForum">' + m.replace(/\\n/g, "<br/>") + "</div>").join("") : "");
-      }
       if (f == "envoiNouveauSujet") {
         FORUM.sujets.push({ id: String(FORUM.prochain++), titre: q(args, "sujet"), messages: [q(args, "message")] });
         return Promise.resolve("");
@@ -48,31 +44,39 @@ beforeEach(() => {
         s.messages[0] = q(args, "message");
         return Promise.resolve("");
       }
-      return Promise.resolve("");
+      return SIM.traiter(FORUM.sujets, f, args, monProfil.pseudo) || Promise.resolve("");
     };
   })()`);
 });
-const sujet = (id: string, titre: string, ...messages: string[]) =>
-  lire(`FORUM.sujets.push(${JSON.stringify({ id, titre, messages })})`);
+/** Sujet : son premier message, puis des réponses d'« Intrus ». */
+const sujet = (id: string, titre: string, premier: string, ...suite: string[]) =>
+  lire(
+    `FORUM.sujets.push(${JSON.stringify({ id, titre, messages: [premier], reponses: suite.map((texte, i) => ({ id: 900 + i, auteur: "Intrus", texte })) })})`,
+  );
 const message = (titre: string) =>
   lire<string | null>(
     `(FORUM.sujets.find((s) => s.titre == ${JSON.stringify(titre)}) || { messages: [null] }).messages[0]`,
   );
 const FLOODS = "BDD générale flood - NE RIEN ÉCRIRE";
 const CHASSES = "BDD générale chasse - NE RIEN ÉCRIRE";
-/** Sujet commun du type, avec ma section (ses lignes) et les messages suivants. */
+/** Sujet commun du type, avec ma réponse (ses lignes) puis celles d'« Intrus ». */
 const commun = (type: "Floods" | "Chasses", lignes: string[] | null, ...suite: string[]) =>
-  sujet(
-    type == "Floods" ? "10" : "11",
-    type == "Floods" ? FLOODS : CHASSES,
-    lignes ? ["--- DoggyBag · 2026-10-29 08:00:00 ---", ...lignes].join("\n") : "",
-    ...suite,
+  lire(
+    `FORUM.sujets.push(${JSON.stringify({
+      id: type == "Floods" ? "10" : "11",
+      titre: type == "Floods" ? FLOODS : CHASSES,
+      messages: [""],
+      reponses: [
+        ...(lignes ? [{ id: 700, auteur: "DoggyBag", texte: lignes.join("\n") }] : []),
+        ...suite.map((texte, i) => ({ id: 900 + i, auteur: "Intrus", texte })),
+      ],
+    })})`,
   );
-/** Lignes de ma section, ou null sans section. */
-const maSection = (type: "Floods" | "Chasses") =>
+/** Texte de ma réponse dans le sujet commun du type, ou null sans réponse. */
+const maReponse = (type: "Floods" | "Chasses") =>
   lire<string | null>(`(() => {
-    const s = PartageChasses.sectionsRecentes(PartageChasses.sections(FORUM.sujets.find((s) => s.id == ${JSON.stringify(type == "Floods" ? "10" : "11")}).messages[0]).sections).doggybag;
-    return s ? s.lignes.join("\\n") : null;
+    const r = (FORUM.sujets.find((s) => s.id == ${JSON.stringify(type == "Floods" ? "10" : "11")}).reponses || []).find((r) => r.auteur == "DoggyBag");
+    return r ? r.texte : null;
   })()`);
 
 const PASSE = "29/10/26 09:00 | Bravo | 1 000 unités | 1 000 cm² | #11";
@@ -88,16 +92,15 @@ const NOUVEAU = {
 const partager = () =>
   lire<Promise<number>>(`PartageChasses._partager("Floods", [${JSON.stringify(NOUVEAU)}])`);
 
-describe("suivi : premier message seulement", () => {
-  test("une réponse dans un sujet n'est jamais lue comme du suivi", async () => {
-    commun(
-      "Floods",
-      [A_VENIR],
-      "--- Intrus · 2026-10-29 09:00:00 ---\n29/10/26 14:00 | Bravo | 9 unités | 9 cm² | #99",
-    );
+describe("suivi : réponses des joueurs dans les sujets communs, premier message pour les convois", () => {
+  test("sujet commun : la réponse de chaque joueur est lue ; sujet des convois : jamais ses réponses", async () => {
+    commun("Floods", [A_VENIR], "29/10/26 14:00 | Bravo | 9 unités | 9 cm² | #99");
     commun("Chasses", null);
     const r = await lire<Promise<any>>(`PartageChasses.charger()`);
-    expect(r.floods.map((f: any) => f.id)).toEqual([12]);
+    expect(r.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
+      ["DoggyBag", 12],
+      ["Intrus", 99],
+    ]);
     sujet(
       "2",
       "Convois | DoggyBag",
@@ -124,20 +127,19 @@ describe("suivi : premier message seulement", () => {
 });
 
 describe("floods passés vers l'historique", () => {
-  test("historique écrit d'abord, puis ma section sans le flood passé", async () => {
+  test("historique écrit d'abord, puis ma réponse sans le flood passé", async () => {
     commun("Floods", [A_VENIR, PASSE]);
     expect(await partager()).toBe(1);
     expect(lire(`FORUM.appels`)).toEqual([
       "callGetForum",
       "callGetTopic",
       "envoiNouveauSujet Historique Floods 1 | DoggyBag",
-      // relu juste avant l'écriture, puis après : le forum ne signale pas une écriture refusée
+      // relue juste avant l'écriture ; la réponse du forum, sujet à jour, sert de vérification
       "callGetTopic",
-      `envoiEditTopic ${FLOODS}`,
-      "callGetTopic",
+      "envoiEditMessage",
     ]);
     expect(message("Historique Floods 1 | DoggyBag")).toBe(PASSE);
-    expect(maSection("Floods")).toBe(
+    expect(maReponse("Floods")).toBe(
       `29/10/26 13:00 | Bravo | 3 000 unités | 3 000 cm² | #13\n${A_VENIR}`,
     );
   });
@@ -151,7 +153,7 @@ describe("floods passés vers l'historique", () => {
     expect(lire<string[]>(`FORUM.appels`)).not.toContain(
       "envoiEditTopic Historique Floods 1 | DoggyBag",
     );
-    expect(maSection("Floods")).not.toContain("#11");
+    expect(maReponse("Floods")).not.toContain("#11");
   });
 
   test("page pleine : la suite part dans une nouvelle page", async () => {
@@ -166,16 +168,16 @@ describe("floods passés vers l'historique", () => {
     expect(message("Historique Floods 2 | DoggyBag")).toBe(PASSE);
   });
 
-  test("historique impossible à écrire : le flood passé reste dans ma section, repris ensuite", async () => {
+  test("historique impossible à écrire : le flood passé reste dans ma réponse, repris ensuite", async () => {
     commun("Floods", [A_VENIR, PASSE]);
     lire(`FORUM.echoue = (f, args) => f == "envoiNouveauSujet";`);
     await partager();
-    expect(maSection("Floods")).toContain("#11");
+    expect(maReponse("Floods")).toContain("#11");
     expect(message("Historique Floods 1 | DoggyBag")).toBeNull();
     lire(`FORUM.echoue = null;`);
     await partager();
     expect(message("Historique Floods 1 | DoggyBag")).toBe(PASSE);
-    expect(maSection("Floods")).not.toContain("#11");
+    expect(maReponse("Floods")).not.toContain("#11");
   });
 
   test("flood annulé (à venir) retiré : pas dans l'historique ; flood arrivé : dedans", async () => {
@@ -183,8 +185,8 @@ describe("floods passés vers l'historique", () => {
     lire(`AttaqueLancee = { majPartages() {} };`);
     await lire(`PartageChasses._retirerFloods([12])`);
     expect(message("Historique Floods 1 | DoggyBag")).toBe(PASSE);
-    // plus aucune section : le message ne peut pas être vide
-    expect(message(FLOODS)).toBe("Aucun partage en cours.");
+    // plus rien à venir : un message ne peut pas être vide
+    expect(maReponse("Floods")).toBe("Aucun flood en cours.");
   });
 });
 
@@ -193,7 +195,7 @@ describe("chasses passées vers l'historique, convois arrivés retirés", () => 
     commun("Chasses", ["29/10/26 12:00 | 20 000 cm²", "29/10/26 09:00 | 10 000 cm²"]);
     await lire(`PartageChasses.recalerChasses([])`);
     expect(message("Historique Chasses 1 | DoggyBag")).toBe("29/10/26 09:00 | 10 000 cm²");
-    expect(maSection("Chasses")).toBeNull();
+    expect(maReponse("Chasses")).toBe("Aucune chasse en cours.");
   });
 
   test("convois : l'annulé et l'arrivé retirés du sujet, sans historique", async () => {

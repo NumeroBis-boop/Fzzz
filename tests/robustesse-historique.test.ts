@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 import { classeurSimule } from "./sheet-simule";
 
 /**
@@ -94,25 +95,21 @@ function messagerie(conversations: Record<number, { titre: string; html: string 
   forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
 }
 
-/** Forum caché simulé : sujets {id, titre, messages}, appels xajax notés. */
-function forum(sujets: { id: string; titre: string; messages: string[] }[]) {
+/** Forum caché simulé : sujets {id, titre, messages: [premier message], reponses}, appels xajax notés. */
+function forum(sujets: { id: string; titre: string; messages: string[]; reponses?: any[] }[]) {
   fenetre.__sujets = sujets;
+  lire(FORUM_SIMULE);
   lire(`(() => {
     window.FORUM = { sujets: __sujets, appels: [], prochain: 500, echoue: null };
     PartageChasses.idSection = "7";
     PartageChasses._html = (d) => d;
-    PartageChasses._attendre = () => Promise.resolve();
     PartageChasses.oublierCache();
-    const q = (args, k) => { const m = new RegExp("[&>]" + k + "=([^&<]*)").exec(args); return m ? decodeURIComponent(m[1]) : null; };
+    const q = SIM.q;
     PartageChasses._xajax = (f, args) => {
-      FORUM.appels.push(f + (f.startsWith("envoi") ? " " + q(args, "sujet") : ""));
+      FORUM.appels.push(f + (f.startsWith("envoi") && q(args, "sujet") ? " " + q(args, "sujet") : ""));
       if (FORUM.echoue && FORUM.echoue(f, args)) return Promise.reject(new Error("forum"));
       if (f == "callGetForum")
         return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) => '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td></tr>').join("") + '</table></form>');
-      if (f == "callGetTopic") {
-        const s = FORUM.sujets.find((s) => s.id == args);
-        return Promise.resolve(s ? s.messages.map((m) => '<div class="messageForum">' + m.replace(/\\n/g, "<br/>") + "</div>").join("") : "");
-      }
       if (f == "envoiNouveauSujet") {
         FORUM.sujets.push({ id: String(FORUM.prochain++), titre: q(args, "sujet"), messages: [q(args, "message")] });
         return Promise.resolve("");
@@ -123,7 +120,7 @@ function forum(sujets: { id: string; titre: string; messages: string[] }[]) {
         s.messages[0] = q(args, "message");
         return Promise.resolve("");
       }
-      return Promise.resolve("");
+      return SIM.traiter(FORUM.sujets, f, args, monProfil.pseudo) || Promise.resolve("");
     };
   })()`);
 }
@@ -152,16 +149,17 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
     lire<number>(`FORUM.sujets.filter((s) => s.titre == ${JSON.stringify(titre)}).length`);
   const groupe = `[{ impact: moment("2026-10-29 12:00", "YYYY-MM-DD HH:mm"), terrain: 20000 }]`;
   const COMMUN = "BDD générale chasse - NE RIEN ÉCRIRE";
-  /** Sujet commun des chasses avec ma section (ses lignes). */
+  /** Sujet commun des chasses avec ma réponse (ses lignes). */
   const commun = (lignes: string[]) => ({
     id: "1",
     titre: COMMUN,
-    messages: [["--- DoggyBag · 2026-10-29 08:00:00 ---", ...lignes].join("\n")],
+    messages: [""],
+    reponses: [{ id: 700, auteur: "DoggyBag", texte: lignes.join("\n") }],
   });
-  const maSection = () =>
+  const maReponse = () =>
     lire<string | null>(`(() => {
-      const s = PartageChasses.sectionsRecentes(PartageChasses.sections(FORUM.sujets.find((s) => s.id == "1").messages[0]).sections).doggybag;
-      return s ? s.lignes.join("\\n") : null;
+      const r = FORUM.sujets.find((s) => s.id == "1").reponses.find((r) => r.auteur == "DoggyBag");
+      return r ? r.texte : null;
     })()`);
 
   beforeEach(() => {
@@ -178,21 +176,19 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
     ]);
     expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(1);
     expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(maSection()).toBe("29/10/26 12:00 | 20 000 cm²");
+    expect(maReponse()).toBe("29/10/26 12:00 | 20 000 cm²");
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain("déjà partagées");
   });
 
-  test("ma section non réécrite après l'historique (page fermée) : au nouvel essai, pas de doublon", async () => {
-    lire(
-      `FORUM.echoue = (f, args) => f == "envoiEditTopic" && decodeURIComponent(args).includes("sujet=" + ${JSON.stringify(COMMUN)});`,
-    );
+  test("ma réponse non réécrite après l'historique (page fermée) : au nouvel essai, pas de doublon", async () => {
+    lire(`FORUM.echoue = (f) => f == "envoiEditMessage";`);
     await lire(`PartageChasses.partager(${groupe}, null)`);
     expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(maSection()).toBe(PASSE);
+    expect(maReponse()).toBe(PASSE);
     lire(`FORUM.echoue = null;`);
     await lire(`PartageChasses.partager(${groupe}, null)`);
     expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
-    expect(maSection()).toBe("29/10/26 12:00 | 20 000 cm²");
+    expect(maReponse()).toBe("29/10/26 12:00 | 20 000 cm²");
   });
 
   test("page d'historique créée deux fois (deux onglets) : suite dans la plus ancienne, sans répéter de ligne", async () => {

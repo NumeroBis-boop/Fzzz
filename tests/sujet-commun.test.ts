@@ -1,17 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE, SUJET_RELEVE } from "./forum-simule";
 
 /**
- * Sujets communs « BDD générale flood » et « BDD générale chasse » (version
- * TEST, demande du mainteneur) : une section par joueur dans le premier
- * message, modifiable par tous les membres ; chaque partage écrit ses
- * changements dans la section de son joueur, vérifiés à la relecture, et
- * l'affichage ne lit que ces deux sujets. Joueurs inventés.
+ * Sujets communs « BDD générale flood » et « BDD générale chasse » : une
+ * réponse par joueur, postée puis modifiée par son extension, que lui seul
+ * écrit (demande du mainteneur, 14/11/2026) ; le premier message (ancien
+ * format, une section par joueur) n'est plus lu, « Ranger le forum » le vide
+ * et supprime les anciens sujets des joueurs. HTML du forum relevé le 14/11
+ * (tests/forum-simule.ts). Joueurs inventés.
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/class/Requetes.js", "js/page/PartageChasses.js"],
-  `var VERSION = "1.110.3";
-   var heure = moment("2026-11-13 22:30:00", "YYYY-MM-DD HH:mm:ss").valueOf();
+  `var VERSION = "1.114.0";
+   var heure = moment("2026-11-14 12:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure), clic: () => moment(heure) };
    var monProfil = { pseudo: "Alpha" };
    var TOAST_INFO = {}, TOAST_SUCCESS = {}, TOAST_ERROR = {};
@@ -19,62 +21,42 @@ const page = creerPage(
    var FORUM = {};`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+lire(FORUM_SIMULE);
 lire(`(() => {
   PartageChasses._html = (d) => d;
-  // forum simulé : liste des sujets (case, titre, dernier message), premier message, modifications
   PartageChasses._xajax = (f, args) => {
+    FORUM.ordre.push(f + (f == "callGetTopic" ? " " + args : ""));
+    // comme le vrai _xajax : une écriture rend les lectures gardées périmées
+    if (/^envoi/.test(f)) PartageChasses.oublierCache();
     if (f == "callGetForum")
       return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) =>
-        '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td><td><b>X</b><br/>' + s.dernier + '</td></tr>').join("") + '</table></form>');
-    if (f == "callGetTopic") {
-      FORUM.lectures.push(String(args));
-      FORUM.ordre.push("lu " + args);
-      if (FORUM.echoue.includes(String(args))) return Promise.reject(new Error("forum"));
-      const s = FORUM.sujets.find((s) => s.id == args);
-      return Promise.resolve(s ? '<div class="messageForum">' + s.texte.replace(/\\n/g, "<br/>") + "</div>" : "");
-    }
+        '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td><td><b>X</b><br/>' + (s.dernier || "13 nov. à 22h03") + '</td></tr>').join("") + '</table></form>');
+    if (f == "callGetTopic" && FORUM.echoue.includes(String(args))) return Promise.reject(new Error("forum"));
+    // écriture acceptée par le jeu sans effet (grade sans droit d'écrire)
+    if (FORUM.refuse.includes(f)) return Promise.resolve("");
     if (f == "envoiEditTopic") {
-      const q = String(args), id = q.match(/IDTopic=(\\d+)/)[1],
-        sujet = decodeURIComponent(q.match(/sujet=([^&]*)/)[1]),
-        message = decodeURIComponent(q.match(/message=([^&]*)/)[1]),
-        s = FORUM.sujets.find((s) => s.id == id);
-      FORUM.ecritures.push({ id, sujet, message, modifiable: /modifiable=envoyer/.test(q) });
-      FORUM.ordre.push("écrit " + id);
-      PartageChasses.oublierCache();
-      if (s && !FORUM.refuse.includes(id)) {
-        s.titre = sujet;
-        s.texte = message;
-        s.dernier = moment(heure).format("D MMM [à] H[h]mm");
-      }
+      const id = SIM.q(args, "IDTopic"), s = FORUM.sujets.find((s) => s.id == id), sujet = SIM.q(args, "sujet");
+      if (FORUM.historiqueEchoue && /^Historique/.test(sujet)) return Promise.reject(new Error("forum"));
+      FORUM.premiers.push({ id, sujet, message: SIM.q(args, "message"), modifiable: /modifiable=envoyer/.test(args) });
+      if (s) { s.titre = sujet; s.texte = SIM.q(args, "message"); }
       return Promise.resolve("<xjx></xjx>");
     }
-    // première page d'historique du joueur
     if (f == "envoiNouveauSujet") {
-      FORUM.ordre.push("nouveau sujet");
       if (FORUM.historiqueEchoue) return Promise.reject(new Error("forum"));
-      const q = String(args);
-      FORUM.sujets.push({
-        id: String(100 + FORUM.sujets.length),
-        titre: decodeURIComponent(q.match(/sujet=([^&]*)/)[1]),
-        dernier: moment(heure).format("D MMM [à] H[h]mm"),
-        texte: decodeURIComponent(q.match(/message=([^&]*)/)[1]),
-      });
-      PartageChasses.oublierCache();
+      FORUM.sujets.push({ id: String(200 + FORUM.sujets.length), titre: SIM.q(args, "sujet"), texte: SIM.q(args, "message") });
       return Promise.resolve("<xjx></xjx>");
     }
-    // cases cochées de la liste des sujets, puis « Supprimer »
     if (f == "callSupprimer") {
       const ids = [...String(args[0]).matchAll(/topic\\[\\]=(\\d+)/g)].map((m) => m[1]);
       FORUM.suppressions.push(ids);
-      FORUM.ordre.push("supprimé " + ids.join(","));
       if (!FORUM.refuseSuppression) FORUM.sujets = FORUM.sujets.filter((s) => !ids.includes(s.id));
       return Promise.resolve("<xjx></xjx>");
     }
+    const r = SIM.traiter(FORUM.sujets, f, args, monProfil.pseudo);
+    if (r) return FORUM.reponseVide && /^envoi/.test(f) ? r.then(() => "") : r;
     return Promise.reject(new Error("inattendu " + f));
   };
   $.toast = () => {};
-  // pause avant la vérification : un autre membre peut écrire pendant ce temps
-  PartageChasses._attendre = () => (FORUM.pendant ? FORUM.pendant() : Promise.resolve());
 })()`);
 
 const ligne = (type: string, e: any) =>
@@ -86,62 +68,80 @@ const flood = (date: string, cible: string, id: number) => ({
   terrain: 1000,
   id,
 });
-const F11 = flood("2026-11-13 23:00", "Gamma", 11);
-const F21 = flood("2026-11-13 23:10", "Alpha", 21);
 const COMMUN_F = "BDD générale flood - NE RIEN ÉCRIRE";
 const COMMUN_C = "BDD générale chasse - NE RIEN ÉCRIRE";
+const A1 = flood("2026-11-14 13:00", "Gamma", 11);
+const B1 = flood("2026-11-14 13:10", "Alpha", 21);
+const PASSE = flood("2026-11-14 11:00", "Gamma", 8);
 const regler = (quand: string) =>
   lire(`(() => { heure = moment(${JSON.stringify(quand)}, "YYYY-MM-DD HH:mm:ss").valueOf(); })()`);
 const section = (pseudo: string, ecrit: string, lignes: string[]) =>
   [`--- ${pseudo} · ${ecrit} ---`, ...lignes].join("\n");
 
-/** Section « BDD partagée cachée » : sujets communs et sujets des joueurs. */
-function preparer(
-  communFloods: string | null = section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-) {
+/**
+ * Section « BDD partagée cachée » : les sujets communs, dont le premier
+ * message garde des sections de l'ancien format ; Beta a sa réponse dans
+ * celui des floods ; anciens sujets « Floods | … » ; convois d'Alpha.
+ */
+function preparer() {
   const sujets = [
-    { id: "1", titre: "Floods | Alpha", dernier: "13 nov. à 22h20", texte: ligne("Floods", F11) },
-    { id: "2", titre: "Floods | Beta", dernier: "13 nov. à 22h25", texte: ligne("Floods", F21) },
+    {
+      id: "1",
+      titre: "Floods | Alpha",
+      texte: [ligne("Floods", A1), ligne("Floods", PASSE)].join("\n"),
+    },
+    { id: "2", titre: "Floods | Beta", texte: ligne("Floods", B1) },
     {
       id: "3",
       titre: "Chasses | Alpha",
-      dernier: "13 nov. à 21h00",
-      texte: ligne("Chasses", { date: "2026-11-13 23:30", terrain: 1500 }),
+      texte: ligne("Chasses", { date: "2026-11-14 13:30", terrain: 1500 }),
     },
-    { id: "4", titre: "Convois | Alpha", dernier: "13 nov. à 21h00", texte: "rien" },
-  ];
-  if (communFloods != null)
-    sujets.push({
+    { id: "4", titre: "Convois | Alpha", texte: "rien" },
+    {
       id: "10",
       titre: COMMUN_F,
-      dernier: "13 nov. à 22h29",
-      texte: "NE RIEN ÉCRIRE ICI\n" + communFloods,
-    });
-  sujets.push({ id: "11", titre: COMMUN_C, dernier: "13 nov. à 22h00", texte: "" });
+      texte: [
+        "NE RIEN ÉCRIRE ICI",
+        section("Alpha", "2026-11-14 00:02:59", [ligne("Floods", A1), ligne("Floods", PASSE)]),
+        section("Gamma", "2026-11-14 00:02:59", [
+          ligne("Floods", flood("2026-11-14 14:00", "Beta", 31)),
+        ]),
+      ].join("\n"),
+      reponses: [{ id: 501, auteur: "Beta", texte: ligne("Floods", B1) }],
+    },
+    { id: "11", titre: COMMUN_C, texte: "", reponses: [] },
+  ];
   lire(`(() => {
     localStorage.clear();
     PartageChasses.idSection = "7";
-    heure = moment("2026-11-13 22:30:00", "YYYY-MM-DD HH:mm:ss").valueOf();
+    heure = moment("2026-11-14 12:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
     monProfil.pseudo = "Alpha";
     journalInstalle = true;
     Object.keys(COMPTE_REQUETES).forEach((k) => (COMPTE_REQUETES[k] = 0));
-    FORUM = { sujets: ${JSON.stringify(sujets)}, lectures: [], ecritures: [], ordre: [], echoue: [], refuse: [], pendant: null, suppressions: [] };
+    FORUM = { sujets: ${JSON.stringify(sujets)}, ordre: [], echoue: [], refuse: [], premiers: [], suppressions: [],
+      reponseVide: false, historiqueEchoue: false, refuseSuppression: false };
   })()`);
 }
 const sujet = (id: string) => lire<any>(`FORUM.sujets.find((s) => s.id == ${JSON.stringify(id)})`);
-const lectures = () => lire<string[]>(`FORUM.lectures.slice().sort()`);
+const ordre = () => lire<string[]>(`FORUM.ordre.slice()`);
+const titres = () => lire<string[]>(`FORUM.sujets.map((s) => s.titre)`);
 const notes = (source = "Forum") =>
   lire<string[]>(
     `Journal.entrees().filter((e) => e.s == ${JSON.stringify(source)}).map((e) => e.m)`,
   );
+/** Réponses d'un sujet : [auteur, texte]. */
+const reponses = (id: string) =>
+  lire<[string, string][]>(
+    `(FORUM.sujets.find((s) => s.id == ${JSON.stringify(id)}).reponses || []).map((r) => [r.auteur, r.texte])`,
+  );
 async function charger(args = "") {
-  lire(`(() => { PartageChasses.oublierCache(); FORUM.lectures.length = 0; })()`);
+  lire(`(() => { PartageChasses.oublierCache(); FORUM.ordre.length = 0; })()`);
   return lire<Promise<any>>(
     `PartageChasses.charger(${args}).then((d) => JSON.parse(JSON.stringify(d)))`,
   );
 }
 
-describe("format du sujet commun", () => {
+describe("format", () => {
   test("titre reconnu sans tenir compte de la casse, des accents et de la suite", () => {
     const est = (titre: string, type: string) =>
       lire<boolean>(`PartageChasses.estCommun(${JSON.stringify(titre)}, ${JSON.stringify(type)})`);
@@ -150,49 +150,6 @@ describe("format du sujet commun", () => {
     expect(est(COMMUN_C, "Chasses")).toBe(true);
     expect(est(COMMUN_C, "Floods")).toBe(false);
     expect(est("Floods | BDD générale flood", "Floods")).toBe(false);
-  });
-
-  test("sections : en-tête « --- pseudo · heure --- », lignes, préambule gardé", () => {
-    preparer();
-    const texte = [
-      "NE RIEN ÉCRIRE ICI",
-      section("Beta", "2026-11-13 22:25:10", ["  " + ligne("Floods", F21) + "  ", ""]),
-      section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-    ].join("\n");
-    const lu = lire<any>(`PartageChasses.sections(${JSON.stringify(texte)})`);
-    expect(lu.preambule).toBe("NE RIEN ÉCRIRE ICI");
-    expect(
-      lu.sections.map((s: any) => [
-        s.pseudo,
-        s.ecrit,
-        s.lignes.length,
-        s.floods.map((f: any) => f.id),
-      ]),
-    ).toEqual([
-      ["Beta", "2026-11-13 22:25:10", 1, [21]],
-      ["Alpha", "2026-11-13 22:20:30", 1, [11]],
-    ]);
-    // réécrit : préambule, puis sections par pseudo
-    expect(
-      lire<string>(
-        `PartageChasses.texteCommun(${JSON.stringify(lu.preambule)}, ${JSON.stringify(lu.sections)})`,
-      ),
-    ).toBe(
-      [
-        "NE RIEN ÉCRIRE ICI",
-        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-        section("Beta", "2026-11-13 22:25:10", [ligne("Floods", F21)]),
-      ].join("\n"),
-    );
-  });
-
-  test("jamais vide : sans section ni préambule, une ligne neutre, retirée dès qu'une section revient", () => {
-    expect(lire<string>(`PartageChasses.texteCommun("", [])`)).toBe("Aucun partage en cours.");
-    expect(
-      lire<string>(
-        `PartageChasses.texteCommun("Aucun partage en cours.", [{ pseudo: "Alpha", ecrit: "2026-11-13 22:20:30", lignes: ["x"] }])`,
-      ),
-    ).toBe(section("Alpha", "2026-11-13 22:20:30", ["x"]));
   });
 
   test("la liste des sujets donne les sujets communs ; deux du même type : le plus ancien", async () => {
@@ -205,67 +162,97 @@ describe("format du sujet commun", () => {
     );
     expect([s.Floods.id, s.Floods.dernier, s.Chasses.id]).toEqual(["9", "X 13 nov. à 22h00", "11"]);
   });
+
+  test("messages d'un sujet (HTML du forum) : auteur, numéro, texte sans les liens « Modifier » et « Effacer »", () => {
+    preparer();
+    lire(`(() => { FORUM.sujets.find((s) => s.id == "10").reponses.push(
+      { id: 502, auteur: "Alpha", texte: "vieux" }, { id: 503, auteur: "Gamma", texte: "g" }, { id: 504, auteur: "Alpha", texte: "ligne 1\\nligne 2" }); })()`);
+    const html = lire<string>(`SIM.html(FORUM.sujets.find((s) => s.id == "10"), "Alpha")`);
+    // la réponse 504 d'Alpha, dernière du sujet, a « Modifier » et « Effacer »
+    expect(html).toContain("remove_message(504)");
+    const messages = lire<any[]>(`PartageChasses.messages(${JSON.stringify(html)})`);
+    expect(messages.map((m) => [m.auteur, m.id])).toEqual([
+      ["DoggyBag", null],
+      ["Beta", 501],
+      ["Alpha", 502],
+      ["Gamma", 503],
+      ["Alpha", 504],
+    ]);
+    expect(messages[4].texte).toBe("ligne 1\nligne 2");
+    expect(messages[0].texte.split("\n")[0]).toBe("NE RIEN ÉCRIRE ICI");
+    // la dernière réponse de chaque joueur ; le premier message n'en est pas une
+    const r = lire<any>(`PartageChasses.reponses(${JSON.stringify(messages)})`);
+    expect(Object.keys(r).sort()).toEqual(["alpha", "beta", "gamma"]);
+    expect([r.alpha.id, r.beta.floods.map((f: any) => f.id)]).toEqual([504, [21]]);
+  });
+
+  test("sujet relevé sur le forum le 14/11 : chaque message, son auteur, son numéro, son texte", () => {
+    const messages = lire<any[]>(`PartageChasses.messages(${JSON.stringify(SUJET_RELEVE)})`);
+    expect(messages).toEqual([
+      { auteur: "Alpha", id: null, texte: "" },
+      { auteur: "Beta", id: 501, texte: "texte de Beta" },
+      { auteur: "Alpha", id: 502, texte: "texte d'Alpha" },
+      { auteur: "Alpha", id: 503, texte: "dernier texte d'Alpha" },
+    ]);
+    lire(`(() => { monProfil.pseudo = "Alpha"; })()`);
+    expect(lire<any>(`PartageChasses._maReponse(${JSON.stringify(messages)}).id`)).toBe(503);
+  });
+
+  test("sections de l'ancien format (lues par « Ranger le forum ») : en-tête, lignes, texte d'en-tête gardé", () => {
+    preparer();
+    const lu = lire<any>(`PartageChasses.sections(${JSON.stringify(sujet("10").texte)})`);
+    expect(lu.preambule).toBe("NE RIEN ÉCRIRE ICI");
+    expect(
+      lu.sections.map((s: any) => [s.pseudo, s.ecrit, s.floods.map((f: any) => f.id)]),
+    ).toEqual([
+      ["Alpha", "2026-11-14 00:02:59", [11, 8]],
+      ["Gamma", "2026-11-14 00:02:59", [31]],
+    ]);
+    expect(
+      lire<string>(`PartageChasses.texteCommun("En-tête", ${JSON.stringify([lu.sections[1]])})`),
+    ).toBe(
+      [
+        "En-tête",
+        section("Gamma", "2026-11-14 00:02:59", [
+          ligne("Floods", flood("2026-11-14 14:00", "Beta", 31)),
+        ]),
+      ].join("\n"),
+    );
+    // jamais vide
+    expect(lire<string>(`PartageChasses.texteCommun("", [])`)).toBe(
+      "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.",
+    );
+  });
 });
 
-describe("affichage : les sujets communs seulement", () => {
-  test("chaque joueur vient de sa section ; les anciens sujets des joueurs ne sont jamais lus ; sans section, absent", async () => {
+describe("affichage : la dernière réponse de chaque joueur", () => {
+  test("floods de tous les joueurs ; ni le premier message (ancien format) ni les anciens sujets des joueurs", async () => {
     preparer();
     const d = await charger();
-    expect(lectures()).toEqual(["10", "11"]);
-    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([["Alpha", 11]]);
-    // Beta n'a pas de section, ni Alpha dans le sujet commun des chasses
+    expect(ordre()).toEqual(["callGetForum", "callGetTopic 10", "callGetTopic 11"]);
+    // Alpha et Gamma n'ont qu'une section de l'ancien format : absents
+    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([["Beta", 21]]);
     expect(d.chasses).toEqual({});
   });
 
-  test("sujet du joueur plus récent que sa section : la section reste ce qui est affiché", async () => {
+  test("chasses seulement des joueurs suivis ; deux réponses d'un joueur : la plus récente", async () => {
     preparer();
     lire(`(() => {
-      const s = FORUM.sujets.find((s) => s.id == "1");
-      s.dernier = "13 nov. à 22h21";
-      s.texte = ${JSON.stringify(ligne("Floods", flood("2026-11-13 23:40", "Delta", 12)))};
+      FORUM.sujets.find((s) => s.id == "11").reponses = [
+        { id: 601, auteur: "Gamma", texte: ${JSON.stringify(ligne("Chasses", { date: "2026-11-14 13:55", terrain: 900 }))} },
+        { id: 602, auteur: "Beta", texte: "x" },
+        { id: 603, auteur: "Gamma", texte: ${JSON.stringify(ligne("Chasses", { date: "2026-11-14 14:05", terrain: 950 }))} },
+      ];
     })()`);
     const d = await charger();
-    expect(lectures()).toEqual(["10", "11"]);
-    expect(d.floods.map((f: any) => f.id)).toEqual([11]);
-  });
-
-  test("floods de tous les joueurs ; chasses seulement des joueurs suivis", async () => {
-    preparer(
-      [
-        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-        section("Gamma", "2026-11-13 22:28:00", [
-          ligne("Floods", flood("2026-11-13 23:50", "Beta", 31)),
-        ]),
-      ].join("\n"),
-    );
-    lire(
-      `(() => { FORUM.sujets.find((s) => s.id == "11").texte = ${JSON.stringify(section("Gamma", "2026-11-13 22:28:00", [ligne("Chasses", { date: "2026-11-13 23:55", terrain: 900 })]))}; })()`,
-    );
-    const d = await charger();
-    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
-      ["Alpha", 11],
-      ["Gamma", 31],
-    ]);
-    expect(Object.keys(d.chasses)).toEqual(["gamma"]);
+    expect(d.chasses.gamma).toEqual([{ date: "2026-11-14 14:05", terrain: 950 }]);
+    expect(Object.keys(d.chasses).sort()).toEqual(["beta", "gamma"]);
     const suivi = await charger(`["Beta"]`);
-    expect(Object.keys(suivi.chasses)).toEqual([]);
-    expect(suivi.floods.map((f: any) => f.id)).toEqual([11, 31]);
+    expect(Object.keys(suivi.chasses)).toEqual(["beta"]);
+    expect(suivi.floods.map((f: any) => f.id)).toEqual([21]);
   });
 
-  test("deux sections d'un même joueur : la plus récente", async () => {
-    preparer(
-      [
-        section("Alpha", "2026-11-13 22:10:00", [
-          ligne("Floods", flood("2026-11-13 23:05", "Old", 9)),
-        ]),
-        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-      ].join("\n"),
-    );
-    const d = await charger();
-    expect(d.floods.map((f: any) => f.id)).toEqual([11]);
-  });
-
-  test("sujet commun illisible : la lecture échoue (il manquerait des joueurs), aucun sujet de joueur lu", async () => {
+  test("sujet commun illisible : la lecture échoue (il manquerait des joueurs)", async () => {
     preparer();
     lire(`(() => { FORUM.echoue.push("10"); })()`);
     expect(
@@ -273,220 +260,188 @@ describe("affichage : les sujets communs seulement", () => {
         `PartageChasses.charger().then(() => "lu", (e) => "échec : " + e.message)`,
       ),
     ).toBe("échec : forum");
-    expect(lire<string[]>(`FORUM.lectures.filter((id) => !["10", "11"].includes(id))`)).toEqual([]);
   });
 
   test("pas de sujet commun d'un type dans la section : l'affichage échoue sans rien lire, noté au journal", async () => {
-    preparer(null);
+    preparer();
+    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);
     expect(
       await lire<Promise<string>>(
-        `PartageChasses.charger().then(() => "lu", (e) => "échec : " + e.message + " (" + e.titre + ")")`,
+        `PartageChasses.charger().then(() => "lu", (e) => e.message + " : " + e.titre)`,
       ),
-    ).toBe(`échec : sans sujet commun (${COMMUN_F})`);
-    expect(lectures()).toEqual([]);
-    expect(notes()).toContain(
-      "pas de sujet « BDD générale flood - NE RIEN ÉCRIRE » dans la section : partages illisibles",
-    );
+    ).toBe(`sans sujet commun : ${COMMUN_C}`);
+    expect(ordre()).toEqual(["callGetForum"]);
+    expect(notes()).toContain(`pas de sujet « ${COMMUN_C} » dans la section : partages illisibles`);
   });
 
-  test("chasses seules d'un joueur : seul le sujet commun des chasses est lu, jamais les sujets des joueurs ni des convois", async () => {
+  test("chasses seules d'un joueur : seul le sujet commun des chasses est lu", async () => {
     preparer();
     await charger(`["Alpha"], false`);
-    expect(lectures()).toEqual(["11"]);
+    expect(ordre()).toEqual(["callGetForum", "callGetTopic 11"]);
   });
 
-  test("sujets communs lus il y a moins d'une minute : gardés d'une page à l'autre ; au-delà, relus même si la colonne « Dernier message » n'a pas changé", async () => {
+  test("sujet sur plusieurs pages (jamais vu) : noté au journal, les réponses de la première lues", async () => {
     preparer();
-    await charger();
-    regler("2026-11-13 22:30:50");
-    await charger();
-    expect(lectures()).toEqual([]);
-    // lectures évitées, comptées pour la mesure du journal
-    expect(lire<number>(`COMPTE_REQUETES.cache`)).toBeGreaterThan(0);
-    regler("2026-11-13 22:35:00");
-    await charger();
-    expect(lectures()).toEqual(["10", "11"]);
+    lire(`(() => {
+      const html = SIM.html;
+      SIM.html = (s, moi) => html(s, moi) + '<a href="#" onclick="xajax_callGetTopic(10, 2); return false;">2</a>';
+      FORUM.restaurer = () => (SIM.html = html);
+    })()`);
+    const d = await charger();
+    lire(`FORUM.restaurer()`);
+    expect(d.floods.map((f: any) => f.id)).toEqual([21]);
+    expect(notes()).toContain(
+      `« ${COMMUN_F} » : sujet sur plusieurs pages, seules les réponses de la première sont lues`,
+    );
   });
 });
 
-describe("écriture de ma section", () => {
-  const F12 = flood("2026-11-13 23:40", "Delta", 12);
-  const F13 = flood("2026-11-13 23:50", "Delta", 13);
+describe("écriture de ma réponse", () => {
+  const A2 = flood("2026-11-14 13:40", "Delta", 12);
+  const A3 = flood("2026-11-14 13:50", "Delta", 13);
   /** Partage de floods : nombre de floods nouveaux, ou le code de l'erreur. */
   const partager = (entrees: any[]) =>
     lire<Promise<number | string>>(
       `PartageChasses._partager("Floods", ${JSON.stringify(entrees)}).then((n) => n, (e) => "échec : " + e.message)`,
     );
-  const ecritures = () => lire<number>(`FORUM.ecritures.length`);
   const mesFloods = () =>
     lire<number[]>(
-      `PartageChasses._mesEntrees("Floods", PartageChasses.sections(FORUM.sujets.find((s) => s.id == "10").texte).sections).map((f) => f.id).sort((a, b) => a - b)`,
+      `(() => { const r = PartageChasses.reponses(PartageChasses.messages(SIM.html(FORUM.sujets.find((s) => s.id == "10"), "Alpha"))).alpha;
+        return r ? r.floods.map((f) => f.id).sort((a, b) => a - b) : []; })()`,
     );
-  /** Pendant la pause avant la vérification, `fois` fois : le sujet commun devient `texte(avant)`. */
-  const pendant = (texte: string, fois = 1) =>
-    lire(`(() => {
-      const s = FORUM.sujets.find((s) => s.id == "10"), avant = s.texte;
-      let n = 0;
-      FORUM.pendant = () => {
-        if (n++ < ${fois}) s.texte = (${texte})(avant, s.texte);
-        return Promise.resolve();
-      };
-    })()`);
 
-  test("partage : mes lignes ajoutées à ma section, celles des autres et le préambule gardés ; titre et case du sujet ; vérifié après la pause", async () => {
-    preparer(
-      [
-        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-        section("Beta", "2026-11-13 22:25:10", ["13/11/26 23:10 | Alpha | 1 000 cm² | #21"]),
-      ].join("\n"),
+  test("premier partage : ma réponse postée, vérifiée dans la réponse du forum sans relecture ; premier message et réponse de Beta intacts", async () => {
+    preparer();
+    const premier = sujet("10").texte;
+    expect(await partager([A1, A2])).toBe(2);
+    expect(ordre()).toEqual(["callGetForum", "callGetTopic 10", "envoiNouveauMessage"]);
+    expect(reponses("10")).toEqual([
+      ["Beta", ligne("Floods", B1)],
+      // la plus tardive d'abord
+      ["Alpha", [ligne("Floods", A2), ligne("Floods", A1)].join("\n")],
+    ]);
+    expect(sujet("10").texte).toBe(premier);
+  });
+
+  test("partage suivant : ma réponse modifiée (son numéro), mes lignes fusionnées sans doublon", async () => {
+    preparer();
+    await partager([A1]);
+    const id = lire<number>(`FORUM.sujets.find((s) => s.id == "10").reponses[1].id`);
+    lire(`(() => { FORUM.ordre.length = 0; })()`);
+    expect(await partager([A1, A3])).toBe(1);
+    expect(ordre()).toEqual(["callGetForum", "callGetTopic 10", "envoiEditMessage"]);
+    expect(reponses("10").length).toBe(2);
+    expect(lire<number>(`FORUM.sujets.find((s) => s.id == "10").reponses[1].id`)).toBe(id);
+    expect(mesFloods()).toEqual([11, 13]);
+  });
+
+  test("ma réponse suivie de celles d'autres joueurs : modifiée en place, jamais une deuxième", async () => {
+    preparer();
+    await partager([A1]);
+    lire(
+      `(() => { FORUM.sujets.find((s) => s.id == "10").reponses.push({ id: 900, auteur: "Gamma", texte: "g" }); })()`,
     );
-    regler("2026-11-13 22:31:05");
-    expect(await partager([F12])).toBe(1);
-    const e = lire<any[]>(`FORUM.ecritures`);
-    expect(e.map((x) => [x.id, x.sujet, x.modifiable])).toEqual([["10", COMMUN_F, true]]);
-    expect(sujet("10").texte).toBe(
-      [
-        "NE RIEN ÉCRIRE ICI",
-        section("Alpha", "2026-11-13 22:31:05", [ligne("Floods", F12), ligne("Floods", F11)]),
-        section("Beta", "2026-11-13 22:25:10", ["13/11/26 23:10 | Alpha | 1 000 cm² | #21"]),
-      ].join("\n"),
-    );
-    // rien à archiver : le sujet lu sert à l'écriture ; relu après la pause ; les anciens sujets des joueurs jamais touchés
-    expect(lire<string[]>(`FORUM.ordre`)).toEqual(["lu 10", "écrit 10", "lu 10"]);
+    expect(await partager([A2])).toBe(1);
+    expect(reponses("10").map((r) => r[0])).toEqual(["Beta", "Alpha", "Gamma"]);
+    expect(mesFloods()).toEqual([11, 12]);
+  });
+
+  test("Beta partage : seule sa réponse change", async () => {
+    preparer();
+    await partager([A1]);
+    const alpha = reponses("10")[1];
+    lire(`(() => { monProfil.pseudo = "Beta"; })()`);
+    expect(await partager([flood("2026-11-14 13:20", "Alpha", 22)])).toBe(1);
+    expect(reponses("10")[1]).toEqual(alpha);
+    expect(reponses("10")[0]?.[1]).toContain("#22");
   });
 
   test("rien de nouveau à partager : ni écriture ni relecture", async () => {
     preparer();
-    expect(await partager([F11])).toBe(0);
-    expect(lire<string[]>(`FORUM.ordre`)).toEqual(["lu 10"]);
+    await partager([A1]);
+    lire(`(() => { FORUM.ordre.length = 0; })()`);
+    expect(await partager([A1])).toBe(0);
+    expect(ordre()).toEqual(["callGetForum", "callGetTopic 10"]);
   });
 
-  test("floods arrivés : vers mon historique, puis le sujet commun relu avant l'écriture", async () => {
-    preparer(
-      section("Alpha", "2026-11-13 22:20:30", [
-        ligne("Floods", F11),
-        ligne("Floods", flood("2026-11-13 22:25", "Gamma", 9)),
-      ]),
+  test("floods arrivés : vers mon historique, puis ma réponse relue avant l'écriture", async () => {
+    preparer();
+    await partager([A1, PASSE]);
+    // PASSE (11:00) est déjà passé : jamais écrit dans la réponse, mis dans l'historique
+    expect(
+      lire<string>(`FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | Alpha").texte`),
+    ).toBe(ligne("Floods", PASSE));
+    expect(mesFloods()).toEqual([11]);
+    regler("2026-11-14 13:05:00");
+    lire(`(() => { FORUM.ordre.length = 0; })()`);
+    expect(await partager([A2])).toBe(1);
+    expect(mesFloods()).toEqual([12]);
+    const o = ordre();
+    expect(o.slice(0, 2)).toEqual(["callGetForum", "callGetTopic 10"]);
+    expect(o.slice(-2)).toEqual(["callGetTopic 10", "envoiEditMessage"]);
+  });
+
+  test("historique pas écrit et rien de nouveau : les floods arrivés restent, rien n'est écrit", async () => {
+    preparer();
+    await partager([A1]);
+    regler("2026-11-14 13:05:00");
+    lire(
+      `(() => { FORUM.historiqueEchoue = true; FORUM.ordre.length = 0; console.warn = () => {}; })()`,
     );
-    regler("2026-11-13 22:31:05");
-    expect(await partager([F12])).toBe(1);
-    expect(lire<string[]>(`FORUM.ordre`)).toEqual([
-      "lu 10",
-      "nouveau sujet",
-      "lu 10",
-      "écrit 10",
-      "lu 10",
+    expect(await partager([A1])).toBe(0);
+    expect(ordre().filter((o) => /^envoi(Edit|Nouveau)Message/.test(o))).toEqual([]);
+    expect(mesFloods()).toEqual([11]);
+  });
+
+  test("tout retiré : « Aucun flood en cours. » ; puis plus de réponse à créer pour rien", async () => {
+    preparer();
+    await partager([A1]);
+    expect(
+      await lire<Promise<any>>(
+        `PartageChasses._modifierMessage("Floods", (anciennes) => anciennes.filter((e) => e.id != 11))`,
+      ),
+    ).toEqual([]);
+    expect(reponses("10")[1]).toEqual(["Alpha", "Aucun flood en cours."]);
+    // Gamma, sans réponse, retire un flood qu'il n'a pas partagé : rien n'est posté
+    lire(`(() => { monProfil.pseudo = "Gamma"; FORUM.ordre.length = 0; })()`);
+    await lire(`PartageChasses._modifierMessage("Floods", () => [])`);
+    expect(ordre().filter((o) => /^envoi/.test(o))).toEqual([]);
+  });
+
+  test("écriture refusée par le forum (grade) : réponse du forum sans mon changement, sujet relu une fois, erreur", async () => {
+    preparer();
+    lire(`(() => { FORUM.refuse = ["envoiNouveauMessage"]; })()`);
+    expect(await partager([A1])).toBe("échec : refusée");
+    expect(ordre()).toEqual([
+      "callGetForum",
+      "callGetTopic 10",
+      "envoiNouveauMessage",
+      "callGetTopic 10",
     ]);
-    expect(mesFloods()).toEqual([11, 12]);
+    expect(notes()).toContain(`« ${COMMUN_F} » : ma réponse n'a pas été écrite (refusée)`);
   });
 
-  test("historique illisible et rien de nouveau : les floods arrivés restent, rien n'est écrit", async () => {
-    preparer(
-      section("Alpha", "2026-11-13 22:20:30", [
-        ligne("Floods", F11),
-        ligne("Floods", flood("2026-11-13 22:25", "Gamma", 9)),
-      ]),
-    );
-    lire(`(() => { FORUM.historiqueEchoue = true; console.warn = () => {}; })()`);
-    expect(await partager([F11])).toBe(0);
-    expect(lire<string[]>(`FORUM.ordre`)).toEqual(["lu 10", "nouveau sujet"]);
-    expect(mesFloods()).toEqual([9, 11]);
-  });
-
-  test("flood annulé retiré ; plus rien à venir : ma section disparaît, le préambule reste", async () => {
+  test("réponse du forum sans le sujet : relu une fois, l'écriture est prise", async () => {
     preparer();
-    await lire(`PartageChasses._retirerFloods([11])`);
-    expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
-    expect(ecritures()).toBe(1);
-  });
-
-  test("ma section retirée puis remise par un membre qui avait lu avant : retirée de nouveau, noté au journal", async () => {
-    preparer();
-    pendant("(avant) => avant");
-    await lire(`PartageChasses._retirerFloods([11])`);
-    expect(ecritures()).toBe(2);
-    expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
-    expect(notes()).toContain(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : section écrite à l'essai 2 (sujet écrit au même moment par un autre membre ou appareil)",
-    );
-  });
-
-  test("un autre membre réécrit le sujet lu avant mon écriture : la mienne est refaite, la sienne gardée", async () => {
-    preparer(section("Beta", "2026-11-13 22:25:10", [ligne("Floods", F21)]));
-    // Beta avait lu le sujet sans ma section et l'écrit pendant la pause, avec un flood de plus
-    pendant(
-      `(avant) => avant + "\\n" + ${JSON.stringify(ligne("Floods", flood("2026-11-13 23:20", "Gamma", 22)))}`,
-    );
-    expect(await partager([F11])).toBe(1);
-    expect(ecritures()).toBe(2);
-    const lu = lire<any>(`PartageChasses.sections(FORUM.sujets.find((s) => s.id == "10").texte)`);
-    expect(lu.sections.map((s: any) => [s.pseudo, s.floods.map((f: any) => f.id)])).toEqual([
-      ["Alpha", [11]],
-      ["Beta", [21, 22]],
-    ]);
-  });
-
-  test("défaite à chaque essai : trois essais, puis l'erreur", async () => {
-    preparer();
-    pendant("(avant) => avant", 3);
-    regler("2026-11-13 22:31:05");
-    expect(await partager([F12])).toBe("échec : défaites");
-    expect(ecritures()).toBe(3);
-  });
-
-  test("mon autre appareil réécrit ma section pendant la pause, avec mes lignes : rien à refaire", async () => {
-    preparer();
-    regler("2026-11-13 22:31:05");
-    pendant(
-      `(avant, ecrit) => ecrit.replace("2026-11-13 22:31:05", "2026-11-13 22:31:07") + "\\n" + ${JSON.stringify(ligne("Floods", F13))}`,
-    );
-    expect(await partager([F12])).toBe(1);
-    expect(ecritures()).toBe(1);
-    expect(mesFloods()).toEqual([11, 12, 13]);
-  });
-
-  test("nouvel essai : une ligne déjà relue dans ma section n'est pas écrite deux fois", async () => {
-    const F9 = flood("2026-11-13 22:25", "Gamma", 9);
-    preparer(section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11), ligne("Floods", F9)]));
-    regler("2026-11-13 22:31:05");
-    // mon autre appareil a partagé F12 sans archiver F9, arrivé : F9 revient, F12 y est déjà
-    pendant(
-      `() => ${JSON.stringify("NE RIEN ÉCRIRE ICI\n" + section("Alpha", "2026-11-13 22:31:07", [ligne("Floods", F12), ligne("Floods", F11), ligne("Floods", F9)]))}`,
-    );
-    expect(await partager([F12])).toBe(1);
-    expect(ecritures()).toBe(2);
-    expect(mesFloods()).toEqual([11, 12]);
-  });
-
-  test("mon autre appareil, qui avait lu avant, réécrit ma section sans mes lignes : refaite, les siennes gardées", async () => {
-    preparer();
-    regler("2026-11-13 22:31:05");
-    pendant(
-      `() => ${JSON.stringify("NE RIEN ÉCRIRE ICI\n" + section("Alpha", "2026-11-13 22:31:07", [ligne("Floods", F13), ligne("Floods", F11)]))}`,
-    );
-    expect(await partager([F12])).toBe(1);
-    expect(ecritures()).toBe(2);
-    expect(mesFloods()).toEqual([11, 12, 13]);
-  });
-
-  test("écriture refusée par le forum (grade, message verrouillé) : vue à la relecture, erreur", async () => {
-    preparer();
-    lire(`(() => { FORUM.refuse.push("10"); })()`);
-    expect(await partager([F12])).toBe("échec : défaites");
-    expect(ecritures()).toBe(3);
+    lire(`(() => { FORUM.reponseVide = true; })()`);
+    expect(await partager([A1])).toBe(1);
+    expect(ordre().slice(-2)).toEqual(["envoiNouveauMessage", "callGetTopic 10"]);
   });
 
   test("pas de sujet commun : ni lu ni écrit", async () => {
-    preparer(null);
-    expect(await partager([F12])).toBe("échec : sans sujet commun");
-    expect(lire<string[]>(`FORUM.ordre`)).toEqual([]);
+    preparer();
+    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "10"); })()`);
+    expect(await partager([A1])).toBe("échec : sans sujet commun");
+    expect(ordre()).toEqual(["callGetForum"]);
   });
 
-  test("message trop long : rien n'est écrit", async () => {
+  test("réponse trop longue pour un message : rien n'est écrit", async () => {
     preparer();
-    lire(`(() => { FORUM.sujets.find((s) => s.id == "10").texte = "x".repeat(40000); })()`);
-    expect(await partager([F12])).toBe("échec : trop long");
-    expect(ecritures()).toBe(0);
+    const long = Array.from({ length: 100 }, (_, i) =>
+      flood("2026-11-14 13:00", "C" + "x".repeat(400), 1000 + i),
+    );
+    expect(await partager(long)).toBe("échec : trop long");
+    expect(ordre().filter((o) => /^envoi/.test(o))).toEqual([]);
   });
 
   test("plus de 100 floods à venir : les 100 plus proches partagés, comptés ; noté au journal", async () => {
@@ -494,37 +449,52 @@ describe("écriture de ma section", () => {
     const beaucoup = Array.from({ length: 105 }, (_, i) =>
       flood(
         lire<string>(
-          `moment("2026-11-14 00:00", "YYYY-MM-DD HH:mm").add(${i}, "minutes").format("YYYY-MM-DD HH:mm")`,
+          `moment("2026-11-14 14:00", "YYYY-MM-DD HH:mm").add(${i}, "minutes").format("YYYY-MM-DD HH:mm")`,
         ),
         "Cible",
         100 + i,
       ),
     );
-    // F11 (23:00) et les 99 premiers : les 6 derniers restent hors du forum
+    await partager([A1]);
+    // A1 (13:00) et les 99 premiers : les 6 derniers restent hors du forum
     expect(await partager(beaucoup)).toBe(99);
     const ids = mesFloods();
     expect([ids.length, ids[0], ids[ids.length - 1]]).toEqual([100, 11, 198]);
     expect(notes()).toContain("106 floods à venir : les 100 plus proches partagés");
   });
 
-  test("deux partages d'une page : l'un après l'autre, le second relit ce que le premier a écrit", async () => {
+  test("deux partages d'une page : l'un après l'autre, le second lit ce que le premier a écrit", async () => {
     preparer();
     const p1 = lire<Promise<number>>(
-      `PartageChasses.enFile(() => PartageChasses._partager("Floods", [${JSON.stringify(F12)}]))`,
+      `PartageChasses.enFile(() => PartageChasses._partager("Floods", [${JSON.stringify(A2)}]))`,
     );
     const p2 = lire<Promise<number>>(
-      `PartageChasses.enFile(() => PartageChasses._partager("Floods", [${JSON.stringify(F13)}]))`,
+      `PartageChasses.enFile(() => PartageChasses._partager("Floods", [${JSON.stringify(A3)}]))`,
     );
     expect([await p1, await p2]).toEqual([1, 1]);
-    expect(lire<string[]>(`FORUM.ordre`)).toEqual([
-      "lu 10",
-      "écrit 10",
-      "lu 10",
-      "lu 10",
-      "écrit 10",
-      "lu 10",
+    expect(ordre().filter((o) => o != "callGetForum")).toEqual([
+      "callGetTopic 10",
+      "envoiNouveauMessage",
+      "callGetTopic 10",
+      "envoiEditMessage",
     ]);
-    expect(mesFloods()).toEqual([11, 12, 13]);
+    expect(mesFloods()).toEqual([12, 13]);
+  });
+
+  test("après mon écriture, l'affichage relit le sujet : la lecture gardée d'avant est oubliée", async () => {
+    preparer();
+    lire(`(() => { PartageChasses.oublierCache(); })()`);
+    await lire(`PartageChasses.charger()`);
+    await partager([A1]);
+    lire(`(() => { FORUM.ordre.length = 0; })()`);
+    const d = await lire<Promise<any>>(
+      `PartageChasses.charger().then((d) => JSON.parse(JSON.stringify(d)))`,
+    );
+    expect(ordre()).toContain("callGetTopic 10");
+    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
+      ["Alpha", 11],
+      ["Beta", 21],
+    ]);
   });
 
   test("lignes écrites relues à l'identique : flood avec unités, sans unités, au dôme, avec TdC ; chasse", () => {
@@ -558,365 +528,106 @@ describe("écriture de ma section", () => {
   });
 });
 
-describe("boutons « Reporter les floods » et « Reporter les chasses » (mainteneur) : sujets des joueurs de la version finale vers leur section", () => {
-  const G5 = flood("2026-11-13 23:45", "Alpha", 51);
-  /** Gamma : section ancienne, sujet modifié depuis ; Delta : sujet vide, sans section. */
-  function preparerReport() {
-    preparer(
-      [
-        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-        section("Gamma", "2026-11-13 22:10:00", [
-          ligne("Floods", flood("2026-11-13 23:05", "Old", 9)),
-        ]),
-      ].join("\n"),
-    );
-    lire(`(() => {
-      FORUM.sujets.push({ id: "5", titre: "Floods | Gamma", dernier: "13 nov. à 22h27", texte: ${JSON.stringify(ligne("Floods", G5))} });
-      FORUM.sujets.push({ id: "6", titre: "Floods | Delta", dernier: "13 nov. à 22h00", texte: "Aucun flood en cours." });
-    })()`);
-    regler("2026-11-13 22:30:40");
-  }
-  const reporter = () =>
-    lire<Promise<string>>(
-      `(() => { window.ETATS = []; return PartageChasses.reporterTout((t) => ETATS.push(t)); })()`,
-    );
-  const sectionsDe = (id: string) =>
-    lire<any[]>(
-      `PartageChasses.sections(FORUM.sujets.find((s) => s.id == ${JSON.stringify(id)}).texte).sections`,
-    );
-
-  test("reporte les joueurs sans section ou dont la section est plus ancienne que leur sujet ; bilan", async () => {
-    preparerReport();
-    expect(await reporter()).toBe(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour. « BDD générale chasse - NE RIEN ÉCRIRE » : 1 section reportée.",
-    );
-    // datée de la minute qui précède la lecture de son sujet
-    expect(
-      sectionsDe("10").map((s) => [s.pseudo, s.ecrit, s.floods.map((f: any) => f.id)]),
-    ).toEqual([
-      ["Alpha", "2026-11-13 22:20:30", [11]],
-      ["Beta", "2026-11-13 22:29:59", [21]],
-      ["Gamma", "2026-11-13 22:29:59", [51]],
-    ]);
-    expect(sectionsDe("11").map((s) => [s.pseudo, s.chasses.map((c: any) => c.terrain)])).toEqual([
-      ["Alpha", [1500]],
-    ]);
-    // le texte écrit à la main reste ; une écriture par sujet commun, puis sa vérification
-    expect(sujet("10").texte.startsWith("NE RIEN ÉCRIRE ICI\n")).toBe(true);
-    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["10", "11"]);
-    expect(lire<string[]>(`ETATS`)).toContain(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : sujet 1 / 3 (Beta)…",
-    );
-    expect(notes()).toContain(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour.",
-    );
-  });
-
-  test("seuls les floods à venir sont reportés, pas ceux déjà arrivés", async () => {
-    preparerReport();
-    lire(
-      `(() => { FORUM.sujets.find((s) => s.id == "2").texte = ${JSON.stringify([ligne("Floods", F21), ligne("Floods", flood("2026-11-13 22:00", "Passe", 8))].join("\n"))}; })()`,
-    );
-    await reporter();
-    expect(
-      sectionsDe("10")
-        .find((s) => s.pseudo == "Beta")
-        .floods.map((f: any) => f.id),
-    ).toEqual([21]);
-  });
-
-  test("ensuite, l'affichage ne lit plus que les sujets communs", async () => {
-    preparerReport();
-    await reporter();
-    regler("2026-11-13 22:40:00");
-    const d = await charger();
-    expect(lectures().filter((id) => !["10", "11"].includes(id))).toEqual([]);
-    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
-      ["Alpha", 11],
-      ["Beta", 21],
-      ["Gamma", 51],
-    ]);
-  });
-
-  test("une modification du sujet dans la minute de sa lecture : ce joueur est reporté de nouveau au report suivant", async () => {
-    preparerReport();
-    await reporter();
-    // Beta modifie son sujet à 22:30:50, après la lecture du report (22:30:40) : même minute
-    lire(`(() => {
-      const s = FORUM.sujets.find((s) => s.id == "2");
-      s.dernier = "13 nov. à 22h30";
-      s.texte = ${JSON.stringify(ligne("Floods", flood("2026-11-13 23:59", "Zeta", 22)))};
-      FORUM.lectures.length = 0;
-    })()`);
-    regler("2026-11-13 22:40:00");
-    expect(await reporter()).toStartWith(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 1 section reportée, 2 déjà à jour.",
-    );
-    expect(lire<string[]>(`FORUM.lectures`)).toContain("2");
-    expect(
-      sectionsDe("10")
-        .find((s) => s.pseudo == "Beta")
-        .floods.map((f: any) => f.id),
-    ).toEqual([22]);
-  });
-
-  test("une section plus récente que le report (son joueur l'a recopiée entre-temps) est gardée", async () => {
-    preparer(
-      section("Beta", "2026-11-13 22:35:00", [
-        ligne("Floods", flood("2026-11-13 23:59", "Zeta", 77)),
-      ]),
-    );
-    const r = await lire<Promise<any>>(
-      `PartageChasses._reporterSections("Floods", "10", [{ pseudo: "Beta", ecrit: "2026-11-13 22:29:59", lignes: ["x"] }])`,
-    );
-    expect([r.etat, r.ecrites]).toEqual(["écrites", 0]);
-    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
-  });
-
-  test("tout est déjà à jour : rien n'est écrit", async () => {
-    preparerReport();
-    await reporter();
-    lire(`(() => { FORUM.ecritures.length = 0; })()`);
-    regler("2026-11-13 22:45:00");
-    expect(await reporter()).toBe(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 0 section reportée, 3 déjà à jour. « BDD générale chasse - NE RIEN ÉCRIRE » : 0 section reportée, 1 déjà à jour.",
-    );
-    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
-  });
-
-  test("sujet d'un joueur illisible : compté, les autres sont reportés", async () => {
-    preparerReport();
-    lire(`(() => { FORUM.echoue.push("5"); })()`);
-    expect(await reporter()).toStartWith(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 1 section reportée, 1 déjà à jour, 1 sujet illisible.",
-    );
-  });
-
-  test("joueur avec trop de floods à venir pour une section : les plus proches reportés, compté", async () => {
-    preparerReport();
-    const beaucoup = Array.from({ length: 101 }, (_, i) =>
-      flood("2026-11-13 23:40", "Cible", 100 + i),
-    );
-    lire(
-      `(() => { FORUM.sujets.find((s) => s.id == "5").texte = ${JSON.stringify(beaucoup.map((f) => ligne("Floods", f)).join("\n"))}; })()`,
-    );
-    expect(await reporter()).toStartWith(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour, 1 sujet coupé aux 100 entrées les plus proches.",
-    );
-    const gamma = sectionsDe("10").find((s) => s.pseudo == "Gamma");
-    expect([gamma.floods.length, gamma.floods.some((f: any) => f.id == 200)]).toEqual([100, false]);
-  });
-
-  test("sujet lu il y a peu (lecture gardée qui fait foi) : pas relu, daté de cette lecture", async () => {
-    preparerReport();
-    await reporter();
-    // la section de Beta est défaite : le report suivant reprend la lecture gardée de son sujet
-    lire(`(() => {
-      const s = FORUM.sujets.find((s) => s.id == "10");
-      s.texte = s.texte.replace(/--- Beta[^\\n]*\\n[^\\n]*\\n?/, "");
-      FORUM.lectures.length = 0;
-    })()`);
-    expect(sectionsDe("10").map((s) => s.pseudo)).toEqual(["Alpha", "Gamma"]);
-    regler("2026-11-13 22:31:20");
-    await reporter();
-    expect(lire<string[]>(`FORUM.lectures.filter((id) => ["2", "5", "6"].includes(id))`)).toEqual(
-      [],
-    );
-    expect(sectionsDe("10").find((s) => s.pseudo == "Beta").ecrit).toBe("2026-11-13 22:29:59");
-  });
-
-  test("message trop long : rien n'est écrit, le bilan le dit", async () => {
-    preparerReport();
-    // texte écrit à la main avant les sections, gardé à chaque écriture
-    lire(
-      `(() => { const s = FORUM.sujets.find((s) => s.id == "10"); s.texte = "x".repeat(40000) + "\\n" + s.texte; })()`,
-    );
-    expect(await reporter()).toStartWith(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : rien n'est écrit, le message dépasserait la taille d'un message du forum",
-    );
-    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["11"]);
-  });
-
-  test("écriture défaite à chaque essai : le bilan dit de réessayer", async () => {
-    preparerReport();
-    lire(`(() => {
-      const avant = FORUM.sujets.find((s) => s.id == "10").texte;
-      FORUM.pendant = () => {
-        FORUM.sujets.find((s) => s.id == "10").texte = avant;
-        return Promise.resolve();
-      };
-    })()`);
-    expect(await reporter()).toStartWith(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : écriture défaite par d'autres membres après 3 essais, réessaie plus tard.",
-    );
-  });
-
-  test("bouton des chasses : seul le sujet commun des chasses est écrit", async () => {
-    preparerReport();
-    const bilan = await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Chasses"])`);
-    expect(bilan).toBe("« BDD générale chasse - NE RIEN ÉCRIRE » : 1 section reportée.");
-    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["11"]);
-    expect(sectionsDe("11").map((s) => [s.pseudo, s.chasses.map((c: any) => c.terrain)])).toEqual([
-      ["Alpha", [1500]],
-    ]);
-    // aucun sujet de floods lu
-    expect(
-      lire<string[]>(`FORUM.lectures.filter((id) => ["1", "2", "5", "6", "10"].includes(id))`),
-    ).toEqual([]);
-  });
-
-  test("bouton des floods : seul le sujet commun des floods est écrit", async () => {
-    preparerReport();
-    const bilan = await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Floods"])`);
-    expect(bilan).toBe(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour.",
-    );
-    expect(lire<string[]>(`FORUM.ecritures.map((e) => e.id)`)).toEqual(["10"]);
-  });
-
-  test("bouton des chasses sans sujet commun des chasses : le bilan le dit", async () => {
-    preparerReport();
-    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);
-    expect(await lire<Promise<string>>(`PartageChasses.reporterTout(() => {}, ["Chasses"])`)).toBe(
-      "Aucun sujet « BDD générale chasse - NE RIEN ÉCRIRE » dans la section : rien à reporter.",
-    );
-    expect(lire<number>(`FORUM.ecritures.length`)).toBe(0);
-  });
-
-  test("pas de sujet commun : rien n'est lu, le bilan le dit", async () => {
-    preparer(null);
-    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11"); })()`);
-    expect(await reporter()).toBe(
-      "Aucun sujet « BDD générale flood - NE RIEN ÉCRIRE » ni « BDD générale chasse - NE RIEN ÉCRIRE » dans la section : rien à reporter.",
-    );
-    expect(lire<string[]>(`FORUM.lectures`)).toEqual([]);
-  });
-});
-
-describe("« Ranger le forum » (mainteneur) : report, puis suppression des anciens sujets", () => {
-  const G5 = flood("2026-11-13 23:45", "Alpha", 51);
-  /** Comme le report : Gamma, section ancienne et sujet modifié depuis ; Delta, sujet vide. */
-  function preparerRangement() {
-    preparer(
-      [
-        section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]),
-        section("Gamma", "2026-11-13 22:10:00", [
-          ligne("Floods", flood("2026-11-13 23:05", "Old", 9)),
-        ]),
-      ].join("\n"),
-    );
-    lire(`(() => {
-      FORUM.sujets.push({ id: "5", titre: "Floods | Gamma", dernier: "13 nov. à 22h27", texte: ${JSON.stringify(ligne("Floods", G5))} });
-      FORUM.sujets.push({ id: "6", titre: "Floods | Delta", dernier: "13 nov. à 22h00", texte: "Aucun flood en cours." });
-    })()`);
-    regler("2026-11-13 22:30:40");
-  }
+describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", () => {
   const ranger = () =>
     lire<Promise<string>>(
       `(() => { window.ETATS = []; return PartageChasses.rangerForum((t) => ETATS.push(t)); })()`,
     );
-  const titres = () => lire<string[]>(`FORUM.sujets.map((s) => s.titre)`);
+  const historique = (pseudo: string) =>
+    lire<string | null>(
+      `(() => { const s = FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | " + ${JSON.stringify(pseudo)}); return s ? s.texte : null; })()`,
+    );
 
-  test("anciens sujets reportés puis supprimés en une fois ; convois et historiques gardés ; bilan", async () => {
-    preparerRangement();
+  test("premiers messages vidés (texte d'en-tête gardé), entrées passées dans l'historique, anciens sujets supprimés en une fois ; réponses et convois gardés ; bilan", async () => {
+    preparer();
     const bilan = await ranger();
     expect(bilan).toBe(
-      "« BDD générale flood - NE RIEN ÉCRIRE » : 2 sections reportées, 1 déjà à jour. « BDD générale chasse - NE RIEN ÉCRIRE » : 1 section reportée. Anciens sujets : 5 supprimés.",
+      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée ajoutée à l'historique de leur joueur. « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 3 supprimés.`,
     );
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3", "5", "6"]]);
-    expect(titres()).toEqual(["Convois | Alpha", COMMUN_F, COMMUN_C]);
-    // les floods restent visibles : dans les sections
-    const d = await charger();
-    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([
-      ["Alpha", 11],
-      ["Beta", 21],
-      ["Gamma", 51],
+    expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
+    // titre et case « modifiable » réécrits comme avant
+    expect(lire<any>(`FORUM.premiers.find((p) => p.id == "10")`)).toMatchObject({
+      sujet: COMMUN_F,
+      modifiable: true,
+    });
+    expect(reponses("10")).toEqual([["Beta", ligne("Floods", B1)]]);
+    // PASSE : dans la section d'Alpha et dans son ancien sujet, une seule fois dans son historique
+    expect(historique("Alpha")).toBe(ligne("Floods", PASSE));
+    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3"]]);
+    expect(titres()).toEqual([
+      "Convois | Alpha",
+      COMMUN_F,
+      COMMUN_C,
+      "Historique Floods 1 | Alpha",
     ]);
-    expect(notes()).toContain("Anciens sujets : 5 supprimés.");
+    expect(notes()).toContain("Anciens sujets : 3 supprimés.");
+    // l'affichage n'en voit rien : seule la réponse de Beta compte
+    const d = await charger();
+    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([["Beta", 21]]);
   });
 
-  test("entrées passées de l'ancien sujet : dans l'historique du joueur avant la suppression", async () => {
-    preparerRangement();
-    const passe = flood("2026-11-13 22:00", "Passe", 8);
+  test("premier message sans texte d'en-tête : le texte par défaut", async () => {
+    preparer();
     lire(
-      `(() => { FORUM.sujets.find((s) => s.id == "2").texte = ${JSON.stringify([ligne("Floods", F21), ligne("Floods", passe)].join("\n"))}; })()`,
+      `(() => { const s = FORUM.sujets.find((s) => s.id == "10"); s.texte = s.texte.replace("NE RIEN ÉCRIRE ICI\\n", ""); })()`,
     );
     await ranger();
-    const historique = lire<any>(
-      `FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | Beta")`,
+    expect(sujet("10").texte).toBe(
+      "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.",
     );
-    expect(historique.texte).toBe(ligne("Floods", passe));
-    // l'historique est écrit avant la suppression
-    const ordre = lire<string[]>(`FORUM.ordre`);
-    expect(ordre.indexOf("nouveau sujet")).toBeLessThan(
-      ordre.findIndex((o) => o.startsWith("supprimé")),
-    );
-    expect(titres()).not.toContain("Floods | Beta");
   });
 
-  test("historique pas écrit : l'ancien sujet reste, le bilan le dit", async () => {
-    preparerRangement();
-    lire(`(() => {
-      FORUM.sujets.find((s) => s.id == "2").texte = ${JSON.stringify([ligne("Floods", F21), ligne("Floods", flood("2026-11-13 22:00", "Passe", 8))].join("\n"))};
-      FORUM.historiqueEchoue = true;
-      console.warn = () => {};
-    })()`);
-    expect(await ranger()).toEndWith(
-      "Anciens sujets : 4 supprimés, 1 gardé (historique du joueur pas écrit).",
+  test("historique pas écrit : sections et anciens sujets gardés, le bilan le dit", async () => {
+    preparer();
+    lire(`(() => { FORUM.historiqueEchoue = true; console.warn = () => {}; })()`);
+    const bilan = await ranger();
+    expect(bilan).toBe(
+      `« ${COMMUN_F} » : 1 section de l'ancien format retirée, 0 entrée passée ajoutée à l'historique de leur joueur, 1 gardée (historique du joueur pas écrit). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 2 supprimés, 1 gardé (historique du joueur pas écrit).`,
     );
-    expect(titres()).toContain("Floods | Beta");
-  });
-
-  test("flood à venir absent de la section (son joueur, à jour, a partagé depuis sans lui) : l'ancien sujet reste", async () => {
-    preparerRangement();
-    // Alpha, à jour, a écrit sa section à 22:25 sans F11 ; son ancien sujet (22h20) le garde
-    lire(`(() => {
-      const s = FORUM.sujets.find((s) => s.id == "10");
-      s.texte = s.texte.replace(${JSON.stringify(section("Alpha", "2026-11-13 22:20:30", [ligne("Floods", F11)]))}, ${JSON.stringify(section("Alpha", "2026-11-13 22:25:00", [ligne("Floods", flood("2026-11-13 23:50", "Zeta", 12))]))});
-    })()`);
-    expect(await ranger()).toEndWith(
-      "Anciens sujets : 4 supprimés, 1 gardé (entrées à venir absentes de la section du joueur, ou sujet illisible).",
-    );
+    // la section d'Alpha (une entrée passée) reste ; celle de Gamma (rien de passé) part
+    const lu = lire<any>(`PartageChasses.sections(${JSON.stringify(sujet("10").texte)})`);
+    expect(lu.sections.map((s: any) => s.pseudo)).toEqual(["Alpha"]);
     expect(titres()).toContain("Floods | Alpha");
   });
 
   test("suppression refusée par le forum (droits de gestion) : vue à la relecture de la liste", async () => {
-    preparerRangement();
+    preparer();
     lire(`(() => { FORUM.refuseSuppression = true; })()`);
     expect(await ranger()).toEndWith(
-      "Anciens sujets : 0 supprimé, 5 pas supprimés : le forum les montre encore (droits de gestion du forum ?).",
-    );
-    expect(notes()).toContain(
-      "Anciens sujets : 0 supprimé, 5 pas supprimés : le forum les montre encore (droits de gestion du forum ?).",
+      "Anciens sujets : 0 supprimé, 3 pas supprimés : le forum les montre encore (droits de gestion du forum ?).",
     );
   });
 
-  test("sujet d'un joueur illisible : gardé, jamais supprimé", async () => {
-    preparerRangement();
-    lire(`(() => { FORUM.echoue.push("5"); })()`);
-    const bilan = await ranger();
-    expect(bilan).toContain("1 sujet illisible");
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3", "6"]]);
-    expect(titres()).toContain("Floods | Gamma");
-  });
-
-  test("aucun ancien sujet supprimable : aucune demande de suppression au forum", async () => {
-    preparerRangement();
-    lire(`(() => { FORUM.echoue.push("1", "2", "3", "5", "6"); })()`);
-    expect(await ranger()).toEndWith(
-      "Anciens sujets : 0 supprimé, 5 gardés (entrées à venir absentes de la section du joueur, ou sujet illisible).",
+  test("premier message pas modifié (droits de la section) : le bilan le dit", async () => {
+    preparer();
+    lire(`(() => { FORUM.refuse = ["envoiEditTopic"]; })()`);
+    expect(await ranger()).toStartWith(
+      `« ${COMMUN_F} » : premier message pas modifié (droits de la section ?), réessaie plus tard.`,
     );
-    expect(lire(`FORUM.suppressions`)).toEqual([]);
   });
 
-  test("plus d'ancien sujet : rien n'est supprimé, le bilan le dit", async () => {
-    preparerRangement();
+  test("ancien sujet illisible : gardé, jamais supprimé", async () => {
+    preparer();
+    lire(`(() => { FORUM.echoue.push("2"); })()`);
+    expect(await ranger()).toEndWith("Anciens sujets : 2 supprimés, 1 gardé (sujet illisible).");
+    expect(lire(`FORUM.suppressions`)).toEqual([["1", "3"]]);
+  });
+
+  test("tout est déjà rangé : rien n'est écrit ni supprimé", async () => {
+    preparer();
     await ranger();
-    lire(`(() => { FORUM.suppressions.length = 0; })()`);
-    regler("2026-11-13 22:45:00");
-    expect(await ranger()).toEndWith(
-      "Aucun ancien sujet « Floods | … » ou « Chasses | … » à supprimer.",
+    lire(`(() => { FORUM.premiers.length = 0; FORUM.suppressions.length = 0; })()`);
+    expect(await ranger()).toBe(
+      `« ${COMMUN_F} » : premier message déjà rangé. « ${COMMUN_C} » : premier message déjà rangé. Aucun ancien sujet « Floods | … » ou « Chasses | … » à supprimer.`,
     );
-    expect(lire(`FORUM.suppressions`)).toEqual([]);
+    expect(lire(`[FORUM.premiers.length, FORUM.suppressions.length]`)).toEqual([0, 0]);
+  });
+
+  test("pas de sujet commun : le bilan le dit, les anciens sujets sont quand même supprimés", async () => {
+    preparer();
+    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => !["10", "11"].includes(s.id)); })()`);
+    expect(await ranger()).toBe(
+      `Aucun sujet « ${COMMUN_F} » ni « ${COMMUN_C} » dans la section. Anciens sujets : 3 supprimés.`,
+    );
   });
 });

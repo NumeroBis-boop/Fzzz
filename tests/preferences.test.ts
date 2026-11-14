@@ -85,6 +85,10 @@ describe("onglets de la liste du mainteneur", () => {
       "messagerieCompacte",
       "messagerieNonLus",
       "messagerieMiseEnForme",
+      "membresFloodsRang",
+      "membresFloodsProchain",
+      "membresFloodsVariation",
+      "membresFloodsTrajet",
     ]);
     expect(Object.fromEntries(cases.map((c) => [c[1], c[0]]))).toMatchObject({
       horloge: "Options",
@@ -94,6 +98,8 @@ describe("onglets de la liste du mainteneur", () => {
       replacerArmee: "ArmeeFloods",
       lanceurFlood: "ArmeeFloods",
       membresMoi: "Affichage",
+      membresFloodsRang: "Affichage",
+      membresFloodsTrajet: "Affichage",
       chatSmileysAlliance: "Affichage",
       rappelExport: "Chasseur",
       lanceurChasse: "Chasseur",
@@ -125,6 +131,15 @@ describe("onglets de la liste du mainteneur", () => {
       ]),
     );
     expect(dans("Affichage")).toContain("vueMembres");
+    // colonnes de la vue « Floods et chasses en cours » : dans l'ordre de la liste du mainteneur
+    expect(
+      lire<string[]>(
+        `$("#o_tabsParametreAffichage input[data-affichage^='membresFloods']").map((i, c) => c.dataset.affichage).get().filter((c) => c != "membresFloods")`,
+      ),
+    ).toEqual(lire<string[]>(`MEMBRES_COLONNES_FLOODS`));
+    expect(lire(`$("#o_tabsParametreAffichage").text()`)).toContain(
+      "Colonnes de la vue « Floods et chasses en cours »",
+    );
     expect(dans("Chasseur")).toEqual(expect.arrayContaining(["tdcArriveeMax", "ratioPlancher"]));
     expect(dans("Grenier")).toEqual(
       expect.arrayContaining(["o_ouafCode", "o_ouafCodeEnregistrer"]),

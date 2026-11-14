@@ -11,6 +11,7 @@ import { creerPage } from "./harnais";
 const page = creerPage(
   [
     "js/lib/datatables_1.10.16.js",
+    "js/lib/moment-duration-format.js",
     "js/class/Utils.js",
     "js/page/PartageChasses.js",
     "js/page/AllianceFzzz.js",
@@ -79,7 +80,7 @@ const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
 // tableau du jeu tel que Alliance.js le laisse (sans coordonnées en cache) ;
 // le forum répond après que l'horloge a avancé de 5 minutes
-async function ouvrir() {
+async function ouvrir(partages: object = PARTAGES) {
   page.lire(`(() => {
     heure = moment("2026-11-09 10:00:20", "YYYY-MM-DD HH:mm:ss").valueOf();
     window.matchMedia = () => ({ matches: false });
@@ -95,7 +96,7 @@ async function ouvrir() {
     AllianceFzzz.installer(() => Promise.resolve(), false, (p) => trajets.get(p));
     heure += 5 * 60000;
     // vue « Floods » décochée : le forum n'est pas lu
-    if (reponse) reponse(${JSON.stringify(PARTAGES)});
+    if (reponse) reponse(${JSON.stringify(partages)});
   })()`);
   await new Promise((r) => setTimeout(r, 30));
 }
@@ -125,48 +126,92 @@ function infobulle(pseudo: string) {
 }
 
 describe("page Membres, vue « Floods et chasses en cours »", () => {
-  test("en-têtes : Date dernier mouvement, Variation totale de TdC, TdC final", async () => {
+  test("en-têtes des colonnes ajoutées, dans l'ordre de la liste du mainteneur", async () => {
     await ouvrir();
     expect(
       page.lire(
-        `$("#tabMembresAlliance thead th").slice(-3).map((i, th) => $(th).html().replace(/<br\\s*\\/?>/g, " ")).get()`,
+        `$($("#tabMembresAlliance").DataTable().columns().header()).slice(-6).map((i, th) => $(th).html().replace(/<br\\s*\\/?>/g, " ")).get()`,
       ),
-    ).toEqual(["Date dernier mouvement", "Variation totale de TdC", "TdC final"]);
+    ).toEqual([
+      "Date dernier mouvement",
+      "Variation totale de TdC",
+      "Date du prochain mouvement",
+      "Prochaine variation de TdC",
+      "TdC final",
+      "Temps de trajet",
+    ]);
   });
 
-  test("date du dernier mouvement, variation totale signée, TdC final", async () => {
+  test("dernier et prochain mouvement, variations signées, TdC final, temps de trajet", async () => {
     await ouvrir();
     const cellules = page
       .lire<string[][]>(`(() => {
       let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
       return api.rows()[0].map((r) => [
         $(api.cell(r, 3).node()).text().trim(),
-        ...[n - 3, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text()),
+        ...[n - 6, n - 5, n - 4, n - 3, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text()),
       ]);
     })()`)
       .map((l) => l.map(espaces));
     expect(cellules).toEqual([
-      ["Moi", "09/11 10:30", "+10 000", "110 000"],
-      ["Alpha", "09/11 12:00", "−15 000", "185 000"],
-      ["Beta", "09/11 12:00", "+7 000", "157 000"],
-      ["Gamma", "—", "—", "50 000"],
-      ["Delta", "09/11 15:00", "+500", "80 500"],
-      ["Epsilon", "09/11 10:31", "+2 000", "62 000"],
+      ["Moi", "09/11 10:30", "+10 000", "09/11 10:30", "+10 000", "110 000", "0 sec"],
+      ["Alpha", "09/11 12:00", "−15 000", "09/11 10:30", "−10 000", "185 000", "1h"],
+      ["Beta", "09/11 12:00", "+7 000", "09/11 10:10", "+2 000", "157 000", "N/C"],
+      ["Gamma", "—", "—", "—", "—", "50 000", "1h"],
+      ["Delta", "09/11 15:00", "+500", "09/11 15:00", "+500", "80 500", "10m"],
+      // deux chasses à des minutes différentes : la prochaine est la première seule
+      ["Epsilon", "09/11 10:31", "+2 000", "09/11 10:30", "+1 000", "62 000", "29m 40s"],
       // prise sur une cible au TdC inconnu : estimée
-      ["Eta", "09/11 11:00", "+~3 000", "93 000"],
+      ["Eta", "09/11 11:00", "+~3 000", "09/11 11:00", "+~3 000", "93 000", "2h"],
     ]);
-    // tri : dernier mouvement à sa date, membre sans mouvement après les autres ;
-    // variation totale à sa valeur
+    // tri : mouvements à leur date, membre sans mouvement après les autres ;
+    // variations à leur valeur ; temps de trajet en secondes, inconnu après les autres
     const ordres = page.lire<string[][]>(`(() => {
       let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
-      return api.rows()[0].map((r) => [n - 3, n - 2].map((c) => $(api.cell(r, c).node()).attr("data-order")));
+      return api.rows()[0].map((r) => [n - 6, n - 5, n - 4, n - 3, n - 1].map((c) => $(api.cell(r, c).node()).attr("data-order")));
     })()`);
+    const unix = (d: string) =>
+      String(page.lire(`moment(${JSON.stringify(d)}, "YYYY-MM-DD HH:mm").unix()`));
     expect(ordres[1]).toEqual([
-      String(page.lire(`moment("2026-11-09 12:00", "YYYY-MM-DD HH:mm").unix()`)),
+      unix("2026-11-09 12:00"),
       "-15000",
+      unix("2026-11-09 10:30"),
+      "-10000",
+      "3600",
     ]);
-    expect(ordres[3]).toEqual(["9999999999", "0"]);
+    expect(ordres[2]?.[4]).toBe("9999999999");
+    expect(ordres[3]).toEqual(["9999999999", "0", "9999999999", "0", "3600"]);
     expect(Number(ordres[3]?.[0])).toBeGreaterThan(Number(ordres[1]?.[0]));
+  });
+
+  test("prochain mouvement : les floods d'une même minute comptés ensemble (multi-flood)", async () => {
+    const flood = (date: string, id: number) => ({
+      date,
+      cible: "Alpha",
+      unites: 10000,
+      terrain: 10000,
+      tdcCible: 200000,
+      id,
+      lanceur: "Moi",
+    });
+    await ouvrir({
+      chasses: {},
+      floods: [
+        flood("2026-11-09 10:30", 1),
+        flood("2026-11-09 10:30", 2),
+        flood("2026-11-09 11:00", 3),
+      ],
+    });
+    const lignes = page
+      .lire<string[][]>(`(() => {
+      let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
+      return api.rows()[0].slice(0, 2).map((r) => [n - 6, n - 5, n - 4, n - 3].map((c) => $(api.cell(r, c).node()).text()));
+    })()`)
+      .map((l) => l.map(espaces));
+    expect(lignes).toEqual([
+      ["09/11 11:00", "+30 000", "09/11 10:30", "+20 000"],
+      ["09/11 11:00", "−30 000", "09/11 10:30", "−20 000"],
+    ]);
   });
 
   test("info-bulle : TdC à l'arrivée d'une attaque lancée à l'ouverture surligné", async () => {
@@ -219,6 +264,72 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     expect(gamma.surlignee).toBe(-1);
     expect(gamma.texte).toContain("Aucune variation partagée en cours.");
     expect(gamma.note).toBe("");
+  });
+});
+
+describe("page Membres, colonnes de la vue « Floods » choisies dans les Préférences", () => {
+  // titres des colonnes visibles dans la vue courante
+  const visibles = () =>
+    page.lire<string[]>(`(() => {
+      let api = $("#tabMembresAlliance").DataTable();
+      return api.columns().indexes().toArray().filter((i) => api.column(i).visible())
+        .map((i) => $(api.column(i).header()).html().replace(/<br\\s*\\/?>/g, " ").trim());
+    })()`);
+  const avec = async (cases: Record<string, boolean>) => {
+    page.lire(
+      `Object.entries(${JSON.stringify(cases)}).forEach(([c, v]) => localStorage.setItem("fzzz_affichage_" + c, v ? "1" : "0"))`,
+    );
+    await ouvrir();
+    page.lire(
+      `Object.keys(${JSON.stringify(cases)}).forEach((c) => localStorage.removeItem("fzzz_affichage_" + c))`,
+    );
+    return visibles();
+  };
+
+  test("par défaut : pseudo, TdC actuel (avec ses épées), dernier mouvement, variation totale, TdC final", async () => {
+    expect(await avec({})).toEqual([
+      "Pseudo",
+      "",
+      "Terrain",
+      "",
+      "Date dernier mouvement",
+      "Variation totale de TdC",
+      "TdC final",
+    ]);
+  });
+
+  test("cases changées : rang, prochain mouvement et sa variation, temps de trajet ; sans pseudo ni variation totale", async () => {
+    expect(
+      await avec({
+        membresFloodsRang: true,
+        membresFloodsPseudo: false,
+        membresFloodsTotal: false,
+        membresFloodsProchain: true,
+        membresFloodsVariation: true,
+        membresFloodsTrajet: true,
+      }),
+    ).toEqual([
+      "Rang",
+      "",
+      "Terrain",
+      "",
+      "Date dernier mouvement",
+      "Date du prochain mouvement",
+      "Prochaine variation de TdC",
+      "TdC final",
+      "Temps de trajet",
+    ]);
+    // les autres vues ne montrent jamais les colonnes ajoutées
+    page.lire(`$(".o_allVue[data-vue='reset']").trigger("click")`);
+    expect(visibles().filter((t) => /mouvement|TdC final|Temps de trajet/.test(t))).toEqual([]);
+  });
+
+  test("aucune case cochée : le pseudo seul", async () => {
+    expect(
+      await avec(
+        Object.fromEntries(page.lire<string[]>(`MEMBRES_COLONNES_FLOODS`).map((c) => [c, false])),
+      ),
+    ).toEqual(["Pseudo"]);
   });
 });
 

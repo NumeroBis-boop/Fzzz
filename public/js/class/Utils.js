@@ -179,6 +179,16 @@ const AFFICHAGES_FZZZ = {
     "Membres de l'alliance : vue « Floods et chasses en cours » (colonnes et info-bulle de l'évolution du TdC)",
   membresCarte: "Membres de l'alliance : « Carte de l'alliance » (menu Alliance → Carte)",
   membresMoi: "Membres de l'alliance : ta ligne en surbrillance",
+  // colonnes de la vue « Floods et chasses en cours » (MEMBRES_COLONNES_FLOODS)
+  membresFloodsRang: "Rang",
+  membresFloodsPseudo: "Pseudo",
+  membresFloodsTdc: "TdC actuel",
+  membresFloodsDernier: "Date dernier mouvement",
+  membresFloodsTotal: "Variation totale de TdC",
+  membresFloodsProchain: "Date du prochain mouvement",
+  membresFloodsVariation: "Prochaine variation de TdC",
+  membresFloodsFinal: "TdC final",
+  membresFloodsTrajet: "Temps de trajet (à ta Vitesse d'attaque)",
   evolutionEnCours:
     "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
   retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",
@@ -268,6 +278,17 @@ const AFFICHAGES_REGLABLES = {
   membresTableau: true,
   membresFloods: true,
   membresMoi: true,
+  // colonnes de la vue « Floods et chasses en cours » : la liste du mainteneur
+  // (14/11/2026), cochées par défaut celles que la vue montrait déjà, sauf le rang
+  membresFloodsRang: false,
+  membresFloodsPseudo: true,
+  membresFloodsTdc: true,
+  membresFloodsDernier: true,
+  membresFloodsTotal: true,
+  membresFloodsProchain: false,
+  membresFloodsVariation: false,
+  membresFloodsFinal: true,
+  membresFloodsTrajet: false,
   chatMesGif: true,
   chatGifAlliance: true,
   chatSmileysAlliance: true,
@@ -278,6 +299,19 @@ const AFFICHAGES_REGLABLES = {
   lanceurChasse: true,
   convoisSuiviLignes: true,
 };
+// colonnes au choix de la vue « Floods et chasses en cours » de la page Membres,
+// dans l'ordre de la liste du mainteneur (cases de Préférences → Affichage)
+const MEMBRES_COLONNES_FLOODS = [
+  "membresFloodsRang",
+  "membresFloodsPseudo",
+  "membresFloodsTdc",
+  "membresFloodsDernier",
+  "membresFloodsTotal",
+  "membresFloodsProchain",
+  "membresFloodsVariation",
+  "membresFloodsFinal",
+  "membresFloodsTrajet",
+];
 // page où l'extension est désactivée (onglet « Pages » des Préférences, + id de PAGES_EXTENSION)
 const CLE_ORIGINE = "fzzz_origine_";
 // affichages qui ne dépendent pas de la page courante : coupés avec « Toutes les pages »

@@ -7,14 +7,34 @@
 const CLE_VUE_APRES_SYNCHRO = "fzzz_vueMembresApresSynchro";
 // vues de la page Membres, dans l'ordre du réglage « vueMembres »
 const VUES_MEMBRES = ["reset", "trajet", "floods"];
-// colonnes ajoutées en fin de ligne au tableau des membres
-const ALLIANCE_COLONNES_FZZZ = [
-  "Date dernier<br/>mouvement",
-  "Variation<br/>totale de TdC",
-  "TdC<br/>final",
-];
-// membre sans mouvement en cours : après les autres dans le tri croissant des dates
+// membre sans mouvement en cours, ou sans temps de trajet connu : après les autres dans le tri croissant
 const ALLIANCE_SANS_MOUVEMENT = 9999999999;
+// colonnes ajoutées en fin de ligne au tableau des membres, montrées dans la vue
+// « Floods et chasses en cours » quand leur case des Préférences est cochée ;
+// forum : remplie d'après les partages du forum, lus au premier choix de la vue
+const ALLIANCE_COLONNES_FZZZ = [
+  {
+    cle: "membresFloodsDernier",
+    titre: "Date dernier<br/>mouvement",
+    forum: true,
+    ordre: ALLIANCE_SANS_MOUVEMENT,
+  },
+  { cle: "membresFloodsTotal", titre: "Variation<br/>totale de TdC", forum: true, ordre: 0 },
+  {
+    cle: "membresFloodsProchain",
+    titre: "Date du prochain<br/>mouvement",
+    forum: true,
+    ordre: ALLIANCE_SANS_MOUVEMENT,
+  },
+  { cle: "membresFloodsVariation", titre: "Prochaine<br/>variation de TdC", forum: true, ordre: 0 },
+  { cle: "membresFloodsFinal", titre: "TdC<br/>final", forum: true, ordre: 0 },
+  {
+    cle: "membresFloodsTrajet",
+    titre: "Temps de<br/>trajet",
+    forum: false,
+    ordre: ALLIANCE_SANS_MOUVEMENT,
+  },
+];
 
 /**
  * Page Membres de l'alliance : vues « Standard » (tableau du jeu, à
@@ -38,7 +58,9 @@ class AllianceFzzz {
     AllianceFzzz.avecFloods = Utils.affichage("membresFloods");
     if (AllianceFzzz.avecFloods)
       $t.find("thead tr").append(
-        ALLIANCE_COLONNES_FZZZ.map((c, i) => `<th class='o_allCol${i}'>${c}</th>`).join(""),
+        ALLIANCE_COLONNES_FZZZ.map(
+          (c, i) => `<th class='o_allColFzzz o_allCol${i}'>${c.titre}</th>`,
+        ).join(""),
       );
     // rang : largeur au plus juste (le libellé ne passe plus sur toute la ligne)
     $t.find("thead th:eq(2)").addClass("o_allRang");
@@ -46,7 +68,10 @@ class AllianceFzzz {
     if (AllianceFzzz.avecFloods)
       $t.find("tbody tr").each((i, tr) => {
         $(tr).append(
-          `<td class='o_allVar o_allCol0' data-order='${ALLIANCE_SANS_MOUVEMENT}'>…</td><td class='o_allMontant o_allCol1' data-order='0'></td><td class='o_allFinal o_allCol2' data-order='0'></td>`,
+          ALLIANCE_COLONNES_FZZZ.map(
+            (c, j) =>
+              `<td class='o_allColFzzz o_allCol${j}' data-order='${c.ordre}'>${c.forum ? "…" : ""}</td>`,
+          ).join(""),
         );
       });
     // ligne des totaux (pied fusionné sur toutes les colonnes) déplacée sous le
@@ -88,10 +113,18 @@ class AllianceFzzz {
       terrain = [...Array(n).keys()].find((i) => entete(i) == "Terrain") ?? 5,
       // épées de portée du jeu (Compte+) : colonnes sans titre de part et d'autre du terrain
       epees = [terrain - 1, terrain + 1].filter((i) => i >= 0 && i < n && entete(i).length <= 1),
+      // vue « Floods » : les colonnes cochées dans les Préférences ; aucune : le pseudo
+      choisies = [
+        ...(Utils.affichage("membresFloodsRang") ? [2] : []),
+        ...(Utils.affichage("membresFloodsPseudo") ? [3] : []),
+        ...(Utils.affichage("membresFloodsTdc") ? [terrain, ...epees] : []),
+        ...fzzz.filter((c, j) => Utils.affichage(ALLIANCE_COLONNES_FZZZ[j].cle)),
+      ],
+      floods = choisies.length ? choisies : [3],
       vues = {
         trajet: (i) => !fzzz.includes(i) && i !== numero,
         reset: (i) => autres.includes(i) && i !== numero,
-        floods: (i) => [2, 3, terrain, ...epees].includes(i) || fzzz.includes(i),
+        floods: (i) => floods.includes(i),
       },
       courante = "reset",
       // partages du forum (une requête par sujet de membre) : lus seulement
@@ -183,8 +216,50 @@ class AllianceFzzz {
         appliquer(vue);
       };
     AllianceFzzz._fixerLargeur = fixerLargeur;
+    // une colonne illisible ne doit pas empêcher les vues de s'installer
+    if (k)
+      try {
+        AllianceFzzz._remplirTrajets(api, tempsTrajet);
+      } catch (e) {
+        console.error("Fzzz : temps de trajet des membres", e);
+      }
     appliquer(initiale);
     fixerLargeur();
+  }
+  /**
+   * Colonne « Temps de trajet » de la vue « Floods » : celui de la colonne Tdt,
+   * à ma Vitesse d'attaque, connu quand les coordonnées sont en cache (vue
+   * « Temps de trajet »). Sans requête.
+   *
+   * @private
+   * @static
+   * @param {Function} tempsTrajet pseudo → temps de trajet (s), null si inconnu
+   */
+  static _remplirTrajets(api, tempsTrajet) {
+    let c = AllianceFzzz._colonne(api, "membresFloodsTrajet");
+    api.rows()[0].forEach((r) => {
+      let s = tempsTrajet($(api.cell(r, 3).node()).text().trim());
+      $(api.cell(r, c).node())
+        .attr("data-order", s != null ? s : ALLIANCE_SANS_MOUVEMENT)
+        .toggleClass("o_allVide", s == null)
+        .text(s != null ? Utils.intToTime(s) : "N/C");
+    });
+    api.rows().invalidate("dom");
+  }
+  /**
+   * Indice dans le tableau d'une colonne ajoutée (ALLIANCE_COLONNES_FZZZ).
+   *
+   * @private
+   * @static
+   * @param {String} cle
+   * @return {Number}
+   */
+  static _colonne(api, cle) {
+    return (
+      api.settings()[0].aoColumns.length -
+      ALLIANCE_COLONNES_FZZZ.length +
+      ALLIANCE_COLONNES_FZZZ.findIndex((c) => c.cle == cle)
+    );
   }
   /**
    * Lit les sujets communs des chasses et des floods du forum, remplit
@@ -196,12 +271,12 @@ class AllianceFzzz {
     let mesure = Journal.mesurer("Page Membres, vue « Floods et chasses en cours »");
     PartageChasses.charger()
       .then((d) => AllianceFzzz._remplir(api, d, tempsTrajet, ouverture))
-      .catch(() => {
-        let n = api.settings()[0].aoColumns.length;
-        api
-          .rows()[0]
-          .forEach((r) => $(api.cell(r, n - ALLIANCE_COLONNES_FZZZ.length).node()).text("—"));
-      })
+      .catch(() =>
+        ALLIANCE_COLONNES_FZZZ.filter((c) => c.forum).forEach((c) => {
+          let col = AllianceFzzz._colonne(api, c.cle);
+          api.rows()[0].forEach((r) => $(api.cell(r, col).node()).text("—"));
+        }),
+      )
       .then(mesure.fin);
   }
   /**
@@ -222,9 +297,8 @@ class AllianceFzzz {
     let $info = $("#o_allInfobulle");
     if (!$info.length) $info = $("<div id='o_allInfobulle'></div>").appendTo("body").hide();
     // cellules lues par l'API : celles des colonnes masquées ne sont pas dans la page
-    let n = api.settings()[0].aoColumns.length,
-      k = ALLIANCE_COLONNES_FZZZ.length,
-      cellule = (r, c) => $(api.cell(r, c).node()),
+    let cellule = (r, c) => $(api.cell(r, c).node()),
+      colonne = (cle) => AllianceFzzz._colonne(api, cle),
       connus = {};
     // TdC actuels des membres (tableau du jeu) : base de la simulation des prises
     api.rows()[0].forEach((r) => {
@@ -250,28 +324,38 @@ class AllianceFzzz {
         total = vars.reduce((t, v) => t + v.delta, 0),
         final = terrain + total,
         dernier = vars[vars.length - 1],
+        // prochain mouvement : sa minute, avec tous ceux de la même minute (un
+        // multi-flood compte pour un), et la somme de leurs variations
+        prochains = vars.filter((v) => v.date == vars[0].date),
+        prochaine = prochains.reduce((t, v) => t + v.delta, 0),
         // on ne s'attaque pas soi-même
         moi = pseudo.toLowerCase() == String(monProfil.pseudo).toLowerCase(),
-        arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, tempsTrajet(pseudo), ouverture);
-      cellule(r, n - k)
-        .attr(
-          "data-order",
-          dernier ? moment(dernier.date, "YYYY-MM-DD HH:mm").unix() : ALLIANCE_SANS_MOUVEMENT,
-        )
-        .toggleClass("o_allVide", !dernier)
-        .html(dernier ? moment(dernier.date, "YYYY-MM-DD HH:mm").format("DD/MM HH:mm") : "—");
-      cellule(r, n - k + 1)
-        .attr("data-order", total)
-        .toggleClass("o_allVide", !dernier)
-        .html(
-          dernier
-            ? AllianceFzzz._signe(
-                total,
-                vars.some((v) => v.statut == "inconnu"),
-              )
-            : "—",
-        );
-      cellule(r, n - 1)
+        arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, tempsTrajet(pseudo), ouverture),
+        date = (v, cle) =>
+          cellule(r, colonne(cle))
+            .attr(
+              "data-order",
+              v ? moment(v.date, "YYYY-MM-DD HH:mm").unix() : ALLIANCE_SANS_MOUVEMENT,
+            )
+            .toggleClass("o_allVide", !v)
+            .html(v ? moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH:mm") : "—"),
+        variation = (lignes, somme, cle) =>
+          cellule(r, colonne(cle))
+            .attr("data-order", somme)
+            .toggleClass("o_allVide", !lignes.length)
+            .html(
+              lignes.length
+                ? AllianceFzzz._signe(
+                    somme,
+                    lignes.some((v) => v.statut == "inconnu"),
+                  )
+                : "—",
+            );
+      date(dernier, "membresFloodsDernier");
+      variation(vars, total, "membresFloodsTotal");
+      date(vars[0], "membresFloodsProchain");
+      variation(prochains, prochaine, "membresFloodsVariation");
+      cellule(r, colonne("membresFloodsFinal"))
         .attr("data-order", final)
         .html(numeral(final).format());
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre

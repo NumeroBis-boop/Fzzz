@@ -58,6 +58,16 @@ const ONGLETS_PARAMETRE = [
       "membresTableau",
       "membresFloods",
       "membresMoi",
+      // colonnes de la vue « Floods et chasses en cours », dans l'ordre de MEMBRES_COLONNES_FLOODS
+      "membresFloodsRang",
+      "membresFloodsPseudo",
+      "membresFloodsTdc",
+      "membresFloodsDernier",
+      "membresFloodsTotal",
+      "membresFloodsProchain",
+      "membresFloodsVariation",
+      "membresFloodsFinal",
+      "membresFloodsTrajet",
       "chatMesGif",
       "chatGifAlliance",
       "chatSmileysAlliance",
@@ -590,6 +600,9 @@ class BoiteParametre extends Boite {
         <p class='o_titreParam'>Membres de l'alliance <span class='o_aideParam'>(décocher pour masquer, au prochain chargement de la page)</span></p>
         ${["membresTableau", "membresFloods", "membresMoi"].map((cle) => this.caseAffichage(cle)).join("")}
         ${monProfil.parametre["vueMembres"].getForm("Vue par défaut de la page Membres de l'alliance")}
+        <p class='o_titreParam'>Colonnes de la vue « Floods et chasses en cours » <span class='o_aideParam'>(au prochain chargement de la page)</span></p>
+        ${MEMBRES_COLONNES_FLOODS.map((cle) => this.caseAffichage(cle)).join("")}
+        <p class='left o_aideParam'>Prochain mouvement : la minute des prochains floods et chasses partagés du membre, ceux d'une même minute comptés ensemble (multi-flood) ; sa variation est leur somme. Temps de trajet : connu une fois les coordonnées lues par la vue « Temps de trajet ». Aucune colonne cochée : le pseudo seul.</p>
         <p class='o_titreParam'>Chats</p>
         ${["chatMesGif", "chatGifAlliance", "chatSmileysAlliance"].map((cle) => this.caseAffichage(cle)).join("")}
         <p class='o_titreParam'>Forum de l'alliance</p>

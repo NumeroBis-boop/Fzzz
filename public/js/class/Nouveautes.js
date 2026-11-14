@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.115.0",
+    notes: [
+      "Page Membres de l'alliance, vue « Floods et chasses en cours » : choisis ses colonnes dans Préférences → Affichage (rang, pseudo, TdC actuel, date du dernier mouvement, variation totale, date du prochain mouvement, prochaine variation, TdC final, temps de trajet).",
+      "Prochain mouvement : la minute des prochains floods et chasses partagés du membre, un multi-flood compté en une fois. Le rang n'est plus affiché par défaut ; tu peux le recocher.",
+    ],
+  },
+  {
     version: "1.114.1",
     notes: [
       "Boîte « Extension OUAF » : avec Violentmonkey, « mettre à jour » n'ouvre plus un onglet vide en plus (Firefox Android) ; la page du jeu reste ouverte.",

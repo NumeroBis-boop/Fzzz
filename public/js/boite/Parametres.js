@@ -627,10 +627,10 @@ class BoiteParametre extends Boite {
         ${
           // réservé au mainteneur, comme le journal
           Journal.pourCeJoueur()
-            ? `<p class='o_titreParam'>Sujets communs du forum</p>
-        <p class='left o_aideParam'>Cette version lit et écrit les floods et les chasses seulement dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une section par joueur. Les joueurs de la version finale partagent encore dans leurs sujets « Floods | pseudo » et « Chasses | pseudo » : ces boutons reportent leurs floods ou leurs chasses à venir dans leur section, quand elle manque ou est plus ancienne que leur sujet. Une lecture du forum par joueur à reporter, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
-        <p class='left'><button type='button' class='o_button o_partageReporter' data-type='Floods'>Reporter les floods</button> <button type='button' class='o_button o_partageReporter' data-type='Chasses'>Reporter les chasses</button></p>
-        <p id='o_partageReporterEtat' class='left small'></p>`
+            ? `<p class='o_titreParam'>Ranger le forum</p>
+        <p class='left o_aideParam'>Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une section par joueur. Un joueur qui n'a pas encore mis l'extension à jour partage toujours dans ses sujets « Floods | pseudo » et « Chasses | pseudo » : ce bouton reporte ses floods et chasses à venir dans sa section, puis supprime chaque ancien sujet dont toutes les entrées à venir sont dans cette section, après avoir ajouté ses entrées passées à son historique. Il faut les droits de gestion du forum. Une lecture du forum par ancien sujet, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
+        <p class='left'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
+        <p id='o_partageRangerEtat' class='left small'></p>`
             : ""
         }
       </form>`),
@@ -656,23 +656,29 @@ class BoiteParametre extends Boite {
       SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
       etat();
     });
-    $onglet.find(".o_partageReporter").on("click", (e) => {
+    $onglet.find(".o_partageRanger").on("click", (e) => {
       e.preventDefault();
-      // un report à la fois
-      let $boutons = $onglet.find(".o_partageReporter").prop("disabled", true),
+      // supprimer des sujets ne se défait pas
+      if (
+        !confirm(
+          "Reporter les floods et chasses des anciens sujets « Floods | pseudo » et « Chasses | pseudo » dans les sujets communs, puis supprimer ces anciens sujets du forum ?",
+        )
+      )
+        return;
+      let $bouton = $(e.currentTarget).prop("disabled", true),
         afficher = (/** @type {String} */ texte) => {
-          $onglet.find("#o_partageReporterEtat").text(texte);
+          $onglet.find("#o_partageRangerEtat").text(texte);
           this.ajusterTaille();
         };
-      PartageChasses.reporterTout(afficher, [e.currentTarget.dataset.type])
+      PartageChasses.rangerForum(afficher)
         .then(afficher, (err) =>
           afficher(
             err && err.message == "absente"
               ? SECTION_INTROUVABLE
-              : "Forum de l'alliance illisible : rien n'est reporté, réessaie plus tard.",
+              : "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
           ),
         )
-        .then(() => $boutons.prop("disabled", false));
+        .then(() => $bouton.prop("disabled", false));
     });
     $onglet.find("#o_partageEnvoyer").on("click", (e) => {
       e.preventDefault();

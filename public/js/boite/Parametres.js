@@ -137,6 +137,7 @@ class BoiteParametre extends Boite {
       "alertePonte",
       "tdcArriveeMax",
       "ratioPlancher",
+      "convoisAvantRecolte",
     ];
   }
   /**
@@ -531,8 +532,9 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
-   * Grenier : suivi OUAF de la page Convois, et mot de passe du site de suivi
-   * des convois de la OUAF (seul endroit où il se renseigne). Il est gardé dans le stockage
+   * Grenier : suivi OUAF de la page Convois, convoi avant la récolte, et mot
+   * de passe du site de suivi des convois de la OUAF (seul endroit où il se
+   * renseigne). Il est gardé dans le stockage
    * de l'extension, que le jeu ne peut pas lire, et n'est placé dans le champ
    * que si le joueur clique « Afficher ».
    *
@@ -541,6 +543,9 @@ class BoiteParametre extends Boite {
   ongletGrenier() {
     $("#o_tabsParametreGrenier").append(`<form autocomplete='off'>
             ${this.cases("Grenier")}
+            <p class='o_titreParam'>Convoi avant la récolte</p>
+            ${monProfil.parametre["convoisAvantRecolte"].getForm("Compter les ouvrières qui reviennent de convoi ou sont pondues avant la récolte")}
+            <p class='left o_aideParam'>Efficace seulement avec le Compte+ réglé sur l'affectation automatique Nourriture ou Matériaux (page Ressources) : les ouvrières qui arrivent y sont mises au travail d'elles-mêmes. Au clic sur un montant du Récapitulatif (page Convois), l'extension lit tes pages Ressources (prochaine récolte, chasses en cours) et Reine (pontes) : les ouvrières dont la minute de retour (« Retour le » du jeu) ou de ponte finit avant une récolte peuvent partir en plus, le terrain restant exploité à chaque récolte. Sans Compte+, ou réglé sur la croix ou « Ratio », il faut les affecter soi-même avant chaque récolte, et le jeu n'affiche pas le retour des convois : seules les pontes comptent. Le terrain que prendront tes attaques en cours n'est pas compté.</p>
             <p class='o_titreParam'>Suivi des convois de la OUAF</p>
             <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
             <p class='left small'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>

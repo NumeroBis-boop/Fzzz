@@ -142,8 +142,9 @@ describe("onglets de la liste du mainteneur", () => {
     );
     expect(dans("Chasseur")).toEqual(expect.arrayContaining(["tdcArriveeMax", "ratioPlancher"]));
     expect(dans("Grenier")).toEqual(
-      expect.arrayContaining(["o_ouafCode", "o_ouafCodeEnregistrer"]),
+      expect.arrayContaining(["o_ouafCode", "o_ouafCodeEnregistrer", "convoisAvantRecolte"]),
     );
+    expect(lire(`$("#convoisAvantRecolte").prop("checked")`)).toBe(false);
     expect(dans("Partage")).toEqual(
       expect.arrayContaining(["o_partageEnvoyer", "o_partageChasses"]),
     );

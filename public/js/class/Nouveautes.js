@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.116.0",
+    notes: [
+      "Page Convois : nouvelle option « Convoi avant la récolte » (Préférences → Grenier, décochée par défaut). Au clic sur un montant du Récapitulatif, les ouvrières qui reviennent de convoi ou sont pondues avant la prochaine récolte peuvent partir aussi, le terrain restant exploité à chaque récolte.",
+      "Efficace seulement avec le Compte+ réglé sur l'affectation automatique Nourriture ou Matériaux : les ouvrières qui arrivent sont mises au travail d'elles-mêmes. Idée de KWHWWYMWN.",
+    ],
+  },
+  {
     version: "1.115.2",
     notes: [
       "Boîte « Extension OUAF » : le numéro de version est en vert quand l'extension est à jour, en rouge dès qu'une nouvelle version est publiée ; le lien « mettre à jour » est en gras.",

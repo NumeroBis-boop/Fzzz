@@ -95,6 +95,8 @@ class AllianceFzzz {
    * @param {Function} [tempsTrajet] pseudo → temps de trajet (s) à ma vitesse d'attaque, null si inconnu
    */
   static installer(synchroniser, avecTrajet, tempsTrajet = () => null) {
+    // coordonnées de la Carte, sinon celles de l'export des joueurs gardé
+    let tempsVers = (pseudo) => AllianceFzzz.trajet(pseudo, tempsTrajet);
     let api = $("#tabMembresAlliance").DataTable(),
       // heure d'une attaque lancée à l'ouverture de la page, comme la colonne « Retour »
       ouverture = Horloge.clic(),
@@ -139,7 +141,9 @@ class AllianceFzzz {
         $(`.o_allVue[data-vue='${vue}']`).addClass("o_allVueActive");
         if (vue == "floods" && !partagesLus) {
           partagesLus = true;
-          AllianceFzzz._charger(api, tempsTrajet, ouverture);
+          AllianceFzzz._charger(api, tempsVers, ouverture);
+          if (k && Utils.affichage("membresFloodsTrajet"))
+            AllianceFzzz._completerTrajets(api, tempsTrajet);
         }
       };
     let $boutons = $("#tabMembresAlliance_wrapper .dt-buttons");
@@ -219,7 +223,7 @@ class AllianceFzzz {
     // une colonne illisible ne doit pas empêcher les vues de s'installer
     if (k)
       try {
-        AllianceFzzz._remplirTrajets(api, tempsTrajet);
+        AllianceFzzz._remplirTrajets(api, tempsVers);
       } catch (e) {
         console.error("Fzzz : temps de trajet des membres", e);
       }
@@ -227,24 +231,72 @@ class AllianceFzzz {
     fixerLargeur();
   }
   /**
-   * Colonne « Temps de trajet » de la vue « Floods » : celui de la colonne Tdt,
-   * à ma Vitesse d'attaque, connu quand les coordonnées sont en cache (vue
-   * « Temps de trajet »). Sans requête.
+   * Temps de trajet jusqu'à un membre, à ma Vitesse d'attaque (niveau lu sur
+   * la page Laboratoire, relu après chaque recherche) : coordonnées de la
+   * Carte de l'alliance (vue « Temps de trajet »), sinon celles de l'export
+   * des joueurs gardé dans le navigateur (ExportJoueurs).
+   *
+   * @static
+   * @method trajet
+   * @param {String} pseudo
+   * @param {Function} tempsTrajet celui de la page (coordonnées de la Carte)
+   * @return {Number|null} secondes, null si inconnu
+   */
+  static trajet(pseudo, tempsTrajet = () => null) {
+    let s = tempsTrajet(pseudo);
+    if (s != null) return s;
+    if (!((monProfil.niveauRecherche || [])[6] >= 0)) return null;
+    let base = Utils.lireStockage(ExportJoueurs.cle).joueurs || {},
+      cle =
+        pseudo in base
+          ? pseudo
+          : Object.keys(base).find((p) => p.toLowerCase() == String(pseudo).toLowerCase()),
+      c = cle ? base[cle] : null;
+    return c ? monProfil.getTempsParcours2({ x: c[0], y: c[1] }) : null;
+  }
+  /**
+   * Colonne « Temps de trajet » de la vue « Floods » (AllianceFzzz.trajet).
+   * Sans requête.
    *
    * @private
    * @static
-   * @param {Function} tempsTrajet pseudo → temps de trajet (s), null si inconnu
+   * @param {Function} trajet pseudo → temps de trajet (s), null si inconnu
+   * @return {Number} nombre de membres sans temps de trajet
    */
-  static _remplirTrajets(api, tempsTrajet) {
-    let c = AllianceFzzz._colonne(api, "membresFloodsTrajet");
+  static _remplirTrajets(api, trajet) {
+    let c = AllianceFzzz._colonne(api, "membresFloodsTrajet"),
+      inconnus = 0;
     api.rows()[0].forEach((r) => {
-      let s = tempsTrajet($(api.cell(r, 3).node()).text().trim());
+      let s = trajet($(api.cell(r, 3).node()).text().trim());
+      if (s == null) inconnus++;
       $(api.cell(r, c).node())
         .attr("data-order", s != null ? s : ALLIANCE_SANS_MOUVEMENT)
         .toggleClass("o_allVide", s == null)
         .text(s != null ? Utils.intToTime(s) : "N/C");
     });
     api.rows().invalidate("dom");
+    return inconnus;
+  }
+  /**
+   * Membres sans coordonnées connues : l'export public des joueurs (une
+   * requête, relue au plus une fois par heure, ExportJoueurs.base), lu au
+   * premier choix de la vue « Floods » quand sa colonne « Temps de trajet »
+   * est cochée, puis la colonne refaite.
+   *
+   * @private
+   * @static
+   * @param {Function} tempsTrajet celui de la page (coordonnées de la Carte)
+   */
+  static _completerTrajets(api, tempsTrajet) {
+    let trajet = (p) => AllianceFzzz.trajet(p, tempsTrajet);
+    if (!((monProfil.niveauRecherche || [])[6] >= 0) || !AllianceFzzz._remplirTrajets(api, trajet))
+      return Promise.resolve();
+    return ExportJoueurs.base()
+      .then(() => {
+        AllianceFzzz._remplirTrajets(api, trajet);
+        api.draw(false);
+      })
+      .catch((e) => Journal.info("Membres", "temps de trajet : export des joueurs illisible", e));
   }
   /**
    * Indice dans le tableau d'une colonne ajoutée (ALLIANCE_COLONNES_FZZZ).
@@ -324,10 +376,13 @@ class AllianceFzzz {
         total = vars.reduce((t, v) => t + v.delta, 0),
         final = terrain + total,
         dernier = vars[vars.length - 1],
-        // prochain mouvement : sa minute, avec tous ceux de la même minute (un
-        // multi-flood compte pour un), et la somme de leurs variations
-        prochains = vars.filter((v) => v.date == vars[0].date),
-        prochaine = prochains.reduce((t, v) => t + v.delta, 0),
+        // prochain mouvement : la première minute où son TdC change, avec tous
+        // ses mouvements (un multi-flood compte pour un) ; une minute dont les
+        // prises sont nulles (hors portée) ne compte pas (règle du mainteneur)
+        somme = (lignes) => lignes.reduce((t, v) => t + v.delta, 0),
+        minute = vars.map((v) => v.date).find((d) => somme(vars.filter((v) => v.date == d)) != 0),
+        prochains = vars.filter((v) => v.date == minute),
+        prochaine = somme(prochains),
         // on ne s'attaque pas soi-même
         moi = pseudo.toLowerCase() == String(monProfil.pseudo).toLowerCase(),
         arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, tempsTrajet(pseudo), ouverture),
@@ -353,7 +408,7 @@ class AllianceFzzz {
             );
       date(dernier, "membresFloodsDernier");
       variation(vars, total, "membresFloodsTotal");
-      date(vars[0], "membresFloodsProchain");
+      date(prochains[0], "membresFloodsProchain");
       variation(prochains, prochaine, "membresFloodsVariation");
       cellule(r, colonne("membresFloodsFinal"))
         .attr("data-order", final)

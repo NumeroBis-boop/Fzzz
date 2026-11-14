@@ -602,7 +602,7 @@ class BoiteParametre extends Boite {
         ${monProfil.parametre["vueMembres"].getForm("Vue par défaut de la page Membres de l'alliance")}
         <p class='o_titreParam'>Colonnes de la vue « Floods et chasses en cours » <span class='o_aideParam'>(au prochain chargement de la page)</span></p>
         ${MEMBRES_COLONNES_FLOODS.map((cle) => this.caseAffichage(cle)).join("")}
-        <p class='left o_aideParam'>Prochain mouvement : la minute des prochains floods et chasses partagés du membre, ceux d'une même minute comptés ensemble (multi-flood) ; sa variation est leur somme. Temps de trajet : connu une fois les coordonnées lues par la vue « Temps de trajet ». Aucune colonne cochée : le pseudo seul.</p>
+        <p class='left o_aideParam'>Prochain mouvement : la première minute où le TdC du membre change d'après les floods et chasses partagés (minute du rapport de combat), ceux de cette minute comptés ensemble (multi-flood) ; sa variation est leur somme. Les floods hors portée, sans effet sur le TdC, ne comptent pas. Temps de trajet : à ta Vitesse d'attaque (page Laboratoire), avec les coordonnées gardées par l'extension (Carte de l'alliance, sinon export des joueurs du jeu, lu une fois si besoin). Aucune colonne cochée : le pseudo seul.</p>
         <p class='o_titreParam'>Chats</p>
         ${["chatMesGif", "chatGifAlliance", "chatSmileysAlliance"].map((cle) => this.caseAffichage(cle)).join("")}
         <p class='o_titreParam'>Forum de l'alliance</p>

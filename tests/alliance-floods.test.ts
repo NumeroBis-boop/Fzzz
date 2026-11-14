@@ -13,6 +13,7 @@ const page = creerPage(
     "js/lib/datatables_1.10.16.js",
     "js/lib/moment-duration-format.js",
     "js/class/Utils.js",
+    "js/class/ExportJoueurs.js",
     "js/page/PartageChasses.js",
     "js/page/AllianceFzzz.js",
   ],
@@ -80,9 +81,10 @@ const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
 // tableau du jeu tel que Alliance.js le laisse (sans coordonnées en cache) ;
 // le forum répond après que l'horloge a avancé de 5 minutes
-async function ouvrir(partages: object = PARTAGES) {
+async function ouvrir(partages: object = PARTAGES, avant = "") {
   page.lire(`(() => {
     heure = moment("2026-11-09 10:00:20", "YYYY-MM-DD HH:mm:ss").valueOf();
+    ${avant}
     window.matchMedia = () => ({ matches: false });
     $("#o_allInfobulle").remove();
     document.body.innerHTML = "<div id='centre'><table id='tabMembresAlliance'><thead><tr><th></th><th></th><th>Rang</th><th class='o_allPseudo'>Pseudo</th><th class='o_allEpeeG'></th><th class='o_allTerrain'>Terrain</th><th class='o_allEpeeD'></th></tr></thead><tbody>" +
@@ -264,6 +266,81 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     expect(gamma.surlignee).toBe(-1);
     expect(gamma.texte).toContain("Aucune variation partagée en cours.");
     expect(gamma.note).toBe("");
+  });
+});
+
+describe("page Membres, prochain mouvement et temps de trajet", () => {
+  const colonnes = (pseudos: string[]) =>
+    page
+      .lire<string[][]>(`(() => {
+      let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
+      return api.rows()[0]
+        .filter((r) => ${JSON.stringify(pseudos)}.includes($(api.cell(r, 3).node()).text().trim()))
+        .map((r) => [$(api.cell(r, 3).node()).text().trim(), ...[n - 6, n - 5, n - 4, n - 3, n - 1].map((c) => $(api.cell(r, c).node()).text())]);
+    })()`)
+      .map((l) => l.map(espaces));
+
+  test("une minute où le TdC ne change pas (prises hors portée) est sautée", async () => {
+    const flood = (date: string, lanceur: string, id: number) => ({
+      date,
+      cible: "Gamma",
+      unites: 5000,
+      terrain: 5000,
+      tdcCible: 50000,
+      id,
+      lanceur,
+    });
+    // Alpha (200 000) est trop gros pour Gamma (50 000) : prise nulle à 10h20
+    await ouvrir({
+      chasses: {},
+      floods: [flood("2026-11-09 10:20", "Alpha", 1), flood("2026-11-09 10:40", "Moi", 2)],
+    });
+    expect(colonnes(["Alpha", "Gamma"])).toEqual([
+      ["Alpha", "09/11 10:20", "0", "—", "—", "1h"],
+      ["Gamma", "09/11 10:40", "−5 000", "09/11 10:40", "−5 000", "1h"],
+    ]);
+  });
+
+  test("temps de trajet sans la Carte : coordonnées de l'export des joueurs gardé, à ma Vitesse d'attaque", async () => {
+    await ouvrir(
+      PARTAGES,
+      `monProfil.niveauRecherche = [0, 0, 0, 0, 0, 0, 5];
+       monProfil.getTempsParcours2 = (j) => j.x * 1000 + j.y;
+       localStorage.setItem(ExportJoueurs.cle, JSON.stringify({ t: 0, joueurs: { beta: [4, 242, 1000] } }));`,
+    );
+    page.lire(
+      `delete monProfil.niveauRecherche; delete monProfil.getTempsParcours2; localStorage.removeItem(ExportJoueurs.cle)`,
+    );
+    // pseudo de l'export sans les majuscules du tableau : trouvé quand même
+    expect(colonnes(["Beta"])[0]?.[5]).toBe("1h 10m 42s");
+    // l'info-bulle sait alors où tombe une attaque lancée à l'ouverture
+    expect(infobulle("Beta").note).not.toContain("temps de trajet inconnu");
+  });
+
+  test("sans coordonnées gardées : l'export public est lu une fois, au premier choix de la vue", async () => {
+    page.lire(
+      `localStorage.setItem("fzzz_affichage_membresFloodsTrajet", "1"); window.LECTURES = 0;`,
+    );
+    await ouvrir(
+      PARTAGES,
+      `monProfil.niveauRecherche = [0, 0, 0, 0, 0, 0, 5];
+       monProfil.getTempsParcours2 = (j) => j.x * 1000 + j.y;
+       ExportJoueurs.base = () => {
+         LECTURES++;
+         localStorage.setItem(ExportJoueurs.cle, JSON.stringify({ t: Date.now(), joueurs: { Beta: [4, 242, 1000] } }));
+         return Promise.resolve({ Beta: [4, 242, 1000] });
+       };`,
+    );
+    expect(page.lire(`LECTURES`)).toBe(1);
+    expect(colonnes(["Beta"])[0]?.[5]).toBe("1h 10m 42s");
+    // vue quittée puis reprise : pas de nouvelle lecture
+    page.lire(
+      `$(".o_allVue[data-vue='reset']").trigger("click"); $(".o_allVue[data-vue='floods']").trigger("click");`,
+    );
+    expect(page.lire(`LECTURES`)).toBe(1);
+    page.lire(
+      `delete monProfil.niveauRecherche; delete monProfil.getTempsParcours2; localStorage.removeItem(ExportJoueurs.cle); localStorage.removeItem("fzzz_affichage_membresFloodsTrajet");`,
+    );
   });
 });
 

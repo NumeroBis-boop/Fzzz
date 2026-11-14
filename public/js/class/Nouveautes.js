@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.115.1",
+    notes: [
+      "Page Membres de l'alliance, vue « Floods et chasses en cours » : « Date du prochain mouvement » donne la prochaine minute où le TdC du membre change ; les floods hors portée, sans effet sur son TdC, ne comptent plus.",
+      "« Temps de trajet » est calculé avec ta Vitesse d'attaque et les coordonnées gardées par l'extension, sans passer par la vue « Temps de trajet ».",
+    ],
+  },
+  {
     version: "1.115.0",
     notes: [
       "Page Membres de l'alliance, vue « Floods et chasses en cours » : choisis ses colonnes dans Préférences → Affichage (rang, pseudo, TdC actuel, date du dernier mouvement, variation totale, date du prochain mouvement, prochaine variation, TdC final, temps de trajet).",

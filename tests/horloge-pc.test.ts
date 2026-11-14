@@ -19,6 +19,7 @@ const LECTURES_PC: Record<string, number> = {
   "class/MiseAJour.js": 1, // cadence de la lecture de la version publiée (une par heure)
   "class/OuafSuivi.js": 2, // pause des requêtes au site de suivi après une panne
   "class/LanceurChasse.js": 1, // délai de partage après l'envoi des chasses, posé (relu dans Ressource.js)
+  "class/Releves.js": 10, // version TEST : instants du PC des requêtes, des clics et des en-têtes Date, convertis par Horloge.serveurA
   "class/Requetes.js": 2, // cadence des requêtes
   "class/Utils.js": 12, // identifiant, comptes à rebours, défilement de la page
   "page/Alliance.js": 3, // âge de la carte, nom du fichier exporté

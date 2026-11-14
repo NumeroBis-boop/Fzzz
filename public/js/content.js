@@ -502,8 +502,9 @@ const DATEPICKER_OPTION = {
     }
     // notifications, erreurs de console et erreurs JavaScript dans le journal,
     // pour son seul joueur ; chez les autres, rien n'est gardé (le journal
-    // d'une version précédente est effacé)
-    if (Journal.pourCeJoueur()) Journal.installer();
+    // d'une version précédente est effacé). Version TEST : pour tous, avec les
+    // relevés de l'horloge (Releves.js)
+    if (Journal.pourCeJoueur() || RELEVES_POUR_TOUS) Journal.installer();
     else Journal.vider();
     // affichages sans case dans les Préférences : état par défaut pour tous
     Utils.oublierAffichagesFixes();
@@ -534,6 +535,7 @@ const DATEPICKER_OPTION = {
     // Les pages l'attendent : sinon, sur un PC à l'heure fausse, leurs heures
     // (attaques, chasses partagées) seraient calculées avec l'horloge du PC.
     const horlogePrete = Horloge.initialiser().catch(() => {});
+    horlogePrete.then(() => Releves.installer());
     // extension désactivée sur toutes les pages (Préférences → Pages, voir bootstrap.js) : ni
     // thème, ni horloge, ni alerte de ponte, ni encadré Compte+ refait ou radar,
     // ni onglets ajoutés aux menus, ni infobulles des entrepôts
@@ -596,8 +598,14 @@ const DATEPICKER_OPTION = {
         // Ajout des outils, sous l'encadré Compte+
         let boite = new Dock();
         boite.afficher();
-        if (!origineGenerale && Utils.affichage("journal") && Journal.pourCeJoueur())
+        if (
+          !origineGenerale &&
+          Utils.affichage("journal") &&
+          (Journal.pourCeJoueur() || RELEVES_POUR_TOUS)
+        ) {
           new BoiteJournal().afficher();
+          Releves.equiperBoite();
+        }
         // Boite radar
         let boiteRadar = new BoiteRadar();
         if (!origineGenerale && Utils.affichage("radar")) boiteRadar.afficher();

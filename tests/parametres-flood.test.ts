@@ -19,15 +19,15 @@ const page = creerPage(
    var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine", "Jeune Soldate", "Tank"];`,
 );
 
-// onglets Armée et Attaque des préférences, ouverts avec ces réglages enregistrés
+// onglet « Armée et floods » des préférences, ouvert avec ces réglages enregistrés
 function ouvrir(reglages: Record<string, unknown>) {
   page.lire(`(() => {
     localStorage.setItem("outiiil_parametre", JSON.stringify(${JSON.stringify(reglages)}));
     localStorage.setItem("fzzz_reserveEnPlus", "1");
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
-    document.body.innerHTML = "<div id='o_boiteParametre'><div id='o_tabsParametreArmee'></div><div id='o_tabsParametreAttaque'></div></div>";
+    document.body.innerHTML = "<div id='o_boiteParametre'><div id='o_tabsParametreArmeeFloods'></div></div>";
     window.boite = new BoiteParametre();
-    boite.ongletArmee().ongletAttaque();
+    boite.ongletArmeeFloods();
     // happy-dom ignore l'option marquée selected (il renvoie toujours la 2e) :
     // les listes sont remises sur la valeur enregistrée, comme dans un navigateur
     $("#methodeFlood").val(String(monProfil.parametre.methodeFlood.valeur));
@@ -151,14 +151,14 @@ describe("préférences du flood : unités gardées par défaut", () => {
     ]);
   });
 
-  test("antisondes changées dans l'onglet Armée : leur nombre suit", () => {
+  test("antisondes changées plus haut dans l'onglet : leur nombre suit", () => {
     ouvrir({ uniteAntisondeTerrain: 2, uniteAntisondeDome: 5 });
     expect(page.lire<string>(`$("#o_gardeesDefaut .o_gardeesNbAntisondes").text()`)).toBe(
-      "(2 en terrain + 5 en dôme, onglet Armée)",
+      "(2 en terrain + 5 en dôme, réglées plus haut)",
     );
     page.lire(`$("#uniteAntisondeDome").spinner("value", 1000)`);
     expect(page.lire<string>(`$("#o_gardeesDefaut .o_gardeesNbAntisondes").text()`)).toBe(
-      `(2 en terrain + ${page.lire<string>(`numeral(1000).format()`)} en dôme, onglet Armée)`,
+      `(2 en terrain + ${page.lire<string>(`numeral(1000).format()`)} en dôme, réglées plus haut)`,
     );
   });
 });

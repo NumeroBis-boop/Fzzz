@@ -22,8 +22,11 @@ const decocher = (cles: string[]) =>
   })()`);
 
 describe("messagerie hors Compte+ : mise en forme et smileys, chacun sa case", () => {
-  const ecrire = (cles: string[]) => {
+  const ecrire = (cles: string[], cochees: string[] = ["messagerieMiseEnForme"]) => {
     decocher(cles);
+    page.lire(
+      `${JSON.stringify(cochees.filter((c) => !cles.includes(c)))}.forEach((c) => localStorage.setItem("fzzz_affichage_" + c, "1"))`,
+    );
     return page.lire<number[]>(`(() => {
       document.body.innerHTML = "<span id='smileyPrecedent0'></span><span id='smileySuivant0'></span>" +
         "<div id='tousLesSmiley0'><div id='listeSmiley20'></div><div id='listeSmiley30'></div></div>" +
@@ -34,6 +37,9 @@ describe("messagerie hors Compte+ : mise en forme et smileys, chacun sa case", (
   };
   test("tout coché : couleur, boutons, smileys et flèches", () => {
     expect(ecrire([])).toEqual([1, 1, 1]);
+  });
+  test("par défaut : smileys et flèches seulement, la mise en forme décochée (liste du mainteneur)", () => {
+    expect(ecrire([], [])).toEqual([0, 1, 1]);
   });
   test("chaque case retire sa partie", () => {
     expect(ecrire(["messagerieMiseEnForme"])).toEqual([0, 1, 1]);

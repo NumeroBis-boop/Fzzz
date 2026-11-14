@@ -6,7 +6,8 @@ import { creerPage } from "./harnais";
  * mercredi et du dimanche 22h, heure du serveur, jusqu'à l'export des chasses ;
  * un export des 24 h d'avant compte (1.97.1 : deux exports par semaine, le jeu
  * supprime les conversations lues au bout de 7 jours). Aucune requête au jeu :
- * un bandeau avec un lien vers la messagerie.
+ * un bandeau avec un lien vers le bouton « Exporter mes chasses », dans la
+ * messagerie s'il y est affiché, sinon dans les Préférences (14/11/2026).
  */
 const page = creerPage(
   [
@@ -21,7 +22,8 @@ const page = creerPage(
      AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {}, TOAST_INFO = {};
    var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"], NOM_UNITES = ["Ouvrières", "Jeunes Soldates Naines"];
    var heure = 0;
-   var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };`,
+   var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };
+   var ONGLETS_OUVERTS = [], BoiteParametre = { ouvrirOnglet: (id) => ONGLETS_OUVERTS.push(id) };`,
 );
 page.lire(`$.toast = () => {}`);
 
@@ -176,14 +178,18 @@ describe("rappel : rôle Chasseur seulement, jusqu'à l'export", () => {
     expect(aRappeler()).toBe(true);
   });
 
-  test("sans bouton « Exporter mes chasses » (case décochée, messagerie d'origine) : rien", () => {
+  test("boutons de la messagerie décochés ou messagerie désactivée : le rappel reste (bouton des Préférences)", () => {
     regler("2026-11-11 22:30");
     profil(3);
     page.lire(`localStorage.setItem("fzzz_affichage_messagerieExport", "0")`);
-    expect(aRappeler()).toBe(false);
+    expect(aRappeler()).toBe(true);
+    expect(page.lire(`RappelExport.boutonMessagerie()`)).toBe(false);
     profil(3);
-    page.lire(`localStorage.setItem("fzzz_origine_Messagerie", "1")`);
-    expect(aRappeler()).toBe(false);
+    page.lire(
+      `localStorage.setItem("fzzz_affichage_messagerieExport", "1"); localStorage.setItem("fzzz_origine_Messagerie", "1")`,
+    );
+    expect(aRappeler()).toBe(true);
+    expect(page.lire(`RappelExport.boutonMessagerie()`)).toBe(false);
   });
 
   test("croix : masqué une heure ; case décochée ou Général d'origine : rien", () => {
@@ -203,9 +209,10 @@ describe("rappel : rôle Chasseur seulement, jusqu'à l'export", () => {
 });
 
 describe("bandeau du rappel", () => {
-  const afficher = (chemin: string) => {
+  const afficher = (chemin: string, boutonMessagerie = true) => {
     regler("2026-11-11 22:30");
     profil(3);
+    if (boutonMessagerie) page.lire(`localStorage.setItem("fzzz_affichage_messagerieExport", "1")`);
     return page.lire<{ texte: string; lien: string | null }>(`(() => {
       history.replaceState(null, "", ${JSON.stringify(chemin)});
       document.body.innerHTML = "<div id='menu'></div><div id='centre'></div>";
@@ -215,7 +222,19 @@ describe("bandeau du rappel", () => {
     })()`);
   };
 
-  test("lien vers la messagerie ; dans la messagerie, le bouton à cliquer", () => {
+  test("bouton de la messagerie décoché (par défaut) : un clic ouvre les Préférences sur « Partage de données »", () => {
+    const preferences = {
+      texte:
+        "Export des chasses à faire : ouvre les Préférences (onglet « Partage de données ») et clique sur « Exporter mes chasses ».",
+      lien: "#",
+    };
+    expect(afficher("/Ressources.php", false)).toEqual(preferences);
+    expect(afficher("/messagerie.php", false)).toEqual(preferences);
+    page.lire(`(() => { ONGLETS_OUVERTS.length = 0; $(".o_rappelExportTexte").click(); })()`);
+    expect(page.lire(`ONGLETS_OUVERTS`)).toEqual(["Partage"]);
+  });
+
+  test("bouton de la messagerie affiché : lien vers la messagerie ; dans la messagerie, le bouton à cliquer", () => {
     expect(afficher("/Ressources.php")).toEqual({
       texte:
         "Export des chasses à faire : ouvre la messagerie et clique sur « Exporter mes chasses ».",
@@ -235,12 +254,10 @@ describe("bandeau du rappel", () => {
   test("export fait : bandeau et cadre du bouton retirés", () => {
     afficher("/messagerie.php");
     page.lire(
-      `$("body").append("<div id='o_partageAlliance'><button data-quoi='chasse' class='o_synchroPret'></button></div>")`,
+      `$("body").append("<div id='o_partageAlliance'><button data-quoi='chasse' class='o_synchroPret'></button></div><button class='o_exporterRapports o_synchroPret' data-quoi='chasse'></button>")`,
     );
     page.lire(`RappelExport.noterExport()`);
-    expect(
-      page.lire(`[$("#o_rappelExport").length, $("#o_partageAlliance .o_synchroPret").length]`),
-    ).toEqual([0, 0]);
+    expect(page.lire(`[$("#o_rappelExport").length, $(".o_synchroPret").length]`)).toEqual([0, 0]);
   });
 
   test("croix : bandeau retiré et masqué une heure", () => {

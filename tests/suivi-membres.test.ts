@@ -1010,6 +1010,7 @@ describe("Préférences → Partage de données", () => {
       "js/page/PartageChasses.js",
       "js/class/RappelExport.js",
       "js/class/SuiviMembres.js",
+      "js/class/ExportRapports.js",
       "js/class/ExportAuto.js",
       "js/boite/Boite.js",
       "js/boite/Parametres.js",
@@ -1101,7 +1102,7 @@ describe("Préférences → Partage de données", () => {
     role("0");
     expect(chasses()).toEqual([
       true,
-      "Ton rôle n'est pas « Chasseur » (Préférences → Rôle) : tes chasses ne sont pas exportées automatiquement.",
+      "Ton rôle n'est pas « Chasseur » (Préférences → Options) : tes chasses ne sont pas exportées automatiquement.",
     ]);
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     for (const dit of [
@@ -1113,7 +1114,7 @@ describe("Préférences → Partage de données", () => {
       "Le rappel « Export des chasses à faire » ne s'affiche que si un essai échoue.",
       "Décochée : rien n'est lu ni envoyé sans ton clic sur ce bouton, et le rappel s'affiche dès le mercredi et le dimanche 22h.",
       "ceux que tu n'avais pas lus restent marqués non lus",
-      "Le bouton « Exporter mes chasses » de la messagerie reste, pour un export immédiat.",
+      "Le bouton « Exporter mes chasses » ci-dessous reste, pour un export immédiat.",
       "Décochée : rien n'est lu ni envoyé sans ton clic",
     ])
       expect(texte).toContain(dit);
@@ -1155,5 +1156,28 @@ describe("Préférences → Partage de données", () => {
     ).toEqual([[true], true, "Relevé et envoi en cours…"]);
     await attendre();
     expect(preferences.lire(`$("#o_partageEnvoyer").prop("disabled")`)).toBe(false);
+  });
+
+  test("boutons « Exporter mes chasses » et « Exporter mes RC » : l'export de la boîte de réception, de n'importe quelle page", async () => {
+    preferences.lire(`localStorage.clear()`);
+    ouvrir();
+    expect(
+      preferences.lire(
+        `$("#o_tabsParametrePartage .o_exporterRapports").map((i, b) => b.textContent + " " + b.dataset.quoi).get()`,
+      ),
+    ).toEqual(["Exporter mes chasses chasse", "Exporter mes RC combat"]);
+    const exports = await preferences.lire<Promise<any[]>>(`(() => {
+      let vus = [];
+      ExportRapports.boiteDeReception = (type) => Promise.resolve(["liste " + type]);
+      ExportRapports.exporter = (type, $bouton, lister) =>
+        Promise.resolve(lister()).then((liste) => vus.push([type, $bouton.text(), liste]));
+      $(".o_exporterRapports[data-quoi='chasse']").trigger("click");
+      $(".o_exporterRapports[data-quoi='combat']").trigger("click");
+      return new Promise((r) => setTimeout(() => r(vus), 0));
+    })()`);
+    expect(exports).toEqual([
+      ["chasse", "Exporter mes chasses", ["liste chasse"]],
+      ["combat", "Exporter mes RC", ["liste combat"]],
+    ]);
   });
 });

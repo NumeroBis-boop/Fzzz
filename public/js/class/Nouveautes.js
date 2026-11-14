@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.111.0",
+    notes: [
+      "Préférences réorganisées : Options, Partage de données, Mise en page, Armée et floods, Messagerie, Affichage, Chasseur, Grenier, Pages et À propos. Seuls les réglages choisis par l'alliance restent modifiables ; les autres ajouts de l'extension sont toujours affichés.",
+      "Nouvel onglet « Pages » : décoche une page pour la voir telle que le jeu l'affiche, sans l'extension. Il remplace les cases « Rétablir l'affichage d'origine » ; tes choix sont gardés.",
+      "Messagerie : les ajouts de l'extension sont décochés par défaut, sauf les smileys. Les boutons « Exporter mes chasses » et « Exporter mes RC » sont dans Préférences → Partage de données, utilisables de n'importe quelle page ; le rappel d'export y mène.",
+    ],
+  },
+  {
     version: "1.110.3",
     notes: [
       "Rôle Chasseur : le rappel « Export des chasses à faire » ne s'affiche plus quand l'export automatique est actif. Il revient seulement si un essai d'export échoue, ou si tu décoches l'export automatique (Préférences → Partage de données).",

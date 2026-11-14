@@ -74,7 +74,7 @@ La version minimale de Firefox est la 142 (PC et Android), comme Toolzzz.
 
 Une fois installé depuis un `.xpi` publié par le workflow (version 1.21 ou plus), Firefox se met à jour tout seul : il consulte régulièrement `updates.json` (adresse `update_url` du manifeste, environ une fois par jour) et installe la nouvelle version sans action du joueur. Pour forcer la vérification : `about:addons` → roue dentée → **Rechercher des mises à jour**. Sur Android, ce mécanisme est **à vérifier** (la documentation Mozilla ne le précise pas pour les extensions installées depuis un fichier).
 
-**Bouton « Mettre à jour Fzzz »** (Paramètres → À propos) :
+**Bouton « Mettre à jour l'extension »** (Préférences → Options) :
 
 - Chrome installé depuis le Chrome Web Store : vérification immédiate, installation de la nouvelle version et rechargement de la page, en un clic.
 - Firefox : ouvre le dernier `.xpi` signé (`releases/latest/download/fzzz.xpi`) ; Firefox ordinateur propose de l'installer (« Autoriser » puis « Ajouter »). Firefox Android n'installe pas depuis un lien : la mise à jour quotidienne automatique s'en charge.

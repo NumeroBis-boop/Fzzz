@@ -729,7 +729,7 @@ describe("rappel « Export des chasses à faire »", () => {
     expect(aRappeler()).toBe(false);
   });
 
-  test("bandeau : aucun en attendant le clic sur « Envoyer » ; après un essai en échec ou case décochée, le bouton de la messagerie", async () => {
+  test("bandeau : aucun en attendant le clic sur « Envoyer » ; après un essai en échec ou case décochée, le bouton des Préférences, ou celui de la messagerie s'il y est", async () => {
     preparer(CHASSES, { chasse: false });
     regler(JEUDI);
     const bandeau = (chemin: string) =>
@@ -741,10 +741,18 @@ describe("rappel « Export des chasses à faire »", () => {
       })()`);
     const ouvreLaMessagerie =
       "Export des chasses à faire : ouvre la messagerie et clique sur « Exporter mes chasses ».";
+    const ouvreLesPreferences =
+      "Export des chasses à faire : ouvre les Préférences (onglet « Partage de données ») et clique sur « Exporter mes chasses ».";
     expect([bandeau("/Reine.php"), bandeau("/messagerie.php")]).toEqual([null, null]);
     lancerChasse();
     lire(`JEU.panneFichier = () => true`);
     expect(await ouvrir()).toBe("échec");
+    // boutons de la messagerie décochés par défaut : celui des Préférences
+    expect([bandeau("/Reine.php"), bandeau("/messagerie.php")]).toEqual([
+      ouvreLesPreferences,
+      ouvreLesPreferences,
+    ]);
+    lire(`localStorage.setItem("fzzz_affichage_messagerieExport", "1")`);
     expect(bandeau("/Reine.php")).toBe(ouvreLaMessagerie);
     expect(bandeau("/messagerie.php")).toBe(
       "Export des chasses à faire : clique sur « Exporter mes chasses ».",
@@ -779,7 +787,7 @@ describe("Préférences : où en est l'export", () => {
     preparer(CHASSES, { role: 1 });
     regler(JEUDI);
     expect(lire(`ExportAuto.resume()`)).toBe(
-      "Ton rôle n'est pas « Chasseur » (Préférences → Rôle) : tes chasses ne sont pas exportées automatiquement.",
+      "Ton rôle n'est pas « Chasseur » (Préférences → Options) : tes chasses ne sont pas exportées automatiquement.",
     );
     preparer(CHASSES, { chasse: false });
     regler(JEUDI);

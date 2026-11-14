@@ -1,7 +1,7 @@
 /**
- * Vérifie « Rétablir l'affichage d'origine » : chaque page du jeu est affichée
- * sans l'extension, puis avec l'extension et toutes les cases d'origine
- * cochées ; tout élément du jeu dont le texte ou le style diffère est listé.
+ * Vérifie l'onglet « Pages » des Préférences : chaque page du jeu est affichée
+ * sans l'extension, puis avec l'extension et toutes ses pages décochées
+ * (PAGES_EXTENSION) ; tout élément du jeu dont le texte ou le style diffère est listé.
  *
  *   bun run build
  *   node scripts/diff-origine.cjs <dossier de pages du jeu> [page.php,…]

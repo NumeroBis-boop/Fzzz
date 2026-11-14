@@ -505,6 +505,8 @@ const DATEPICKER_OPTION = {
     // d'une version précédente est effacé)
     if (Journal.pourCeJoueur()) Journal.installer();
     else Journal.vider();
+    // affichages sans case dans les Préférences : état par défaut pour tous
+    Utils.oublierAffichagesFixes();
     // Modification du theme jquery humanity
     // Fzzz : thème jQuery UI « humanity » embarqué (paquet npm jquery-ui-themes 1.12.0,
     // MIT) au lieu de code.jquery.com : aucune requête vers un site tiers. Il
@@ -532,7 +534,7 @@ const DATEPICKER_OPTION = {
     // Les pages l'attendent : sinon, sur un PC à l'heure fausse, leurs heures
     // (attaques, chasses partagées) seraient calculées avec l'horloge du PC.
     const horlogePrete = Horloge.initialiser().catch(() => {});
-    // « Rétablir l'affichage d'origine » (onglet Général, voir bootstrap.js) : ni
+    // extension désactivée sur toutes les pages (Préférences → Pages, voir bootstrap.js) : ni
     // thème, ni horloge, ni alerte de ponte, ni encadré Compte+ refait ou radar,
     // ni onglets ajoutés aux menus, ni infobulles des entrepôts
     const origineGenerale = document.documentElement.classList.contains("o_origineGenerale");
@@ -604,7 +606,7 @@ const DATEPICKER_OPTION = {
         // tant que le joueur a une alliance (présence du lien Membres = preuve).
         // Lien réel vers ?Membres#carte : sur cette page, PageAlliance intercepte
         // le clic pour un toggle client-side ; depuis ailleurs, navigation normale.
-        // sans la carte (Préférences → Page membre), l'entrée ne mènerait à rien
+        // page Membres désactivée (Préférences → Pages) : sans la carte, l'entrée ne mènerait à rien
         if (
           !origineGenerale &&
           Utils.affichage("menuCarte") &&
@@ -624,7 +626,7 @@ const DATEPICKER_OPTION = {
         // construction.php (#cout) ; PageConstruction intercepte le hash pour
         // masquer la simulation native et n'afficher que les courbes. Classe
         // `boutonDescription` réutilisée pour le look graphique cohérent.
-        // sans les courbes (Préférences → Laboratoire), l'entrée ne mènerait à rien
+        // Laboratoire et Construction désactivés (Préférences → Pages) : sans les courbes, l'entrée ne mènerait à rien
         if (
           !origineGenerale &&
           Utils.affichage("menuCouts") &&
@@ -747,8 +749,7 @@ const DATEPICKER_OPTION = {
           console.error("Fzzz : partage de données", e);
         }
         // Routing ; une erreur dans le module d'une page reste confinée à cette page.
-        // Page dont l'onglet des préférences est réglé sur l'affichage d'origine
-        // (classe posée par bootstrap.js) : laissée au jeu
+        // page décochée dans Préférences → Pages (classe posée par bootstrap.js) : laissée au jeu
         try {
           switch (true) {
             case document.documentElement.classList.contains("o_originePage"):

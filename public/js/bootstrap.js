@@ -50,11 +50,12 @@
   `;
   (document.head || document.documentElement).appendChild(style);
 
-  // « Rétablir l'affichage d'origine » (Préférences) : classes posées avant
-  // l'affichage, lues par outiiil.css (règles qui touchent le jeu) et content.js
-  // (modules des pages). Onglet de chaque page modifiée par l'extension :
-  // 3e élément : l'expression lit aussi les paramètres de l'adresse (alliance.php
-  // sert le chat, le forum et la page Membres)
+  // Préférences → Pages : page où l'extension est désactivée, telle que le jeu
+  // l'affiche ; classes posées avant l'affichage, lues par outiiil.css (règles
+  // qui touchent le jeu) et content.js (modules des pages). Page de PAGES_EXTENSION
+  // de chaque adresse modifiée par l'extension ; 3e élément : l'expression lit
+  // aussi les paramètres de l'adresse (alliance.php sert le chat, le forum et la
+  // page Membres)
   /** @type {Array<[RegExp, String, Boolean?]>} */
   const ONGLET_PAGE = [
     [/^\/(construction|laboratoire)\.php$/i, "Laboratoire"],
@@ -89,12 +90,15 @@
   document.documentElement.classList.toggle("o_origineGenerale", desactivee || origine("General"));
   document.documentElement.classList.toggle("o_originePage", originePage);
   // case décochée dans les Préférences : la règle CSS de cet affichage tombe
-  // avant le rendu (classe o_sans_<clé> sur <html>)
+  // avant le rendu (classe o_sans_<clé> sur <html>) ; décochées tant que le
+  // joueur ne les a pas cochées, comme dans AFFICHAGES_REGLABLES
+  const DECOCHES_PAR_DEFAUT = ["messagerieCompacte", "messagerieNonLus"];
   let coupe = (cle) => {
     try {
-      return localStorage.getItem("fzzz_affichage_" + cle) == "0";
+      let v = localStorage.getItem("fzzz_affichage_" + cle);
+      return v == null ? DECOCHES_PAR_DEFAUT.includes(cle) : v == "0";
     } catch (e) {
-      return false;
+      return DECOCHES_PAR_DEFAUT.includes(cle);
     }
   };
   ["styleFormulaires", "laboBordures", "messagerieCompacte", "messagerieNonLus"].forEach((cle) =>

@@ -149,18 +149,7 @@ class ExportAuto {
    * @return {Promise<Array<{id: Number, titre: String, camp: String, nonLue: Boolean}>>}
    */
   static liste() {
-    let lire = (/** @type {any} */ $racine) => {
-      // page de connexion (session finie), page d'erreur : pas « rien à exporter »
-      if (!$racine.find("#liste_conversations").length)
-        throw new Error("liste des conversations de la messagerie illisible");
-      return ExportRapports.listees("chasse", $racine);
-    };
-    // avec une ancre (#Envoi, #Chasse…), le jeu affiche un autre dossier
-    if (/^\/messagerie\.php$/i.test(location.pathname) && !location.search && !location.hash)
-      return Promise.resolve().then(() => lire($(document)));
-    return Promise.resolve(
-      $.ajax({ url: location.origin + "/messagerie.php", ...REQUETE_DE_FOND }),
-    ).then((html) => lire(Utils.parseHtml(String(html))));
+    return ExportRapports.boiteDeReception("chasse", REQUETE_DE_FOND);
   }
   /**
    * Remet « non lues » des conversations que l'export a lues ; un échec est
@@ -390,7 +379,7 @@ class ExportAuto {
    */
   static resume() {
     if (!RappelExport.chasseur())
-      return "Ton rôle n'est pas « Chasseur » (Préférences → Rôle) : tes chasses ne sont pas exportées automatiquement.";
+      return "Ton rôle n'est pas « Chasseur » (Préférences → Options) : tes chasses ne sont pas exportées automatiquement.";
     let e = ExportAuto.etat(),
       fait = RappelExport.exportFait(),
       rdv = RappelExport.rendezVousDu(),

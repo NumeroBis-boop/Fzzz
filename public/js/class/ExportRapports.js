@@ -1434,9 +1434,11 @@ class ExportRapports {
    * @method exporter
    * @param {String} type "chasse" ou "combat"
    * @param {any} [$bouton]
+   * @param {() => any} [lister] conversations listées, ou leur promesse : par
+   *   défaut celles de la page de la messagerie affichée
    * @return {Promise}
    */
-  static exporter(type, $bouton) {
+  static exporter(type, $bouton, lister = () => ExportRapports.listees(type)) {
     let pseudo = monProfil.pseudo,
       quoi = type == "chasse" ? "chasses" : "RC";
     if (exportEnCours) {
@@ -1461,14 +1463,15 @@ class ExportRapports {
           });
           return;
         }
-        let listees = ExportRapports.listees(type);
-        return ExportRapports.aLire(type, listees, url).then(({ aLire, connues, absentes }) => {
-          Journal.info(
-            JOURNAL_EXPORT,
-            `Export des ${quoi} vers le fichier ${alliance ? "de l'alliance" : "personnel"} : ${listees.length} conversation(s) listée(s), ${connues} RC déjà exporté(s) dont ${absentes} absent(s) du fichier, ${aLire.length} conversation(s) à lire`,
-          );
-          return ExportRapports._exporterListees(type, aLire, url);
-        });
+        return Promise.resolve(lister()).then((listees) =>
+          ExportRapports.aLire(type, listees, url).then(({ aLire, connues, absentes }) => {
+            Journal.info(
+              JOURNAL_EXPORT,
+              `Export des ${quoi} vers le fichier ${alliance ? "de l'alliance" : "personnel"} : ${listees.length} conversation(s) listée(s), ${connues} RC déjà exporté(s) dont ${absentes} absent(s) du fichier, ${aLire.length} conversation(s) à lire`,
+            );
+            return ExportRapports._exporterListees(type, aLire, url);
+          }),
+        );
       })
       .catch((e) =>
         $.toast({
@@ -1478,6 +1481,30 @@ class ExportRapports {
         }),
       )
       .finally(fin);
+  }
+  /**
+   * Conversations d'un type de la boîte de réception : la liste de la page si
+   * c'est elle qui est affichée, sinon la page de la messagerie, lue une fois.
+   *
+   * @static
+   * @method boiteDeReception
+   * @param {String} type "chasse" ou "combat"
+   * @param {Object} [options] réglages de plus pour $.ajax (REQUETE_DE_FOND)
+   * @return {Promise<Array<{id: Number, titre: String, camp: String, nonLue: Boolean}>>}
+   */
+  static boiteDeReception(type, options = {}) {
+    let lire = (/** @type {any} */ $racine) => {
+      // page de connexion (session finie), page d'erreur : pas « rien à exporter »
+      if (!$racine.find("#liste_conversations").length)
+        throw new Error("liste des conversations de la messagerie illisible");
+      return ExportRapports.listees(type, $racine);
+    };
+    // avec une ancre (#Envoi, #Chasse…), le jeu affiche un autre dossier
+    if (/^\/messagerie\.php$/i.test(location.pathname) && !location.search && !location.hash)
+      return Promise.resolve().then(() => lire($(document)));
+    return Promise.resolve($.ajax({ url: location.origin + "/messagerie.php", ...options })).then(
+      (html) => lire(Utils.parseHtml(String(html))),
+    );
   }
   /**
    * Lit des conversations une à une, puis envoie leurs RC au fichier, onglet

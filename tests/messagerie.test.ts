@@ -47,7 +47,13 @@ describe("boutons d'export et rangement : chacun sa case dans les Préférences"
   };
 
   test("cochées : boutons sous le titre, message mal rangé déplacé", () => {
-    expect(ouvrir({})).toEqual({ boutons: 2, envois: ["deplacer"] });
+    expect(
+      ouvrir({ fzzz_affichage_messagerieExport: "1", fzzz_affichage_messagerieRanger: "1" }),
+    ).toEqual({ boutons: 2, envois: ["deplacer"] });
+  });
+
+  test("par défaut décochées (liste du mainteneur) : ni boutons ni requête au jeu", () => {
+    expect(ouvrir({})).toEqual({ boutons: 0, envois: [] });
   });
 
   test("décochées : ni boutons ni requête au jeu", () => {
@@ -89,26 +95,35 @@ describe("couleurs et copie de la messagerie", () => {
     expect(page.lire(`MessagerieFzzz.typeCouleur($(\`${ligne("Bienvenue")}\`))`)).toBe("autre");
   });
 
+  // couleurs et copie décochées par défaut (liste du mainteneur)
+  const COCHEES = { fzzz_affichage_messagerieCouleurs: "1", fzzz_affichage_messagerieCopie: "1" };
+
+  test("par défaut : ni couleurs ni icône de copie", () => {
+    const r = decorer({}, "Vol par Canaille");
+    expect(r.copie).toBe(0);
+    expect(r.classe).not.toContain("o_titreDefense");
+  });
+
   test("couleurs coupées : l'icône de copie reste", () => {
-    const r = decorer({ fzzz_affichage_messagerieCouleurs: "0" }, "Vol par Canaille");
+    const r = decorer({ ...COCHEES, fzzz_affichage_messagerieCouleurs: "0" }, "Vol par Canaille");
     expect(r.copie).toBe(1);
     expect(r.classe).not.toContain("o_titreDefense");
   });
 
   test("copie coupée : les couleurs restent", () => {
-    const r = decorer({ fzzz_affichage_messagerieCopie: "0" }, "Vol par Canaille");
+    const r = decorer({ ...COCHEES, fzzz_affichage_messagerieCopie: "0" }, "Vol par Canaille");
     expect(r.copie).toBe(0);
     expect(r.classe).toContain("o_titreDefense");
     expect(r.variable).toBe("#b42318");
   });
 
   test("couleur choisie, ou couleur du jeu pour un type", () => {
-    expect(decorer({ fzzz_couleurMessage_defense: "#123456" }, "Vol par Canaille").variable).toBe(
-      "#123456",
-    );
-    expect(decorer({ fzzz_couleurMessage_autre: "" }, "Bienvenue").classe).not.toContain(
-      "o_titreAutre",
-    );
+    expect(
+      decorer({ ...COCHEES, fzzz_couleurMessage_defense: "#123456" }, "Vol par Canaille").variable,
+    ).toBe("#123456");
+    expect(
+      decorer({ ...COCHEES, fzzz_couleurMessage_autre: "" }, "Bienvenue").classe,
+    ).not.toContain("o_titreAutre");
   });
 });
 

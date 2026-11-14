@@ -22,8 +22,9 @@ const MINUTES_MASQUAGE_RAPPEL = 60;
  * (ExportAuto) s'en charge après le clic suivant sur « Envoyer » du lanceur de
  * chasses ; le rappel « Export des chasses à faire », un bandeau sous le menu
  * sans aucune requête au jeu, ne s'affiche que s'il ne peut pas le faire :
- * case décochée, ou essai en échec. Le joueur ouvre alors la messagerie et
- * clique.
+ * case décochée, ou essai en échec. Le joueur clique alors sur « Exporter mes
+ * chasses », dans la messagerie si ce bouton y est affiché, sinon dans les
+ * Préférences (onglet « Partage de données »).
  *
  * @class RappelExport
  */
@@ -58,14 +59,22 @@ class RappelExport {
   static aRappeler() {
     if (!RappelExport.chasseur()) return false;
     if (!Utils.affichage("rappelExport")) return false;
-    // sans le bouton « Exporter mes chasses » de la messagerie, rien à rappeler
-    if (Utils.origine("Messagerie") || !Utils.affichage("messagerieExport")) return false;
     let rdv = RappelExport.rendezVousDu();
     return (
       !!rdv &&
       !(typeof ExportAuto != "undefined" && ExportAuto.enCharge(rdv)) &&
       RappelExport._lire(CLE_RAPPEL_EXPORT_MASQUE) < Horloge.maintenant()
     );
+  }
+  /**
+   * Le bouton « Exporter mes chasses » est-il dans la page de la messagerie ?
+   *
+   * @static
+   * @method boutonMessagerie
+   * @return {Boolean} sinon, il est dans les Préférences seulement
+   */
+  static boutonMessagerie() {
+    return !Utils.origine("Messagerie") && Utils.affichage("messagerieExport");
   }
   /**
    * @static
@@ -121,7 +130,9 @@ class RappelExport {
       localStorage.setItem(CLE_EXPORT_CHASSES_FAIT, String(Horloge.maintenant()));
     } catch (e) {}
     $("#o_rappelExport").remove();
-    $("#o_partageAlliance button[data-quoi='chasse']").removeClass("o_synchroPret");
+    $(
+      "#o_partageAlliance button[data-quoi='chasse'], .o_exporterRapports[data-quoi='chasse']",
+    ).removeClass("o_synchroPret");
   }
   /**
    * Bandeau sous le menu (sous celui de la ponte s'il y en a un).
@@ -134,17 +145,31 @@ class RappelExport {
     // pages où l'on lance ou replace l'armée : un bandeau ajouté après coup
     // déplacerait les boutons sous le doigt
     if (Utils.pageSansAlertePonte(location) || !RappelExport.aRappeler()) return;
-    let surMessagerie = /^\/messagerie\.php$/i.test(location.pathname),
-      texte = `<strong>Export des chasses à faire</strong> : ${surMessagerie ? "clique sur" : "ouvre la messagerie et clique sur"} « Exporter mes chasses ».`,
+    let messagerie = RappelExport.boutonMessagerie(),
+      surMessagerie = messagerie && /^\/messagerie\.php$/i.test(location.pathname),
+      texte = `<strong>Export des chasses à faire</strong> : ${
+        surMessagerie
+          ? "clique sur"
+          : messagerie
+            ? "ouvre la messagerie et clique sur"
+            : "ouvre les Préférences (onglet « Partage de données ») et clique sur"
+      } « Exporter mes chasses ».`,
       $bandeau = $(`<div id="o_rappelExport" role="status">
         <span class="o_rappelExportSymbole" aria-hidden="true">⏰</span>
         ${
           surMessagerie
             ? `<span class="o_rappelExportTexte">${texte}</span>`
-            : `<a class="o_rappelExportTexte" href="/messagerie.php" title="Aller à la messagerie">${texte}</a>`
+            : messagerie
+              ? `<a class="o_rappelExportTexte" href="/messagerie.php" title="Aller à la messagerie">${texte}</a>`
+              : `<a class="o_rappelExportTexte" href="#" title="Ouvrir les Préférences">${texte}</a>`
         }
         <button type="button" class="o_rappelExportFermer" title="Masquer pendant ${MINUTES_MASQUAGE_RAPPEL} min" aria-label="Masquer pendant ${MINUTES_MASQUAGE_RAPPEL} min">×</button>
       </div>`);
+    if (!messagerie)
+      $bandeau.find("a.o_rappelExportTexte").on("click", (e) => {
+        e.preventDefault();
+        BoiteParametre.ouvrirOnglet("Partage");
+      });
     $bandeau.find(".o_rappelExportFermer").on("click", () => {
       try {
         localStorage.setItem(

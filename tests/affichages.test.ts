@@ -3,10 +3,11 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Chaque affichage que l'extension ajoute aux pages du jeu a sa case dans les
- * Préférences (demande du mainteneur) : une clé lue par Utils.affichage est
- * déclarée dans AFFICHAGES_FZZZ ou AFFICHAGES_CONVOIS, et chaque clé déclarée
- * figure dans l'onglet de sa page (ONGLETS_PARAMETRE).
+ * Affichages que l'extension ajoute aux pages du jeu : une clé lue par
+ * Utils.affichage est déclarée dans AFFICHAGES_FZZZ ou AFFICHAGES_CONVOIS ;
+ * seuls ceux de la liste du mainteneur (14/11/2026, AFFICHAGES_REGLABLES) ont
+ * une case dans les Préférences, une seule chacun, les autres sont toujours
+ * montrés.
  */
 const JS = join(import.meta.dir, "..", "public", "js");
 const lire = (f: string) => readFileSync(join(JS, f), "utf8");
@@ -21,17 +22,13 @@ const cles = (objet: string) => {
   return [...m![1]!.matchAll(/^\s+(\w+):/gm)].map((x) => x[1]!);
 };
 
-describe("affichages ajoutés : une case chacun dans les Préférences", () => {
+describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur case", () => {
   const declarees = [...cles("AFFICHAGES_FZZZ"), ...cles("AFFICHAGES_CONVOIS")];
   const parametres = lire("boite/Parametres.js");
-  const dansOnglets = new Set([
-    ...[...parametres.matchAll(/affichages: \[([^\]]*)\]/g)].flatMap((m) =>
-      [...m[1]!.matchAll(/"(\w+)"/g)].map((x) => x[1]!),
-    ),
-    ...(parametres.includes("affichages: Object.keys(AFFICHAGES_CONVOIS)")
-      ? cles("AFFICHAGES_CONVOIS")
-      : []),
-  ]);
+  const dansOnglets = [...parametres.matchAll(/affichages: \[([^\]]*)\]/g)].flatMap((m) =>
+    [...m[1]!.matchAll(/"(\w+)"/g)].map((x) => x[1]!),
+  );
+  const reglables = cles("AFFICHAGES_REGLABLES");
 
   test("toute clé lue par le code est déclarée avec son libellé", () => {
     const lues = new Set(
@@ -110,8 +107,44 @@ describe("affichages ajoutés : une case chacun dans les Préférences", () => {
       expect(lues.has(c)).toBe(true);
   });
 
-  test("toute clé déclarée a sa case dans un onglet des Préférences", () => {
-    expect(declarees.filter((c) => !dansOnglets.has(c))).toEqual([]);
+  test("les cases des onglets sont les affichages réglables, une fois chacun, tous déclarés", () => {
+    expect([...dansOnglets].sort()).toEqual([...reglables].sort());
+    expect(new Set(dansOnglets).size).toBe(dansOnglets.length);
+    expect(reglables.filter((c) => !declarees.includes(c))).toEqual([]);
+    // la liste du mainteneur : 29 affichages, dont la messagerie décochée par défaut sauf les smileys
+    expect(reglables.length).toBe(29);
+    const decoches = [
+      ...lire("class/Utils.js")
+        .match(/const AFFICHAGES_REGLABLES = \{([\s\S]*?)\n\};/)![1]!
+        .matchAll(/^\s+(\w+): false,/gm),
+    ].map((m) => m[1]!);
+    expect(decoches).toEqual([
+      "messagerieCouleurs",
+      "messagerieCopie",
+      "messagerieAnalyse",
+      "messagerieExport",
+      "messagerieRanger",
+      "messagerieCompacte",
+      "messagerieNonLus",
+      "messagerieMiseEnForme",
+    ]);
+  });
+
+  test("règle CSS d'un affichage décoché par défaut : bootstrap.js le sait avant le rendu", () => {
+    const amorce =
+        /\[([^\]]*)\]\.forEach\(\(cle\) =>\s*document\.documentElement\.classList\.toggle\("o_sans_"/.exec(
+          lire("bootstrap.js"),
+        ),
+      posees = [...amorce![1]!.matchAll(/"(\w+)"/g)].map((m) => m[1]!),
+      decochesBootstrap = [
+        .../const DECOCHES_PAR_DEFAUT = \[([^\]]*)\]/
+          .exec(lire("bootstrap.js"))![1]!
+          .matchAll(/"(\w+)"/g),
+      ].map((m) => m[1]!),
+      utils = lire("class/Utils.js").match(/const AFFICHAGES_REGLABLES = \{([\s\S]*?)\n\};/)![1]!;
+    expect(decochesBootstrap).toEqual(
+      posees.filter((c) => new RegExp(`^\\s+${c}: false,`, "m").test(utils)),
+    );
   });
 
   test("règle CSS coupée par sa case : classe o_sans_<clé> posée dès le chargement", () => {

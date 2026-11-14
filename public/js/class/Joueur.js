@@ -11,7 +11,7 @@ const CLE_RESERVE_EN_PLUS = "fzzz_reserveEnPlus";
 const CLE_METHODE_DEGRESSIVE = "fzzz_methodeDegressive";
 const METHODE_FLOOD_OPTIMISEE = 1;
 const METHODE_FLOOD_DEGRESSIVE = 3;
-// rôle du joueur dans l'alliance (Préférences → Rôle)
+// rôle du joueur dans l'alliance (Préférences → Options)
 const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
 const ROLE_CHASSEUR = 3;
 // chasseurs de l'alliance (liste du mainteneur) : rôle Chasseur par défaut,

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
 /**
- * Onglet Ressources des préférences : le curseur « Ratio plancher » a un pas
+ * Onglet Chasseur des préférences : le curseur « Ratio plancher » a un pas
  * décimal, son champ ne doit pas dépendre de la langue du navigateur
  * (toLocaleString() donne « 7,3 » en français, que Globalize en culture « en »
  * relisait 73).
@@ -30,16 +30,16 @@ function ouvrir(langue: string) {
     Number.prototype.toLocaleString = function () { return new Intl.NumberFormat(${JSON.stringify(langue)}).format(this); };
     localStorage.setItem("outiiil_parametre", JSON.stringify({ ratioPlancher: 7.2, tdcArriveeMax: 2000000 }));
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
-    document.body.innerHTML = "<div id='o_boiteParametre'><div id='o_tabsParametreRessources'></div></div>";
+    document.body.innerHTML = "<div id='o_boiteParametre'><div id='o_tabsParametreChasseur'></div></div>";
     window.boite = new BoiteParametre();
-    boite.ongletRessources();
+    boite.ongletChasseur();
     for (const p of ["ratioPlancher", "tdcArriveeMax"]) monProfil.parametre[p].ajouterEvent();
   })()`);
 }
 const champ = (id: string) => page.lire<string>(`$("#${id}").val()`);
 const valeur = (id: string) => page.lire<number>(`$("#${id}").spinner("value")`);
 
-describe("préférences Ressources : ratio plancher et TdC max selon la langue du navigateur", () => {
+describe("préférences Chasseur : ratio plancher et TdC max selon la langue du navigateur", () => {
   for (const langue of ["fr-FR", "de-DE", "en-US"]) {
     test(`${langue} : la flèche monte le ratio plancher de 7.2 à 7.3`, () => {
       ouvrir(langue);

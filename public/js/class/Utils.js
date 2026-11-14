@@ -93,7 +93,7 @@ if (typeof $ != "undefined" && $.fn && $.fn.dataTable) {
     Object.assign($.fn.dataTable.ext.buttons.csvHtml5, { fieldSeparator: ";", bom: true });
 }
 
-// Fzzz : affichages ajoutés par l'extension, désactivables dans Paramètres (onglets : ONGLETS_PARAMETRE)
+// affichages ajoutés par l'extension ; seuls ceux d'AFFICHAGES_REGLABLES ont une case dans les Préférences
 const AFFICHAGES_FZZZ = {
   horloge: "Horloge du serveur au-dessus de l'encart « S5 pseudo »",
   journal: "Boîte « Journal » sous « Extension OUAF » (étapes et erreurs à copier)",
@@ -115,7 +115,7 @@ const AFFICHAGES_FZZZ = {
   messagerieCopie: "Icônes de copie des rapports",
   messagerieAnalyse: "Boutons « Analyser » sous les rapports",
   messagerieExport:
-    "Boutons « Exporter mes chasses » et « Exporter mes RC » (Google Sheet de l'alliance)",
+    "Boutons « Exporter mes chasses » et « Exporter mes RC » dans la messagerie (Google Sheet de l'alliance ; toujours dans l'onglet « Partage de données »)",
   messagerieRanger:
     "Rangement des messages dans les dossiers Commerce, Chasse, Combat et Conversation à l'ouverture",
   messagerieCompacte: "Liste compacte : un message par ligne, titre coupé (en entier au survol)",
@@ -144,19 +144,19 @@ const AFFICHAGES_FZZZ = {
     "Bloc « Filtrer la liste » de la page Ennemies (filtre, « Charger toutes les pages », « Afficher tous les joueurs »)",
   ennemisTemps: "Colonne « Temps » (temps de trajet) de la page Ennemies",
   syntheseChasses: "Synthèse des chasses en cours",
-  lanceurChasse: "Lanceur de chasses",
+  lanceurChasse: "Lanceur de chasses (page Ressources)",
   chassesAnnulerTout: "Bouton « Annuler toutes les chasses »",
   affectationOuvrieres:
-    "Affectation des ouvrières préparée à l'ouverture : choix « Ratio », ligne « Répartition » et champs préremplis",
+    "Affectation des ouvrières préparée à l'ouverture de la page Ressources : choix « Ratio », ligne « Répartition » et champs préremplis",
   ressourcesMax: "Hors Compte+ : flèches « max » à côté des champs Nourriture et Matériaux",
   chassesRetour: "Hors Compte+ : « Retour le … » sous chaque chasse en cours",
   armeeMiseEnPage:
-    "Mise en page allégée : textes d'aide du jeu retirés, « Déplacer son armée » resserré, noms courts TdC / Dôme / Loge, blocs à égale distance",
+    "Page Armée en mise en page allégée : textes d'aide du jeu retirés, « Déplacer son armée » resserré, noms courts TdC / Dôme / Loge, blocs à égale distance",
   armeeTotalUnites: "Nombre total d'unités dans le titre « Troupes en Garnison »",
-  replacerArmee: "Bouton « Replacer l'armée »",
+  replacerArmee: "Bouton « Replacer l'armée » (page Armée)",
   armeeHof: "Ligne « Temps HOF » et « Temps relatif » sous les troupes",
   armeeStatistiques:
-    "Dépliant « Statistiques » sous les troupes (vie, attaque, défense ; HB et AB)",
+    "Dépliant « Statistiques » sous les troupes de la page Armée (vie, attaque, défense ; HB et AB)",
   armeeAttaquesRestantes:
     "Nombre d'attaques en cours et d'attaques restantes dans le titre « Attaque(s) en cours »",
   listeAttaques:
@@ -211,7 +211,7 @@ const AFFICHAGES_FZZZ = {
 };
 
 // Fzzz : couleur des titres de la messagerie par type de message, réglable
-// dans Paramètres → Messagerie (couleur vide : celle du jeu)
+// dans Préférences → Messagerie (couleur vide : celle du jeu)
 const COULEURS_MESSAGES = {
   defense: { libelle: "Combat en défense", classe: "o_titreDefense", defaut: "#b42318" },
   attaque: { libelle: "Combat en attaque", classe: "o_titreAttaque", defaut: "#287a36" },
@@ -220,7 +220,7 @@ const COULEURS_MESSAGES = {
   autre: { libelle: "Autres messages", classe: "o_titreAutre", defaut: "#ffffff" },
 };
 
-// Fzzz : affichages de la page Convois, réglables dans Paramètres → Convois
+// affichages de la page Convois ; seul le suivi OUAF se règle (Préférences → Grenier)
 const AFFICHAGES_CONVOIS = {
   convoisInfoEtable: "Ligne « Niveau d'étable, 1 ouvrière peut transporter… »",
   convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
@@ -236,9 +236,44 @@ const AFFICHAGES_CONVOIS = {
 
 // Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800, 43200, 57600, 86400];
-// « Rétablir l'affichage d'origine » d'un onglet des préférences (+ id de l'onglet)
+// affichages réglables dans les Préférences (liste du mainteneur, 14/11/2026),
+// avec leur état par défaut ; les autres sont toujours montrés, un choix
+// enregistré par une version précédente est oublié (oublierAffichagesFixes)
+const AFFICHAGES_REGLABLES = {
+  horloge: true,
+  nouveautes: true,
+  affectationOuvrieres: true,
+  armeeMiseEnPage: true,
+  replacerArmee: true,
+  armeeStatistiques: true,
+  listeAttaques: true,
+  couleurAttaquer: true,
+  statArmee: true,
+  lanceurFlood: true,
+  // messagerie : tout décoché par défaut sauf les smileys (règle du mainteneur)
+  messagerieCouleurs: false,
+  messagerieCopie: false,
+  messagerieAnalyse: false,
+  messagerieExport: false,
+  messagerieRanger: false,
+  messagerieCompacte: false,
+  messagerieNonLus: false,
+  messagerieMiseEnForme: false,
+  messagerieSmileys: true,
+  messagerieSmileysAlliance: true,
+  membresTableau: true,
+  membresFloods: true,
+  membresMoi: true,
+  chatMesGif: true,
+  chatGifAlliance: true,
+  chatSmileysAlliance: true,
+  rappelExport: true,
+  lanceurChasse: true,
+  convoisSuiviLignes: true,
+};
+// page où l'extension est désactivée (onglet « Pages » des Préférences, + id de PAGES_EXTENSION)
 const CLE_ORIGINE = "fzzz_origine_";
-// affichages qui ne dépendent pas de la page courante : coupés avec leur onglet
+// affichages qui ne dépendent pas de la page courante : coupés avec « Toutes les pages »
 const AFFICHAGES_ONGLET = {
   horloge: "General",
   journal: "General",
@@ -543,20 +578,52 @@ class Utils {
     return Utils.minuteRC(moment(depart).add(temps, "s"));
   }
   /**
-   * Fzzz : un affichage ajouté par l'extension est-il activé ? Tous le sont
-   * par défaut ; le joueur peut les couper dans Paramètres.
+   * Un affichage ajouté par l'extension est-il activé ? Ceux de
+   * AFFICHAGES_REGLABLES suivent leur case des Préférences (état par défaut
+   * tant qu'elle n'a pas été changée) ; les autres sont toujours montrés.
    *
    * @static
    * @method affichage
-   * @param {String} cle clé de AFFICHAGES_FZZZ
+   * @param {String} cle clé de AFFICHAGES_FZZZ ou AFFICHAGES_CONVOIS
+   * @return {Boolean}
    */
   static affichage(cle) {
     if (AFFICHAGES_ONGLET[cle] && Utils.origine(AFFICHAGES_ONGLET[cle])) return false;
+    return Utils.affichageCoche(cle);
+  }
+  /**
+   * État de la case d'un affichage, sans tenir compte des pages désactivées.
+   *
+   * @static
+   * @method affichageCoche
+   * @param {String} cle
+   * @return {Boolean}
+   */
+  static affichageCoche(cle) {
+    let defaut = AFFICHAGES_REGLABLES[cle] !== false;
     try {
-      return localStorage.getItem("fzzz_affichage_" + cle) != "0";
+      let v = localStorage.getItem("fzzz_affichage_" + cle);
+      return v == null ? defaut : v != "0";
     } catch (e) {
-      return true;
+      return defaut;
     }
+  }
+  /**
+   * Oublie les choix enregistrés des affichages qui n'ont plus de case dans
+   * les Préférences : ils reprennent leur état par défaut (règle du
+   * mainteneur, 14/11/2026).
+   *
+   * @static
+   * @method oublierAffichagesFixes
+   */
+  static oublierAffichagesFixes() {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        let cle = localStorage.key(i),
+          m = cle && /^fzzz_affichage_(\w+)$/.exec(cle);
+        if (m && !(m[1] in AFFICHAGES_REGLABLES)) localStorage.removeItem(cle);
+      }
+    } catch (e) {}
   }
   /**
    * Une ligne dans la console (F12) sur le temps de chargement de la page :
@@ -583,12 +650,12 @@ class Utils {
     else window.addEventListener("load", () => setTimeout(noter, 0));
   }
   /**
-   * Onglet des préférences réglé sur « Rétablir l'affichage d'origine » : les
-   * pages de cet onglet restent telles que le jeu les affiche.
+   * Pages où l'extension est désactivée (onglet « Pages » des Préférences) :
+   * elles restent telles que le jeu les affiche.
    *
    * @static
    * @method origine
-   * @param {String} onglet id de ONGLETS_PARAMETRE
+   * @param {String} onglet id de PAGES_EXTENSION
    */
   static origine(onglet) {
     try {
@@ -1141,7 +1208,7 @@ class Utils {
   }
   /**
    * Bandeau d'alerte sous le menu du jeu : la reine ne pond plus, ou sa file
-   * se termine sous le seuil (Paramètres → Général). La file est lue sur la
+   * se termine sous le seuil (Préférences → Options). La file est lue sur la
    * page Reine à chaque chargement de page. Rien sur la page Reine. La croix
    * masque le bandeau 10 min, ou jusqu'à ce que la file repasse au-dessus du
    * seuil (ponte relancée) : la fin de ponte suivante est alors signalée.
@@ -1175,7 +1242,7 @@ class Utils {
     let seuil = SEUILS_ALERTE_PONTE[parseInt(monProfil.parametre["alertePonte"].valeur)] || 0,
       // une ligne dans la console (F12) pour comprendre une alerte absente
       noter = (texte) => console.info(`[${NOM_EXTENSION}] alerte de ponte : ${texte}`);
-    if (!seuil) return noter("désactivée dans Paramètres → Général");
+    if (!seuil) return noter("désactivée dans Préférences → Options");
     // pages où l'on lance ou replace l'armée : un bandeau ajouté après coup
     // déplacerait les boutons sous le doigt
     if (Utils.pageSansAlertePonte(location)) return noter("pas sur cette page");

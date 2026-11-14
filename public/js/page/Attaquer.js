@@ -304,7 +304,7 @@ class PageAttaquer {
    */
   ajouterBoutons() {
     const titrePartager = `Lance l'attaque comme le bouton du jeu, vers le lieu de la liste (couleur : vert terrain, orange dôme, rouge loge), puis la publie avec ce lieu dans le forum de la ${Utils.alliance || "l'alliance"}.`;
-    const titreSonder = `Envoie tout de suite la sonde réglée dans Préférences → Attaque (par défaut 1 Jeune Soldate Naine), vers le lieu de sonde des préférences ou, à défaut, celui de la liste. Couleur : vert terrain, orange dôme, rouge loge.`;
+    const titreSonder = `Envoie tout de suite la sonde réglée dans Préférences → Armée et floods (par défaut 1 Jeune Soldate Naine), vers le lieu de sonde des préférences ou, à défaut, celui de la liste. Couleur : vert terrain, orange dôme, rouge loge.`;
     const titreSynchroSonde = `Prépare la sonde dans le formulaire et affiche le compte à rebours jusqu'à la minute pleine. À zéro, c'est à toi de cliquer sur Sonder.`;
     const titreSync = `Affiche le compte à rebours, au dixième de seconde et en heure du serveur + latence, jusqu'au moment où l'attaque arrivera sur une minute pleine (utile pour synchroniser plusieurs attaques avec des alliés). À zéro, c'est à toi de cliquer sur le bouton du jeu.`;
     let sonder = Utils.affichage("sonder"),

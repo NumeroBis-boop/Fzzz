@@ -75,17 +75,22 @@ describe("réservé au mainteneur", () => {
     expect(p.lire(`Journal.entrees()`)).toEqual([]);
   });
 
-  test("case de la boîte dans Préférences → Général : seulement pour son joueur", () => {
-    const p = creerPage(
-      ["js/class/Utils.js", "js/boite/Boite.js", "js/boite/Parametres.js"],
-      `var AFFICHAGES_ONGLET = {};`,
-    );
-    const cases = () => p.lire<string>(`BoiteParametre.prototype.cases.call({}, "General")`);
-    p.lire(`document.body.innerHTML = '<span id="pseudo">Missyl</span>'`);
-    expect(cases()).toContain("data-affichage='horloge'");
-    expect(cases()).not.toContain("data-affichage='journal'");
+  test("boîte toujours affichée pour son joueur : pas de case dans les Préférences (liste du mainteneur)", () => {
+    const p = creerPage(["js/class/Utils.js", "js/boite/Boite.js", "js/boite/Parametres.js"]);
     p.lire(`document.body.innerHTML = '<span id="pseudo">DoggyBag</span>'`);
-    expect(cases()).toContain("data-affichage='journal'");
+    const toutes = p.lire<string>(
+      `ONGLETS_PARAMETRE.map((o) => BoiteParametre.prototype.cases.call(BoiteParametre.prototype, o.id)).join("")`,
+    );
+    expect(toutes).toContain("data-affichage='horloge'");
+    expect(toutes).not.toContain("data-affichage='journal'");
+    // un choix enregistré avant est oublié au chargement
+    p.lire(
+      `localStorage.setItem("fzzz_affichage_journal", "0"); localStorage.setItem("fzzz_affichage_horloge", "0"); Utils.oublierAffichagesFixes()`,
+    );
+    expect(p.lire(`[Utils.affichage("journal"), Utils.affichage("horloge")]`)).toEqual([
+      true,
+      false,
+    ]);
   });
 });
 

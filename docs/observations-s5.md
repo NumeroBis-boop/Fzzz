@@ -33,6 +33,16 @@ Chaque ligne indique ce qui a été observé, sur quelle page, et ce que cela co
 | Même source : puissance Σ √(réplique × vie) des prédateurs tirés                                         | 3,466 × B alloués, dépensés à 0,8 % près, jamais dépassés ; détail dans docs/mecanisme-chasse.md                                                                       |
 | Même source : JSN perdues par point de difficulté de Calystène, rejeu des tirages à chaque ratio         | 0,0183 au ratio 6, 0,0114 à 7, 0,0084 à 10, constant à 0,00835 au-delà de 10,8 ; table de Calystène exacte à +3 % / −1 %                                               |
 
+## Forum de l'alliance (2026-11-13, essais de DoggyBag)
+
+| Observation                                                                                  | Conclusion                                                                                                  |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Sujet « TEST » : un membre ne peut plus modifier son message dès qu'un autre message le suit | Seul le dernier message d'un sujet est modifiable : un message par membre dans un même sujet est impossible |
+| Premier message d'un sujet modifié : la date de la colonne « Dernier message » change        | La liste des sujets dit quels sujets ont changé, à la minute près (sans les secondes)                       |
+| Un autre membre a modifié le premier message de « BDD générale flood »                       | Un premier message peut être modifiable par tous les membres                                                |
+| Très long texte collé dans un premier message : 63 253 caractères gardés (65 484 octets)     | La fin est coupée : un message a une taille maximale, d'environ 65 000 octets (limite exacte non mesurée)   |
+| Un sujet tient au moins 60 réponses                                                          | Pas de limite atteinte sur le nombre de réponses                                                            |
+
 ## À recaler
 
 | Observation                           | Ce qu'il manque                                                                                                                        |

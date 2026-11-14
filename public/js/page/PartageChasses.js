@@ -48,14 +48,11 @@ let retraitsEnCours = new Set();
 // autre appareil a pu écrire)
 const CLE_CACHE_FORUM = "fzzz_cacheForum";
 const DUREE_CACHE_FORUM = 60000;
-// sujets communs lus pour l'affichage, gardés tant que leur date « Dernier
-// message » dans la liste des sujets ne change pas : elle change quand le
-// premier message est modifié, mais à la minute près, sans les secondes
+// sujets communs lus pour l'affichage, gardés une minute comme les autres
+// lectures : la colonne « Dernier message » de la liste ne change pas quand
+// leur premier message est modifié (relevé du 14/11/2026), elle ne dit pas
+// qu'un joueur y a écrit
 const CLE_SUJETS_GARDES = "fzzz_sujetsGardes";
-// une lecture faite pendant la minute affichée a pu précéder une modification
-// de la même minute : elle ne fait foi qu'après la fin de cette minute, plus
-// cette marge (écart entre l'heure du serveur estimée et la vraie)
-const MARGE_MINUTE_SUJET = 5000;
 const DUREE_SUJETS_GARDES = 24 * 3600 * 1000;
 // mois de la colonne « Dernier message » (« 13 nov. à 22h20 »)
 const MOIS_FORUM = [
@@ -348,7 +345,8 @@ class PartageChasses {
             idSujet =
               $(elt).find("input[name='topic[]']").val() ||
               (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0],
-            // colonne « Dernier message » : auteur et minute de la dernière modification
+            // colonne « Dernier message » : auteur et minute de la création ou de la
+            // dernière réponse ; une modification d'un message ne la change pas
             dernier = $(elt)
               .find("td")
               .slice(2)
@@ -409,23 +407,14 @@ class PartageChasses {
               id: idSujet,
             });
         });
-      let sansDate = Object.values(sujets.communs).filter(
-        (/** @type {any} */ t) => t.modifie == null,
-      );
-      if (sansDate.length)
-        Journal.info(
-          "Forum",
-          `date « Dernier message » illisible pour ${sansDate.length} sujet(s) commun(s) : relu(s) à chaque affichage`,
-          `Exemple : « ${sansDate[0].dernier} »`,
-        );
       return sujets;
     });
   }
   /**
-   * Minute de la dernière modification d'un sujet, dans la colonne « Dernier
-   * message » de la liste des sujets (« 13 nov. à 22h20 », l'année en plus si
-   * ce n'est pas l'année en cours, « aujourd'hui à … », « hier à … »), à
-   * l'heure du jeu.
+   * Minute de la colonne « Dernier message » de la liste des sujets (création
+   * du sujet ou dernière réponse : « 13 nov. à 22h20 », l'année en plus si ce
+   * n'est pas l'année en cours, « aujourd'hui à … », « hier à … »), à l'heure
+   * du jeu.
    *
    * @static
    * @method dateListe
@@ -459,10 +448,9 @@ class PartageChasses {
     return date && date.isValid() ? date.valueOf() : null;
   }
   /**
-   * Lecture gardée d'un sujet commun, si elle fait encore foi : même date
-   * « Dernier message » qu'à la lecture, et lecture faite après la fin de la
-   * minute affichée (une modification de la même minute ne change pas la
-   * date), ou il y a moins d'une minute, comme les autres lectures gardées.
+   * Lecture gardée d'un sujet commun, si elle fait encore foi : faite il y a
+   * moins d'une minute par cette version du script, et même texte « Dernier
+   * message » qu'alors (une réponse postée depuis le change).
    *
    * @static
    * @method sujetGarde
@@ -474,8 +462,7 @@ class PartageChasses {
     let e = gardes[t.id];
     if (!e || e.version !== PartageChasses._version() || e.dernier !== (t.dernier || ""))
       return null;
-    let apresLaMinute = t.modifie != null && e.lu >= t.modifie + 60000 + MARGE_MINUTE_SUJET;
-    return apresLaMinute || Horloge.maintenant() - e.lu < DUREE_CACHE_FORUM ? e.v : null;
+    return Horloge.maintenant() - e.lu < DUREE_CACHE_FORUM ? e.v : null;
   }
   /**
    * @private
@@ -675,8 +662,7 @@ class PartageChasses {
     return recentes;
   }
   /**
-   * Sections d'un sujet commun, gardées tant que sa date « Dernier message » ne
-   * change pas.
+   * Sections d'un sujet commun, gardées une minute (sujetGarde).
    *
    * @private
    * @static
@@ -819,9 +805,11 @@ class PartageChasses {
     return new Promise((r) => setTimeout(r, ms));
   }
   /**
-   * Le sujet d'un joueur est-il recopié par sa section ? Oui s'il a été
-   * modifié au plus tard dans la minute où elle a été écrite (elle l'est après
-   * lui) ; plus récent (joueur pas encore à jour), c'est lui qui fait foi.
+   * Le sujet d'un joueur est-il recopié par sa section ? Oui si sa date
+   * « Dernier message » ne dépasse pas la minute où elle a été écrite. Cette
+   * date est celle de sa création ou de sa dernière réponse, pas de ses
+   * modifications (relevé du 14/11/2026) : un sujet modifié après sa section
+   * passe pour recopié, ses nouvelles entrées ne sont pas reportées.
    *
    * @static
    * @method couvert
@@ -841,9 +829,8 @@ class PartageChasses {
    * mainteneur), première étape : un joueur pas encore à jour partage dans son
    * sujet « Floods | … » / « Chasses | … », que l'extension ne lit plus ; ses
    * entrées à venir sont reportées dans sa section du sujet commun quand elle
-   * manque ou est plus ancienne que son sujet. La section reportée est datée de
-   * la minute qui précède la lecture du sujet : une modification faite dans la
-   * minute de la lecture le fait reporter de nouveau au rangement suivant.
+   * manque ou est plus ancienne que son sujet (couvert). La section reportée
+   * est datée de la seconde qui précède la minute de la lecture du sujet.
    *
    * @static
    * @method reporterTout

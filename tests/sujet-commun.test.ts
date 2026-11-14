@@ -295,19 +295,17 @@ describe("affichage : les sujets communs seulement", () => {
     expect(lectures()).toEqual(["11"]);
   });
 
-  test("sujet commun inchangé (même date) : gardé d'une page à l'autre", async () => {
+  test("sujets communs lus il y a moins d'une minute : gardés d'une page à l'autre ; au-delà, relus même si la colonne « Dernier message » n'a pas changé", async () => {
     preparer();
-    // 22:30:00 : le sujet commun, daté 22h29, est lu dans la minute qui suit sa date
     await charger();
-    regler("2026-11-13 22:35:00");
-    await charger();
-    // une modification de 22:29:59 pourrait manquer à cette lecture : relu une fois
-    expect(lectures()).toEqual(["10"]);
-    regler("2026-11-13 22:40:00");
+    regler("2026-11-13 22:30:50");
     await charger();
     expect(lectures()).toEqual([]);
     // lectures évitées, comptées pour la mesure du journal
     expect(lire<number>(`COMPTE_REQUETES.cache`)).toBeGreaterThan(0);
+    regler("2026-11-13 22:35:00");
+    await charger();
+    expect(lectures()).toEqual(["10", "11"]);
   });
 });
 
@@ -719,7 +717,7 @@ describe("boutons « Reporter les floods » et « Reporter les chasses » (maint
       FORUM.lectures.length = 0;
     })()`);
     expect(sectionsDe("10").map((s) => s.pseudo)).toEqual(["Alpha", "Gamma"]);
-    regler("2026-11-13 22:31:50");
+    regler("2026-11-13 22:31:20");
     await reporter();
     expect(lire<string[]>(`FORUM.lectures.filter((id) => ["2", "5", "6"].includes(id))`)).toEqual(
       [],

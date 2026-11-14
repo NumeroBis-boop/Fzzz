@@ -208,10 +208,10 @@ describe("clics, envois et requêtes", () => {
 
 describe("messages ouverts", () => {
   const MESSAGERIE = `<table>
-    <tr class="en_tete_message" id="conversation_11"><td class="td_objet">Vol par Alpha : 7 500 cm²</td></tr>
+    <tr id="conversation_11" class="en_tete_message" data-type="Combats"><td class="td_objet"><span class="message_affiche">17h23</span> <a class="intitule_message">Vol par Alpha : 7 500 cm²</a></td></tr>
     <tr><td><table><tr id="message_901"><td class="expe"><span class="date_locale" data-timestamp="1763137390">14/11/26 17h23</span></td>
       <td class="message">Troupes en attaque : 1 000 Jeune Soldate Naine. Alpha vous a pris 7 500 cm². Les unités survivantes ont appris de cette bataille.</td></tr></table></td></tr>
-    <tr class="en_tete_message" id="conversation_12"><td class="td_objet">Chasse</td></tr>
+    <tr id="conversation_12" class="en_tete_message" data-type="Chasses"><td class="td_objet"><span class="message_affiche">17h20</span> <a class="intitule_message">Chasse réussie : vos chasseuses ont conquis 1 000 cm² en 1 expédition</a></td></tr>
   </table>`;
 
   test("horodatage à la seconde, titre, phrases du TdC sans les armées ; une fois par message", () => {
@@ -225,6 +225,15 @@ describe("messages ouverts", () => {
       `message « Vol par Alpha : 7 500 cm² » message 901 : horodatage ${lire(`moment(1763137390000).format("DD/MM HH:mm:ss")`)} | Alpha vous a pris 7 500 cm²`,
     );
     expect(l[0].m).not.toContain("Soldate");
+  });
+
+  test("page de la Messagerie : conversation la plus récente, pour dater l'arrivée d'un RC", () => {
+    lire(`document.body.innerHTML = ${JSON.stringify(MESSAGERIE)}`);
+    expect(lire(`Releves.conversationRecente()`)).toBe(
+      "messagerie : 2 conversation(s), la plus récente n° 12 « Chasse réussie : vos chasseuses ont conquis 1 000 cm² en 1 expédition » (17h20)",
+    );
+    lire(`document.body.innerHTML = ""`);
+    expect(lire(`Releves.conversationRecente()`)).toBe("");
   });
 });
 

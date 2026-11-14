@@ -386,8 +386,45 @@ class Releves {
       }
       let compteurs = Releves.compteurs(document, envoi != null ? envoi : reponse, reponse);
       if (compteurs.length) morceaux.push(`compteurs : ${compteurs.join(" ; ")}`);
+      let messagerie = Releves.conversationRecente();
+      if (messagerie) morceaux.push(messagerie);
       Releves.noter("PAGE", morceaux.join(" | "), { t: reponse });
     });
+  }
+  /**
+   * Liste de la Messagerie : la conversation la plus récente (numéro le plus
+   * grand), pour dater l'arrivée d'un RC en rechargeant la page.
+   *
+   * @static
+   * @method conversationRecente
+   * @return {String} vide hors de la liste
+   */
+  static conversationRecente() {
+    let lignes = $("tr.en_tete_message[id^='conversation_']").get(),
+      numero = (/** @type {Element} */ tr) =>
+        parseInt(String(tr.id).replace("conversation_", "")) || 0;
+    if (!lignes.length) return "";
+    let recente = lignes.reduce((a, b) => (numero(b) > numero(a) ? b : a)),
+      $ligne = $(recente),
+      heure = ($ligne
+        .find(".td_objet")
+        .first()
+        .text()
+        .match(/\d{1,2}h\d{2}/) || [])[0];
+    return `messagerie : ${lignes.length} conversation(s), la plus récente n° ${numero(recente)} « ${Releves._titre($ligne).slice(0, 80)} »${heure ? ` (${heure})` : ""}`;
+  }
+  /**
+   * @private
+   * @static
+   * @param {any} $entete ligne d'une conversation
+   * @return {String}
+   */
+  static _titre($entete) {
+    let $titre = $entete.find(".intitule_message").first();
+    return ($titre.length ? $titre : $entete.find(".td_objet").first())
+      .text()
+      .replace(/\s+/g, " ")
+      .trim();
   }
   /**
    * Requête au jeu terminée (événements ajaxSend / ajaxComplete de jQuery) :
@@ -484,7 +521,7 @@ class Releves {
     $("tr.en_tete_message[id^='conversation_']").each(
       (/** @type {Number} */ i, /** @type {Element} */ entete) => {
         let $entete = $(entete),
-          titre = $entete.find(".td_objet").first().text().replace(/\s+/g, " ").trim(),
+          titre = Releves._titre($entete),
           categorie =
             typeof MessagerieFzzz != "undefined" ? MessagerieFzzz.categorie($entete) : null;
         $entete

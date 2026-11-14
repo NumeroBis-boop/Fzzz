@@ -171,8 +171,9 @@ class PageRessource {
   }
   /**
    * Chasses en cours listées par une page Ressources (la courante, ou une
-   * page lue par requête) : heure d'impact, terrain, unités, durée (réelle
-   * pour une chasse lancée d'ici, estimée sinon) et pertes estimées.
+   * page lue par requête) : arrivée à la seconde, heure d'impact (minute du
+   * RC), terrain, unités, durée (réelle pour une chasse lancée d'ici, estimée
+   * sinon) et pertes estimées.
    *
    * @static
    * @method lireChasses
@@ -237,6 +238,7 @@ class PageRessource {
           attaque > 0 ? SimulationChasse.pertes(attaque / difficulte, difficulte, bouclier).AVG : 0;
       chasses.push({
         impact: impact,
+        arrivee: arrivee,
         terrain: terrain || 0,
         unites: unites,
         duree: duree,

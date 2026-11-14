@@ -402,8 +402,17 @@ class AttaqueLancee {
    * aujourd'hui (rendu calqué sur le natif C+).
    */
   static formatArrivee(secondes) {
-    let rArrivee = Utils.roundMinute(secondes);
-    return `${rArrivee.isSame(Horloge.serveur(), "day") ? "à" : "le " + rArrivee.format("D MMM à")} ${rArrivee.format("HH[h]mm")}`;
+    return AttaqueLancee.formatMinute(Utils.roundMinute(secondes));
+  }
+  /**
+   * @static
+   * @method formatMinute
+   * @param {Object} minute (moment) minute du RC
+   * @return {String} « à 10h18 », ou « le 13 nov. à 10h18 » un autre jour que
+   *   celui du serveur
+   */
+  static formatMinute(minute) {
+    return `${minute.isSame(Horloge.serveur(), "day") ? "à" : "le " + minute.format("D MMM à")} ${minute.format("HH[h]mm")}`;
   }
   /**
    * Non-C+ : ajoute l'heure d'arrivée sous chaque ligne « Des renforts
@@ -703,9 +712,10 @@ class AttaqueLancee {
   }
   /**
    * Complète le tableau de mes attaques : variation et TdC de chacune d'après
-   * la simulation, lignes de mes chasses (bouton « Partager » si elle n'est pas
-   * dans le forum) et des floods partagés sur moi, le tout dans l'ordre de la
-   * simulation (minute du rapport, chasses d'abord, puis floods par numéro).
+   * la simulation, lignes de mes chasses (« Copier », et « Partager » si elle
+   * n'est pas dans le forum) et des floods partagés sur moi, le tout dans
+   * l'ordre de la simulation (minute du rapport, chasses d'abord, puis floods
+   * par numéro).
    *
    * @static
    * @method insererMouvements
@@ -749,13 +759,14 @@ class AttaqueLancee {
           <td class="o_troupesCourtes">${s && s.total ? numeral(s.total).format() : "—"}</td>
           <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: e.prise }, "")}</td>
           <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcApres)}</td>
-          <td class="o_attaqueActions">${
+          <td class="o_attaqueActions"><button type="button" class="o_button o_chasseCopier" title="Copier le détail ${nb > 1 ? "des chasses" : "de la chasse"}">Copier</button>${
             c.partagee
               ? `<span class="o_attaquePartage" title="Déjà publiée dans le forum de la ${tag}">Partagée ✓</span>`
               : `<button type="button" class="o_button f_info o_chassePartager" title="Partager cette chasse avec la ${tag}">Partager</button>`
           }</td></tr>`,
         );
       if (s && s.detail) $tr.find(".o_troupesCourtes").attr("title", s.detail);
+      $tr.find(".o_chasseCopier").data("o_chasse", c);
       $tr.find(".o_chassePartager").data("o_groupe", c.groupe);
       $corps.append($tr);
     });
@@ -784,9 +795,21 @@ class AttaqueLancee {
       tr.cells[0].textContent = String(i + 1);
     });
     $bloc.find(".o_attaquesCompte").text(`(${$corps.children("tr").length})`);
-    $bloc.off("click.o_chasses").on("click.o_chasses", ".o_chassePartager", (e) => {
-      AttaqueLancee.partagerChasses($(e.currentTarget));
-    });
+    $bloc
+      .off("click.o_chasses")
+      .on("click.o_chasses", ".o_chassePartager", (e) => {
+        AttaqueLancee.partagerChasses($(e.currentTarget));
+      })
+      .on("click.o_chasses", ".o_chasseCopier", (e) => {
+        let c = $(e.currentTarget).data("o_chasse");
+        if (!c) return;
+        CommerceFzzz.copier(
+          AttaqueLancee.formatChasses(c),
+          c.groupe && c.groupe.chasses.length > 1
+            ? "Chasses copiées dans le presse-papier."
+            : "Chasse copiée dans le presse-papier.",
+        );
+      });
     AttaqueLancee.majPartages();
     AttaqueLancee.figerActions();
     AttaqueLancee.ajusterTaille();
@@ -820,8 +843,8 @@ class AttaqueLancee {
    * partagés sur moi, dans l'ordre, avec la variation de mon TdC et mon TdC
    * après chacun (le contenu de la page d'un membre, pour moi). Chaque attaque
    * a ses boutons : copie au format du jeu, partage dans le forum, annulation
-   * (copie du lien Annuler du jeu), unitaire ou groupée ; chaque chasse, son
-   * partage.
+   * (copie du lien Annuler du jeu), unitaire ou groupée ; chaque chasse, sa
+   * copie au format du jeu et son partage.
    *
    * La liste du jeu reste telle quelle sous « Attaque(s) en cours ». Pour une
    * attaque non capturée, troupes et lieu viennent du texte du jeu quand il les
@@ -1091,7 +1114,9 @@ class AttaqueLancee {
   }
   /**
    * Colonne des actions : largeur réservée pour le plus large de « Partager »
-   * et « Partagé ✓ », pour que partager un flood ne fasse pas bouger le tableau.
+   * et « Partagé(e) ✓ », pour que partager un flood ou une chasse ne fasse pas
+   * bouger le tableau. En em, pour suivre la police qu'ajusterTaille réduit
+   * jusqu'à 60 % sur un écran étroit.
    *
    * @static
    * @method figerActions
@@ -1101,7 +1126,7 @@ class AttaqueLancee {
       $cellules = $table.find("td.o_attaqueActions");
     if (!$cellules.length) return;
     let $essai = $(
-        `<span class="o_attaquePartage">Partagé ✓</span><button type="button" class="o_button f_info o_attaquePartager">Partager</button>`,
+        `<span class="o_attaquePartage">Partagée ✓</span><button type="button" class="o_button f_info o_attaquePartager">Partager</button>`,
       ),
       $cadre = $("<span style='position:absolute;visibility:hidden;white-space:nowrap'></span>")
         .append($essai)
@@ -1112,13 +1137,15 @@ class AttaqueLancee {
       ),
       largeur = 0;
     $cadre.remove();
+    // largeur du contenu : min-width ne compte pas la marge intérieure de la cellule
     $cellules.each((i, td) => {
       largeur = Math.max(
         largeur,
-        $(td).outerWidth() + ($(td).find(".o_attaquePartager").length ? surplus : 0),
+        $(td).width() + ($(td).find(".o_attaquePartager, .o_chassePartager").length ? surplus : 0),
       );
     });
-    $cellules.css("min-width", largeur + "px");
+    let police = parseFloat(getComputedStyle($cellules[0]).fontSize) || 16;
+    $cellules.css("min-width", largeur / police + "em");
   }
   /**
    * Une attaque par ligne : si le tableau dépasse son cadre, la police
@@ -1454,6 +1481,39 @@ class AttaqueLancee {
         .pop();
     if (derniere)
       texte += `\n\nTerrain estimé de ${cible} à l'arrivée : ${numeral(derniere.capture.terrainCible).format()}`;
+    return texte;
+  }
+  /**
+   * Texte copié d'une ligne de chasse du bloc « Mes attaques en cours » :
+   * chaque chasse au format des lignes de la page Ressources, arrivée à la
+   * minute du RC comme pour une attaque (formatForum), puis mon terrain estimé
+   * après elles. Chasses du forum (page Ressources illisible) : ni compte à
+   * rebours ni troupes, que la ligne du forum ne donne pas.
+   *
+   * @static
+   * @method formatChasses
+   * @param {Object} c {evenement, groupe} de lireMouvements
+   * @return {String}
+   */
+  static formatChasses(c) {
+    let e = c.evenement,
+      chasses = c.groupe
+        ? c.groupe.chasses
+        : [{ impact: moment(e.date, "YYYY-MM-DD HH:mm"), terrain: e.terrain, unites: {} }],
+      texte = chasses
+        .map((h) => {
+          let troupes = PageRessource.sommeChasses([h]).detail,
+            dans = h.arrivee
+              ? ` dans ${Utils.intToTime(Math.max(0, h.arrivee.diff(Horloge.serveur(), "s")))}`
+              : "",
+            lignes = [`- Vos chasseuses vont conquérir ${numeral(h.terrain).format()} cm²${dans}`];
+          if (troupes) lignes.push(`Troupes en chasses : ${troupes}.`);
+          lignes.push(`Arrivée ${AttaqueLancee.formatMinute(h.impact)}`);
+          return lignes.join("\n");
+        })
+        .join("\n\n");
+    if (e.tdcApres != null)
+      texte += `\n\nTerrain estimé de ${monProfil.pseudo} après ${chasses.length > 1 ? "ces chasses" : "cette chasse"} : ${numeral(e.tdcApres).format()}`;
     return texte;
   }
 }

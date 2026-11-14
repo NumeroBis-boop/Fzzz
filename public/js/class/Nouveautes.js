@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.117.3",
+    notes: [
+      "Page Armée, bloc « Mes attaques en cours » : les chasses ont aussi un bouton « Copier », qui copie chaque chasse comme la page Ressources l'écrit (terrain, temps restant, troupes, arrivée), puis ton terrain estimé après elles.",
+    ],
+  },
+  {
     version: "1.117.2",
     notes: [
       "Boîte « Extension OUAF » : toute la ligne « Nouvelle version … : mettre à jour » est le lien de mise à jour, en rouge et en gras.",

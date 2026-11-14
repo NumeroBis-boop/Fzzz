@@ -38,7 +38,7 @@ const page = creerPage(
      chargerProfil() { this.terrain = JEU.profils[this.pseudo]; return !!this.terrain; }
    };
    var TroupesDehors = { synchroniserAttaques: () => {}, ajouterAttaque: () => {}, charger: () => [] };
-   var CommerceFzzz = { copier: (texte) => (window.COPIE = texte) };`,
+   var CommerceFzzz = { copier: (texte, message) => { window.COPIE = texte; window.COPIE_MESSAGE = message; } };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 lire(FORUM_SIMULE);
@@ -95,7 +95,7 @@ beforeEach(() => {
     localStorage.clear(); sessionStorage.clear();
     heure = moment("2026-11-12 10:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
     window.TOASTS = []; $.toast = (o) => { TOASTS.push(o.text); return {}; };
-    window.COPIE = null;
+    window.COPIE = null; window.COPIE_MESSAGE = null;
     window.JEU = { lues: [], ressources: true, annulation: "", rechargements: 0, profils: { Dehors: 55000 } };
     window.FORUM = ${JSON.stringify(FORUM)};
     window.ECRITS = { floods: [], chasses: [], retraits: [], partage: true, illisible: false };
@@ -112,7 +112,8 @@ beforeEach(() => {
     PartageChasses.partager = (groupes, $b) => { ECRITS.chasses.push(groupes.map((g) => g.impact.format("HH:mm") + " " + g.terrain)); return Promise.resolve(ECRITS.partage); };
     PartageChasses.retirerFloods = (ids) => { ECRITS.retraits.push(ids); return Promise.resolve(); };
     PageRessource.lireChasses = () => ${JSON.stringify(CHASSES)}.map(([h, terrain, jsn]) => ({
-      impact: moment("2026-11-12 " + h, "YYYY-MM-DD HH:mm"), terrain, unites: { "Jeunes Soldates Naines": jsn }, duree: 3600, estime: false, pertes: 0 }));
+      impact: moment("2026-11-12 " + h, "YYYY-MM-DD HH:mm"), arrivee: moment("2026-11-12 " + h, "YYYY-MM-DD HH:mm").subtract(30, "s"),
+      terrain, unites: { "Jeunes Soldates Naines": jsn }, duree: 3600, estime: false, pertes: 0 }));
     let lire = (url) => {
       let adresse = String(url);
       JEU.lues.push(adresse.replace(location.origin, ""));
@@ -156,11 +157,11 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     await ouvrir();
     // 100 000 + 3 000 (chasses), − 20 600 (Autre : 20 % de 103 000), + 5 000, + 4 000, + 1 000
     expect(lignes()).toEqual([
-      "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | Partagée ✓",
+      "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | CopierPartagée ✓",
       "2 | 12/11 10h25 | Autre → moi | 30 000 | −20 600 (20 %) | 82 400 |",
       "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓",
       "4 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 91 400 | CopierPartager",
-      "5 | 12/11 11h00 | Chasse | 500 | +1 000 | 92 400 | Partager",
+      "5 | 12/11 11h00 | Chasse | 500 | +1 000 | 92 400 | CopierPartager",
     ]);
     expect(lire(`$("#o_attaquesLancees .o_attaquesCompte").text()`)).toBe("(5)");
     expect(lire(`$("#o_attaquesLancees thead th").map((i, th) => th.textContent).get()`)).toEqual([
@@ -290,7 +291,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     lire(`JEU.ressources = false`);
     await ouvrir();
     expect(lignes().filter((l) => l.includes("Chasse"))).toEqual([
-      "1 | 12/11 10h21 | Chasse | — | +3 000 | 103 000 | Partagée ✓",
+      "1 | 12/11 10h21 | Chasse | — | +3 000 | 103 000 | CopierPartagée ✓",
     ]);
   });
 
@@ -298,10 +299,10 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     lire(`ECRITS.illisible = true`);
     await ouvrir();
     expect(lignes()).toEqual([
-      "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | Partager",
+      "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | CopierPartager",
       "2 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 108 000 | CopierPartager",
       "3 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 112 000 | CopierPartager",
-      "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 113 000 | Partager",
+      "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 113 000 | CopierPartager",
     ]);
   });
 
@@ -318,9 +319,9 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     // mon flood 501 du forum n'est plus dans la liste du jeu : il ne compte pas
     expect(lignes()).toEqual([
       "1 | 12/11 10h10:00 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓Annuler",
-      "2 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 105 000 | Partagée ✓",
+      "2 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 105 000 | CopierPartagée ✓",
       "3 | 12/11 10h25 | Autre → moi | 30 000 | −21 000 (20 %) | 84 000 |",
-      "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 85 000 | Partager",
+      "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 85 000 | CopierPartager",
     ]);
   });
 
@@ -384,7 +385,7 @@ describe("« Partager » : floods et chasses", () => {
     lire(`ECRITS.partage = true; $("#o_attaquesLancees .o_chassePartager").trigger("click")`);
     await attendre();
     expect(lire(`$("#o_attaquesLancees .o_chassePartager").length`)).toBe(0);
-    expect(lignes()[4]).toEndWith("| Partagée ✓");
+    expect(lignes()[4]).toEndWith("| CopierPartagée ✓");
   });
 
   test("« Partager tous » : mes floods pas encore partagés, puis mes chasses pas encore partagées", async () => {
@@ -425,6 +426,102 @@ describe("« Partager » : floods et chasses", () => {
     lire(`$("#o_attaquesLancees .o_attaqueCopier").first().trigger("click")`);
     expect(lire(`ECRITS.floods`)).toEqual([[502]]);
     expect(lire<string>(`COPIE`)).toContain("- Vous allez attaquer Cible (Terrain de chasse)");
+  });
+});
+
+describe("« Copier » d'une chasse : au format des lignes de la page Ressources", () => {
+  // espaces des nombres écrits à la française ramenées à l'espace simple
+  const copie = () => lire<string>(`COPIE`).replace(/[  ]/g, " ");
+  const copier = (n: number) =>
+    lire(`$("#o_attaquesLancees tr.o_ligneChasse .o_chasseCopier").eq(${n}).trigger("click")`);
+
+  test("chasses d'une même minute : chacune comme le jeu l'écrit, arrivée à la minute du RC, puis mon terrain après elles", async () => {
+    await ouvrir();
+    expect(
+      lire(`$("#o_attaquesLancees tr.o_ligneChasse .o_chasseCopier").map((i, b) => b.title).get()`),
+    ).toEqual(["Copier le détail des chasses", "Copier le détail de la chasse"]);
+    copier(0);
+    expect(copie()).toBe(
+      [
+        "- Vos chasseuses vont conquérir 1 000 cm² dans 19m 30s",
+        "Troupes en chasses : 400 Jeunes Soldates Naines.",
+        "Arrivée à 10h20",
+        "",
+        "- Vos chasseuses vont conquérir 2 000 cm² dans 20m 30s",
+        "Troupes en chasses : 600 Jeunes Soldates Naines.",
+        "Arrivée à 10h21",
+        "",
+        "Terrain estimé de Moi après ces chasses : 103 000",
+      ].join("\n"),
+    );
+    expect(lire(`COPIE_MESSAGE`)).toBe("Chasses copiées dans le presse-papier.");
+  });
+
+  test("une chasse seule : compte à rebours à l'heure du clic, terrain après elle (floods sur moi compris)", async () => {
+    await ouvrir();
+    lire(`heure += 60000`);
+    copier(1);
+    expect(copie()).toBe(
+      [
+        "- Vos chasseuses vont conquérir 1 000 cm² dans 58m 30s",
+        "Troupes en chasses : 500 Jeunes Soldates Naines.",
+        "Arrivée à 11h00",
+        "",
+        "Terrain estimé de Moi après cette chasse : 92 400",
+      ].join("\n"),
+    );
+    expect(lire(`COPIE_MESSAGE`)).toBe("Chasse copiée dans le presse-papier.");
+  });
+
+  test("arrivée un autre jour : la date est écrite, comme pour une attaque", async () => {
+    lire(`(() => {
+      FORUM = { chasses: {}, floods: [] };
+      PageRessource.lireChasses = () => [{ impact: moment("2026-11-13 00:31", "YYYY-MM-DD HH:mm"), arrivee: moment("2026-11-13 00:30:40", "YYYY-MM-DD HH:mm:ss"),
+        terrain: 12924, unites: { "Jeunes Soldates Naines": 518, "Artilleuses d’élites": 3579 }, duree: 3600, estime: false, pertes: 0 }];
+    })()`);
+    await ouvrir([], []);
+    copier(0);
+    expect(copie()).toBe(
+      [
+        "- Vos chasseuses vont conquérir 12 924 cm² dans 14h 30m 40s",
+        "Troupes en chasses : 518 Jeunes Soldates Naines, 3 579 Artilleuses d’élites.",
+        "Arrivée le 13 nov. à 00h31",
+        "",
+        "Terrain estimé de Moi après cette chasse : 112 924",
+      ].join("\n"),
+    );
+  });
+
+  test("page Ressources illisible : la chasse du forum, sans compte à rebours ni troupes", async () => {
+    lire(`JEU.ressources = false`);
+    await ouvrir([], []);
+    copier(0);
+    expect(copie()).toBe(
+      [
+        "- Vos chasseuses vont conquérir 3 000 cm²",
+        "Arrivée à 10h21",
+        "",
+        "Terrain estimé de Moi après cette chasse : 103 000",
+      ].join("\n"),
+    );
+  });
+
+  test("colonne des boutons : largeur réservée en em, qui suit la police réduite sur un écran étroit", async () => {
+    await ouvrir();
+    expect(
+      lire<string[]>(
+        `$("#o_attaquesLancees td.o_attaqueActions").map((i, td) => td.style.minWidth.replace(/[\\d.]+/, "N")).get()`,
+      ),
+    ).toEqual(Array(5).fill("Nem"));
+  });
+
+  test("le bouton passe avant « Partager » ou « Partagée ✓ », comme sur une ligne d'attaque", async () => {
+    await ouvrir([], []);
+    expect(
+      lire(
+        `$("#o_attaquesLancees tr.o_ligneChasse td.o_attaqueActions").map((i, td) => $(td).children().map((k, e) => e.className.split(" ").pop()).get().join(" ")).get()`,
+      ),
+    ).toEqual(["o_chasseCopier o_attaquePartage", "o_chasseCopier o_chassePartager"]);
   });
 });
 

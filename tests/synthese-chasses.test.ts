@@ -195,6 +195,18 @@ describe("heure d'une chasse : minute du RC, où le TdC change", () => {
       return chasses.map((c) => c.impact.format("YYYY-MM-DD HH:mm:ss")).concat(partage.map((g) => "partage " + g.impact.format("YYYY-MM-DD HH:mm")));
     })()`);
 
+  test("arrivée gardée à la seconde, d'après le compte à rebours du jeu (« Copier » du bloc « Mes attaques en cours »)", () => {
+    expect(
+      lire<string[]>(`(() => {
+        let serveur = Horloge.serveur;
+        Horloge.serveur = () => moment("2026-11-11 22:00:20", "YYYY-MM-DD HH:mm:ss");
+        let chasses = PageRessource.lireChasses(Utils.parseHtml(${JSON.stringify(`<div id='boite_tdc'>${chasse(1, 5960, "23h39")}${chasse(2, 7170, null)}</div>`)}));
+        Horloge.serveur = serveur;
+        return chasses.map((c) => c.arrivee.format("YYYY-MM-DD HH:mm:ss"));
+      })()`),
+    ).toEqual(["2026-11-11 23:39:40", "2026-11-11 23:59:50"]);
+  });
+
   test("« Arrivée à 23h39 » (arrivée à 23h39:40) : TdC ajouté à 23h40, l'heure partagée", () => {
     expect(lireImpacts(chasse(1, 5960, "23h39"))).toEqual([
       "2026-11-11 23:40:00",

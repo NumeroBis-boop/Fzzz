@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js"],
@@ -12,7 +13,7 @@ const recaler = (anciennes: object[], groupes: object[]) =>
     `PartageChasses.recalerListeChasses(${JSON.stringify(anciennes)}, ${JSON.stringify(groupes)}, "2026-10-29 10:00")`,
   );
 
-describe("chasses annulées : ma section du sujet commun des chasses recalée", () => {
+describe("chasses annulées : ma réponse du sujet commun des chasses recalée", () => {
   const sujet = [
     { date: "2026-10-29 13:07", terrain: 30000 },
     { date: "2026-10-29 12:00", terrain: 10000 },
@@ -41,22 +42,23 @@ describe("chasses annulées : ma section du sujet commun des chasses recalée", 
       change: true,
     });
   });
-  test("tout annulé : ma section retirée, une chasse non partagée n'y entre pas", async () => {
+  test("tout annulé : ma réponse vidée, une chasse non partagée n'y entre pas", async () => {
+    page.lire(FORUM_SIMULE);
     page.lire(`(() => {
       localStorage.clear(); ECRIT = null; LECTURES = 0;
       $.toast = () => {};
-      window.TEXTE = ["Autres membres :", "--- DoggyBag · 2026-10-29 09:00:00 ---", "29/10/26 13:07 | 30 000 cm²", "29/10/26 12:00 | 10 000 cm²"].join("\\n");
+      window.TEXTE = ["29/10/26 13:07 | 30 000 cm²", "29/10/26 12:00 | 10 000 cm²"].join("\\n");
+      const sujet = () => ({ id: "11", titre: "BDD générale chasse", texte: "", reponses: [{ id: 700, auteur: "DoggyBag", texte: TEXTE }] });
+      PartageChasses._html = (d) => d;
       PartageChasses.sujets = () => Promise.resolve({ communs: { Chasses: { type: "Chasses", id: "11" } }, historiques: [] });
-      PartageChasses._attendre = () => Promise.resolve();
-      PartageChasses._texteSujet = () => { LECTURES++; return Promise.resolve(TEXTE); };
-      PartageChasses._xajax = (f, q) => { ECRIT = TEXTE = decodeURIComponent(/message=([^&]*)/.exec(q)[1]); return Promise.resolve(""); };
+      PartageChasses._lireSujet = () => { LECTURES++; return Promise.resolve(SIM.html(sujet(), "DoggyBag")); };
+      PartageChasses._xajax = (f, q) => { ECRIT = TEXTE = SIM.q(q, "message"); return Promise.resolve(SIM.html(sujet(), "DoggyBag")); };
     })()`);
     await page.lire(
       `PartageChasses.recalerChasses([{ debut: "2026-10-29 15:00", fin: "2026-10-29 15:00", terrain: 999 }])`,
     );
-    // le texte écrit à la main avant les sections reste
-    expect(page.lire("ECRIT")).toBe("Autres membres :");
-    // plus rien à venir dans ma section : le forum n'est plus relu
+    expect(page.lire("ECRIT")).toBe("Aucune chasse en cours.");
+    // plus rien à venir dans ma réponse : le forum n'est plus relu
     const lues = page.lire<number>("LECTURES");
     await page.lire(`PartageChasses.recalerChasses([])`);
     expect(page.lire("LECTURES")).toBe(lues);

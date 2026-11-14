@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 
 /**
  * Sujets communs du forum (« BDD générale flood / chasse - NE RIEN ÉCRIRE »)
@@ -18,6 +19,7 @@ const page = creerPage(
    var SUJETS = [], CONTENUS = {}, LUS = [], ECHECS = [];`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+lire(FORUM_SIMULE);
 lire(`(() => {
   PartageChasses.idSection = "7";
   PartageChasses._html = (d) => d;
@@ -28,13 +30,13 @@ lire(`(() => {
           '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td>' +
           (s.dernier == null ? "" : '<td><b>DoggyBag</b><br/>' + s.dernier + '</td>') + '</tr>').join("") + '</table></form>')
       : Promise.reject(new Error("inattendu"));
-  // premier message d'un sujet commun : une section par joueur
-  PartageChasses._texteSujet = (id) => {
+  // sujet commun : une réponse par joueur
+  PartageChasses._lireSujet = (id) => {
     LUS.push(id);
     if (ECHECS.includes(id)) return Promise.reject(new Error("forum"));
     let type = id == "10" ? "Floods" : "Chasses";
-    return Promise.resolve((CONTENUS[id] || []).map((s) =>
-      ["--- " + s.pseudo + " · 2026-11-13 20:00:00 ---", ...s.entrees.map((e) => PartageChasses._ligne(type, e))].join("\\n")).join("\\n"));
+    return Promise.resolve(SIM.html({ id, titre: "Sujet " + id, texte: "", reponses: (CONTENUS[id] || []).map((s, i) =>
+      ({ id: 500 + i, auteur: s.pseudo, texte: s.entrees.map((e) => PartageChasses._ligne(type, e)).join("\\n") })) }, monProfil.pseudo));
   };
 })()`);
 
@@ -74,7 +76,8 @@ function preparer() {
 /** Une page qui affiche les partages : liste des sujets relue, puis charger(). */
 async function afficher(quand: string) {
   regler(quand);
-  lire(`(() => { PartageChasses.oublierCache(); LUS.length = 0; })()`);
+  // liste des sujets relue ; les lectures gardées des sujets communs restent
+  lire(`(() => { localStorage.removeItem("fzzz_cacheForum"); LUS.length = 0; })()`);
   const d = await lire<Promise<any>>(
     `PartageChasses.charger().then((d) => JSON.parse(JSON.stringify(d)))`,
   );
@@ -87,64 +90,14 @@ const modifier = (pseudo: string, dernier: string, floods: any[]) =>
     CONTENUS[10].find((s) => s.pseudo == ${JSON.stringify(pseudo)}).entrees = ${JSON.stringify(floods)};
   })()`);
 
-describe("date « Dernier message » de la liste des sujets", () => {
-  const date = (texte: string) =>
-    lire<number | null>(`PartageChasses.dateListe(${JSON.stringify(texte)})`);
-  const ms = (t: string) =>
-    lire<number>(`moment(${JSON.stringify(t)}, "YYYY-MM-DD HH:mm").valueOf()`);
-
-  test("jour, mois abrégé, heure ; l'année quand elle est écrite ; aujourd'hui, hier", () => {
-    regler("2026-11-13 22:30:00");
-    expect(date("DoggyBag 13 nov. à 22h20")).toBe(ms("2026-11-13 22:20"));
-    expect(date("Grim 2 janv. 2025 à 9h05")).toBe(ms("2025-01-02 09:05"));
-    expect(date("Bob Aujourd’hui à 08h00")).toBe(ms("2026-11-13 08:00"));
-    expect(date("hier à 23h59")).toBe(ms("2026-11-12 23:59"));
-    const mois = [
-      "janv.",
-      "févr.",
-      "mars",
-      "avr.",
-      "mai",
-      "juin",
-      "juil.",
-      "août",
-      "sept.",
-      "oct.",
-      "nov.",
-      "déc.",
-    ];
-    expect(mois.map((m) => lire<number>(`moment(${date(`1 ${m} 2026 à 1h00`)}).month()`))).toEqual([
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-    ]);
-  });
-
-  test("sans année, une date à venir est celle de l'an passé", () => {
-    regler("2027-01-02 10:00:00");
-    expect(date("28 déc. à 23h00")).toBe(ms("2026-12-28 23:00"));
-    expect(date("2 janv. à 9h00")).toBe(ms("2027-01-02 09:00"));
-  });
-
-  test("pseudo collé à la date : le jour reste juste ou devient plus tardif, jamais plus tôt", () => {
-    regler("2026-11-13 22:30:00");
-    expect(date("Bob413 nov. à 22h20")).toBe(ms("2026-11-13 22:20"));
-    // « Bob1 » + « 3 nov. » : lu 13 nov., plus tard que le vrai : le sujet est relu, jamais gardé à tort
-    expect(date("Bob13 nov. à 22h20")! >= ms("2026-11-03 22:20")).toBe(true);
-  });
-
-  test("illisible : null", () => {
-    for (const t of ["", "DoggyBag", "13 foo. à 22h20", "43 nov. à 22h20", "13 nov. 22h20"])
-      expect(date(t)).toBeNull();
-  });
-
-  test("la liste donne, pour chaque sujet commun, le texte de la colonne et sa minute", async () => {
+describe("colonne « Dernier message » de la liste des sujets", () => {
+  test("la liste donne, pour chaque sujet commun, le texte de la colonne", async () => {
     preparer();
     regler("2026-11-13 22:30:00");
     const sujets = await lire<Promise<any>>(`PartageChasses.sujets()`);
-    expect(
-      Object.values(sujets.communs).map((s: any) => [s.type, s.id, s.dernier, s.modifie]),
-    ).toEqual([
-      ["Floods", "10", "DoggyBag 13 nov. à 22h20", ms("2026-11-13 22:20")],
-      ["Chasses", "11", "DoggyBag 13 nov. à 21h00", ms("2026-11-13 21:00")],
+    expect(Object.values(sujets.communs).map((s: any) => [s.type, s.id, s.dernier])).toEqual([
+      ["Floods", "10", "DoggyBag 13 nov. à 22h20"],
+      ["Chasses", "11", "DoggyBag 13 nov. à 21h00"],
     ]);
     // les anciens sujets des joueurs ne servent plus aux floods ni aux chasses
     expect(sujets["Floods | alpha"]).toBeUndefined();
@@ -218,7 +171,7 @@ describe("sujets communs gardés une minute", () => {
 
   test("sujet commun illisible : l'affichage échoue (il manquerait des joueurs), relu à la page suivante", async () => {
     preparer();
-    lire(`(() => { ECHECS.push("10"); PartageChasses.oublierCache(); })()`);
+    lire(`(() => { ECHECS.push("10"); localStorage.removeItem("fzzz_cacheForum"); })()`);
     regler("2026-11-13 22:30:00");
     expect(await lire(`PartageChasses.charger().then(() => "lu", (e) => e.message)`)).toBe("forum");
     lire(`(() => { ECHECS.length = 0; })()`);
@@ -231,7 +184,9 @@ describe("sujets communs gardés une minute", () => {
     await afficher("2026-11-13 22:30:00");
     modifier("Alpha", "13 nov. à 22h30", [flood("2026-11-13 23:40", "Beta", 12)]);
     regler("2026-11-13 22:30:40");
-    lire(`(() => { PartageChasses.oublierCache(); window.AVANCE = { prevues: 0, faites: 0 }; })()`);
+    lire(
+      `(() => { localStorage.removeItem("fzzz_cacheForum"); window.AVANCE = { prevues: 0, faites: 0 }; })()`,
+    );
     await lire(
       `PartageChasses.charger(null, true, { prevoir: (n) => (AVANCE.prevues += n), faite: () => AVANCE.faites++ })`,
     );
@@ -239,11 +194,11 @@ describe("sujets communs gardés une minute", () => {
     expect(lire(`[AVANCE.prevues, AVANCE.faites]`)).toEqual([2, 2]);
   });
 
-  test("les écritures relisent toujours le forum : ma section est relue sans les lectures gardées", async () => {
+  test("les écritures relisent toujours le forum : ma réponse est relue sans les lectures gardées", async () => {
     preparer();
     await afficher("2026-11-13 22:30:00");
     lire(`(() => { LUS.length = 0; })()`);
-    await lire(`PartageChasses._modifierSection("Floods", () => null)`);
+    await lire(`PartageChasses._modifierMessage("Floods", () => null)`);
     expect(lire<string[]>(`LUS.slice()`)).toEqual(["10"]);
   });
 });

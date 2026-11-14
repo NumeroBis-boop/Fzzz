@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 
 /**
- * Partage des chasses et des floods dans la section du joueur des sujets
+ * Partage des chasses et des floods dans la réponse du joueur des sujets
  * communs « BDD générale … » : le forum ne signale pas une écriture refusée
- * (grade sans droit d'écrire dans la section, premier message bloqué par une
- * réponse). Après l'écriture, le sujet est relu ; la section absente ou plus
- * ancienne, l'écriture est refaite, puis le joueur est prévenu en rouge au
- * lieu d'un succès (1.100.1, joueur sans sujet après « partagé »).
+ * (grade sans droit d'écrire dans la section). Il répond par le sujet à jour :
+ * sans le changement (après une relecture si sa réponse n'a pas le sujet), le
+ * joueur est prévenu en rouge au lieu d'un succès (1.100.1, joueur sans sujet
+ * après « partagé »).
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js"],
@@ -18,11 +19,12 @@ const page = creerPage(
    var AttaqueLancee = { majPartages() {}, oublierPartage(ids) { OUBLIES.push(...ids); } };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+lire(FORUM_SIMULE);
 const FLOODS = "BDD générale flood - NE RIEN ÉCRIRE";
 const CHASSES = "BDD générale chasse - NE RIEN ÉCRIRE";
 
 // forum simulé : la section 7, ses sujets communs ; `refuse` : écriture
-// acceptée par le jeu sans effet (grade sans droit, message verrouillé)
+// acceptée par le jeu sans effet (grade sans droit)
 beforeEach(() => {
   lire(`(() => {
     localStorage.clear();
@@ -39,8 +41,6 @@ beforeEach(() => {
     };
     PartageChasses.idSection = null;
     PartageChasses._html = (d) => d;
-    PartageChasses._attendre = () => Promise.resolve();
-    const q = (args, k) => { const m = new RegExp("[&>]" + k + "=([^&<]*)").exec(args); return m ? decodeURIComponent(m[1]) : null; };
     PartageChasses._xajax = (f, args) => {
       FORUM.appels.push(f + (args === undefined ? " sections" : ""));
       if (FORUM.illisible) return Promise.reject(new Error("réseau"));
@@ -48,13 +48,8 @@ beforeEach(() => {
         return Promise.resolve(FORUM.sections.map((s, i) => '<span class="forum' + (7 + i) + '">' + s + "</span>").join(""));
       if (f == "callGetForum")
         return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) => '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td></tr>').join("") + '</table></form>');
-      if (f == "callGetTopic") {
-        const s = FORUM.sujets.find((s) => s.id == args);
-        return Promise.resolve(s ? s.messages.map((m) => '<div class="messageForum">' + m.replace(/\\n/g, "<br/>") + "</div>").join("") : "");
-      }
       if (FORUM.refuse(f)) return Promise.resolve("");
-      if (f == "envoiEditTopic") FORUM.sujets.find((s) => s.id == q(args, "IDTopic")).messages[0] = q(args, "message");
-      return Promise.resolve("");
+      return SIM.traiter(FORUM.sujets, f, args, monProfil.pseudo) || Promise.resolve("");
     };
   })()`);
 });
@@ -74,62 +69,56 @@ const partager = async (type: "Chasses" | "Floods", entree: object) => {
   );
   return lire<{ t: string; text: string }[]>(`TOASTS.map((o) => ({ t: o.t, text: o.text }))`);
 };
-const message = (id: string) =>
-  lire<string>(`FORUM.sujets.find((s) => s.id == "${id}").messages[0]`);
-const section = (titre: string, lignes: string[]) => [`--- ${titre} ---`, ...lignes].join("\n");
+/** Réponses d'un sujet commun : [auteur, texte]. */
+const reponses = (id: string) =>
+  lire<[string, string][]>(
+    `(FORUM.sujets.find((s) => s.id == "${id}").reponses || []).map((r) => [r.auteur, r.texte])`,
+  );
 
-describe("partage dans ma section du sujet commun", () => {
-  test("première section : écrite sous le texte du sujet, relue après la pause, succès", async () => {
+describe("partage dans ma réponse du sujet commun", () => {
+  test("première réponse : postée après le premier message, vérifiée dans la réponse du forum, succès", async () => {
     const toasts = await partager("Chasses", CHASSE);
-    // rien à archiver : le sujet lu sert à l'écriture, sans être relu avant
+    // rien à archiver : le sujet lu sert à l'écriture ; la réponse du forum, sujet à jour, sert de vérification
     expect(lire(`FORUM.appels`)).toEqual([
       "callGetForum sections",
       "callGetForum",
       "callGetTopic",
-      "envoiEditTopic",
-      "callGetTopic",
+      "envoiNouveauMessage",
     ]);
-    expect(message("11")).toBe(
-      [
-        "NE RIEN ÉCRIRE",
-        section("LabraDrungor · 2026-11-10 10:00:00", ["10/11/26 12:00 | 25 000 cm²"]),
-      ].join("\n"),
-    );
+    expect(reponses("11")).toEqual([["LabraDrungor", "10/11/26 12:00 | 25 000 cm²"]]);
+    expect(lire(`FORUM.sujets[1].messages[0]`)).toBe("NE RIEN ÉCRIRE");
     expect(toasts.map((t) => t.t)).toEqual(["succes"]);
     expect(toasts[0]?.text).toStartWith("1 chasse partagée avec la ");
   });
 
-  test("sections des autres joueurs gardées telles quelles ; la mienne fusionnée", async () => {
-    lire(
-      `FORUM.sujets[0].messages[0] = ${JSON.stringify(
-        [
-          section("Alpha · 2026-11-10 09:00:00", ["10/11/26 13:00 | Charlie | 1 000 cm² | #5"]),
-          section("LabraDrungor · 2026-11-10 09:30:00", [
-            "10/11/26 11:00 | Bravo | 1 000 unités | 1 000 cm² | #12",
-          ]),
-        ].join("\n"),
-      )}`,
-    );
+  test("réponses des autres joueurs gardées telles quelles ; la mienne fusionnée", async () => {
+    lire(`FORUM.sujets[0].reponses = [
+      { id: 5, auteur: "Alpha", texte: "10/11/26 13:00 | Charlie | 1 000 cm² | #5" },
+      { id: 6, auteur: "LabraDrungor", texte: "10/11/26 11:00 | Bravo | 1 000 unités | 1 000 cm² | #12" },
+    ]`);
     await partager("Floods", FLOOD);
-    expect(message("10")).toBe(
+    expect(lire(`FORUM.appels`)).toContain("envoiEditMessage");
+    expect(reponses("10")).toEqual([
+      ["Alpha", "10/11/26 13:00 | Charlie | 1 000 cm² | #5"],
       [
-        section("Alpha · 2026-11-10 09:00:00", ["10/11/26 13:00 | Charlie | 1 000 cm² | #5"]),
-        section("LabraDrungor · 2026-11-10 10:00:00", [
+        "LabraDrungor",
+        [
           "10/11/26 12:30 | Bravo | 3 000 unités | 3 000 cm² | #13",
           "10/11/26 11:00 | Bravo | 1 000 unités | 1 000 cm² | #12",
-        ]),
-      ].join("\n"),
-    );
+        ].join("\n"),
+      ],
+    ]);
   });
 
-  test("écriture refusée en silence (réponse dans le sujet, grade) : trois essais, puis erreur en rouge", async () => {
-    lire(`FORUM.refuse = (f) => f == "envoiEditTopic"`);
+  test("écriture refusée en silence (grade) : sujet relu une fois, puis erreur en rouge", async () => {
+    lire(`FORUM.refuse = (f) => f == "envoiNouveauMessage"`);
     const toasts = await partager("Floods", FLOOD);
-    expect(lire<string[]>(`FORUM.appels.filter((a) => a == "envoiEditTopic")`).length).toBe(3);
+    expect(lire<string[]>(`FORUM.appels.filter((a) => a == "envoiNouveauMessage")`).length).toBe(1);
+    expect(lire<string[]>(`FORUM.appels.slice(-1)`)).toEqual(["callGetTopic"]);
     expect(toasts).toEqual([
       {
         t: "erreur",
-        text: `Partage non enregistré : le sujet « ${FLOODS} » n'a pas été modifié. Si quelqu'un y a répondu, son premier message n'est plus modifiable (un chef peut supprimer la réponse) ; sinon, ton grade n'a peut-être pas le droit d'y écrire (demande à un chef), ou d'autres membres l'écrivaient au même moment : réessaie.`,
+        text: `Partage non enregistré : ta réponse dans le sujet « ${FLOODS} » n'a pas été écrite. Ton grade n'a peut-être pas le droit d'écrire dans la section « BDD partagée cachée » : demande à un chef.`,
       },
     ]);
   });
@@ -137,27 +126,31 @@ describe("partage dans ma section du sujet commun", () => {
   test("pas de sujet commun : rien n'est écrit, l'erreur dit de le créer", async () => {
     lire(`FORUM.sujets = FORUM.sujets.filter((s) => s.id != "11")`);
     const toasts = await partager("Chasses", CHASSE);
-    expect(lire<string[]>(`FORUM.appels`)).not.toContain("envoiEditTopic");
+    expect(lire<string[]>(`FORUM.appels`)).not.toContain("envoiNouveauMessage");
     expect(toasts).toEqual([
       {
         t: "erreur",
-        text: `Partage impossible : pas de sujet « ${CHASSES} » dans la section « BDD partagée cachée » du forum. Demande à un chef de le créer, avec un premier message modifiable par tous les membres.`,
+        text: `Partage impossible : pas de sujet « ${CHASSES} » dans la section « BDD partagée cachée » du forum. Demande à un chef de le créer.`,
       },
     ]);
   });
 
-  test("sujet plein (taille maximale d'un message) : rien n'est écrit, erreur en rouge", async () => {
-    lire(`FORUM.sujets[1].messages[0] = "x".repeat(40000)`);
-    const toasts = await partager("Chasses", CHASSE);
-    expect(lire<string[]>(`FORUM.appels`)).not.toContain("envoiEditTopic");
-    expect(toasts.map((t) => t.text)).toEqual([
-      `Partage non enregistré : le sujet « ${CHASSES} » est plein (un message du forum a une taille maximale) : préviens un chef.`,
+  test("réponse trop longue pour un message du forum : rien n'est écrit, erreur en rouge", async () => {
+    const longs = Array.from({ length: 100 }, (_, i) => ({
+      ...FLOOD,
+      cible: "B" + "x".repeat(400),
+      id: 100 + i,
+    }));
+    await lire(`PartageChasses._avecBouton(null, "Floods", ${JSON.stringify(longs)})`);
+    expect(lire<string[]>(`FORUM.appels`)).not.toContain("envoiNouveauMessage");
+    expect(lire<string[]>(`TOASTS.map((o) => o.text)`)).toEqual([
+      `Partage non enregistré : ta réponse dans le sujet « ${FLOODS} » dépasserait la taille d'un message du forum.`,
     ]);
   });
 
   test("rien de nouveau : ni écriture ni relecture", async () => {
     lire(
-      `FORUM.sujets[1].messages[0] = ${JSON.stringify(section("LabraDrungor · 2026-11-10 09:00:00", ["10/11/26 12:00 | 25 000 cm²"]))}`,
+      `FORUM.sujets[1].reponses = [{ id: 7, auteur: "LabraDrungor", texte: "10/11/26 12:00 | 25 000 cm²" }]`,
     );
     const toasts = await partager("Chasses", CHASSE);
     expect(lire(`FORUM.appels`)).toEqual(["callGetForum sections", "callGetForum", "callGetTopic"]);
@@ -182,7 +175,7 @@ describe("résultat rendu au bloc « Mes attaques en cours » (« Partagée ✓ 
   });
 
   test("faux : refus du forum, forum injoignable, rien à partager", async () => {
-    lire(`FORUM.refuse = (f) => f == "envoiEditTopic"`);
+    lire(`FORUM.refuse = (f) => f == "envoiNouveauMessage"`);
     expect(await fait("Floods", [FLOOD])).toBe(false);
     lire(`FORUM.refuse = () => false; FORUM.illisible = true`);
     expect(await fait("Floods", [FLOOD])).toBe(false);
@@ -206,7 +199,7 @@ describe("section introuvable", () => {
 
 describe("floods marqués « à partager » (Flooder + partager)", () => {
   test("refus du forum, sujet commun absent, section cachée : plus repris à chaque page", async () => {
-    lire(`FORUM.refuse = (f) => f == "envoiEditTopic"`);
+    lire(`FORUM.refuse = (f) => f == "envoiNouveauMessage"`);
     await partager("Floods", FLOOD);
     expect(lire(`OUBLIES`)).toEqual([13]);
     lire(

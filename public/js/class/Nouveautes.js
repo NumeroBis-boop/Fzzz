@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.114.0",
+    notes: [
+      "Floods et chasses partagés : chaque joueur a maintenant sa propre réponse dans les sujets « BDD générale flood » et « BDD générale chasse », que seule son extension modifie. Un partage ne peut plus effacer celui d'un autre membre.",
+      "Les partages faits avec les versions précédentes ne sont plus lus : partage de nouveau tes floods et chasses en cours (« Partager tous » dans le bloc « Mes attaques en cours »).",
+    ],
+  },
+  {
     version: "1.113.1",
     notes: [
       "Floods et chasses partagés : l'affichage (TdC à l'impact, page d'un membre, page Membres, « Mes attaques en cours ») relit le forum chaque minute. Depuis la 1.113.0, il pouvait rester sur une ancienne lecture et ne pas voir les floods partagés ensuite par les autres membres.",
@@ -17,8 +24,7 @@ const NOUVEAUTES = [
   {
     version: "1.113.0",
     notes: [
-      "Floods et chasses partagés : ils sont maintenant enregistrés dans les sujets « BDD générale flood » et « BDD générale chasse » du forum caché, une section par joueur, et lus seulement là. Tes sujets « Floods » et « Chasses » ne servent plus. Mets l'extension à jour : une version plus ancienne ne voit plus les partages des autres.",
-      "Après chaque partage, l'extension relit le sujet pour vérifier ; si un autre membre l'écrivait au même moment, le partage est refait.",
+      "Floods et chasses partagés : ils sont maintenant enregistrés dans les sujets « BDD générale flood » et « BDD générale chasse » du forum caché, et lus seulement là. Tes sujets « Floods » et « Chasses » ne servent plus. Mets l'extension à jour : une version plus ancienne ne voit plus les partages des autres.",
     ],
   },
   {

@@ -628,7 +628,7 @@ class BoiteParametre extends Boite {
           // réservé au mainteneur, comme le journal
           Journal.pourCeJoueur()
             ? `<p class='o_titreParam'>Ranger le forum</p>
-        <p class='left o_aideParam'>Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une section par joueur. Un joueur qui n'a pas encore mis l'extension à jour partage toujours dans ses sujets « Floods | pseudo » et « Chasses | pseudo » : ce bouton reporte ses floods et chasses à venir dans sa section, puis supprime chaque ancien sujet dont toutes les entrées à venir sont dans cette section, après avoir ajouté ses entrées passées à son historique. Il faut les droits de gestion du forum. Une lecture du forum par ancien sujet, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
+        <p class='left o_aideParam'>Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une réponse par joueur, que son extension écrit et modifie. Ce bouton retire les floods et chasses des anciens formats : les sections du premier message de ces deux sujets, et les sujets « Floods | pseudo » et « Chasses | pseudo », supprimés. Les entrées passées vont d'abord dans l'historique de leur joueur ; celles à venir sont supprimées, chaque joueur les partage de nouveau. Un joueur pas encore à jour peut les réécrire : reclique plus tard. Il faut les droits de gestion du forum. Une lecture du forum par joueur concerné, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.</p>
         <p class='left'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
         <p id='o_partageRangerEtat' class='left small'></p>`
             : ""
@@ -661,7 +661,7 @@ class BoiteParametre extends Boite {
       // supprimer des sujets ne se défait pas
       if (
         !confirm(
-          "Reporter les floods et chasses des anciens sujets « Floods | pseudo » et « Chasses | pseudo » dans les sujets communs, puis supprimer ces anciens sujets du forum ?",
+          "Retirer les floods et chasses des anciens formats (sections du premier message des sujets communs, sujets « Floods | pseudo » et « Chasses | pseudo », supprimés) ? Les entrées passées vont dans l'historique de leur joueur, celles à venir sont supprimées.",
         )
       )
         return;

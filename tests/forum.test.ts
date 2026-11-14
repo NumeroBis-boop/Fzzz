@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 
 const page = creerPage(["js/class/Utils.js", "js/page/PartageChasses.js"]);
 
@@ -91,25 +92,28 @@ describe("section cachée du forum", () => {
   });
 });
 
-/** Sujet commun des floods simulé : ma section `lignes`, écritures notées dans ECRITS. */
-const forumFloods = (lignes: string[], ecritureOk = true) =>
+/** Sujet commun des floods simulé : ma réponse `lignes`, écritures notées dans ECRITS. */
+const forumFloods = (lignes: string[], ecritureOk = true) => {
+  page.lire(FORUM_SIMULE);
   page.lire(`(() => {
     window.ECRITS = [];
-    window.TEXTE = ${JSON.stringify(["--- Moi · 2026-11-03 11:00:00 ---", ...lignes].join("\n"))};
+    window.TEXTE = ${JSON.stringify(lignes.join("\n"))};
+    const sujet = () => ({ id: "10", titre: "BDD générale flood", texte: "", reponses: [{ id: 700, auteur: "Moi", texte: TEXTE }] });
+    PartageChasses._html = (d) => d;
     PartageChasses.sujets = () => Promise.resolve({ communs: { Floods: { type: "Floods", id: "10" } }, historiques: [] });
-    PartageChasses._attendre = () => Promise.resolve();
-    PartageChasses._texteSujet = () => Promise.resolve(TEXTE);
+    PartageChasses._lireSujet = () => Promise.resolve(SIM.html(sujet(), "Moi"));
     PartageChasses._xajax = (fn, q) => {
-      if (fn != "envoiEditTopic") return Promise.resolve();
+      if (fn != "envoiEditMessage") return Promise.resolve();
       if (!${ecritureOk}) return Promise.reject(new Error("réseau"));
-      TEXTE = decodeURIComponent(/message=([^&]*)/.exec(q)[1]);
+      TEXTE = SIM.q(q, "message");
       ECRITS.push(TEXTE);
-      return Promise.resolve();
+      return Promise.resolve(SIM.html(sujet(), "Moi"));
     };
   })()`);
+};
 
 describe("retrait automatique des floods disparus de la liste", () => {
-  // ma section : un flood à venir (#20) et un arrivé (#21)
+  // ma réponse : un flood à venir (#20) et un arrivé (#21)
   const sujet = (ecrits: string[]) => {
     page.lire(`var monProfil = { pseudo: "Moi" };
       var Horloge = { serveur: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm"), maintenant: () => moment("2026-11-03 12:00", "YYYY-MM-DD HH:mm").valueOf() };
@@ -118,14 +122,14 @@ describe("retrait automatique des floods disparus de la liste", () => {
     forumFloods(["03/11/26 18:00 | A | 100 cm² | #20", "03/11/26 10:00 | B | 100 cm² | #21"]);
     return ecrits;
   };
-  test("flood à venir annulé : retiré de ma section", async () => {
+  test("flood à venir annulé : retiré de ma réponse", async () => {
     sujet([]);
     await page.lire(`PartageChasses.retirerFloods([20])`);
     const ecrits = page.lire<string[]>("ECRITS");
     expect(ecrits).toHaveLength(1);
     expect(ecrits[0]).not.toContain("#20");
   });
-  test("aucun de ces floods dans ma section : rien n'est écrit", async () => {
+  test("aucun de ces floods dans ma réponse : rien n'est écrit", async () => {
     sujet([]);
     await page.lire(`PartageChasses.retirerFloods([99])`);
     expect(page.lire<string[]>("ECRITS")).toHaveLength(0);

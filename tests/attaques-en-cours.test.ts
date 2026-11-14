@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { creerPage } from "./harnais";
+import { FORUM_SIMULE } from "./forum-simule";
 
 /**
  * Bloc « Mes attaques en cours » de la page Armée (1.105.0, demande du
@@ -40,9 +41,10 @@ const page = creerPage(
    var CommerceFzzz = { copier: (texte) => (window.COPIE = texte) };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+lire(FORUM_SIMULE);
 // remis en place avant chaque test (un test les remplace)
 lire(
-  `window.ORIGINE = { simuler: PartageChasses.simuler, erreur: console.error, charger: PartageChasses.charger, sujets: PartageChasses.sujets, texteSujet: PartageChasses._texteSujet, instant: performance.now }`,
+  `window.ORIGINE = { simuler: PartageChasses.simuler, erreur: console.error, charger: PartageChasses.charger, sujets: PartageChasses.sujets, lireSujet: PartageChasses._lireSujet, html: PartageChasses._html, instant: performance.now }`,
 );
 const attendre = () => new Promise((r) => setTimeout(r, 20));
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
@@ -98,7 +100,7 @@ beforeEach(() => {
     window.FORUM = ${JSON.stringify(FORUM)};
     window.ECRITS = { floods: [], chasses: [], retraits: [], partage: true, illisible: false };
     PartageChasses.simuler = ORIGINE.simuler; console.error = ORIGINE.erreur;
-    PartageChasses.sujets = ORIGINE.sujets; PartageChasses._texteSujet = ORIGINE.texteSujet; performance.now = ORIGINE.instant;
+    PartageChasses.sujets = ORIGINE.sujets; PartageChasses._lireSujet = ORIGINE.lireSujet; PartageChasses._html = ORIGINE.html; performance.now = ORIGINE.instant;
     AttaqueLancee.recharger = () => JEU.rechargements++;
     PartageChasses.charger = (de = null, avecFloods = true) => {
       if (ECRITS.illisible) return Promise.reject(new Error("forum"));
@@ -467,14 +469,15 @@ describe("chargement : avancement dans le titre du bloc", () => {
       window.FINIR = {};
       let differe = (cle, valeur) => new Promise((r) => (FINIR[cle] = () => r(valeur)));
       PartageChasses.charger = ORIGINE.charger;
-      // sujets communs : les floods de chaque membre (Autre me floode), les chasses (les miennes, celles de Lassie)
+      // sujets communs : une réponse par membre, ses floods (Autre me floode) ou ses chasses (les miennes, celles de Lassie)
+      PartageChasses._html = (d) => d;
       PartageChasses.sujets = () => differe("liste", { historiques: [], communs: {
-        Floods: { type: "Floods", id: "10", dernier: "", modifie: null },
-        Chasses: { type: "Chasses", id: "11", dernier: "", modifie: null } } });
-      PartageChasses._texteSujet = (id) => differe("sujet" + id, id == "10"
-        ? ["--- Autre · 2026-11-12 09:00:00 ---", PartageChasses._ligne("Floods", ${JSON.stringify({ ...flood(700, "10:25", "Autre", "Moi", 30000), lanceur: undefined })})].join("\\n")
-        : ["--- Moi · 2026-11-12 09:00:00 ---", ...FORUM.chasses.moi.map((c) => PartageChasses._ligne("Chasses", c)),
-           "--- Lassie · 2026-11-12 09:00:00 ---", "12/11/26 12:00 | 700 cm²"].join("\\n"));
+        Floods: { type: "Floods", id: "10", dernier: "" },
+        Chasses: { type: "Chasses", id: "11", dernier: "" } } });
+      PartageChasses._lireSujet = (id) => differe("sujet" + id, SIM.html({ id, titre: "Sujet " + id, texte: "", reponses: id == "10"
+        ? [{ id: 801, auteur: "Autre", texte: PartageChasses._ligne("Floods", ${JSON.stringify({ ...flood(700, "10:25", "Autre", "Moi", 30000), lanceur: undefined })}) }]
+        : [{ id: 802, auteur: "Moi", texte: FORUM.chasses.moi.map((c) => PartageChasses._ligne("Chasses", c)).join("\\n") },
+           { id: 803, auteur: "Lassie", texte: "12/11/26 12:00 | 700 cm²" }] }, "Moi"));
       let get = $.get;
       $.get = (url) => String(url).endsWith("/Ressources.php") ? (JEU.lues.push("/Ressources.php"), differe("ressources", "<div id='boite_tdc'></div>")) : get(url);
     })()`);
@@ -568,8 +571,8 @@ describe("chargement : avancement dans le titre du bloc", () => {
     differer();
     lire(`FORUM.chasses.moi = []; PageRessource.lireChasses = () => [];`);
     lire(`(() => {
-      // personne ne me floode : le sujet commun des floods est vide
-      PartageChasses._texteSujet = ((lire) => (id) => (id == "10" ? (FINIR.sujet10 = () => {}, Promise.resolve("")) : lire(id)))(PartageChasses._texteSujet);
+      // personne ne me floode : le sujet commun des floods n'a aucune réponse
+      PartageChasses._lireSujet = ((lire) => (id) => (id == "10" ? (FINIR.sujet10 = () => {}, Promise.resolve(SIM.html({ id, titre: "Sujet 10", texte: "" }, "Moi"))) : lire(id)))(PartageChasses._lireSujet);
       document.body.innerHTML = ${JSON.stringify(armee())};
       AttaqueLancee.afficherTableaux();
     })()`);

@@ -361,7 +361,7 @@ class AttaqueLancee {
   }
   /**
    * Attaques lancées avec un bouton « + partager » et déjà liées à leur ligne
-   * du jeu : publiées dans la section du joueur (sujet commun des floods), une seule fois.
+   * du jeu : publiées dans la réponse du joueur (sujet commun des floods), une seule fois.
    *
    * @static
    * @method partagerMarquees

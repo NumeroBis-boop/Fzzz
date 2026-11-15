@@ -37,6 +37,9 @@ const ALLIANCE_COLONNES_FZZZ = [
   // rapport d'une attaque lancée à l'ouverture de la page, comme la colonne
   // « Retour » de la vue « Temps de trajet »
   { cle: "membresFloodsRetour", titre: "Retour", forum: false, ordre: ALLIANCE_SANS_MOUVEMENT },
+  // copie des cellules « Etat » du jeu : sa colonne ne peut pas passer après
+  // celles de l'extension sans changer l'ordre de la vue « Standard »
+  { cle: "membresFloodsEtat", titre: "État de<br/>la colonie", forum: false, ordre: "" },
 ];
 
 /**
@@ -127,7 +130,6 @@ class AllianceFzzz {
         ...(Utils.affichage("membresFloodsRang") ? [2] : []),
         ...(Utils.affichage("membresFloodsPseudo") ? [3] : []),
         ...(Utils.affichage("membresFloodsTdc") ? [terrain, ...epees] : []),
-        ...(Utils.affichage("membresFloodsEtat") ? etat : []),
         ...fzzz.filter((c, j) => Utils.affichage(ALLIANCE_COLONNES_FZZZ[j].cle)),
       ],
       floods = choisies.length ? choisies : [3],
@@ -238,6 +240,12 @@ class AllianceFzzz {
       } catch (e) {
         console.error("Fzzz : temps de trajet des membres", e);
       }
+    if (k && Utils.affichage("membresFloodsEtat"))
+      try {
+        AllianceFzzz._copierEtats(api, etat);
+      } catch (e) {
+        console.error("Fzzz : état de la colonie des membres", e);
+      }
     appliquer(initiale);
     fixerLargeur();
   }
@@ -296,6 +304,41 @@ class AllianceFzzz {
     });
     api.rows().invalidate("dom");
     return inconnus;
+  }
+  /**
+   * Colonne « État de la colonie » de la vue « Floods » : copie du contenu des
+   * cellules « Etat » du jeu, sans leurs id (uniques dans la page), triée sur
+   * leur texte et celui de leurs images. Sans requête.
+   *
+   * @private
+   * @static
+   * @param {Number[]} etat indices des cellules « Etat » du jeu
+   */
+  static _copierEtats(api, etat) {
+    let c = AllianceFzzz._colonne(api, "membresFloodsEtat");
+    api.rows()[0].forEach((r) => {
+      let $copie = $(api.cell(r, c).node()).empty(),
+        textes = [];
+      etat.forEach((i) => {
+        let $td = $(api.cell(r, i).node()),
+          texte = [
+            $td.text().trim(),
+            ...$td
+              .find("img")
+              .map((j, img) => img.alt || img.title)
+              .get(),
+          ]
+            .filter(Boolean)
+            .join(" ");
+        if (!texte && !$td.children().length) return;
+        if (textes.length) $copie.append(" ");
+        $copie.append($td.contents().clone());
+        textes.push(texte);
+      });
+      $copie.find("[id]").removeAttr("id");
+      $copie.attr("data-order", textes.filter(Boolean).join(" "));
+    });
+    api.rows().invalidate("dom");
   }
   /**
    * Membres sans coordonnées connues : l'export public des joueurs (une

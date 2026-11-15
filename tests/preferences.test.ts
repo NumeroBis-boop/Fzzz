@@ -85,11 +85,11 @@ describe("onglets de la liste du mainteneur", () => {
       "messagerieExport",
       "messagerieMiseEnForme",
       "membresFloodsRang",
-      "membresFloodsEtat",
       "membresFloodsProchain",
       "membresFloodsVariation",
       "membresFloodsTrajet",
       "membresFloodsRetour",
+      "membresFloodsEtat",
     ]);
     expect(Object.fromEntries(cases.map((c) => [c[1], c[0]]))).toMatchObject({
       horloge: "General",

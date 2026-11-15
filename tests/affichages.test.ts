@@ -131,11 +131,11 @@ describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur ca
       "messagerieNonLus",
       "messagerieMiseEnForme",
       "membresFloodsRang",
-      "membresFloodsEtat",
       "membresFloodsProchain",
       "membresFloodsVariation",
       "membresFloodsTrajet",
       "membresFloodsRetour",
+      "membresFloodsEtat",
     ]);
   });
 

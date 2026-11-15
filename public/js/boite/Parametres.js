@@ -61,7 +61,6 @@ const ONGLETS_PARAMETRE = [
       "membresFloodsRang",
       "membresFloodsPseudo",
       "membresFloodsTdc",
-      "membresFloodsEtat",
       "membresFloodsDernier",
       "membresFloodsTotal",
       "membresFloodsProchain",
@@ -69,6 +68,7 @@ const ONGLETS_PARAMETRE = [
       "membresFloodsFinal",
       "membresFloodsTrajet",
       "membresFloodsRetour",
+      "membresFloodsEtat",
       "chatMesGif",
       "chatGifAlliance",
       "chatSmileysAlliance",
@@ -945,7 +945,7 @@ class BoiteParametre extends Boite {
           this.cases("Alliance", MEMBRES_COLONNES_FLOODS) +
             this.aide(
               "Aucune colonne cochée : le pseudo seul.",
-              "Prochain mouvement : la première minute où le TdC du membre change d'après les floods et chasses partagés (minute du rapport de combat), ceux de cette minute comptés ensemble (multi-flood) ; sa variation est leur somme. Les floods hors portée, sans effet sur le TdC, ne comptent pas. Temps de trajet : à ta Vitesse d'attaque (page Laboratoire), avec les coordonnées gardées par l'extension (Carte de l'alliance, sinon export des joueurs du jeu, lu une fois si besoin). Retour : minute du rapport d'une attaque partie au chargement de la page, avec ce temps de trajet, comme la vue « Temps de trajet ». État de la colonie : les cellules de la colonne « Etat » du tableau du jeu.",
+              "Prochain mouvement : la première minute où le TdC du membre change d'après les floods et chasses partagés (minute du rapport de combat), ceux de cette minute comptés ensemble (multi-flood) ; sa variation est leur somme. Les floods hors portée, sans effet sur le TdC, ne comptent pas. Temps de trajet : à ta Vitesse d'attaque (page Laboratoire), avec les coordonnées gardées par l'extension (Carte de l'alliance, sinon export des joueurs du jeu, lu une fois si besoin). Retour : minute du rapport d'une attaque partie au chargement de la page, avec ce temps de trajet, comme la vue « Temps de trajet ». État de la colonie : le contenu de la colonne « Etat » du tableau du jeu, en dernière colonne.",
             ),
         )}
         ${this.section("Chats", this.cases("Alliance", ["chatMesGif", "chatGifAlliance", "chatSmileysAlliance"]))}

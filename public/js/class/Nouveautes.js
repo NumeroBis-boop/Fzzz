@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.120.1",
+    notes: [
+      "Page Membres de l'alliance, vue « Floods et chasses en cours » : la colonne « État de la colonie » est maintenant la dernière du tableau.",
+    ],
+  },
+  {
     version: "1.120.0",
     notes: [
       "Page Membres de l'alliance, vue « Floods et chasses en cours » : deux colonnes en plus, à cocher dans Préférences → Alliance (décochées par défaut) : « Retour », l'heure de retour d'une attaque lancée au chargement de la page, comme dans la vue « Temps de trajet », et « État de la colonie », la colonne « Etat » du jeu.",

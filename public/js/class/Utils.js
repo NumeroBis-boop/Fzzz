@@ -183,7 +183,6 @@ const AFFICHAGES_FZZZ = {
   membresFloodsRang: "Rang",
   membresFloodsPseudo: "Pseudo",
   membresFloodsTdc: "TdC actuel",
-  membresFloodsEtat: "État de la colonie (colonne « Etat » du jeu)",
   membresFloodsDernier: "Date dernier mouvement",
   membresFloodsTotal: "Variation totale de TdC",
   membresFloodsProchain: "Date du prochain mouvement",
@@ -192,6 +191,7 @@ const AFFICHAGES_FZZZ = {
   membresFloodsTrajet: "Temps de trajet (à ta Vitesse d'attaque)",
   membresFloodsRetour:
     "Retour d'une attaque lancée au chargement de la page (comme la vue « Temps de trajet »)",
+  membresFloodsEtat: "État de la colonie (colonne « Etat » du jeu)",
   evolutionEnCours:
     "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
   retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",
@@ -287,7 +287,6 @@ const AFFICHAGES_REGLABLES = {
   membresFloodsRang: false,
   membresFloodsPseudo: true,
   membresFloodsTdc: true,
-  membresFloodsEtat: false,
   membresFloodsDernier: true,
   membresFloodsTotal: true,
   membresFloodsProchain: false,
@@ -295,6 +294,7 @@ const AFFICHAGES_REGLABLES = {
   membresFloodsFinal: true,
   membresFloodsTrajet: false,
   membresFloodsRetour: false,
+  membresFloodsEtat: false,
   chatMesGif: true,
   chatGifAlliance: true,
   chatSmileysAlliance: true,
@@ -311,7 +311,6 @@ const MEMBRES_COLONNES_FLOODS = [
   "membresFloodsRang",
   "membresFloodsPseudo",
   "membresFloodsTdc",
-  "membresFloodsEtat",
   "membresFloodsDernier",
   "membresFloodsTotal",
   "membresFloodsProchain",
@@ -319,6 +318,7 @@ const MEMBRES_COLONNES_FLOODS = [
   "membresFloodsFinal",
   "membresFloodsTrajet",
   "membresFloodsRetour",
+  "membresFloodsEtat",
 ];
 // page où l'extension est désactivée (onglet « Pages » des Préférences, + id de PAGES_EXTENSION)
 const CLE_ORIGINE = "fzzz_origine_";

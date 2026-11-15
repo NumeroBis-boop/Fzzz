@@ -79,6 +79,17 @@ const PARTAGES = {
 };
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
+// colonnes ajoutées lues par les tests, dans l'ordre de la vue
+const COLONNES = [
+  "membresFloodsDernier",
+  "membresFloodsTotal",
+  "membresFloodsProchain",
+  "membresFloodsVariation",
+  "membresFloodsFinal",
+  "membresFloodsTrajet",
+  "membresFloodsRetour",
+];
+
 // tableau du jeu tel que Alliance.js le laisse (sans coordonnées en cache) ;
 // le forum répond après que l'horloge a avancé de 5 minutes. « complet » : ses
 // colonnes Technologie, Fourmilière, les deux cellules sous l'en-tête fusionné
@@ -100,7 +111,7 @@ async function ouvrir(
       (${complet} ? "<th>Technologie</th><th>Fourmiliere</th>" + (${trajet} ? "<th>Tdt</th><th>Retour</th>" : "") + "<th colspan='2'>Etat</th><th></th>" : "") +
       "</tr></thead><tbody>" +
       ${JSON.stringify(MEMBRES)}.map(([p, t], i) => "<tr><td>" + (i + 1) + "</td><td></td><td>Membre</td><td> " + p + " </td><td></td><td>" + numeral(t).format() + "</td><td></td>" +
-        (${complet} ? "<td>50</td><td>90</td>" + (${trajet} ? "<td>1h</td><td>9 nov. à 11h01</td>" : "") + "<td>état " + p + "</td><td>colonie " + p + "</td><td></td>" : "") +
+        (${complet} ? "<td>50</td><td>90</td>" + (${trajet} ? "<td>1h</td><td>9 nov. à 11h01</td>" : "") + "<td><span id='etat_" + p + "'>état " + p + "</span></td><td>" + (p == "Beta" ? "<img alt='Colonisé'>" : "colonie " + p) + "</td><td></td>" : "") +
         "</tr>").join("") +
       "</tbody></table></div>";
     AllianceFzzz.colonnes();
@@ -146,7 +157,7 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     await ouvrir();
     expect(
       page.lire(
-        `$($("#tabMembresAlliance").DataTable().columns().header()).slice(-7).map((i, th) => $(th).html().replace(/<br\\s*\\/?>/g, " ")).get()`,
+        `$($("#tabMembresAlliance").DataTable().columns().header()).slice(-8).map((i, th) => $(th).html().replace(/<br\\s*\\/?>/g, " ")).get()`,
       ),
     ).toEqual([
       "Date dernier mouvement",
@@ -156,6 +167,7 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
       "TdC final",
       "Temps de trajet",
       "Retour",
+      "État de la colonie",
     ]);
   });
 
@@ -163,10 +175,10 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     await ouvrir();
     const cellules = page
       .lire<string[][]>(`(() => {
-      let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
+      let api = $("#tabMembresAlliance").DataTable(), COLONNES = ${JSON.stringify(COLONNES)};
       return api.rows()[0].map((r) => [
         $(api.cell(r, 3).node()).text().trim(),
-        ...[n - 7, n - 6, n - 5, n - 4, n - 3, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text()),
+        ...COLONNES.map((c) => $(api.cell(r, AllianceFzzz._colonne(api, c)).node()).text()),
       ]);
     })()`)
       .map((l) => l.map(espaces));
@@ -216,8 +228,8 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     // variations à leur valeur ; temps de trajet en secondes et retour à sa
     // date, inconnus après les autres
     const ordres = page.lire<string[][]>(`(() => {
-      let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
-      return api.rows()[0].map((r) => [n - 7, n - 6, n - 5, n - 4, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).attr("data-order")));
+      let api = $("#tabMembresAlliance").DataTable(), COLONNES = ${JSON.stringify(COLONNES)};
+      return api.rows()[0].map((r) => COLONNES.filter((c) => c != "membresFloodsFinal").map((c) => $(api.cell(r, AllianceFzzz._colonne(api, c)).node()).attr("data-order")));
     })()`);
     const unix = (d: string) =>
       String(page.lire(`moment(${JSON.stringify(d)}, "YYYY-MM-DD HH:mm").unix()`));
@@ -261,8 +273,8 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     });
     const lignes = page
       .lire<string[][]>(`(() => {
-      let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
-      return api.rows()[0].slice(0, 2).map((r) => [n - 7, n - 6, n - 5, n - 4].map((c) => $(api.cell(r, c).node()).text()));
+      let api = $("#tabMembresAlliance").DataTable(), COLONNES = ${JSON.stringify(COLONNES)};
+      return api.rows()[0].slice(0, 2).map((r) => COLONNES.slice(0, 4).map((c) => $(api.cell(r, AllianceFzzz._colonne(api, c)).node()).text()));
     })()`)
       .map((l) => l.map(espaces));
     expect(lignes).toEqual([
@@ -328,10 +340,10 @@ describe("page Membres, prochain mouvement et temps de trajet", () => {
   const colonnes = (pseudos: string[]) =>
     page
       .lire<string[][]>(`(() => {
-      let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
+      let api = $("#tabMembresAlliance").DataTable(), COLONNES = ${JSON.stringify(COLONNES)};
       return api.rows()[0]
         .filter((r) => ${JSON.stringify(pseudos)}.includes($(api.cell(r, 3).node()).text().trim()))
-        .map((r) => [$(api.cell(r, 3).node()).text().trim(), ...[n - 7, n - 6, n - 5, n - 4, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text())]);
+        .map((r) => [$(api.cell(r, 3).node()).text().trim(), ...COLONNES.filter((c) => c != "membresFloodsFinal").map((c) => $(api.cell(r, AllianceFzzz._colonne(api, c)).node()).text())]);
     })()`)
       .map((l) => l.map(espaces));
 
@@ -508,7 +520,7 @@ describe("page Membres, colonnes de la vue « Floods » choisies dans les Préf�
       `Object.keys(${JSON.stringify(cases)}).forEach((c) => localStorage.removeItem("fzzz_affichage_" + c))`,
     );
 
-  test("état de la colonie : les deux cellules « Etat » du jeu, décochées par défaut", async () => {
+  test("état de la colonie : copie des deux cellules « Etat » du jeu en dernière colonne, décochée par défaut", async () => {
     await ouvrir(PARTAGES, "", "complet");
     expect(affiche().entetes).toEqual([
       "Pseudo",
@@ -529,27 +541,43 @@ describe("page Membres, colonnes de la vue « Floods » choisies dans les Préf�
         "",
         "Terrain",
         "",
-        "Etat ×2",
         "Date dernier mouvement",
         "Variation totale de TdC",
         "TdC final",
+        "État de la colonie",
       ],
       alpha: [
         "Alpha",
         "",
         "200 000",
         "",
-        "état Alpha",
-        "colonie Alpha",
         "09/11 12:00",
         "−15 000",
         "185 000",
+        "état Alpha colonie Alpha",
       ],
     });
-    // la vue « Standard » reste celle du jeu, « Etat » compris
+    // la copie garde les images, perd les id (uniques dans la page) ; tri sur le
+    // texte et celui des images ; la cellule du jeu ne change pas
+    expect(
+      page.lire(`(() => {
+        let api = $("#tabMembresAlliance").DataTable(),
+          c = AllianceFzzz._colonne(api, "membresFloodsEtat"),
+          jeu = api.settings()[0].aoHeader[0].findIndex((h) => $(h.cell).text().trim() == "Etat"),
+          beta = api.rows()[0].find((r) => $(api.cell(r, 3).node()).text().trim() == "Beta"),
+          $copie = $(api.cell(beta, c).node());
+        return {
+          idJeu: $(api.cell(beta, jeu).node()).find("[id='etat_Beta']").length,
+          idCopie: $copie.find("[id]").length,
+          image: $copie.find("img").attr("alt"),
+          ordre: $copie.attr("data-order"),
+        };
+      })()`),
+    ).toEqual({ idJeu: 1, idCopie: 0, image: "Colonisé", ordre: "état Beta Colonisé" });
+    // la vue « Standard » reste celle du jeu, « Etat » compris, sans la copie
     page.lire(`$(".o_allVue[data-vue='reset']").trigger("click")`);
     expect(affiche().entetes).toContain("Etat ×2");
-    expect(affiche().entetes).not.toContain("Retour");
+    expect(affiche().entetes).not.toContain("État de la colonie");
   });
 
   test("état et retour cochés avec les colonnes Tdt / Retour de la vue « Temps de trajet »", async () => {
@@ -558,38 +586,40 @@ describe("page Membres, colonnes de la vue « Floods » choisies dans les Préf�
     await ouvrir(PARTAGES, "", "trajet");
     decocher(cases);
     // les cellules « Etat » sont après Tdt et Retour : trouvées quand même ;
-    // le retour de la vue est la colonne de l'extension, en fin de ligne
+    // le retour de la vue est la colonne de l'extension, l'état tout au bout
     expect(affiche()).toEqual({
       entetes: [
         "Pseudo",
         "",
         "Terrain",
         "",
-        "Etat ×2",
         "Date dernier mouvement",
         "Variation totale de TdC",
         "TdC final",
         "Retour",
+        "État de la colonie",
       ],
       alpha: [
         "Alpha",
         "",
         "200 000",
         "",
-        "état Alpha",
-        "colonie Alpha",
         "09/11 12:00",
         "−15 000",
         "185 000",
         "9 nov. à 11h01",
+        "état Alpha colonie Alpha",
       ],
     });
-    // vue « Temps de trajet » : ses colonnes Tdt et Retour, sans celles de l'extension
+    // vue « Temps de trajet » : ses colonnes Tdt et Retour et l'« Etat » du jeu,
+    // sans celles de l'extension
     page.lire(`$(".o_allVue[data-vue='trajet']").trigger("click")`);
     const trajet = affiche().entetes;
     expect(trajet.filter((t) => t == "Retour").length).toBe(1);
     expect(trajet).toContain("Tdt");
+    expect(trajet).toContain("Etat ×2");
     expect(trajet).not.toContain("TdC final");
+    expect(trajet).not.toContain("État de la colonie");
   });
 
   test("aucune case cochée : le pseudo seul", async () => {

@@ -82,6 +82,9 @@ const ONGLETS_PARAMETRE = [
 ];
 // dernier onglet ouvert, gardé dans ce navigateur
 const CLE_ONGLET_PARAMETRE = "fzzz_ongletParametre";
+// titres montrés dans la confirmation de « Supprimer les sujets de floods
+// inutiles » ; au-delà, leur nombre (fenêtre de confirmation lisible sur un téléphone)
+const SUJETS_FLOODS_MONTRES = 15;
 // pages où l'extension agit, chacune désactivable (Préférences → Pages ; ids lus
 // par bootstrap.js, ONGLET_PAGE, et stockés sous CLE_ORIGINE + id)
 const PAGES_EXTENSION = [
@@ -1002,10 +1005,19 @@ class BoiteParametre extends Boite {
                 "Ranger le forum",
                 this.aide(
                   `Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une réponse par joueur, que son extension écrit et modifie.`,
-                  "Ce bouton retire les floods et chasses des anciens formats : les sections du premier message de ces deux sujets, et les sujets « Floods | pseudo » et « Chasses | pseudo », supprimés. Les entrées passées vont d'abord dans l'historique de leur joueur ; celles à venir sont supprimées, chaque joueur les partage de nouveau. Un joueur pas encore à jour peut les réécrire : reclique plus tard. Il faut les droits de gestion du forum. Une lecture du forum par joueur concerné, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.",
+                  "Ce bouton retire les floods et chasses des anciens formats : les sections du premier message de ces deux sujets, et les sujets « Floods | pseudo » et « Chasses | pseudo », supprimés. Les chasses passées vont d'abord dans l'historique de leur joueur, les floods passés sont supprimés (pas d'historique des floods) ; les entrées à venir sont supprimées, chaque joueur les partage de nouveau. Un joueur pas encore à jour peut les réécrire : reclique plus tard. Il faut les droits de gestion du forum. Une lecture du forum par chasseur concerné, environ 0,4 s chacune ; reste sur la page jusqu'au bilan.",
                 ) +
                   `<p class='left o_reglage'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
                   <p id='o_partageRangerEtat' class='left small'></p>`,
+              ) +
+              this.section(
+                "Sujets de floods inutiles",
+                this.aide(
+                  "Supprime d'un coup les pages « Historique Floods N | pseudo » (l'historique des floods n'est plus tenu) et les anciens sujets « Floods | pseudo » de la section cachée.",
+                  `La liste lue est montrée avant toute suppression ; le sujet « ${SUJETS_COMMUNS.Floods} » est toujours gardé. Il faut les droits de gestion du forum ; une suppression ne se défait pas.`,
+                ) +
+                  `<p class='left o_reglage'><button type='button' class='o_button f_info o_partageSupprimerFloods'>Supprimer les sujets de floods inutiles</button></p>
+                  <p id='o_partageSupprimerFloodsEtat' class='left small'></p>`,
               )
             : ""
         }
@@ -1038,7 +1050,7 @@ class BoiteParametre extends Boite {
       // supprimer des sujets ne se défait pas
       if (
         !confirm(
-          "Retirer les floods et chasses des anciens formats (sections du premier message des sujets communs, sujets « Floods | pseudo » et « Chasses | pseudo », supprimés) ? Les entrées passées vont dans l'historique de leur joueur, celles à venir sont supprimées.",
+          "Retirer les floods et chasses des anciens formats (sections du premier message des sujets communs, sujets « Floods | pseudo » et « Chasses | pseudo », supprimés) ? Les chasses passées vont dans l'historique de leur joueur, les floods passés et toutes les entrées à venir sont supprimés.",
         )
       )
         return;
@@ -1053,6 +1065,37 @@ class BoiteParametre extends Boite {
             err && err.message == "absente"
               ? SECTION_INTROUVABLE
               : "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
+          ),
+        )
+        .then(() => $bouton.prop("disabled", false));
+    });
+    $onglet.find(".o_partageSupprimerFloods").on("click", (e) => {
+      e.preventDefault();
+      let $bouton = $(e.currentTarget).prop("disabled", true),
+        afficher = (/** @type {String} */ texte) => {
+          $onglet.find("#o_partageSupprimerFloodsEtat").text(texte);
+          this.ajusterTaille();
+        },
+        // supprimer des sujets ne se défait pas : la liste lue d'abord, à confirmer
+        confirmer = (/** @type {Array<{titre: String}>} */ liste) =>
+          confirm(
+            [
+              `Supprimer ${liste.length > 1 ? `ces ${numeral(liste.length).format()} sujets` : "ce sujet"} de floods ? Une suppression ne se défait pas.`,
+              ...liste.slice(0, SUJETS_FLOODS_MONTRES).map((t) => "• " + t.titre),
+              liste.length > SUJETS_FLOODS_MONTRES
+                ? `… et ${numeral(liste.length - SUJETS_FLOODS_MONTRES).format()} autres`
+                : "",
+              `Le sujet « ${SUJETS_COMMUNS.Floods} » est gardé.`,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          );
+      PartageChasses.supprimerSujetsFloods(afficher, confirmer)
+        .then(afficher, (err) =>
+          afficher(
+            err && err.message == "absente"
+              ? SECTION_INTROUVABLE
+              : "Forum de l'alliance illisible : réessaie plus tard.",
           ),
         )
         .then(() => $bouton.prop("disabled", false));

@@ -12,10 +12,17 @@ const FORUM_SECTIONS_CHASSES = ["BDD partagée cachée", "Fzzz-Chasses", "Fzzz_C
 const SECTION_INTROUVABLE = `Section « ${FORUM_SECTIONS_CHASSES[0]} » introuvable : elle n'existe pas encore, ou ton grade ne la voit pas. Demande à un chef.`;
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
-// actions passées : sujets « Historique Chasses N | pseudo » (et Floods),
-// un seul message chacun, car une réponse empêche de modifier le premier
-// message ; page suivante quand ce message dépasserait cette taille
+// chasses passées : sujets « Historique Chasses N | pseudo », un seul message
+// chacun, car une réponse empêche de modifier le premier message ; page
+// suivante quand ce message dépasserait cette taille
 const HISTORIQUE_MAX_CARACTERES = 15000;
+// types dont les entrées passées vont dans un historique : les floods arrivés
+// sont seulement retirés (règle du mainteneur, 15/11/2026 : « l'historique des
+// floods n'est pas à faire »)
+const TYPES_AVEC_HISTORIQUE = ["Chasses"];
+// « Supprimer les sujets de floods inutiles » : nouvelles suppressions tant que
+// la liste relue en montre d'autres (sa longueur maximale n'est pas connue)
+const SUPPRESSION_TOURS_MAX = 5;
 // sujet où la personne qui gère le Google Sheet de l'alliance poste, à la main,
 // l'adresse du script qui reçoit les rapports exportés et la liste des joueurs
 // qui l'utilisent (ExportRapports.lireReglage)
@@ -81,9 +88,9 @@ const PREAMBULE_COMMUN =
  * (aucun serveur tiers), section « BDD partagée cachée » : deux sujets
  * communs (SUJETS_COMMUNS), une réponse par joueur avec ses entrées en cours,
  * une ligne par entrée ; chaque partage modifie la réponse du joueur (fusion
- * sans doublon), que lui seul écrit, et les chasses et floods passés partent
- * dans « Historique <type> N | pseudo » (voir archiver). Les convois restent
- * dans « Convois | pseudo » (ConvoisForum).
+ * sans doublon), que lui seul écrit ; les chasses passées partent dans
+ * « Historique Chasses N | pseudo » (voir archiver), les floods arrivés sont
+ * seulement retirés. Les convois restent dans « Convois | pseudo » (ConvoisForum).
  *
  * Requêtes : au clic sur Partager, au chargement de page qui suit un envoi
  * « + partager » ou l'annulation d'un flood partagé, et la lecture des sujets
@@ -773,10 +780,10 @@ class PartageChasses {
    * mainteneur) : passage à une réponse par joueur. Le premier message de
    * chaque sujet commun (ancien format, une section par joueur) ne garde que
    * son texte d'en-tête, puis les anciens sujets « Floods | … » /
-   * « Chasses | … » sont supprimés. Leurs entrées passées vont d'abord dans
-   * l'historique de leur joueur ; celles à venir sont supprimées, chaque
-   * joueur les partage de nouveau (règle du mainteneur, 14/11/2026 : « tout le
-   * monde repart de la nouvelle »).
+   * « Chasses | … » sont supprimés. Leurs chasses passées vont d'abord dans
+   * l'historique de leur joueur, leurs floods passés sont supprimés ; les
+   * entrées à venir sont supprimées, chaque joueur les partage de nouveau
+   * (règle du mainteneur, 14/11/2026 : « tout le monde repart de la nouvelle »).
    *
    * @static
    * @method rangerForum
@@ -850,7 +857,7 @@ class PartageChasses {
               let passees = (type == "Chasses" ? s.chasses : s.floods).filter(
                 (/** @type {any} */ e) => e.date < maintenant,
               );
-              etat(`« ${titre} » : historique ${++k} / ${lu.sections.length} (${s.pseudo})…`);
+              etat(`« ${titre} » : section ${++k} / ${lu.sections.length} (${s.pseudo})…`);
               return PartageChasses.archiverPassees(
                 type,
                 passees,
@@ -884,7 +891,9 @@ class PartageChasses {
                       "section de l'ancien format retirée",
                       "sections de l'ancien format retirées",
                     ),
-                    `${nombre(archivees, "entrée passée ajoutée", "entrées passées ajoutées")} à l'historique de leur joueur`,
+                    TYPES_AVEC_HISTORIQUE.includes(type)
+                      ? `${nombre(archivees, "entrée passée ajoutée", "entrées passées ajoutées")} à l'historique de leur joueur`
+                      : `${nombre(archivees, "entrée passée supprimée", "entrées passées supprimées")} (pas d'historique des floods)`,
                     gardees.length
                       ? `${nombre(gardees.length, "gardée", "gardées")} (historique du joueur pas écrit)`
                       : "",
@@ -899,7 +908,7 @@ class PartageChasses {
   }
   /**
    * « Ranger le forum », seconde étape : chaque ancien sujet « Floods | … » /
-   * « Chasses | … » est supprimé, ses entrées passées d'abord ajoutées à
+   * « Chasses | … » est supprimé, les chasses passées d'abord ajoutées à
    * l'historique de son joueur ; un sujet illisible, ou dont l'historique n'a
    * pas pu être écrit, reste.
    *
@@ -931,6 +940,8 @@ class PartageChasses {
           (suite, /** @type {any} */ t) =>
             suite.then(() => {
               etat(`Anciens sujets : ${++k} / ${anciens.length} (${t.type} | ${t.pseudo})…`);
+              // sans historique (floods) : rien à lire avant de supprimer
+              if (!TYPES_AVEC_HISTORIQUE.includes(t.type)) return void aSupprimer.push(t);
               return PartageChasses._texteSujet(t.id).then(
                 (texte) => {
                   let v = PartageChasses.lireEntrees(texte);
@@ -990,6 +1001,86 @@ class PartageChasses {
     });
   }
   /**
+   * Bouton « Supprimer les sujets de floods inutiles » (Préférences → Partage
+   * de données, réservé au mainteneur) : les pages « Historique Floods N |
+   * pseudo » (plus d'historique des floods) et les anciens sujets
+   * « Floods | pseudo », supprimés en une requête comme les cases et le bouton
+   * « Supprimer » du jeu, une fois la liste lue confirmée ; jamais le sujet
+   * commun. La liste relue dit ce que le forum a gardé (droits) ; si elle
+   * montre d'autres sujets de floods inutiles (liste du forum peut-être
+   * limitée), ils sont supprimés à leur tour.
+   *
+   * @static
+   * @method supprimerSujetsFloods
+   * @param {(texte: String) => void} [etat] avancement affiché
+   * @param {(sujets: Array<{id: String, titre: String}>) => Boolean} [confirmer]
+   *   accord sur les sujets lus, avant toute suppression
+   * @return {Promise<String>} bilan à afficher
+   */
+  static supprimerSujetsFloods(etat = () => {}, confirmer = () => true) {
+    let nombre = (
+        /** @type {Number} */ n,
+        /** @type {String} */ un,
+        /** @type {String} */ plusieurs,
+      ) => `${numeral(n).format()} ${n > 1 ? plusieurs : un}`,
+      inutiles = (/** @type {any} */ sujets) => [
+        ...sujets.historiques
+          .filter((/** @type {any} */ h) => h.type == "Floods")
+          .sort((/** @type {any} */ a, /** @type {any} */ b) =>
+            a.pseudo == b.pseudo ? a.page - b.page : a.pseudo < b.pseudo ? -1 : 1,
+          )
+          .map((/** @type {any} */ h) => ({
+            id: h.id,
+            titre: `Historique Floods ${h.page} | ${h.pseudo}`,
+          })),
+        ...sujets.liste
+          .filter((/** @type {any} */ t) => t.type == "Floods")
+          .map((/** @type {any} */ t) => ({ id: t.id, titre: `Floods | ${t.pseudo}` })),
+      ],
+      supprimes = 0,
+      tours = 0;
+    let supprimer = (/** @type {Array<{id: String, titre: String}>} */ liste) => {
+      etat(`Suppression de ${nombre(liste.length, "sujet", "sujets")}…`);
+      return PartageChasses._xajax("callSupprimer", [
+        `<xjxquery><q>${liste.map((t) => "topic[]=" + t.id).join("&")}</q></xjxquery>`,
+        PartageChasses.idSection,
+      ])
+        .then(() => {
+          PartageChasses.oublierCache();
+          return PartageChasses.sujets();
+        })
+        .then((apres) => {
+          let restants = inutiles(apres),
+            ids = new Set(restants.map((t) => t.id)),
+            faits = liste.filter((t) => !ids.has(t.id)).length;
+          supprimes += faits;
+          if (faits && restants.length && ++tours < SUPPRESSION_TOURS_MAX)
+            return supprimer(restants);
+          return restants;
+        });
+    };
+    etat("Lecture de la liste des sujets…");
+    PartageChasses.oublierCache();
+    return PartageChasses.sujets().then((sujets) => {
+      let liste = inutiles(sujets);
+      if (!liste.length) return "Aucun sujet de floods inutile dans la section.";
+      if (!confirmer(liste)) return "Suppression annulée : aucun sujet supprimé.";
+      return supprimer(liste).then((restants) => {
+        let bilan = `Sujets de floods inutiles : ${[
+          nombre(supprimes, "supprimé", "supprimés"),
+          restants.length
+            ? `${nombre(restants.length, "pas supprimé", "pas supprimés")} : le forum le${restants.length > 1 ? "s" : ""} montre encore (droits de gestion du forum ?)`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(", ")}.`;
+        if (restants.length) Journal.erreur("Forum", bilan);
+        else Journal.info("Forum", bilan);
+        return bilan;
+      });
+    });
+  }
+  /**
    * Ajoute des lignes (actions passées, de la plus ancienne à la plus récente)
    * à l'historique du joueur, dans sa dernière page « Historique <type> N |
    * pseudo », ou dans une page nouvelle quand le message dépasserait
@@ -998,7 +1089,7 @@ class PartageChasses {
    *
    * @static
    * @method archiver
-   * @param {String} type "Chasses" ou "Floods"
+   * @param {String} type "Chasses" (TYPES_AVEC_HISTORIQUE)
    * @param {Array<String>} lignes
    * @param {Object} sujets voir sujets()
    * @param {String} [pseudo] joueur de l'historique (« Ranger le forum » : un autre que moi)
@@ -1064,7 +1155,9 @@ class PartageChasses {
   /**
    * Entrées passées d'un sujet vers l'historique du joueur, avant la
    * réécriture du sujet. Résout false si l'historique n'a pas pu être écrit :
-   * elles restent alors dans le sujet, pour l'écriture suivante.
+   * elles restent alors dans le sujet, pour l'écriture suivante. Un type sans
+   * historique (floods, TYPES_AVEC_HISTORIQUE) n'écrit rien et résout true :
+   * ses entrées passées sont seulement retirées.
    *
    * @static
    * @method archiverPassees
@@ -1084,7 +1177,7 @@ class PartageChasses {
     date = (e) => e.date,
     pseudo = monProfil.pseudo,
   ) {
-    if (!entrees.length) return Promise.resolve(true);
+    if (!entrees.length || !TYPES_AVEC_HISTORIQUE.includes(type)) return Promise.resolve(true);
     let lignes = entrees
       .slice()
       .sort((a, b) => (date(a) < date(b) ? -1 : date(a) > date(b) ? 1 : (a.id || 0) - (b.id || 0)))
@@ -1148,7 +1241,7 @@ class PartageChasses {
   }
   /**
    * Fusionne des entrées dans ma réponse du sujet commun du type ; les entrées
-   * passées partent d'abord dans mon historique.
+   * passées en sont retirées, les chasses d'abord copiées dans mon historique.
    *
    * @private
    * @param {String} type "Chasses" ou "Floods"
@@ -1176,7 +1269,7 @@ class PartageChasses {
           return true;
         });
       if (type == "Chasses") PartageChasses.noterFinChasses(entrees.map((e) => e.date));
-      // les entrées passées quittent la section pour l'historique du joueur
+      // les entrées passées quittent ma réponse (chasses : vers mon historique)
       let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
         aVenir = anciennes.filter((e) => e.date >= maintenant),
         passees = anciennes.concat(nouvelles).filter((e) => e.date < maintenant);
@@ -1204,7 +1297,8 @@ class PartageChasses {
           .filter((e) => e.date < maintenant)
           .concat(prochaines.slice(0, COMMUN_MAX_ENTREES));
       };
-      return passees.length
+      // sans historique (floods) : rien n'est écrit avant ma réponse, lue juste avant
+      return passees.length && TYPES_AVEC_HISTORIQUE.includes(type)
         ? PartageChasses.archiverPassees(type, passees, sujets).then(garder)
         : garder(true);
     }).then(() => ajoutees);
@@ -1444,20 +1538,15 @@ class PartageChasses {
   static _retirerFloods(ids) {
     let mesure = Journal.mesurer("Retrait de floods partagés"),
       retires = 0;
-    return PartageChasses._modifierMessage("Floods", (anciennes, sujets) => {
+    return PartageChasses._modifierMessage("Floods", (anciennes) => {
       let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
         gardes = anciennes.filter((e) => e.date >= maintenant && !ids.includes(e.id)),
         presents = anciennes.filter((e) => ids.includes(e.id));
       // un flood arrivé n'est plus « retiré » : il serait purgé de toute façon
       retires = presents.filter((e) => e.date >= maintenant).length;
       if (!presents.length) return null;
-      // arrivés (minute passée) : vers l'historique ; annulés à venir : retirés
-      let passees = anciennes.filter((e) => e.date < maintenant);
-      return passees.length
-        ? PartageChasses.archiverPassees("Floods", passees, sujets).then((archivees) =>
-            gardes.concat(archivees ? [] : passees),
-          )
-        : gardes;
+      // arrivés (minute passée) et annulés : retirés, sans historique des floods
+      return gardes;
     })
       .then(() => {
         PartageChasses.oublierFloodsPartages(ids);

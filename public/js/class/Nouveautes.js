@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.121.0",
+    notes: [
+      "Forum caché : les floods arrivés sont seulement retirés de ta réponse dans « BDD générale flood », ils ne sont plus recopiés dans des sujets « Historique Floods ». L'historique des chasses ne change pas.",
+    ],
+  },
+  {
     version: "1.120.1",
     notes: [
       "Page Membres de l'alliance, vue « Floods et chasses en cours » : la colonne « État de la colonie » est maintenant la dernière du tableau.",

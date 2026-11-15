@@ -1197,7 +1197,8 @@ describe("Préférences → Partage de données", () => {
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     expect(texte).toContain("« Floods | pseudo » et « Chasses | pseudo »");
     expect(texte).toContain("une réponse par joueur, que son extension écrit et modifie");
-    expect(texte).toContain("Les entrées passées vont d'abord dans l'historique de leur joueur");
+    expect(texte).toContain("Les chasses passées vont d'abord dans l'historique de leur joueur");
+    expect(texte).toContain("les floods passés sont supprimés (pas d'historique des floods)");
     expect(texte).toContain("Il faut les droits de gestion du forum.");
     preferences.lire(`(() => {
       window.RANGE = { fin: null, echec: null, appels: 0, confirmer: false };
@@ -1232,6 +1233,75 @@ describe("Préférences → Partage de données", () => {
     expect(etat()[1]).toBe(
       "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
     );
+    preferences.lire(`$("#pseudo").remove()`);
+  });
+
+  test("bouton « Supprimer les sujets de floods inutiles » : pour le mainteneur seulement ; liste lue confirmée, avancement, puis bilan", async () => {
+    preferences.lire(`localStorage.clear()`);
+    ouvrir();
+    // un autre joueur : ni le bloc ni le bouton
+    expect(preferences.lire(`$(".o_partageSupprimerFloods").length`)).toBe(0);
+    preferences.lire(`(() => {
+      $("body").append("<span id='pseudo'>DoggyBag</span>");
+      $("#o_tabsParametrePartage").empty();
+      boite.ongletPartage();
+    })()`);
+    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
+    expect(texte).toContain("Sujets de floods inutiles");
+    expect(texte).toContain(
+      "« Historique Floods N | pseudo » (l'historique des floods n'est plus tenu)",
+    );
+    expect(texte).toContain("est toujours gardé");
+    preferences.lire(`(() => {
+      window.SUPPR = { fin: null, echec: null, confirmations: [], accord: false, reponses: [] };
+      window.confirm = (m) => (SUPPR.confirmations.push(m), SUPPR.accord);
+      PartageChasses.supprimerSujetsFloods = (etat, confirmer) => {
+        etat("Lecture de la liste des sujets…");
+        SUPPR.reponses.push(
+          confirmer(Array.from({ length: 17 }, (_, i) => ({ id: String(i), titre: "Historique Floods " + (i + 1) + " | Beta" }))),
+        );
+        return new Promise((ok, non) => { SUPPR.fin = ok; SUPPR.echec = non; });
+      };
+      $(".o_partageSupprimerFloods").trigger("click");
+    })()`);
+    const etat = () =>
+      preferences.lire(
+        `[$(".o_partageSupprimerFloods").prop("disabled"), $("#o_partageSupprimerFloodsEtat").text()]`,
+      );
+    expect(etat()).toEqual([true, "Lecture de la liste des sujets…"]);
+    // la confirmation montre la liste lue (les 15 premiers titres, puis leur nombre)
+    const message = preferences.lire<string>(`SUPPR.confirmations[0]`).split("\n");
+    expect(message[0]).toBe(
+      "Supprimer ces 17 sujets de floods ? Une suppression ne se défait pas.",
+    );
+    expect(message.slice(1, 3)).toEqual([
+      "• Historique Floods 1 | Beta",
+      "• Historique Floods 2 | Beta",
+    ]);
+    expect(message.slice(-2)).toEqual([
+      "… et 2 autres",
+      `Le sujet « ${preferences.lire<string>(`SUJETS_COMMUNS.Floods`)} » est gardé.`,
+    ]);
+    expect(message.length).toBe(18);
+    expect(preferences.lire(`SUPPR.reponses`)).toEqual([false]);
+    preferences.lire(`SUPPR.fin("Suppression annulée : aucun sujet supprimé.")`);
+    await attendre();
+    expect(etat()).toEqual([false, "Suppression annulée : aucun sujet supprimé."]);
+    preferences.lire(
+      `(() => { SUPPR.accord = true; $(".o_partageSupprimerFloods").trigger("click"); })()`,
+    );
+    expect(preferences.lire(`SUPPR.reponses`)).toEqual([false, true]);
+    preferences.lire(`SUPPR.fin("Sujets de floods inutiles : 17 supprimés.")`);
+    await attendre();
+    expect(etat()).toEqual([false, "Sujets de floods inutiles : 17 supprimés."]);
+    preferences.lire(`$(".o_partageSupprimerFloods").trigger("click")`);
+    preferences.lire(`SUPPR.echec(new Error("absente"))`);
+    await attendre();
+    expect(etat()).toEqual([false, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
+    preferences.lire(`$(".o_partageSupprimerFloods").trigger("click")`);
+    preferences.lire(`SUPPR.echec(new Error("forum"))`);
+    await attendre();
+    expect(etat()[1]).toBe("Forum de l'alliance illisible : réessaie plus tard.");
     preferences.lire(`$("#pseudo").remove()`);
   });
 });

@@ -29,7 +29,7 @@ lire(`(() => {
     // comme le vrai _xajax : une écriture rend les lectures gardées périmées
     if (/^envoi/.test(f)) PartageChasses.oublierCache();
     if (f == "callGetForum")
-      return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) =>
+      return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.slice(0, FORUM.limite || Infinity).map((s) =>
         '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td><td><b>X</b><br/>' + (s.dernier || "13 nov. à 22h03") + '</td></tr>').join("") + '</table></form>');
     if (f == "callGetTopic" && FORUM.echoue.includes(String(args))) return Promise.reject(new Error("forum"));
     // écriture acceptée par le jeu sans effet (grade sans droit d'écrire)
@@ -364,24 +364,21 @@ describe("écriture de ma réponse", () => {
     expect(ordre()).toEqual(["callGetForum", "callGetTopic 10"]);
   });
 
-  test("floods arrivés : vers mon historique, puis ma réponse relue avant l'écriture", async () => {
+  test("floods arrivés : retirés de ma réponse, sans historique ; ma réponse lue une seule fois", async () => {
     preparer();
     await partager([A1, PASSE]);
-    // PASSE (11:00) est déjà passé : jamais écrit dans la réponse, mis dans l'historique
-    expect(
-      lire<string>(`FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | Alpha").texte`),
-    ).toBe(ligne("Floods", PASSE));
+    // PASSE (11:00) est déjà passé : jamais écrit, ni dans la réponse ni dans un historique
+    expect(titres().filter((t) => t.startsWith("Historique"))).toEqual([]);
     expect(mesFloods()).toEqual([11]);
     regler("2026-11-14 13:05:00");
     lire(`(() => { FORUM.ordre.length = 0; })()`);
     expect(await partager([A2])).toBe(1);
     expect(mesFloods()).toEqual([12]);
-    const o = ordre();
-    expect(o.slice(0, 2)).toEqual(["callGetForum", "callGetTopic 10"]);
-    expect(o.slice(-2)).toEqual(["callGetTopic 10", "envoiEditMessage"]);
+    expect(ordre()).toEqual(["callGetForum", "callGetTopic 10", "envoiEditMessage"]);
+    expect(titres().filter((t) => t.startsWith("Historique"))).toEqual([]);
   });
 
-  test("historique pas écrit et rien de nouveau : les floods arrivés restent, rien n'est écrit", async () => {
+  test("floods arrivés et rien de nouveau : retirés quand même, aucun historique à écrire", async () => {
     preparer();
     await partager([A1]);
     regler("2026-11-14 13:05:00");
@@ -389,8 +386,8 @@ describe("écriture de ma réponse", () => {
       `(() => { FORUM.historiqueEchoue = true; FORUM.ordre.length = 0; console.warn = () => {}; })()`,
     );
     expect(await partager([A1])).toBe(0);
-    expect(ordre().filter((o) => /^envoi(Edit|Nouveau)Message/.test(o))).toEqual([]);
-    expect(mesFloods()).toEqual([11]);
+    expect(ordre().filter((o) => /^envoi/.test(o))).toEqual(["envoiEditMessage"]);
+    expect(mesFloods()).toEqual([]);
   });
 
   test("tout retiré : « Aucun flood en cours. » ; puis plus de réponse à créer pour rien", async () => {
@@ -538,11 +535,11 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
       `(() => { const s = FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | " + ${JSON.stringify(pseudo)}); return s ? s.texte : null; })()`,
     );
 
-  test("premiers messages vidés (texte d'en-tête gardé), entrées passées dans l'historique, anciens sujets supprimés en une fois ; réponses et convois gardés ; bilan", async () => {
+  test("premiers messages vidés (texte d'en-tête gardé), floods passés supprimés sans historique, anciens sujets supprimés en une fois ; réponses et convois gardés ; bilan", async () => {
     preparer();
     const bilan = await ranger();
     expect(bilan).toBe(
-      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée ajoutée à l'historique de leur joueur. « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 3 supprimés.`,
+      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée supprimée (pas d'historique des floods). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 3 supprimés.`,
     );
     expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
     // titre et case « modifiable » réécrits comme avant
@@ -551,15 +548,12 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
       modifiable: true,
     });
     expect(reponses("10")).toEqual([["Beta", ligne("Floods", B1)]]);
-    // PASSE : dans la section d'Alpha et dans son ancien sujet, une seule fois dans son historique
-    expect(historique("Alpha")).toBe(ligne("Floods", PASSE));
+    // PASSE (flood arrivé) : supprimé, sans historique ; les anciens sujets de
+    // floods ne sont pas lus avant leur suppression, celui des chasses l'est
+    expect(historique("Alpha")).toBeNull();
+    expect(ordre().filter((o) => /^callGetTopic [123]$/.test(o))).toEqual(["callGetTopic 3"]);
     expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3"]]);
-    expect(titres()).toEqual([
-      "Convois | Alpha",
-      COMMUN_F,
-      COMMUN_C,
-      "Historique Floods 1 | Alpha",
-    ]);
+    expect(titres()).toEqual(["Convois | Alpha", COMMUN_F, COMMUN_C]);
     expect(notes()).toContain("Anciens sujets : 3 supprimés.");
     // l'affichage n'en voit rien : seule la réponse de Beta compte
     const d = await charger();
@@ -577,17 +571,22 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
     );
   });
 
-  test("historique pas écrit : sections et anciens sujets gardés, le bilan le dit", async () => {
+  test("historique des chasses pas écrit : l'ancien sujet des chasses gardé, ceux des floods supprimés ; le bilan le dit", async () => {
     preparer();
-    lire(`(() => { FORUM.historiqueEchoue = true; console.warn = () => {}; })()`);
+    lire(`(() => {
+      const s = FORUM.sujets.find((s) => s.id == "3");
+      s.texte += "\\n" + ${JSON.stringify(ligne("Chasses", { date: "2026-11-14 11:30", terrain: 900 }))};
+      FORUM.historiqueEchoue = true;
+      console.warn = () => {};
+    })()`);
     const bilan = await ranger();
     expect(bilan).toBe(
-      `« ${COMMUN_F} » : 1 section de l'ancien format retirée, 0 entrée passée ajoutée à l'historique de leur joueur, 1 gardée (historique du joueur pas écrit). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 2 supprimés, 1 gardé (historique du joueur pas écrit).`,
+      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée supprimée (pas d'historique des floods). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 2 supprimés, 1 gardé (historique du joueur pas écrit).`,
     );
-    // la section d'Alpha (une entrée passée) reste ; celle de Gamma (rien de passé) part
-    const lu = lire<any>(`PartageChasses.sections(${JSON.stringify(sujet("10").texte)})`);
-    expect(lu.sections.map((s: any) => s.pseudo)).toEqual(["Alpha"]);
-    expect(titres()).toContain("Floods | Alpha");
+    // les floods n'ont pas d'historique à écrire : toutes les sections parties
+    expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
+    expect(titres()).toContain("Chasses | Alpha");
+    expect(titres()).not.toContain("Floods | Alpha");
   });
 
   test("suppression refusée par le forum (droits de gestion) : vue à la relecture de la liste", async () => {
@@ -606,11 +605,11 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
     );
   });
 
-  test("ancien sujet illisible : gardé, jamais supprimé", async () => {
+  test("ancien sujet des chasses illisible : gardé, jamais supprimé ; ceux des floods ne sont pas lus", async () => {
     preparer();
-    lire(`(() => { FORUM.echoue.push("2"); })()`);
+    lire(`(() => { FORUM.echoue.push("2", "3"); })()`);
     expect(await ranger()).toEndWith("Anciens sujets : 2 supprimés, 1 gardé (sujet illisible).");
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "3"]]);
+    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2"]]);
   });
 
   test("tout est déjà rangé : rien n'est écrit ni supprimé", async () => {
@@ -629,5 +628,87 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
     expect(await ranger()).toBe(
       `Aucun sujet « ${COMMUN_F} » ni « ${COMMUN_C} » dans la section. Anciens sujets : 3 supprimés.`,
     );
+  });
+});
+
+describe("« Supprimer les sujets de floods inutiles » (mainteneur)", () => {
+  /** preparer(), plus des pages d'historique de chaque type. */
+  const preparerHistoriques = () => {
+    preparer();
+    lire(`FORUM.sujets.push(
+      { id: "20", titre: "Historique Floods 1 | Alpha", texte: "x" },
+      { id: "21", titre: "Historique Floods 2 | Alpha", texte: "x" },
+      { id: "22", titre: "Historique Floods 1 | Beta", texte: "x" },
+      { id: "23", titre: "Historique Chasses 1 | Alpha", texte: "x" },
+      { id: "24", titre: "Historique Convois 1 | Alpha", texte: "x" },
+    )`);
+  };
+  /** Suppression ; la liste soumise à confirmation est gardée dans LISTES. */
+  const supprimer = (accord = true) =>
+    lire<Promise<string>>(`(() => {
+      window.ETATS = [];
+      window.LISTES = [];
+      return PartageChasses.supprimerSujetsFloods(
+        (t) => ETATS.push(t),
+        (liste) => (LISTES.push(liste.map((t) => t.titre)), ${accord}),
+      );
+    })()`);
+
+  test("pages « Historique Floods » et anciens « Floods | … » supprimés en une fois après confirmation de la liste ; sujet commun, chasses et convois gardés", async () => {
+    preparerHistoriques();
+    expect(await supprimer()).toBe("Sujets de floods inutiles : 5 supprimés.");
+    expect(lire(`LISTES`)).toEqual([
+      [
+        "Historique Floods 1 | Alpha",
+        "Historique Floods 2 | Alpha",
+        "Historique Floods 1 | Beta",
+        "Floods | Alpha",
+        "Floods | Beta",
+      ],
+    ]);
+    expect(lire(`FORUM.suppressions`)).toEqual([["20", "21", "22", "1", "2"]]);
+    expect(titres()).toEqual([
+      "Chasses | Alpha",
+      "Convois | Alpha",
+      COMMUN_F,
+      COMMUN_C,
+      "Historique Chasses 1 | Alpha",
+      "Historique Convois 1 | Alpha",
+    ]);
+    // aucun sujet lu ni écrit : la liste seulement
+    expect(ordre().filter((o) => !/^call(GetForum|Supprimer)/.test(o))).toEqual([]);
+    expect(notes()).toContain("Sujets de floods inutiles : 5 supprimés.");
+  });
+
+  test("confirmation refusée : rien n'est supprimé", async () => {
+    preparerHistoriques();
+    expect(await supprimer(false)).toBe("Suppression annulée : aucun sujet supprimé.");
+    expect(lire(`FORUM.suppressions`)).toEqual([]);
+  });
+
+  test("aucun sujet de floods inutile : rien à confirmer ni à supprimer", async () => {
+    preparer();
+    lire(
+      `(() => { FORUM.sujets = FORUM.sujets.filter((s) => !s.titre.startsWith("Floods |")); })()`,
+    );
+    expect(await supprimer()).toBe("Aucun sujet de floods inutile dans la section.");
+    expect(lire(`[LISTES.length, FORUM.suppressions.length]`)).toEqual([0, 0]);
+  });
+
+  test("suppression refusée par le forum (droits de gestion) : vue à la relecture de la liste, une seule tentative", async () => {
+    preparerHistoriques();
+    lire(`(() => { FORUM.refuseSuppression = true; })()`);
+    expect(await supprimer()).toBe(
+      "Sujets de floods inutiles : 0 supprimé, 5 pas supprimés : le forum les montre encore (droits de gestion du forum ?).",
+    );
+    expect(lire(`FORUM.suppressions.length`)).toBe(1);
+  });
+
+  test("liste du forum limitée : les sujets qui apparaissent après une suppression sont supprimés à leur tour", async () => {
+    preparerHistoriques();
+    lire(`(() => { FORUM.limite = 6; })()`);
+    expect(await supprimer()).toBe("Sujets de floods inutiles : 5 supprimés.");
+    expect(lire(`LISTES`)).toEqual([["Floods | Alpha", "Floods | Beta"]]);
+    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2"], ["20", "21"], ["22"]]);
   });
 });

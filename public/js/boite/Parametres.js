@@ -877,11 +877,11 @@ class BoiteParametre extends Boite {
         ${this.section(
           `Convoi avant la récolte ${this.etiquette("Grenier")}`,
           monProfil.parametre["convoisAvantRecolte"].getForm(
-            "Compter les ouvrières qui reviennent de convoi ou sont pondues avant la récolte",
+            "Compter les ouvrières qui reviennent de convoi avant la récolte",
           ) +
             this.aide(
               "Efficace seulement avec le Compte+ réglé sur l'affectation automatique Nourriture ou Matériaux (page Ressources) : les ouvrières qui arrivent y sont mises au travail d'elles-mêmes.",
-              "Au clic sur un montant du Récapitulatif (page Convois), l'extension lit tes pages Ressources (prochaine récolte, chasses en cours) et Reine (pontes) : les ouvrières dont la minute de retour (« Retour le » du jeu) ou de ponte finit avant une récolte peuvent partir en plus, le terrain restant exploité à chaque récolte. Sans Compte+, ou réglé sur la croix ou « Ratio », il faut les affecter soi-même avant chaque récolte, et le jeu n'affiche pas le retour des convois : seules les pontes comptent. Le terrain que prendront tes attaques en cours n'est pas compté.",
+              "Au clic sur un montant du Récapitulatif (page Convois), l'extension lit tes pages Ressources (prochaine récolte, chasses en cours), Reine (ouvrières présentes et en convoi) et Armée (tes attaques en cours, quand l'encart Compte+ en montre) : les ouvrières dont le convoi revient avant une récolte peuvent partir en plus, et celles qu'il faudra pour le terrain de tes chasses et de tes attaques arrivées d'ici là restent, le terrain restant exploité à chaque récolte. Une attaque lancée depuis ce navigateur compte pour la prise estimée à son lancement, une autre pour ses troupes (le plus qu'elle puisse prendre). Les ouvrières pondues ne comptent pas : l'affectation automatique ne les met pas au travail. Sans Compte+, ou réglé sur la croix ou « Ratio », il faut affecter soi-même celles qui reviennent avant chaque récolte.",
             ),
         )}
       </form>`);

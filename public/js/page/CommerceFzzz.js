@@ -12,11 +12,17 @@ const OUAF_PANNE =
   "Le site de suivi OUAF ne répond pas : « Convoi à faire » et « 📤 Envoyer au suivi » sont indisponibles pour l'instant. Réessaie plus tard.";
 // le jeu produit 48 récoltes par jour (production du jour = récolte × 48)
 const RECOLTE_PERIODE = 30 * 60000;
-// terrain d'une chasse compté s'il change jusqu'à deux minutes après une récolte :
-// minute du RC à une minute près, plus le délai de lecture de la page
-const RECOLTE_MARGE_CHASSE = 2 * 60000;
+// terrain d'une chasse ou d'une attaque compté s'il change jusqu'à deux minutes
+// après une récolte : minute du RC à une minute près, plus le délai de lecture
+const RECOLTE_MARGE_TERRAIN = 2 * 60000;
+// convoi encore parti à la lecture de la page Reine : son compte à rebours (à
+// la seconde près) finit au moins 2 s après
+const RECOLTE_MARGE_RETOUR = 2000;
+// minute « Retour le » du jeu passée depuis 90 s : convoi revenu, quel que soit
+// le compte à rebours affiché (figé si la page a été mise en pause)
+const RECOLTE_RETOUR_PASSE = 90000;
 const RECOLTES_EXAMINEES_MAX = 48 * 14;
-// pages Ressources et Reine relues au plus une fois par minute (clics successifs)
+// pages Ressources, Reine et Armée relues au plus une fois par minute (clics successifs)
 const RECOLTE_VALIDITE_LECTURE = 60000;
 
 /**
@@ -517,12 +523,14 @@ class CommerceFzzz {
     };
   }
   /**
-   * Remplissage refait avec les ouvrières qui reviennent de convoi ou sont
-   * pondues avant chaque récolte (idée de KWHWWYMWN, option décochée par
-   * défaut) : pages Ressources et Reine lues au clic. Les champs ne sont
-   * réécrits que s'ils gardent les valeurs écrites au clic (le joueur a pu
-   * les changer entre-temps) ; sans lecture possible, le remplissage habituel
-   * reste.
+   * Remplissage refait avec les ouvrières qui reviennent de convoi avant
+   * chaque récolte, moins le terrain que rapporteront d'ici là mes chasses et
+   * mes attaques (idée de KWHWWYMWN, option décochée par défaut) : pages
+   * Ressources, Reine et Armée lues au clic. Les ouvrières pondues ne comptent
+   * pas : l'affectation automatique du Compte+ ne les met pas au travail
+   * (essai de KWHWWYMWN, 15/11/2026). Les champs ne sont réécrits que s'ils
+   * gardent les valeurs écrites au clic (le joueur a pu les changer
+   * entre-temps) ; sans lecture possible, le remplissage habituel reste.
    *
    * @static
    * @method remplirAvantRecolte
@@ -547,7 +555,6 @@ class CommerceFzzz {
             ),
             maintenant: Horloge.maintenant(),
           }),
-          attaques = parseInt($("#ligne_attaque strong").first().text()) || 0,
           garde = !intacts(),
           refait = garde ? ecrit : CommerceFzzz.ecrireConvoi(du, calcul.libres);
         Journal.info("Convois", "remplissage avant la récolte", {
@@ -555,12 +562,14 @@ class CommerceFzzz {
           libres: calcul.libres,
           habituelles,
           presentes: lu.presentes,
+          enConvoi: lu.enConvoi,
           terrain: lu.terrain,
           revenues: calcul.revenues,
-          pondues: calcul.pondues,
           chasses: calcul.gagne,
+          attaques: calcul.attaques,
+          attaquesInconnues: lu.attaquesInconnues,
+          armee: lu.armee,
           automatique: lu.automatique,
-          attaques,
           champsGardes: garde,
         });
         $.toast({
@@ -569,7 +578,8 @@ class CommerceFzzz {
           text: CommerceFzzz.messageRecolte(calcul, habituelles, {
             reduit: refait.reduit,
             automatique: lu.automatique,
-            attaques,
+            armee: lu.armee,
+            inconnues: lu.attaquesInconnues,
             garde,
           }),
         });
@@ -591,7 +601,8 @@ class CommerceFzzz {
    * @method messageRecolte
    * @param {Object} calcul résultat de libresAvantRecolte
    * @param {Number} habituelles ouvrières libres du remplissage habituel
-   * @param {Object} d {reduit, automatique, attaques, garde}
+   * @param {Object} d {reduit, automatique, armee (page Armée lue : vrai,
+   *   illisible : faux, pas lue : null), inconnues, garde}
    * @return {String}
    */
   static messageRecolte(calcul, habituelles, d) {
@@ -599,28 +610,36 @@ class CommerceFzzz {
       mot = (x, singulier) => (x >= 2 ? singulier + "s" : singulier),
       heure = moment(calcul.recolte).format("HH[h]mm"),
       ecart = calcul.libres - habituelles,
+      gains = [
+        calcul.gagne ? `${n(calcul.gagne)} cm² de chasses` : "",
+        calcul.attaques ? `${n(calcul.attaques)} cm² de tes attaques` : "",
+      ]
+        .filter(Boolean)
+        .join(" et "),
       texte =
         ecart > 0
-          ? `Récolte de ${heure} : ${n(ecart)} ${mot(ecart, "ouvrière")} de plus pour le convoi (comptées : ${n(calcul.revenues)} de retour de convoi, ${n(calcul.pondues)} ${mot(calcul.pondues, "pondue")} d'ici là).`
+          ? `Récolte de ${heure} : ${n(ecart)} ${mot(ecart, "ouvrière")} de plus pour le convoi (comptées : ${n(calcul.revenues)} de retour de convoi${gains ? ` ; terrain gagné d'ici là : ${gains}` : ""}).`
           : ecart < 0
-            ? `Récolte de ${heure} : ${n(-ecart)} ${mot(-ecart, "ouvrière")} de moins pour le convoi, ${mot(-ecart, "gardée")} pour exploiter ton terrain${calcul.gagne ? ` (${n(calcul.gagne)} cm² de chasses compris)` : ""}.`
+            ? `Récolte de ${heure} : ${n(-ecart)} ${mot(-ecart, "ouvrière")} de moins pour le convoi, ${mot(-ecart, "gardée")} pour exploiter ton terrain${gains ? ` (${gains} compris)` : ""}.`
             : `Récolte de ${heure} : pas d'ouvrière de plus pour le convoi.`;
     if (d.garde) texte += " Champs du convoi changés entre-temps : non réécrits.";
     else if (d.reduit) texte += " " + d.reduit;
     if (ecart > 0 && !d.automatique)
       texte +=
         " Sans affectation automatique des ouvrières (Compte+ réglé sur Nourriture ou Matériaux, page Ressources), affecte toi-même celles qui arrivent avant chaque récolte.";
-    if (d.attaques)
-      texte += ` Le terrain que prendront tes ${n(d.attaques)} ${mot(d.attaques, "attaque")} en cours n'est pas compté.`;
+    if (d.armee === false)
+      texte += " Page Armée illisible : le terrain de tes attaques en cours n'est pas compté.";
+    else if (d.inconnues)
+      texte += ` ${n(d.inconnues)} ${mot(d.inconnues, "attaque")} en cours sans troupes connues : ${d.inconnues > 1 ? "leur" : "son"} terrain n'est pas compté.`;
     return texte;
   }
   /**
    * Ouvrières qui peuvent partir en convoi sans laisser de terrain inexploité
    * à une récolte à venir (une ouvrière par cm²) : à chaque récolte, les
-   * présentes, plus celles revenues de convoi ou pondues dont la minute
-   * d'arrivée est entière avant la récolte (règle du mainteneur), moins le
-   * terrain d'alors, chasses comprises. Le minimum sur les récoltes, entre 0
-   * et les présentes : valable quel que soit le retour du convoi envoyé.
+   * présentes, plus celles revenues de convoi dont la minute de retour est
+   * entière avant la récolte (règle du mainteneur), moins le terrain d'alors,
+   * chasses et attaques comprises. Le minimum sur les récoltes, entre 0 et les
+   * présentes : valable quel que soit le retour du convoi envoyé.
    *
    * @static
    * @method libresAvantRecolte
@@ -630,50 +649,37 @@ class CommerceFzzz {
    * @param {Number} d.recolte une récolte (ms, horloge du serveur), les autres de 30 en 30 min
    * @param {Number} [d.maintenant] récoltes passées ignorées
    * @param {Array} [d.retours] [{minute (ms, début de la minute de retour), ouvrieres}]
-   * @param {Array} [d.pontes] [{debut, fin (ms), ouvrieres}] pondues une à une, la dernière à fin
    * @param {Array} [d.chasses] [{impact (ms, minute du RC), terrain (cm²)}]
-   * @return {{libres: Number, recolte: Number, revenues: Number, pondues: Number, gagne: Number}} la récolte qui limite et ce qui y compte
+   * @param {Array} [d.attaques] mes attaques, comme d.chasses
+   * @return {{libres: Number, recolte: Number, revenues: Number, gagne: Number, attaques: Number}} la récolte qui limite et ce qui y compte (gagne : terrain des chasses, attaques : celui des attaques)
    */
   static libresAvantRecolte(d) {
     let retours = d.retours || [],
-      pontes = d.pontes || [],
       chasses = d.chasses || [],
+      attaques = d.attaques || [],
       // arrivée comptée si sa minute est entière avant la récolte : avant le
       // début de la minute de la récolte
       debutMinute = (t) => Math.floor(t / 60000) * 60000,
       revenues = (h) =>
         retours.reduce((s, r) => s + (r.minute < debutMinute(h) ? r.ouvrieres : 0), 0),
-      pondues = (h) =>
-        pontes.reduce((s, p) => {
-          if (!(p.ouvrieres > 0)) return s;
-          // la k-ième arrive à debut + k × pas
-          let pas = (p.fin - p.debut) / p.ouvrieres,
-            n =
-              pas > 0
-                ? Math.ceil((debutMinute(h) - p.debut) / pas) - 1
-                : p.fin < debutMinute(h)
-                  ? p.ouvrieres
-                  : 0;
-          return s + Math.max(0, Math.min(p.ouvrieres, n));
-        }, 0),
-      gagne = (h) =>
-        chasses.reduce((s, c) => s + (c.impact <= h + RECOLTE_MARGE_CHASSE ? c.terrain : 0), 0),
+      gain = (/** @type {Array} */ liste, /** @type {Number} */ h) =>
+        liste.reduce((s, c) => s + (c.impact <= h + RECOLTE_MARGE_TERRAIN ? c.terrain : 0), 0),
       dernier = Math.max(
         d.recolte,
         ...retours.map((r) => r.minute + 60000),
-        ...pontes.map((p) => p.fin),
         ...chasses.map((c) => c.impact),
+        ...attaques.map((c) => c.impact),
       ),
       h = d.recolte,
       limite = null;
     if (d.maintenant > h) h += Math.ceil((d.maintenant - h) / RECOLTE_PERIODE) * RECOLTE_PERIODE;
     for (let k = 0; k < RECOLTES_EXAMINEES_MAX; k++, h += RECOLTE_PERIODE) {
       let r = revenues(h),
-        p = pondues(h),
-        g = gagne(h),
-        libres = d.presentes + r + p - (d.terrain + g);
+        g = gain(chasses, h),
+        a = gain(attaques, h),
+        libres = d.presentes + r - (d.terrain + g + a);
       if (!limite || libres < limite.libres)
-        limite = { libres, recolte: h, revenues: r, pondues: p, gagne: g };
+        limite = { libres, recolte: h, revenues: r, gagne: g, attaques: a };
       // au-delà, plus rien n'arrive : les récoltes suivantes donnent la même chose
       if (h > dernier + 60000) break;
     }
@@ -702,29 +708,43 @@ class CommerceFzzz {
       .filter((r) => r.ouvrieres > 0);
   }
   /**
-   * Convois que je livre, d'après la page Convois : minute « Retour le » du
-   * jeu (Compte+) et ouvrières qui le portent. Seuls ceux encore partis à
-   * `depuis` (lecture de la page Reine, qui donne les ouvrières présentes)
-   * comptent : un convoi revenu avant est déjà parmi les présentes.
+   * Convois que je livre, d'après la page Convois : retour à la fin du compte
+   * à rebours du jeu (« dans … », le même instant que son « Retour le » en
+   * Compte+) et ouvrières qui le portent. Seuls ceux encore partis à `depuis`
+   * (lecture de la page Reine, qui donne les ouvrières présentes) comptent :
+   * un convoi revenu avant est déjà parmi les présentes. Pour un retour dans
+   * la minute de cette lecture, seul le compte à rebours dit s'il était déjà
+   * revenu : la minute « Retour le » ne le dit pas.
    *
    * @static
    * @method retoursConvois
    * @param {Number} depuis ms
    * @param {Number} parOuvriere ressources portées par une ouvrière
+   * @param {Number} [maintenant] ms, heure du serveur des comptes à rebours affichés
    * @return {Array} [{minute, ouvrieres}]
    */
-  static retoursConvois(depuis, parOuvriere) {
+  static retoursConvois(depuis, parOuvriere, maintenant = Horloge.maintenant()) {
     let nombre = (t) => parseInt(String(t).replace(/\D/g, "")) || 0;
     return CommerceFzzz.lignes()
       .get()
       .map((elt) => {
-        let m = CommerceFzzz.texte(elt).match(
-            /Vous allez livrer\s+([\d\s  ]+)\D+?et\s+([\d\s  ]+)\D+?à\s/i,
-          ),
+        let texte = CommerceFzzz.texte(elt),
+          m = texte.match(/Vous allez livrer\s+([\d\s  ]+)\D+?et\s+([\d\s  ]+)\D+?à\s/i),
+          compte = texte.match(/\bdans\s+(.+?)(?:\s+-|$)/i),
+          arrivee = compte ? maintenant + Utils.timeToInt(compte[1]) * 1000 : null,
           retour = CommerceFzzz.texteRetour(elt),
-          minute = retour == null ? null : CommerceFzzz.minuteRetour(retour, depuis);
-        if (!m || minute == null || minute < depuis) return null;
-        return { minute, ouvrieres: Math.ceil((nombre(m[1]) + nombre(m[2])) / parOuvriere) };
+          minuteJeu = retour == null ? null : CommerceFzzz.minuteRetour(retour, depuis);
+        if (!m || (arrivee == null && minuteJeu == null)) return null;
+        let parti =
+          arrivee != null
+            ? arrivee > depuis + RECOLTE_MARGE_RETOUR &&
+              !(minuteJeu != null && minuteJeu + RECOLTE_RETOUR_PASSE <= depuis)
+            : /** @type {Number} */ (minuteJeu) >= depuis;
+        if (!parti) return null;
+        return {
+          minute: arrivee != null ? Math.floor(arrivee / 60000) * 60000 : minuteJeu,
+          ouvrieres: Math.ceil((nombre(m[1]) + nombre(m[2])) / parOuvriere),
+        };
       })
       .filter(Boolean);
   }
@@ -775,8 +795,9 @@ class CommerceFzzz {
       .reduce((a, b) => (Math.abs(b - maintenant) < Math.abs(a - maintenant) ? b : a));
   }
   /**
-   * Pages Ressources puis Reine lues pour le remplissage avant la récolte,
-   * gardées une minute pour les clics suivants.
+   * Pages Ressources, Reine puis Armée lues pour le remplissage avant la
+   * récolte, gardées une minute pour les clics suivants. La page Armée n'est
+   * lue que si l'encart Compte+ montre des attaques en cours, ou sans lui.
    *
    * @static
    * @method lireRecolte
@@ -802,30 +823,38 @@ class CommerceFzzz {
         },
       );
     };
-    let fin = () => (CommerceFzzz._recolteEnCours = null);
+    let fin = () => (CommerceFzzz._recolteEnCours = null),
+      attaques =
+        !Utils.comptePlus || (parseInt($("#ligne_attaque strong").first().text()) || 0) > 0;
     return (CommerceFzzz._recolteEnCours = lire("/Ressources.php")
       .then((ressources) =>
-        lire("/Reine.php").then((reine) => {
-          let lu = CommerceFzzz.analyserRecolte(ressources, reine);
-          CommerceFzzz._recolteLue = lu;
-          return lu;
-        }),
+        lire("/Reine.php").then((reine) =>
+          (attaques ? lire("/Armee.php").catch(() => false) : Promise.resolve(null)).then(
+            (armee) => {
+              let lu = CommerceFzzz.analyserRecolte(ressources, reine, armee);
+              CommerceFzzz._recolteLue = lu;
+              return lu;
+            },
+          ),
+        ),
       )
       .finally(fin));
   }
   /**
    * Prochaine récolte et chasses (page Ressources), ouvrières présentes et en
-   * convoi, et pontes (page Reine). Les heures sont prises du côté sûr :
-   * récolte depuis l'envoi de la demande (au plus tôt), pontes depuis la
-   * réponse (au plus tard), TdC le plus grand des deux pages.
+   * convoi (page Reine), mes attaques en cours (page Armée). La récolte est
+   * prise au plus tôt (depuis l'envoi de la demande), le TdC le plus grand des
+   * deux pages.
    *
    * @static
    * @method analyserRecolte
    * @param {Object} ressources {html, avant, apres (ms)}
    * @param {Object} reine {html, avant, apres (ms)}
-   * @return {Object} {recolte, presentes, enConvoi, terrain, pontes, chasses, automatique, instant}
+   * @param {Object|Boolean|null} [armee] {html, avant, apres}, false si illisible, null si pas lue
+   * @return {Object} {recolte, presentes, enConvoi, terrain, chasses, attaques,
+   *   attaquesInconnues, armee (lue : vrai, illisible : faux, pas lue : null), automatique, instant}
    */
-  static analyserRecolte(ressources, reine) {
+  static analyserRecolte(ressources, reine, armee = null) {
     let $ressources = Utils.parseHtml(ressources.html),
       $reine = Utils.parseHtml(reine.html),
       secondes = (ressources.html.match(/reste\(\s*(\d+)\s*,\s*["']retour_ouvrieres["']/) || [])[1],
@@ -843,19 +872,12 @@ class CommerceFzzz {
     }));
     if (chasses.length < (ressources.html.match(/Vos chasseuses vont conquérir/g) || []).length)
       throw new Error("chasses en cours illisibles");
-    let fin = 0,
-      pontes = [];
-    Utils.pontesReine($reine).forEach((p) => {
-      let debut = fin;
-      fin = Math.max(fin, p.secondes);
-      if (/^ouvri[eè]re/i.test(p.unite.trim()))
-        pontes.push({
-          debut: reine.apres + debut * 1000,
-          fin: reine.apres + fin * 1000,
-          ouvrieres: p.nombre,
-        });
-    });
-    let choix = $ressources.find("input[name=choixOuvriere]:checked").val();
+    // page de connexion ou autre : attaques inconnues, signalé dans le message
+    let lue = armee ? /Troupes en Garnison/i.test(armee.html) : armee === false ? false : null,
+      attaques = lue
+        ? CommerceFzzz.attaquesArmee(Utils.parseHtml(/** @type {any} */ (armee).html))
+        : { liste: [], inconnues: 0 },
+      choix = $ressources.find("input[name=choixOuvriere]:checked").val();
     return {
       recolte: ressources.avant + parseInt(secondes) * 1000,
       presentes,
@@ -864,11 +886,49 @@ class CommerceFzzz {
         nombre($reine, "#quantite_tdc") || 0,
         nombre($ressources, "#quantite_tdc") || 0,
       ),
-      pontes,
       chasses,
+      attaques: attaques.liste,
+      attaquesInconnues: attaques.inconnues,
+      armee: lue,
       automatique: choix == "nourriture" || choix == "materiaux",
       instant: reine.apres,
     };
+  }
+  /**
+   * Terrain que prendront mes attaques en cours (liste du jeu d'une page
+   * Armée), à la minute de leur RC : la prise estimée au lancement quand
+   * l'attaque a été lancée de ce navigateur (règle des 20 %), sinon ses
+   * troupes (Compte+), le plus qu'elle puisse prendre. Le dôme et la loge
+   * prennent le TdC comme le terrain de chasse.
+   *
+   * @static
+   * @method attaquesArmee
+   * @param {Object} $armee page Armée (jQuery)
+   * @return {{liste: Array, inconnues: Number}} liste [{impact (ms), terrain}] ;
+   *   inconnues : attaques sans capture ni troupes du jeu
+   */
+  static attaquesArmee($armee) {
+    let captures = AttaqueLancee.charger(),
+      liste = [],
+      inconnues = 0;
+    AttaqueLancee.extraireLignes($armee).forEach((l) => {
+      // un renfort n'a pas de cible
+      if (!l.cible) return;
+      let capture = captures.find((c) => c.id == l.id),
+        estimee =
+          capture && capture.terrainDepart != null && capture.terrainCible != null
+            ? Math.max(0, capture.terrainDepart - capture.terrainCible)
+            : null,
+        unites = Object.values(
+          l.troupesNatif
+            ? AttaqueLancee.uniteNatif(l.troupesNatif)
+            : (capture && capture.unite) || {},
+        ).reduce((s, n) => s + (n || 0), 0),
+        terrain = estimee != null ? estimee : unites || null;
+      if (terrain == null) inconnues++;
+      else liste.push({ impact: Utils.minuteRC(l.arrivee).valueOf(), terrain });
+    });
+    return { liste, inconnues };
   }
   /**
    * Bloc « Récapitulatif » sous les convois en cours : pour chaque membre

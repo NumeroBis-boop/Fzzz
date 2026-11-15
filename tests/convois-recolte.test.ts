@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
 // Convoi avant la récolte (idée de KWHWWYMWN) : les ouvrières qui reviennent de
-// convoi ou sont pondues avant une récolte peuvent partir, le terrain restant
-// exploité à chaque récolte. Joueurs et montants inventés.
+// convoi avant une récolte peuvent partir, celles du terrain de mes chasses et
+// de mes attaques arrivées d'ici là restent ; les pondues ne comptent pas (essai
+// de KWHWWYMWN, 15/11/2026). Joueurs et montants inventés.
 const page = creerPage(
   [
     "js/lib/globalize_0.1.1.js",
@@ -17,6 +18,7 @@ const page = creerPage(
     "js/class/Combat.js",
     "js/class/SimulationChasse.js",
     "js/class/TroupesDehors.js",
+    "js/class/AttaqueLancee.js",
     "js/class/ExportRapports.js",
     "js/page/PartageChasses.js",
     "js/page/Ressource.js",
@@ -25,7 +27,7 @@ const page = creerPage(
   ],
   `var chrome = { runtime: { getManifest: () => ({ version: "0" }), getURL: (p) => p } };
    var NOW = moment("2026-11-14T14:00:00").valueOf();
-   var Horloge = { serveur: () => moment(NOW), maintenant: () => NOW };
+   var Horloge = { serveur: () => moment(NOW), maintenant: () => NOW, serveurA: () => moment(NOW) };
    document.body.innerHTML = "<div class='boite_connexion_titre'>Connexion</div>";`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
@@ -34,7 +36,7 @@ const a = (hhmmss: string) => lire<number>(`moment("2026-11-14T${hhmmss}").value
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ");
 
 const calcul = (d: object) =>
-  lire<{ libres: number; recolte: number; revenues: number; pondues: number; gagne: number }>(
+  lire<{ libres: number; recolte: number; revenues: number; gagne: number; attaques: number }>(
     `CommerceFzzz.libresAvantRecolte(${JSON.stringify(d)})`,
   );
 
@@ -61,33 +63,6 @@ describe("ouvrières libres avant la récolte : le calcul", () => {
     expect(avec("14:30:00", "14:30:20").libres).toBe(1000);
   });
 
-  test("pontes : une à une, comptées si leur minute est entière avant la récolte", () => {
-    // 60 ouvrières de 14h00 à 14h10 : une toutes les 10 s, la k-ième à 14h00 + 10k s
-    const pondues = (recolte: string) =>
-      calcul({
-        presentes: 15000,
-        terrain: 15000,
-        recolte: a(recolte),
-        pontes: [{ debut: a("14:00:00"), fin: a("14:10:00"), ouvrieres: 60 }],
-      }).pondues;
-    // récolte à 14h05:30 ou 14h05:00 : celles arrivées avant 14h05:00 (la 30e, à 14h05:00 pile, non)
-    expect(pondues("14:05:30")).toBe(29);
-    expect(pondues("14:05:00")).toBe(29);
-    // récolte à 14h04:59 : la minute 14h04 n'est pas finie, celles d'avant 14h04:00
-    expect(pondues("14:04:59")).toBe(23);
-    expect(pondues("14:00:30")).toBe(0);
-    expect(pondues("14:11:00")).toBe(60);
-    // terrain plein au départ : libres = pondues comptées
-    expect(
-      calcul({
-        presentes: 15000,
-        terrain: 15000,
-        recolte: a("14:05:30"),
-        pontes: [{ debut: a("14:00:00"), fin: a("14:10:00"), ouvrieres: 60 }],
-      }).libres,
-    ).toBe(29);
-  });
-
   test("terrain des chasses : compté s'il change jusqu'à deux minutes après la récolte", () => {
     const avec = (impact: string) =>
       calcul({
@@ -102,6 +77,32 @@ describe("ouvrières libres avant la récolte : le calcul", () => {
     expect(avec("14:33:00")).toMatchObject({ libres: 1500, recolte: a("15:00:00"), gagne: 2500 });
   });
 
+  test("terrain de mes attaques : compté comme celui des chasses, à part dans le résultat", () => {
+    const avec = (impact: string) =>
+      calcul({
+        presentes: 15000,
+        terrain: 14000,
+        recolte: a("14:30:00"),
+        retours: [{ minute: a("14:10:00"), ouvrieres: 3000 }],
+        chasses: [{ impact: a("14:20:00"), terrain: 500 }],
+        attaques: [{ impact: a(impact), terrain: 2000 }],
+      });
+    // 15 000 + 3 000 − (14 000 + 500 + 2 000)
+    expect(avec("14:32:00")).toEqual({
+      libres: 1500,
+      recolte: a("14:30:00"),
+      revenues: 3000,
+      gagne: 500,
+      attaques: 2000,
+    });
+    // RC à 14h33 : pour la récolte de 15h00
+    expect(avec("14:33:00")).toMatchObject({
+      libres: 1500,
+      recolte: a("15:00:00"),
+      attaques: 2000,
+    });
+  });
+
   test("la récolte qui limite : une chasse après la première récolte peut réduire le convoi", () => {
     const r = calcul({
       presentes: 15000,
@@ -111,16 +112,15 @@ describe("ouvrières libres avant la récolte : le calcul", () => {
         { minute: a("14:20:00"), ouvrieres: 10000 },
         { minute: a("14:30:00"), ouvrieres: 7500 },
       ],
-      pontes: [{ debut: a("14:00:00"), fin: a("14:20:00"), ouvrieres: 600 }],
       chasses: [{ impact: a("14:41:00"), terrain: 10000 }],
     });
-    // 14h30 : 15 000 + 10 000 + 600 − 14 000 = 11 600 ; 15h00 : + 7 500, − 10 000 cm² = 9 100
+    // 14h30 : 15 000 + 10 000 − 14 000 = 11 000 ; 15h00 : + 7 500, − 10 000 cm² = 8 500
     expect(r).toEqual({
-      libres: 9100,
+      libres: 8500,
       recolte: a("15:00:00"),
       revenues: 17500,
-      pondues: 600,
       gagne: 10000,
+      attaques: 0,
     });
   });
 
@@ -154,17 +154,14 @@ describe("ouvrières libres avant la récolte : le calcul", () => {
     expect(r).toMatchObject({ recolte: a("14:29:00"), libres: 1700 });
   });
 
-  test("ponte longue : toutes les récoltes jusqu'à la fin des arrivées examinées, pas au-delà", () => {
+  test("attaque lointaine : les récoltes sont examinées jusqu'à elle", () => {
     const r = calcul({
-      presentes: 15000,
+      presentes: 20000,
       terrain: 15000,
       recolte: a("14:30:00"),
-      pontes: [{ debut: a("14:00:00"), fin: moment_jours(3), ouvrieres: 100000 }],
-      chasses: [{ impact: moment_jours(2), terrain: 1 }],
+      attaques: [{ impact: moment_jours(2), terrain: 1000 }],
     });
-    // la récolte de 14h30 limite ; la chasse dans deux jours ne change rien
-    expect(r.recolte).toBe(a("14:30:00"));
-    expect(r.libres).toBe(r.pondues);
+    expect(r).toMatchObject({ recolte: moment_jours(2), libres: 4000, attaques: 1000 });
   });
 });
 
@@ -177,8 +174,9 @@ describe("retour des convois lu sur la page Convois", () => {
     lire(
       `document.body.innerHTML = '<div id="centre"><h3>Convois en cours:</h3>' + ${JSON.stringify(lignes)} + '</div>'`,
     );
-  const ALPHA = `<strong>- Vous allez livrer 200 000 <img alt="nourritures" src="n.gif"/> et 0 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Alpha">Alpha</a> dans 1H 05m 20s  </strong> - <small><em>Retour le 14 nov. à 14h20</em></small> - <a href="commerce.php?annuler=1&amp;t=x">Annuler</a><br />`;
-  const BRAVO = `<strong>- Vous allez livrer 0 <img alt="nourritures" src="n.gif"/> et 150 001 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Bravo">Bravo</a> dans 2H 03m 10s  </strong> - <small><em>Retour le 14 nov. à 14h30</em></small><br />`;
+  // le compte à rebours du jeu finit au « Retour le » (Compte+)
+  const ALPHA = `<strong>- Vous allez livrer 200 000 <img alt="nourritures" src="n.gif"/> et 0 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Alpha">Alpha</a> dans 20m 30s  </strong> - <small><em>Retour le 14 nov. à 14h20</em></small> - <a href="commerce.php?annuler=1&amp;t=x">Annuler</a><br />`;
+  const BRAVO = `<strong>- Vous allez livrer 0 <img alt="nourritures" src="n.gif"/> et 150 001 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Bravo">Bravo</a> dans 30m 10s  </strong> - <small><em>Retour le 14 nov. à 14h30</em></small><br />`;
   const RECU = `<strong>- Vous allez recevoir 50 000 <img alt="nourritures" src="n.gif"/> et 25 000 <img alt="materiaux" src="m.gif"/> de  <a href="Membre.php?Pseudo=Charlie">Charlie</a> dans 45m 02s  </strong><br />`;
 
   test("minute « Retour le » : jour, mois en lettres, année au plus près", () => {
@@ -217,6 +215,31 @@ describe("retour des convois lu sur la page Convois", () => {
     ]);
   });
 
+  test("convoi qui revient dans la minute de la lecture de la page Reine : compté (signalé par KWHWWYMWN)", () => {
+    // « dans 33s », « Retour le … à 14h00 », page Reine lue à 14h00:14 : le
+    // convoi revient à 14h00:48, ses ouvrières ne sont pas parmi les présentes
+    convois(
+      `<strong>- Vous allez livrer 0 <img alt="nourritures" src="n.gif"/> et 222 000 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Delta">Delta</a> dans 33s  </strong> - <small><em>Retour le 14 nov. à 14h00</em></small><br />`,
+    );
+    expect(lire(`CommerceFzzz.retoursConvois(${a("14:00:14")}, 13.5, ${a("14:00:15")})`)).toEqual([
+      { minute: a("14:00:00"), ouvrieres: 16445 },
+    ]);
+    // compte à rebours à 1 s quand la page Reine est lue : déjà parmi les présentes
+    convois(
+      `<strong>- Vous allez livrer 0 <img alt="nourritures" src="n.gif"/> et 222 000 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Delta">Delta</a> dans 1s  </strong> - <small><em>Retour le 14 nov. à 14h00</em></small><br />`,
+    );
+    expect(lire(`CommerceFzzz.retoursConvois(${a("14:00:47")}, 13.5, ${a("14:00:47")})`)).toEqual(
+      [],
+    );
+  });
+
+  test("compte à rebours figé (page mise en pause) : une minute « Retour le » passée l'écarte", () => {
+    convois(
+      `<strong>- Vous allez livrer 0 <img alt="nourritures" src="n.gif"/> et 20 000 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Echo">Echo</a> dans 5m 00s  </strong> - <small><em>Retour le 14 nov. à 13h50</em></small><br />`,
+    );
+    expect(lire(`CommerceFzzz.retoursConvois(NOW, 20)`)).toEqual([]);
+  });
+
   test("lignes en deux colonnes : le retour du jeu est toujours lu", () => {
     convois(ALPHA + BRAVO);
     lire(`CommerceFzzz.colonnes(CommerceFzzz.lignes().get())`);
@@ -224,11 +247,13 @@ describe("retour des convois lu sur la page Convois", () => {
     expect(lire<any[]>(`CommerceFzzz.retoursConvois(NOW, 20)`).length).toBe(2);
   });
 
-  test("sans Compte+ : l'heure ajoutée par l'extension (celle de l'arrivée) n'est pas lue", () => {
+  test("sans Compte+ : le compte à rebours du jeu suffit, l'heure ajoutée par l'extension n'est pas lue", () => {
     convois(
       `<strong>- Vous allez livrer 200 000 <img alt="nourritures" src="n.gif"/> et 0 <img alt="materiaux" src="m.gif"/> à  <a href="Membre.php?Pseudo=Alpha">Alpha</a> dans 1H 05m 20s  </strong><span class='small'>- Retour le 14 nov. 2026 à 15h06</span><br />`,
     );
-    expect(lire(`CommerceFzzz.retoursConvois(NOW, 20)`)).toEqual([]);
+    expect(lire(`CommerceFzzz.retoursConvois(NOW, 20)`)).toEqual([
+      { minute: a("15:05:00"), ouvrieres: 10000 },
+    ]);
   });
 
   test("plafond : pas plus d'ouvrières comptées que d'ouvrières en convoi, les premiers retours retirés", () => {
@@ -260,14 +285,24 @@ const REINE = (presentes = "15 000", total = "32 500") =>
   `<tr><td>5 000 Jeunes Soldates Naines</td><td>Loge</td><td><span id="temps_ponte_2">2H 0m</span></td><td><span id="ponte_2">2H 20m 0s</span></td><td>16h20</td><td></td></tr><script type="text/javascript">reste(7200, "temps_ponte_2");</script><script type="text/javascript">reste(8400, "ponte_2");</script>` +
   `<tr><td>3 000 Ouvrières</td><td>Fourmilière</td><td><span id="temps_ponte_3">1H 0m</span></td><td><span id="ponte_3">3H 20m 0s</span></td><td>17h20</td><td></td></tr><script type="text/javascript">reste(3600, "temps_ponte_3");</script><script type="text/javascript">reste(12000, "ponte_3");</script>` +
   `</table><span id="armee_initial">${total}</span><div class="icones_unite cliquable3"></div>`;
+// page Armée : mes attaques comme le jeu les écrit (Compte+ : troupes et minute
+// d'arrivée), un renfort, la garnison
+const ATTAQUE = (id: number, cible: string, secondes: number, details = "") =>
+  `- Vous allez attaquer <span class="gras"><a href="Membre.php?Pseudo=${cible}">${cible}</a>(<a href="classementAlliance.php?alliance=OUAF">OUAF</a>)</span> (Terrain de chasse) dans <span class="gras" id="attaque_${id}">…</span><script language="JavaScript">reste(${secondes}, "attaque_${id}");</script> - <a href="/Armee.php?annuler=${id}">Annuler</a><br />${details}<br/>`;
+const TROUPES = (unites: string, arrivee: string) =>
+  `<small><em> Troupes en attaques : ${unites}.<br /> Arrivée à ${arrivee}</em></small>`;
+const RENFORT = (id: number, secondes: number) =>
+  `- Des renforts arrivent dans <span class="gras" id="attaque_${id}">…</span><script language="JavaScript">reste(${secondes}, "attaque_${id}");</script><br/>`;
+const ARMEE = (attaques = "") =>
+  `<div id="centre"><h3>Attaque(s) en cours</h3>${attaques}<h3>Troupes en Garnison</h3><table></table></div>`;
 
 describe("pages Ressources et Reine lues au clic", () => {
-  const analyser = (ressources: string, reine: string) =>
+  const analyser = (ressources: string, reine: string, armee?: string | false) =>
     lire(
-      `(() => { try { return CommerceFzzz.analyserRecolte({ html: ${JSON.stringify(ressources)}, avant: NOW, apres: NOW + 300 }, { html: ${JSON.stringify(reine)}, avant: NOW + 300, apres: NOW + 600 }); } catch (e) { return e.message; } })()`,
+      `(() => { try { return CommerceFzzz.analyserRecolte({ html: ${JSON.stringify(ressources)}, avant: NOW, apres: NOW + 300 }, { html: ${JSON.stringify(reine)}, avant: NOW + 300, apres: NOW + 600 }${armee === undefined ? "" : armee === false ? ", false" : `, { html: ${JSON.stringify(armee)}, avant: NOW + 600, apres: NOW + 900 }`}); } catch (e) { return e.message; } })()`,
     );
 
-  test("récolte au plus tôt, pontes d'ouvrières au plus tard, ouvrières en convoi", () => {
+  test("récolte au plus tôt, ouvrières présentes et en convoi ; les pontes ne comptent pas", () => {
     lire(
       `var monProfil = new Joueur({ pseudo: "Test", niveauRecherche: [15, 8, 10, 0, 0, 8, 0, 0, 0, 0], niveauConstruction: Object.assign(new Array(13).fill(0), { 11: 20 }) });`,
     );
@@ -276,13 +311,51 @@ describe("pages Ressources et Reine lues au clic", () => {
       presentes: 15000,
       enConvoi: 17500,
       terrain: 14000,
-      pontes: [
-        { debut: a("14:00:00") + 600, fin: a("14:20:00") + 600, ouvrieres: 600 },
-        { debut: a("16:20:00") + 600, fin: a("17:20:00") + 600, ouvrieres: 3000 },
-      ],
       chasses: [],
+      attaques: [],
+      attaquesInconnues: 0,
+      armee: null,
       automatique: true,
       instant: a("14:00:00") + 600,
+    });
+  });
+
+  test("page Armée : mes attaques à la minute du RC, prise estimée au lancement d'ici, sinon troupes du jeu ; renforts ignorés", () => {
+    lire(
+      `localStorage.setItem("outiiil_attaquesLancees", JSON.stringify([{ id: 502, cible: "Autre", lieu: "Terrain de chasse", unite: { "Jeune Soldate Naine": 20000 }, lancee: NOW - 300000, arrivee: NOW + 3010000, terrainDepart: 60000, terrainCible: 57000 }]))`,
+    );
+    const r = analyser(
+      RESSOURCES(),
+      REINE(),
+      ARMEE(
+        ATTAQUE(501, "Cible", 1830, TROUPES("5 000 Jeunes Soldates Naines", "14h30")) +
+          ATTAQUE(502, "Autre", 3010, TROUPES("20 000 Jeunes Soldates Naines", "14h50")) +
+          RENFORT(503, 600) +
+          ATTAQUE(504, "Golf", 4000),
+      ),
+    );
+    lire(`localStorage.removeItem("outiiil_attaquesLancees")`);
+    // 501 : troupes du jeu (lancée ailleurs) ; 502 : prise estimée à son lancement
+    // (20 % du TdC de la cible), pas ses troupes ; 504 : ni capture ni troupes
+    expect([r.attaques, r.attaquesInconnues, r.armee]).toEqual([
+      [
+        { impact: a("14:31:00"), terrain: 5000 },
+        { impact: a("14:51:00"), terrain: 3000 },
+      ],
+      1,
+      true,
+    ]);
+  });
+
+  test("page Armée illisible, ou autre page (connexion) : signalée, aucune attaque comptée", () => {
+    expect(analyser(RESSOURCES(), REINE(), false)).toMatchObject({
+      attaques: [],
+      attaquesInconnues: 0,
+      armee: false,
+    });
+    expect(analyser(RESSOURCES(), REINE(), "<html>connexion</html>")).toMatchObject({
+      attaques: [],
+      armee: false,
     });
   });
 
@@ -320,24 +393,31 @@ describe("pages Ressources et Reine lues au clic", () => {
 describe("clic sur un montant du Récapitulatif", () => {
   // page Convois : en-tête du jeu (15 000 ouvrières, TdC 14 000), convois en
   // cours, encadré Compte+ et formulaire
-  const ouvrirConvois = (attaques = 0) =>
+  const ouvrirConvois = (attaques = 0, comptePlus = false) =>
     lire(`(() => {
       window.TOASTS = []; window.LECTURES = [];
       $.toast = (o) => TOASTS.push(o.text);
       CommerceFzzz._recolteLue = null; CommerceFzzz._recolteEnCours = null;
       document.body.innerHTML = '<div id="data"><div id="nb_ouvrieres">15000</div><div id="nb_materiaux">3460273</div><div id="quantite_tdc">14000</div></div>'
+        + ${comptePlus ? `'<div id="menuComptePlus"><a class="boutonStatJoueur">Stat</a></div>'` : "''"}
         + ${attaques ? `'<table><tr id="ligne_attaque"><td><a href="Armee.php"><strong>${attaques}</strong> attaque</a></td></tr></table>'` : "''"}
         + '<div id="centre"><h3>Convois en cours:</h3>'
-        + '<strong>- Vous allez livrer 200 000 <img alt="nourritures"/> et 0 <img alt="materiaux"/> à  <a href="Membre.php?Pseudo=Alpha">Alpha</a> dans 1H 05m 20s  </strong> - <small><em>Retour le 14 nov. à 14h20</em></small><br />'
-        + '<strong>- Vous allez livrer 0 <img alt="nourritures"/> et 150 000 <img alt="materiaux"/> à  <a href="Membre.php?Pseudo=Bravo">Bravo</a> dans 2H 03m 10s  </strong> - <small><em>Retour le 14 nov. à 14h30</em></small><br />'
+        + '<strong>- Vous allez livrer 200 000 <img alt="nourritures"/> et 0 <img alt="materiaux"/> à  <a href="Membre.php?Pseudo=Alpha">Alpha</a> dans 20m 30s  </strong> - <small><em>Retour le 14 nov. à 14h20</em></small><br />'
+        + '<strong>- Vous allez livrer 0 <img alt="nourritures"/> et 150 000 <img alt="materiaux"/> à  <a href="Membre.php?Pseudo=Bravo">Bravo</a> dans 30m 10s  </strong> - <small><em>Retour le 14 nov. à 14h30</em></small><br />'
         + '</div><input id="pseudo_convoi"><input id="input_nbNourriture" value="1 000"><input id="nbNourriture" value="1000">'
         + '<input id="input_nbMateriaux"><input id="nbMateriaux"><input id="input_nbOuvriere"><input id="nbOuvriere">';
     })()`);
-  const pages = (ressources: string, reine: string, echec = false) =>
+  const pages = (
+    ressources: string,
+    reine: string,
+    echec = false,
+    armee: string | false = ARMEE(),
+  ) =>
     lire(`(() => {
       $.get = (url) => {
         LECTURES.push(url);
         if (${echec}) return $.Deferred().reject({ status: 503 });
+        if (/Armee/.test(url)) return ${armee === false ? "$.Deferred().reject({ status: 503 })" : `$.Deferred().resolve(${JSON.stringify(armee)})`};
         return $.Deferred().resolve(/Ressources/.test(url) ? ${JSON.stringify(ressources)} : ${JSON.stringify(reine)});
       };
     })()`);
@@ -368,7 +448,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     );
   });
 
-  test("option cochée : Ressources puis Reine lues, ouvrières de retour et pondues avant la récolte ajoutées", async () => {
+  test("option cochée : Ressources, Reine puis Armée lues, ouvrières de retour de convoi ajoutées, pas les pondues", async () => {
     option(true);
     ouvrirConvois();
     pages(RESSOURCES(), REINE());
@@ -376,12 +456,57 @@ describe("clic sur un montant du Récapitulatif", () => {
     // d'abord le remplissage habituel, sans message
     expect(champs()).toEqual(["19000", "19000", "1000", "1000"]);
     await attendre();
-    expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Reine.php"]);
-    // récolte de 14h30 : 15 000 + 10 000 (Alpha, retour 14h20) + 600 pondues − 14 000 ;
-    // Bravo (retour 14h30) ne compte qu'à la récolte de 15h00
-    expect(champs()).toEqual(["231000", "231000", "11600", "11600"]);
+    expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Reine.php", "/Armee.php"]);
+    // récolte de 14h30 : 15 000 + 10 000 (Alpha, retour 14h20) − 14 000, les 600
+    // ouvrières pondues d'ici là non comptées ; Bravo (retour 14h30) ne compte
+    // qu'à la récolte de 15h00
+    expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
     expect(espaces(lire<string[]>(`TOASTS`)[0]!)).toBe(
-      "Récolte de 14h30 : 10 600 ouvrières de plus pour le convoi (comptées : 10 000 de retour de convoi, 600 pondues d'ici là). Matériaux réduits à 231 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
+      "Récolte de 14h30 : 10 000 ouvrières de plus pour le convoi (comptées : 10 000 de retour de convoi). Matériaux réduits à 219 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
+    );
+  });
+
+  test("une de mes attaques arrive avant la récolte : les ouvrières pour son terrain restent", async () => {
+    option(true);
+    ouvrirConvois(1);
+    pages(
+      RESSOURCES(),
+      REINE(),
+      false,
+      ARMEE(ATTAQUE(501, "Cible", 1500, TROUPES("5 000 Jeunes Soldates Naines", "14h25"))),
+    );
+    lire(`CommerceFzzz.remplirMateriaux(300000)`);
+    await attendre();
+    // 14h30 : 15 000 + 10 000 − (14 000 + 5 000 cm² de l'attaque, RC à 14h25)
+    expect(champs()).toEqual(["119000", "119000", "6000", "6000"]);
+    expect(espaces(lire<string[]>(`TOASTS`)[0]!)).toBe(
+      "Récolte de 14h30 : 5 000 ouvrières de plus pour le convoi (comptées : 10 000 de retour de convoi ; terrain gagné d'ici là : 5 000 cm² de tes attaques). Matériaux réduits à 119 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
+    );
+  });
+
+  test("Compte+ sans attaque dans son encart : la page Armée n'est pas lue ; avec, elle l'est", async () => {
+    option(true);
+    ouvrirConvois(0, true);
+    pages(RESSOURCES(), REINE());
+    lire(`CommerceFzzz.remplirMateriaux(300000)`);
+    await attendre();
+    expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Reine.php"]);
+    ouvrirConvois(1, true);
+    pages(RESSOURCES(), REINE());
+    lire(`CommerceFzzz.remplirMateriaux(300000)`);
+    await attendre();
+    expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Reine.php", "/Armee.php"]);
+  });
+
+  test("page Armée illisible : le calcul se fait sans les attaques, le message le dit", async () => {
+    option(true);
+    ouvrirConvois(1);
+    pages(RESSOURCES(), REINE(), false, false);
+    lire(`CommerceFzzz.remplirMateriaux(300000)`);
+    await attendre();
+    expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
+    expect(espaces(lire<string[]>(`TOASTS`)[0]!)).toContain(
+      "Page Armée illisible : le terrain de tes attaques en cours n'est pas compté.",
     );
   });
 
@@ -393,20 +518,23 @@ describe("clic sur un montant du Récapitulatif", () => {
     lire(`CommerceFzzz.remplirMateriaux(300000)`);
     await attendre();
     // Alpha (14h20) ne compte plus, Bravo (14h30) pour 5 000 à 15h00 : 14h30 limite
-    expect(champs()).toEqual(["31000", "31000", "1600", "1600"]);
+    expect(champs()).toEqual(["19000", "19000", "1000", "1000"]);
   });
 
-  test("sans affectation automatique, ou avec des attaques en cours : le message le dit", async () => {
+  test("sans affectation automatique, ou avec une attaque aux troupes inconnues : le message le dit", async () => {
     option(true);
     ouvrirConvois(2);
-    pages(RESSOURCES(1800, "rien"), REINE());
+    pages(RESSOURCES(1800, "rien"), REINE(), false, ARMEE(ATTAQUE(504, "Golf", 4000)));
     lire(`CommerceFzzz.remplirMateriaux(100000)`);
     await attendre();
     const texte = espaces(lire<string[]>(`TOASTS`)[0]!);
     expect(texte).toContain(
       "Sans affectation automatique des ouvrières (Compte+ réglé sur Nourriture ou Matériaux, page Ressources), affecte toi-même celles qui arrivent avant chaque récolte.",
     );
-    expect(texte).toContain("Le terrain que prendront tes 2 attaques en cours n'est pas compté.");
+    expect(texte).toContain(
+      "1 attaque en cours sans troupes connues : son terrain n'est pas compté.",
+    );
+    expect(texte).not.toContain("tes 2 attaques");
   });
 
   test("une chasse rapporte du terrain avant la récolte : moins d'ouvrières que d'habitude", async () => {
@@ -461,11 +589,11 @@ describe("clic sur un montant du Récapitulatif", () => {
     expect(champs()).toEqual(["50000", "50000", "2550", "2550"]);
     lire(`CommerceFzzz.remplirMateriaux(300000)`);
     await attendre();
-    expect(lire(`LECTURES`).length).toBe(2);
+    expect(lire(`LECTURES`).length).toBe(3);
     // une minute plus tard : relues
     lire(`NOW += 60000; CommerceFzzz.remplirMateriaux(300000)`);
     await attendre();
-    expect(lire(`LECTURES`).length).toBe(4);
+    expect(lire(`LECTURES`).length).toBe(6);
     lire(`NOW -= 60000`);
   });
 });

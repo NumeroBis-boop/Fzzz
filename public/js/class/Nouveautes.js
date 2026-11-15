@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.118.0",
+    notes: [
+      "Convois, option « Convoi avant la récolte » : un convoi qui revient juste après ton clic est maintenant compté (ses ouvrières n'étaient comptées nulle part).",
+      "Même option : les ouvrières pondues d'ici la récolte ne sont plus comptées (l'affectation automatique du Compte+ ne les met pas au travail), et les ouvrières qu'il faudra pour le terrain de tes attaques arrivées avant la récolte restent (page Armée lue au clic).",
+    ],
+  },
+  {
     version: "1.117.3",
     notes: [
       "Page Armée, bloc « Mes attaques en cours » : les chasses ont aussi un bouton « Copier », qui copie chaque chasse comme la page Ressources l'écrit (terrain, temps restant, troupes, arrivée), puis ton terrain estimé après elles.",

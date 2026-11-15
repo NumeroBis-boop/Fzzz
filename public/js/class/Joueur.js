@@ -240,7 +240,7 @@ class Joueur {
     // efficace seulement avec l'affectation automatique du Compte+ : à choisir
     this._parametre["convoisAvantRecolte"] = new Parametre(
       "convoisAvantRecolte",
-      "Convois : ouvrières revenues ou pondues avant la récolte comptées",
+      "Convois : ouvrières revenues avant la récolte comptées",
       "checkbox",
       false,
     );

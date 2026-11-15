@@ -34,6 +34,9 @@ const ALLIANCE_COLONNES_FZZZ = [
     forum: false,
     ordre: ALLIANCE_SANS_MOUVEMENT,
   },
+  // rapport d'une attaque lancée à l'ouverture de la page, comme la colonne
+  // « Retour » de la vue « Temps de trajet »
+  { cle: "membresFloodsRetour", titre: "Retour", forum: false, ordre: ALLIANCE_SANS_MOUVEMENT },
 ];
 
 /**
@@ -115,11 +118,16 @@ class AllianceFzzz {
       terrain = [...Array(n).keys()].find((i) => entete(i) == "Terrain") ?? 5,
       // épées de portée du jeu (Compte+) : colonnes sans titre de part et d'autre du terrain
       epees = [terrain - 1, terrain + 1].filter((i) => i >= 0 && i < n && entete(i).length <= 1),
+      // les deux cellules du jeu sous l'en-tête « Etat » (fusionné : header() n'y mène pas)
+      etat = [...Array(n).keys()].filter(
+        (i) => $(api.settings()[0].aoHeader[0]?.[i]?.cell).text().trim() == "Etat",
+      ),
       // vue « Floods » : les colonnes cochées dans les Préférences ; aucune : le pseudo
       choisies = [
         ...(Utils.affichage("membresFloodsRang") ? [2] : []),
         ...(Utils.affichage("membresFloodsPseudo") ? [3] : []),
         ...(Utils.affichage("membresFloodsTdc") ? [terrain, ...epees] : []),
+        ...(Utils.affichage("membresFloodsEtat") ? etat : []),
         ...fzzz.filter((c, j) => Utils.affichage(ALLIANCE_COLONNES_FZZZ[j].cle)),
       ],
       floods = choisies.length ? choisies : [3],
@@ -142,8 +150,11 @@ class AllianceFzzz {
         if (vue == "floods" && !partagesLus) {
           partagesLus = true;
           AllianceFzzz._charger(api, tempsVers, ouverture);
-          if (k && Utils.affichage("membresFloodsTrajet"))
-            AllianceFzzz._completerTrajets(api, tempsTrajet);
+          if (
+            k &&
+            (Utils.affichage("membresFloodsTrajet") || Utils.affichage("membresFloodsRetour"))
+          )
+            AllianceFzzz._completerTrajets(api, tempsTrajet, ouverture);
         }
       };
     let $boutons = $("#tabMembresAlliance_wrapper .dt-buttons");
@@ -223,7 +234,7 @@ class AllianceFzzz {
     // une colonne illisible ne doit pas empêcher les vues de s'installer
     if (k)
       try {
-        AllianceFzzz._remplirTrajets(api, tempsVers);
+        AllianceFzzz._remplirTrajets(api, tempsVers, ouverture);
       } catch (e) {
         console.error("Fzzz : temps de trajet des membres", e);
       }
@@ -255,24 +266,33 @@ class AllianceFzzz {
     return c ? monProfil.getTempsParcours2({ x: c[0], y: c[1] }) : null;
   }
   /**
-   * Colonne « Temps de trajet » de la vue « Floods » (AllianceFzzz.trajet).
+   * Colonnes « Temps de trajet » et « Retour » de la vue « Floods »
+   * (AllianceFzzz.trajet) : le retour est celui de la vue « Temps de
+   * trajet », départ à l'ouverture de la page, à la minute du rapport.
    * Sans requête.
    *
    * @private
    * @static
    * @param {Function} trajet pseudo → temps de trajet (s), null si inconnu
+   * @param {Object} ouverture heure (moment) de l'ouverture de la page
    * @return {Number} nombre de membres sans temps de trajet
    */
-  static _remplirTrajets(api, trajet) {
+  static _remplirTrajets(api, trajet, ouverture = Horloge.clic()) {
     let c = AllianceFzzz._colonne(api, "membresFloodsTrajet"),
+      cr = AllianceFzzz._colonne(api, "membresFloodsRetour"),
       inconnus = 0;
     api.rows()[0].forEach((r) => {
-      let s = trajet($(api.cell(r, 3).node()).text().trim());
+      let s = trajet($(api.cell(r, 3).node()).text().trim()),
+        retour = s != null ? Utils.roundMinute(s, ouverture) : null;
       if (s == null) inconnus++;
       $(api.cell(r, c).node())
         .attr("data-order", s != null ? s : ALLIANCE_SANS_MOUVEMENT)
         .toggleClass("o_allVide", s == null)
         .text(s != null ? Utils.intToTime(s) : "N/C");
+      $(api.cell(r, cr).node())
+        .attr("data-order", retour ? retour.unix() : ALLIANCE_SANS_MOUVEMENT)
+        .toggleClass("o_allVide", !retour)
+        .text(retour ? retour.format("D MMM à HH[h]mm") : "N/C");
     });
     api.rows().invalidate("dom");
     return inconnus;
@@ -281,19 +301,23 @@ class AllianceFzzz {
    * Membres sans coordonnées connues : l'export public des joueurs (une
    * requête, relue au plus une fois par heure, ExportJoueurs.base), lu au
    * premier choix de la vue « Floods » quand sa colonne « Temps de trajet »
-   * est cochée, puis la colonne refaite.
+   * ou « Retour » est cochée, puis les colonnes refaites.
    *
    * @private
    * @static
    * @param {Function} tempsTrajet celui de la page (coordonnées de la Carte)
+   * @param {Object} ouverture heure (moment) de l'ouverture de la page
    */
-  static _completerTrajets(api, tempsTrajet) {
+  static _completerTrajets(api, tempsTrajet, ouverture = Horloge.clic()) {
     let trajet = (p) => AllianceFzzz.trajet(p, tempsTrajet);
-    if (!((monProfil.niveauRecherche || [])[6] >= 0) || !AllianceFzzz._remplirTrajets(api, trajet))
+    if (
+      !((monProfil.niveauRecherche || [])[6] >= 0) ||
+      !AllianceFzzz._remplirTrajets(api, trajet, ouverture)
+    )
       return Promise.resolve();
     return ExportJoueurs.base()
       .then(() => {
-        AllianceFzzz._remplirTrajets(api, trajet);
+        AllianceFzzz._remplirTrajets(api, trajet, ouverture);
         api.draw(false);
       })
       .catch((e) => Journal.info("Membres", "temps de trajet : export des joueurs illisible", e));

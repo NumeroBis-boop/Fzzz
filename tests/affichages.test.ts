@@ -113,8 +113,9 @@ describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur ca
     expect(reglables.filter((c) => !declarees.includes(c))).toEqual([]);
     // la liste du mainteneur (29 affichages, dont la messagerie décochée par défaut sauf les
     // smileys), plus les boutons GIF et Smileys du forum et les 9 colonnes de la vue
-    // « Floods et chasses en cours » de la page Membres (demandes du 14/11/2026)
-    expect(reglables.length).toBe(40);
+    // « Floods et chasses en cours » de la page Membres (demandes du 14/11/2026), et ses
+    // colonnes « État de la colonie » et « Retour » (demande du 15/11/2026)
+    expect(reglables.length).toBe(42);
     const decoches = [
       ...lire("class/Utils.js")
         .match(/const AFFICHAGES_REGLABLES = \{([\s\S]*?)\n\};/)![1]!
@@ -130,9 +131,11 @@ describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur ca
       "messagerieNonLus",
       "messagerieMiseEnForme",
       "membresFloodsRang",
+      "membresFloodsEtat",
       "membresFloodsProchain",
       "membresFloodsVariation",
       "membresFloodsTrajet",
+      "membresFloodsRetour",
     ]);
   });
 

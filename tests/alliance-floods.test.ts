@@ -80,22 +80,36 @@ const PARTAGES = {
 const espaces = (t: string) => t.replace(/[\s  ]+/g, " ").trim();
 
 // tableau du jeu tel que Alliance.js le laisse (sans coordonnées en cache) ;
-// le forum répond après que l'horloge a avancé de 5 minutes
-async function ouvrir(partages: object = PARTAGES, avant = "") {
+// le forum répond après que l'horloge a avancé de 5 minutes. « complet » : ses
+// colonnes Technologie, Fourmilière, les deux cellules sous l'en-tête fusionné
+// « Etat » et la dernière ; « trajet » : avec aussi les colonnes Tdt et Retour
+// de la vue « Temps de trajet » (Carte en cache), placées avant « Etat »
+async function ouvrir(
+  partages: object = PARTAGES,
+  avant = "",
+  tableau: "court" | "complet" | "trajet" = "court",
+) {
+  const complet = tableau != "court",
+    trajet = tableau == "trajet";
   page.lire(`(() => {
     heure = moment("2026-11-09 10:00:20", "YYYY-MM-DD HH:mm:ss").valueOf();
     ${avant}
     window.matchMedia = () => ({ matches: false });
     $("#o_allInfobulle").remove();
-    document.body.innerHTML = "<div id='centre'><table id='tabMembresAlliance'><thead><tr><th></th><th></th><th>Rang</th><th class='o_allPseudo'>Pseudo</th><th class='o_allEpeeG'></th><th class='o_allTerrain'>Terrain</th><th class='o_allEpeeD'></th></tr></thead><tbody>" +
-      ${JSON.stringify(MEMBRES)}.map(([p, t], i) => "<tr><td>" + (i + 1) + "</td><td></td><td>Membre</td><td> " + p + " </td><td></td><td>" + numeral(t).format() + "</td><td></td></tr>").join("") +
+    document.body.innerHTML = "<div id='centre'><table id='tabMembresAlliance'><thead><tr><th></th><th></th><th>Rang</th><th class='o_allPseudo'>Pseudo</th><th class='o_allEpeeG'></th><th class='o_allTerrain'>Terrain</th><th class='o_allEpeeD'></th>" +
+      (${complet} ? "<th>Technologie</th><th>Fourmiliere</th>" + (${trajet} ? "<th>Tdt</th><th>Retour</th>" : "") + "<th colspan='2'>Etat</th><th></th>" : "") +
+      "</tr></thead><tbody>" +
+      ${JSON.stringify(MEMBRES)}.map(([p, t], i) => "<tr><td>" + (i + 1) + "</td><td></td><td>Membre</td><td> " + p + " </td><td></td><td>" + numeral(t).format() + "</td><td></td>" +
+        (${complet} ? "<td>50</td><td>90</td>" + (${trajet} ? "<td>1h</td><td>9 nov. à 11h01</td>" : "") + "<td>état " + p + "</td><td>colonie " + p + "</td><td></td>" : "") +
+        "</tr>").join("") +
       "</tbody></table></div>";
     AllianceFzzz.colonnes();
-    $("#tabMembresAlliance").DataTable({ dom: "Bfrti", buttons: [], order: [], bPaginate: false, bInfo: false });
+    // comme Alliance.js : sans calcul des largeurs, qui plante sur l'en-tête fusionné « Etat »
+    $("#tabMembresAlliance").DataTable({ dom: "Bfrti", buttons: [], order: [], bPaginate: false, bInfo: false, bAutoWidth: false });
     let reponse;
     PartageChasses.charger = () => new Promise((r) => (reponse = r));
     let trajets = new Map(${JSON.stringify(MEMBRES.map(([p, , s]) => [p, s]))});
-    AllianceFzzz.installer(() => Promise.resolve(), false, (p) => trajets.get(p));
+    AllianceFzzz.installer(() => Promise.resolve(), ${trajet}, (p) => trajets.get(p));
     heure += 5 * 60000;
     // vue « Floods » décochée : le forum n'est pas lu
     if (reponse) reponse(${JSON.stringify(partages)});
@@ -132,7 +146,7 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     await ouvrir();
     expect(
       page.lire(
-        `$($("#tabMembresAlliance").DataTable().columns().header()).slice(-6).map((i, th) => $(th).html().replace(/<br\\s*\\/?>/g, " ")).get()`,
+        `$($("#tabMembresAlliance").DataTable().columns().header()).slice(-7).map((i, th) => $(th).html().replace(/<br\\s*\\/?>/g, " ")).get()`,
       ),
     ).toEqual([
       "Date dernier mouvement",
@@ -141,36 +155,69 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
       "Prochaine variation de TdC",
       "TdC final",
       "Temps de trajet",
+      "Retour",
     ]);
   });
 
-  test("dernier et prochain mouvement, variations signées, TdC final, temps de trajet", async () => {
+  test("dernier et prochain mouvement, variations signées, TdC final, temps de trajet, retour", async () => {
     await ouvrir();
     const cellules = page
       .lire<string[][]>(`(() => {
       let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
       return api.rows()[0].map((r) => [
         $(api.cell(r, 3).node()).text().trim(),
-        ...[n - 6, n - 5, n - 4, n - 3, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text()),
+        ...[n - 7, n - 6, n - 5, n - 4, n - 3, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text()),
       ]);
     })()`)
       .map((l) => l.map(espaces));
+    // retour : ouverture à 10h00:20 + temps de trajet, à la minute du rapport,
+    // comme la vue « Temps de trajet » (l'heure de l'ouverture, pas celle de la
+    // réponse du forum 5 minutes plus tard)
     expect(cellules).toEqual([
-      ["Moi", "09/11 10:30", "+10 000", "09/11 10:30", "+10 000", "110 000", "0 sec"],
-      ["Alpha", "09/11 12:00", "−15 000", "09/11 10:30", "−10 000", "185 000", "1h"],
-      ["Beta", "09/11 12:00", "+7 000", "09/11 10:10", "+2 000", "157 000", "N/C"],
-      ["Gamma", "—", "—", "—", "—", "50 000", "1h"],
-      ["Delta", "09/11 15:00", "+500", "09/11 15:00", "+500", "80 500", "10m"],
-      // deux chasses à des minutes différentes : la prochaine est la première seule
-      ["Epsilon", "09/11 10:31", "+2 000", "09/11 10:30", "+1 000", "62 000", "29m 40s"],
+      [
+        "Moi",
+        "09/11 10:30",
+        "+10 000",
+        "09/11 10:30",
+        "+10 000",
+        "110 000",
+        "0 sec",
+        "9 nov. à 10h01",
+      ],
+      [
+        "Alpha",
+        "09/11 12:00",
+        "−15 000",
+        "09/11 10:30",
+        "−10 000",
+        "185 000",
+        "1h",
+        "9 nov. à 11h01",
+      ],
+      ["Beta", "09/11 12:00", "+7 000", "09/11 10:10", "+2 000", "157 000", "N/C", "N/C"],
+      ["Gamma", "—", "—", "—", "—", "50 000", "1h", "9 nov. à 11h01"],
+      ["Delta", "09/11 15:00", "+500", "09/11 15:00", "+500", "80 500", "10m", "9 nov. à 10h11"],
+      // deux chasses à des minutes différentes : la prochaine est la première seule ;
+      // 10h00:20 + 29 min 40 s = 10h30:00 pile : rapport à 10h30
+      [
+        "Epsilon",
+        "09/11 10:31",
+        "+2 000",
+        "09/11 10:30",
+        "+1 000",
+        "62 000",
+        "29m 40s",
+        "9 nov. à 10h30",
+      ],
       // prise sur une cible au TdC inconnu : estimée
-      ["Eta", "09/11 11:00", "+~3 000", "09/11 11:00", "+~3 000", "93 000", "2h"],
+      ["Eta", "09/11 11:00", "+~3 000", "09/11 11:00", "+~3 000", "93 000", "2h", "9 nov. à 12h01"],
     ]);
     // tri : mouvements à leur date, membre sans mouvement après les autres ;
-    // variations à leur valeur ; temps de trajet en secondes, inconnu après les autres
+    // variations à leur valeur ; temps de trajet en secondes et retour à sa
+    // date, inconnus après les autres
     const ordres = page.lire<string[][]>(`(() => {
       let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
-      return api.rows()[0].map((r) => [n - 6, n - 5, n - 4, n - 3, n - 1].map((c) => $(api.cell(r, c).node()).attr("data-order")));
+      return api.rows()[0].map((r) => [n - 7, n - 6, n - 5, n - 4, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).attr("data-order")));
     })()`);
     const unix = (d: string) =>
       String(page.lire(`moment(${JSON.stringify(d)}, "YYYY-MM-DD HH:mm").unix()`));
@@ -180,9 +227,17 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
       unix("2026-11-09 10:30"),
       "-10000",
       "3600",
+      unix("2026-11-09 11:01"),
     ]);
-    expect(ordres[2]?.[4]).toBe("9999999999");
-    expect(ordres[3]).toEqual(["9999999999", "0", "9999999999", "0", "3600"]);
+    expect(ordres[2]?.slice(4)).toEqual(["9999999999", "9999999999"]);
+    expect(ordres[3]).toEqual([
+      "9999999999",
+      "0",
+      "9999999999",
+      "0",
+      "3600",
+      unix("2026-11-09 11:01"),
+    ]);
     expect(Number(ordres[3]?.[0])).toBeGreaterThan(Number(ordres[1]?.[0]));
   });
 
@@ -207,7 +262,7 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     const lignes = page
       .lire<string[][]>(`(() => {
       let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
-      return api.rows()[0].slice(0, 2).map((r) => [n - 6, n - 5, n - 4, n - 3].map((c) => $(api.cell(r, c).node()).text()));
+      return api.rows()[0].slice(0, 2).map((r) => [n - 7, n - 6, n - 5, n - 4].map((c) => $(api.cell(r, c).node()).text()));
     })()`)
       .map((l) => l.map(espaces));
     expect(lignes).toEqual([
@@ -276,7 +331,7 @@ describe("page Membres, prochain mouvement et temps de trajet", () => {
       let api = $("#tabMembresAlliance").DataTable(), n = api.settings()[0].aoColumns.length;
       return api.rows()[0]
         .filter((r) => ${JSON.stringify(pseudos)}.includes($(api.cell(r, 3).node()).text().trim()))
-        .map((r) => [$(api.cell(r, 3).node()).text().trim(), ...[n - 6, n - 5, n - 4, n - 3, n - 1].map((c) => $(api.cell(r, c).node()).text())]);
+        .map((r) => [$(api.cell(r, 3).node()).text().trim(), ...[n - 7, n - 6, n - 5, n - 4, n - 2, n - 1].map((c) => $(api.cell(r, c).node()).text())]);
     })()`)
       .map((l) => l.map(espaces));
 
@@ -296,8 +351,8 @@ describe("page Membres, prochain mouvement et temps de trajet", () => {
       floods: [flood("2026-11-09 10:20", "Alpha", 1), flood("2026-11-09 10:40", "Moi", 2)],
     });
     expect(colonnes(["Alpha", "Gamma"])).toEqual([
-      ["Alpha", "09/11 10:20", "0", "—", "—", "1h"],
-      ["Gamma", "09/11 10:40", "−5 000", "09/11 10:40", "−5 000", "1h"],
+      ["Alpha", "09/11 10:20", "0", "—", "—", "1h", "9 nov. à 11h01"],
+      ["Gamma", "09/11 10:40", "−5 000", "09/11 10:40", "−5 000", "1h", "9 nov. à 11h01"],
     ]);
   });
 
@@ -311,13 +366,48 @@ describe("page Membres, prochain mouvement et temps de trajet", () => {
     page.lire(
       `delete monProfil.niveauRecherche; delete monProfil.getTempsParcours2; localStorage.removeItem(ExportJoueurs.cle)`,
     );
-    // pseudo de l'export sans les majuscules du tableau : trouvé quand même
-    expect(colonnes(["Beta"])[0]?.[5]).toBe("1h 10m 42s");
+    // pseudo de l'export sans les majuscules du tableau : trouvé quand même ;
+    // retour : 10h00:20 + 1 h 10 min 42 s = 11h11:02, rapport à 11h12
+    expect(colonnes(["Beta"])[0]?.slice(5)).toEqual(["1h 10m 42s", "9 nov. à 11h12"]);
     // l'info-bulle sait alors où tombe une attaque lancée à l'ouverture
     expect(infobulle("Beta").note).not.toContain("temps de trajet inconnu");
   });
 
-  test("sans coordonnées gardées : l'export public est lu une fois, au premier choix de la vue", async () => {
+  test.each(["membresFloodsTrajet", "membresFloodsRetour"])(
+    "sans coordonnées gardées, %s coché : l'export public est lu une fois, au premier choix de la vue",
+    async (cle) => {
+      page.lire(`localStorage.setItem("fzzz_affichage_${cle}", "1"); window.LECTURES = 0;`);
+      await ouvrir(
+        PARTAGES,
+        `monProfil.niveauRecherche = [0, 0, 0, 0, 0, 0, 5];
+         monProfil.getTempsParcours2 = (j) => j.x * 1000 + j.y;
+         ExportJoueurs.base = () => {
+           LECTURES++;
+           localStorage.setItem(ExportJoueurs.cle, JSON.stringify({ t: Date.now(), joueurs: { Beta: [4, 242, 1000] } }));
+           return Promise.resolve({ Beta: [4, 242, 1000] });
+         };`,
+      );
+      page.lire(
+        `delete monProfil.niveauRecherche; delete monProfil.getTempsParcours2; localStorage.removeItem(ExportJoueurs.cle); localStorage.removeItem("fzzz_affichage_${cle}");`,
+      );
+      expect(page.lire(`LECTURES`)).toBe(1);
+      expect(colonnes(["Beta"])[0]?.slice(5)).toEqual(["1h 10m 42s", "9 nov. à 11h12"]);
+    },
+  );
+
+  test("ni temps de trajet ni retour cochés : l'export public n'est pas lu", async () => {
+    page.lire(`window.LECTURES = 0;`);
+    await ouvrir(
+      PARTAGES,
+      `monProfil.niveauRecherche = [0, 0, 0, 0, 0, 0, 5];
+       monProfil.getTempsParcours2 = (j) => j.x * 1000 + j.y;
+       ExportJoueurs.base = () => (LECTURES++, Promise.resolve({}));`,
+    );
+    page.lire(`delete monProfil.niveauRecherche; delete monProfil.getTempsParcours2;`);
+    expect(page.lire(`LECTURES`)).toBe(0);
+  });
+
+  test("sans coordonnées gardées : la vue quittée puis reprise ne relit pas l'export", async () => {
     page.lire(
       `localStorage.setItem("fzzz_affichage_membresFloodsTrajet", "1"); window.LECTURES = 0;`,
     );
@@ -332,7 +422,6 @@ describe("page Membres, prochain mouvement et temps de trajet", () => {
        };`,
     );
     expect(page.lire(`LECTURES`)).toBe(1);
-    expect(colonnes(["Beta"])[0]?.[5]).toBe("1h 10m 42s");
     // vue quittée puis reprise : pas de nouvelle lecture
     page.lire(
       `$(".o_allVue[data-vue='reset']").trigger("click"); $(".o_allVue[data-vue='floods']").trigger("click");`,
@@ -399,6 +488,108 @@ describe("page Membres, colonnes de la vue « Floods » choisies dans les Préf�
     // les autres vues ne montrent jamais les colonnes ajoutées
     page.lire(`$(".o_allVue[data-vue='reset']").trigger("click")`);
     expect(visibles().filter((t) => /mouvement|TdC final|Temps de trajet/.test(t))).toEqual([]);
+  });
+
+  // en-têtes et cellules d'Alpha dans la page : DataTables retire du DOM ceux
+  // des colonnes masquées ; « Etat » est un en-tête fusionné sur deux cellules
+  const affiche = () =>
+    page.lire<{ entetes: string[]; alpha: string[] }>(`(() => ({
+      entetes: $("#tabMembresAlliance thead th").map((i, th) =>
+        $(th).html().replace(/<br\\s*\\/?>/g, " ").trim() + (th.colSpan > 1 ? " ×" + th.colSpan : "")).get(),
+      alpha: $("#tabMembresAlliance tbody tr").filter((i, tr) => $(tr).text().includes("Alpha"))
+        .children("td").map((i, td) => $(td).text().trim()).get(),
+    }))()`);
+  const cocher = (cases: Record<string, boolean>) =>
+    page.lire(
+      `Object.entries(${JSON.stringify(cases)}).forEach(([c, v]) => localStorage.setItem("fzzz_affichage_" + c, v ? "1" : "0"))`,
+    );
+  const decocher = (cases: Record<string, boolean>) =>
+    page.lire(
+      `Object.keys(${JSON.stringify(cases)}).forEach((c) => localStorage.removeItem("fzzz_affichage_" + c))`,
+    );
+
+  test("état de la colonie : les deux cellules « Etat » du jeu, décochées par défaut", async () => {
+    await ouvrir(PARTAGES, "", "complet");
+    expect(affiche().entetes).toEqual([
+      "Pseudo",
+      "",
+      "Terrain",
+      "",
+      "Date dernier mouvement",
+      "Variation totale de TdC",
+      "TdC final",
+    ]);
+    const cases = { membresFloodsEtat: true };
+    cocher(cases);
+    await ouvrir(PARTAGES, "", "complet");
+    decocher(cases);
+    expect(affiche()).toEqual({
+      entetes: [
+        "Pseudo",
+        "",
+        "Terrain",
+        "",
+        "Etat ×2",
+        "Date dernier mouvement",
+        "Variation totale de TdC",
+        "TdC final",
+      ],
+      alpha: [
+        "Alpha",
+        "",
+        "200 000",
+        "",
+        "état Alpha",
+        "colonie Alpha",
+        "09/11 12:00",
+        "−15 000",
+        "185 000",
+      ],
+    });
+    // la vue « Standard » reste celle du jeu, « Etat » compris
+    page.lire(`$(".o_allVue[data-vue='reset']").trigger("click")`);
+    expect(affiche().entetes).toContain("Etat ×2");
+    expect(affiche().entetes).not.toContain("Retour");
+  });
+
+  test("état et retour cochés avec les colonnes Tdt / Retour de la vue « Temps de trajet »", async () => {
+    const cases = { membresFloodsEtat: true, membresFloodsRetour: true };
+    cocher(cases);
+    await ouvrir(PARTAGES, "", "trajet");
+    decocher(cases);
+    // les cellules « Etat » sont après Tdt et Retour : trouvées quand même ;
+    // le retour de la vue est la colonne de l'extension, en fin de ligne
+    expect(affiche()).toEqual({
+      entetes: [
+        "Pseudo",
+        "",
+        "Terrain",
+        "",
+        "Etat ×2",
+        "Date dernier mouvement",
+        "Variation totale de TdC",
+        "TdC final",
+        "Retour",
+      ],
+      alpha: [
+        "Alpha",
+        "",
+        "200 000",
+        "",
+        "état Alpha",
+        "colonie Alpha",
+        "09/11 12:00",
+        "−15 000",
+        "185 000",
+        "9 nov. à 11h01",
+      ],
+    });
+    // vue « Temps de trajet » : ses colonnes Tdt et Retour, sans celles de l'extension
+    page.lire(`$(".o_allVue[data-vue='trajet']").trigger("click")`);
+    const trajet = affiche().entetes;
+    expect(trajet.filter((t) => t == "Retour").length).toBe(1);
+    expect(trajet).toContain("Tdt");
+    expect(trajet).not.toContain("TdC final");
   });
 
   test("aucune case cochée : le pseudo seul", async () => {

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.120.0",
+    notes: [
+      "Page Membres de l'alliance, vue « Floods et chasses en cours » : deux colonnes en plus, à cocher dans Préférences → Alliance (décochées par défaut) : « Retour », l'heure de retour d'une attaque lancée au chargement de la page, comme dans la vue « Temps de trajet », et « État de la colonie », la colonne « Etat » du jeu.",
+    ],
+  },
+  {
     version: "1.119.0",
     notes: [
       "Convois, option « Convoi avant la récolte » : nouveau calcul. Ouvrières disponibles = ouvrières présentes + retours de convoi au moins une minute avant la récolte − ton TdC − terrain de tes chasses et de tes floods arrivés avant la récolte, vérifié à chaque récolte jusqu'au retour du convoi que tu envoies (valable s'il part dans les 5 minutes).",

@@ -472,30 +472,34 @@ class AttaqueLancee {
    * @method lireMouvements
    * @param {Array} attaques {ligne, capture} de la liste du jeu
    * @param {Object|null} [suivi] suiviChargement, prévenu de chaque lecture
+   * @param {Array|null} [chassesLues] mes chasses déjà lues sur Ressources.php
+   *   (PageRessource.lireChasses), qui n'est alors pas relue
    * @return {Promise<{floods: Object, chasses: Array, recus: Array}>} floods :
    *   événement de la simulation par numéro d'attaque ; chasses : {evenement,
    *   groupe (Ressources.php, ou null), partagee} ; recus : floods sur moi
    */
-  static lireMouvements(attaques, suivi = null) {
+  static lireMouvements(attaques, suivi = null, chassesLues = undefined) {
     let moi = monProfil.pseudo,
       m = String(moi || "").toLowerCase();
     if (!moi) return Promise.resolve({ floods: {}, chasses: [], recus: [] });
-    if (suivi) suivi.prevoir(1);
+    if (suivi && chassesLues === undefined) suivi.prevoir(1);
     return Promise.all([
       PartageChasses.enFile(() => PartageChasses.charger([moi], true, suivi)).catch(() => null),
-      Promise.resolve($.get(location.origin + "/Ressources.php"))
-        .then(
-          (html) => {
-            let $page = Utils.parseHtml(String(html));
-            // autre page que Ressources (connexion) : chasses inconnues, pas « aucune »
-            return $page.find("#boite_tdc").length ? PageRessource.lireChasses($page) : null;
-          },
-          () => null,
-        )
-        .then((chasses) => {
-          if (suivi) suivi.faite();
-          return chasses;
-        }),
+      chassesLues !== undefined
+        ? Promise.resolve(chassesLues)
+        : Promise.resolve($.get(location.origin + "/Ressources.php"))
+            .then(
+              (html) => {
+                let $page = Utils.parseHtml(String(html));
+                // autre page que Ressources (connexion) : chasses inconnues, pas « aucune »
+                return $page.find("#boite_tdc").length ? PageRessource.lireChasses($page) : null;
+              },
+              () => null,
+            )
+            .then((chasses) => {
+              if (suivi) suivi.faite();
+              return chasses;
+            }),
     ]).then(([forum, chasses]) => {
       let d = forum || { chasses: {}, floods: [] },
         partagees = d.chasses[m] || [],
@@ -568,10 +572,11 @@ class AttaqueLancee {
    * @method mouvements
    * @param {Array} attaques
    * @param {Object|null} [suivi] suiviChargement
+   * @param {Array|null} [chassesLues] voir lireMouvements
    * @return {Promise<{floods: Object, chasses: Array, recus: Array}>}
    */
-  static mouvements(attaques, suivi = null) {
-    return AttaqueLancee.lireMouvements(attaques, suivi).catch((e) => {
+  static mouvements(attaques, suivi = null, chassesLues = undefined) {
+    return AttaqueLancee.lireMouvements(attaques, suivi, chassesLues).catch((e) => {
       console.error(`[${NOM_EXTENSION}] mouvements en cours`, e);
       return { floods: {}, chasses: [], recus: [] };
     });

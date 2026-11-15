@@ -295,6 +295,20 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     ]);
   });
 
+  test("chasses déjà lues (page Convois, « Convoi avant la récolte ») : Ressources.php n'est pas relue", async () => {
+    lire(`(() => {
+      document.body.innerHTML = ${JSON.stringify(armee())};
+      AttaqueLancee.mouvements([], null, PageRessource.lireChasses()).then((m) => (window.MOUV_R = m));
+    })()`);
+    await attendre();
+    expect(lire(`JEU.lues`)).not.toContain("/Ressources.php");
+    // les chasses passées sont celles de la simulation
+    expect(lire(`MOUV_R.chasses.map((c) => c.evenement.date)`)).toEqual([
+      "2026-11-12 10:21",
+      "2026-11-12 11:00",
+    ]);
+  });
+
   test("forum illisible : mes attaques et mes chasses restent, avec leurs boutons", async () => {
     lire(`ECRITS.illisible = true`);
     await ouvrir();

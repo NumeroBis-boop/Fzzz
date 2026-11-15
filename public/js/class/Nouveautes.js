@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.119.0",
+    notes: [
+      "Convois, option « Convoi avant la récolte » : nouveau calcul. Ouvrières disponibles = ouvrières présentes + retours de convoi au moins une minute avant la récolte − ton TdC − terrain de tes chasses et de tes floods arrivés avant la récolte, vérifié à chaque récolte jusqu'au retour du convoi que tu envoies (valable s'il part dans les 5 minutes).",
+      "La prise de tes floods vient de la synthèse, comme dans « Mes attaques en cours ». Un convoi qui revient au moins une minute avant la prochaine récolte peut emmener toutes tes ouvrières.",
+    ],
+  },
+  {
     version: "1.118.0",
     notes: [
       "Convois, option « Convoi avant la récolte » : un convoi qui revient juste après ton clic est maintenant compté (ses ouvrières n'étaient comptées nulle part).",

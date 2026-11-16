@@ -3,6 +3,9 @@
  * Hraesvelg
  **********************************************************************/
 
+/** Vitesse d'attaque du fichier Excel de la Carte (choix du mainteneur), modifiable dans le fichier. */
+const VITESSE_EXPORT_TRAJETS = 10;
+
 /**
  * Classe de fonction pour la page /alliance.php.
  *
@@ -267,6 +270,7 @@ class PageAlliance {
         <div class='centre o_marginT15'>
           <button id='o_carteAllianceRefresh' class='o_button f_info'>Charger / Actualiser</button>
           <button id='o_carteAllianceExportForum' class='o_button f_success' style='margin-left:8px;'>Exporter pour le forum</button>
+          <button id='o_carteAllianceExportExcel' class='o_button f_success' style='margin-left:8px;' title='Coordonnées des membres affichés, temps de trajet entre eux et formule'>Exporter en Excel</button>
           <span id='o_carteAllianceStatus' class='reduce o_secondaire' style='margin-left:12px;'></span>
         </div>
         <div id='o_carteFiltres' class='left o_marginT15' style='display:none;'></div>
@@ -299,6 +303,7 @@ class PageAlliance {
     }
     $("#o_carteAllianceRefresh").click(() => this._actualiserCarte());
     $("#o_carteAllianceExportForum").click(() => this._exporterCarteForumPng());
+    $("#o_carteAllianceExportExcel").click(() => this._exporterCarteExcel());
     this._evenementsChaine();
     return this;
   }
@@ -429,13 +434,13 @@ class PageAlliance {
     const pseudos = Object.keys(this._alliance.joueurs),
       liberer = () => {
         $("#o_carteAllianceRefresh").prop("disabled", false).text("Charger / Actualiser");
-        $("#o_carteAllianceExportForum").prop("disabled", false);
+        $("#o_carteAllianceExportForum, #o_carteAllianceExportExcel").prop("disabled", false);
       };
     // bloqués pendant le chargement : les profils partent un par un
     $("#o_carteAllianceRefresh")
       .prop("disabled", true)
       .text(`Chargement des profils… (0/${pseudos.length})`);
-    $("#o_carteAllianceExportForum").prop("disabled", true);
+    $("#o_carteAllianceExportForum, #o_carteAllianceExportExcel").prop("disabled", true);
     $("#o_carteAllianceStatus").text("");
     this._fetchAndCacheCoords((faits, total) =>
       $("#o_carteAllianceRefresh").text(`Chargement des profils… (${faits}/${total})`),
@@ -458,16 +463,14 @@ class PageAlliance {
       });
   }
   /**
-   * Génère un PNG simple dessiné sur canvas, avec les vraies proportions du jeu
-   * (1 case = 5 unités X × 50 unités Y, donc pxPerY = pxPerX / 10). Image étroite
-   * et haute, sans grille ni axes — pensée pour partager dans le forum d'alliance.
-   * Utilise directement le cache des coords (pas besoin que le chart Highcharts
-   * soit rendu).
+   * Membres de la carte gardée, avec la sélection des filtres comme à
+   * l'écran ; null, après un message, quand il n'y a rien à exporter.
    *
    * @private
-   * @method _exporterCarteForumPng
+   * @method _membresCarte
+   * @param {String} usage fin de « Charge d'abord la carte avant de pouvoir … »
    */
-  _exporterCarteForumPng() {
+  _membresCarte(usage) {
     const cacheKey = `outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`;
     let cached = null;
     try {
@@ -478,20 +481,179 @@ class PageAlliance {
     if (!cached || !cached.members || !cached.members.length) {
       $.toast({
         ...TOAST_WARNING,
-        text: "Charge d'abord la carte avant de pouvoir l'exporter pour le forum.",
+        text: `Charge d'abord la carte avant de pouvoir ${usage}.`,
       });
-      return;
+      return null;
     }
-    // même sélection que la carte à l'écran
     if (!this._filtres) this._filtres = this._chargerFiltres();
-    const members = this._filtrerMembres(this._carteMembres || cached.members);
+    const tous = this._carteMembres || cached.members,
+      members = this._filtrerMembres(tous);
     if (!members.length) {
       $.toast({
         ...TOAST_WARNING,
         text: "Aucun membre affiché : élargis les filtres avant d'exporter.",
       });
+      return null;
+    }
+    return { members, masques: tous.length - members.length, timestamp: cached.timestamp };
+  }
+  /**
+   * Fichier Excel des membres affichés sur la carte : rien n'est lu, les
+   * positions sont celles de la carte.
+   *
+   * @private
+   * @method _exporterCarteExcel
+   */
+  _exporterCarteExcel() {
+    const carte = this._membresCarte("l'exporter en Excel");
+    if (!carte) return;
+    const maintenant = Horloge.serveur(),
+      feuilles = PageAlliance.classeurTrajets(carte.members, VITESSE_EXPORT_TRAJETS, {
+        alliance: Utils.alliance,
+        positions: carte.timestamp ? moment(carte.timestamp).format("DD/MM/YYYY [à] HH[h]mm") : "",
+        cree: maintenant.format("DD/MM/YYYY [à] HH[h]mm"),
+        masques: carte.masques,
+      }),
+      nom = `trajets-${Utils.alliance.replace(/[^\w-]/g, "") || "alliance"}-${maintenant.format("YYYY-MM-DD")}.xlsx`;
+    try {
+      Classeur.telecharger(Classeur.xlsx(feuilles), nom);
+    } catch (e) {
+      console.error("Fzzz : fichier Excel de la carte", e);
+      $.toast({ ...TOAST_ERROR, text: "Le fichier Excel n'a pas pu être créé." });
       return;
     }
+    $.toast({
+      ...TOAST_SUCCESS,
+      text:
+        `Fichier Excel créé : ${PageAlliance._membres(carte.members.length)}, vitesse d'attaque ${VITESSE_EXPORT_TRAJETS} (modifiable dans la feuille « Trajets »)` +
+        (carte.masques ? `, sans ${PageAlliance._masques(carte.masques)}.` : "."),
+    });
+  }
+  /**
+   * @private
+   * @param {Number} n
+   */
+  static _membres(n) {
+    return `${n} membre${n > 1 ? "s" : ""}`;
+  }
+  /**
+   * @private
+   * @param {Number} n membres masqués par les filtres de la carte
+   */
+  static _masques(n) {
+    return n == 1 ? "le membre masqué par les filtres" : `les ${n} membres masqués par les filtres`;
+  }
+  /**
+   * Feuilles du fichier Excel de la carte : « Coordonnées », « Trajets » (de
+   * la ligne vers la colonne : formules sur la vitesse d'attaque de la case
+   * B1, avec leur valeur pour les lecteurs qui ne recalculent pas) et
+   * « Formule ».
+   *
+   * @static
+   * @method classeurTrajets
+   * @param {Array<{pseudo: String, x: Number, y: Number}>} membres
+   * @param {Number} va
+   * @param {{alliance: String, positions: String, cree: String, masques: Number}} infos
+   * @return {Array} feuilles de Classeur.xlsx
+   */
+  static classeurTrajets(membres, va, infos) {
+    const tries = [...membres].sort((a, b) =>
+        a.pseudo.localeCompare(b.pseudo, "fr", { sensitivity: "base" }),
+      ),
+      // ligne du premier membre dans la feuille « Trajets »
+      premiere = 4,
+      x = (i) => `$B$${premiere + i}`,
+      y = (i) => `$C$${premiere + i}`,
+      longueur = Math.max(6, ...tries.map((m) => m.pseudo.length)),
+      gras = (texte) => ({ v: texte, s: "gras" }),
+      note = (texte) => ({ v: texte, s: "note" });
+    const matrice = tries.map((a, i) => [
+      gras(a.pseudo),
+      a.x,
+      a.y,
+      ...tries.map((b, j) =>
+        i == j
+          ? { v: "—", s: "diagonale" }
+          : {
+              f: `ROUND(0.9^$B$1*${TRAJET_MAX}*(1-EXP(-SQRT((${x(i)}-${x(j)})^2+(${y(i)}-${y(j)})^2)/${TRAJET_DISTANCE})),0)/86400`,
+              v: Joueur.tempsTrajet(a, b, va) / 86400,
+              s: "duree",
+            },
+      ),
+    ]);
+    return [
+      {
+        nom: "Coordonnées",
+        lignes: [[gras("Pseudo"), gras("X"), gras("Y")], ...tries.map((m) => [m.pseudo, m.x, m.y])],
+        largeurs: [longueur + 2, 6, 6],
+        figer: { lignes: 1, colonnes: 0 },
+      },
+      {
+        nom: "Trajets",
+        lignes: [
+          [
+            gras("Vitesse d'attaque"),
+            { v: va, s: "saisie" },
+            note("← change ce nombre : toute la matrice se recalcule."),
+          ],
+          [
+            note(
+              "Durées en heures:minutes:secondes, de la fourmilière de la ligne vers celle de la colonne. Formule : feuille « Formule ».",
+            ),
+          ],
+          [
+            gras("Pseudo"),
+            gras("X"),
+            gras("Y"),
+            ...tries.map((m) => ({ v: m.pseudo, s: "vertical" })),
+          ],
+          ...matrice,
+        ],
+        largeurs: [Math.max(longueur, 17) + 2, 6, 6, ...tries.map(() => 10)],
+        figer: { lignes: 3, colonnes: 3 },
+        hauteurs: { 3: Math.min(160, 12 + 6.5 * longueur) },
+      },
+      {
+        nom: "Formule",
+        lignes: [
+          [gras("Temps de trajet entre deux fourmilières")],
+          ["temps (secondes) = ARRONDI(0,9^VA × 637 200 × (1 − e^(−d / 350)))"],
+          [
+            "d = √((x₂ − x₁)² + (y₂ − y₁)²) : distance entre les deux fourmilières, dans les coordonnées (x, y) du jeu.",
+          ],
+          [
+            "VA : niveau de la recherche « Vitesse d'attaque » de celui qui envoie (case B1 de la feuille « Trajets »). Chaque niveau multiplie le temps par 0,9.",
+          ],
+          [
+            "637 200 s (7 j 9 h) : le trajet le plus long possible en VA 0, vers une distance infinie.",
+          ],
+          ["C'est la formule des temps de trajet de l'extension, arrondie à la seconde."],
+          [],
+          [gras("Source")],
+          [
+            `Positions : Carte de l'alliance ${infos.alliance}, chargées le ${infos.positions || "(date inconnue)"} ; ${PageAlliance._membres(tries.length)}` +
+              (infos.masques ? `, sans ${PageAlliance._masques(infos.masques)} de la carte.` : "."),
+          ],
+          [`Fichier créé le ${infos.cree} par l'${NOM_EXTENSION}.`],
+        ],
+        largeurs: [120],
+      },
+    ];
+  }
+  /**
+   * Génère un PNG simple dessiné sur canvas, avec les vraies proportions du jeu
+   * (1 case = 5 unités X × 50 unités Y, donc pxPerY = pxPerX / 10). Image étroite
+   * et haute, sans grille ni axes — pensée pour partager dans le forum d'alliance.
+   * Utilise directement le cache des coords (pas besoin que le chart Highcharts
+   * soit rendu).
+   *
+   * @private
+   * @method _exporterCarteForumPng
+   */
+  _exporterCarteForumPng() {
+    const carte = this._membresCarte("l'exporter pour le forum");
+    if (!carte) return;
+    const members = carte.members;
     const xs = members.map((m) => m.x);
     const ys = members.map((m) => m.y);
     const xMin = Math.min(...xs);

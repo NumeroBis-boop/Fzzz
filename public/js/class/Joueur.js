@@ -28,6 +28,10 @@ const CHASSEURS_PAR_DEFAUT = [
   "Vegas",
 ];
 const CLE_ROLE_CHASSEUR_DEFAUT = "fzzz_roleChasseurDefaut";
+/** Trajet le plus long, en secondes, en Vitesse d'attaque 0 (distance infinie). */
+const TRAJET_MAX = 637200;
+/** Distance où un trajet atteint 1 − 1/e (63 %) de TRAJET_MAX. */
+const TRAJET_DISTANCE = 350;
 
 /**
  * Classe pour creer et gérer un joueur
@@ -527,28 +531,40 @@ class Joueur {
     return this._niveauConstruction[3] + this._niveauConstruction[4] + this._niveauRecherche[0];
   }
   /**
+   * Temps de trajet en secondes entre deux positions, à une Vitesse d'attaque.
    *
+   * @static
+   * @method tempsTrajet
+   * @param {{x: number, y: number}} depart
+   * @param {{x: number, y: number}} arrivee
+   * @param {number} va niveau de Vitesse d'attaque de celui qui envoie
+   * @return {number}
    */
-  getTempsParcours(x = monProfil.x, y = monProfil.y) {
+  static tempsTrajet(depart, arrivee, va) {
     // arrondi au plus proche, comme le jeu (vérifié sur des trajets réels du s5)
     return Math.round(
-      Math.pow(0.9, this._niveauRecherche[6]) *
-        637200 *
-        (1 - Math.exp(-(Math.sqrt(Math.pow(x - this._x, 2) + Math.pow(y - this._y, 2)) / 350))),
+      Math.pow(0.9, va) *
+        TRAJET_MAX *
+        (1 -
+          Math.exp(
+            -(
+              Math.sqrt(Math.pow(arrivee.x - depart.x, 2) + Math.pow(arrivee.y - depart.y, 2)) /
+              TRAJET_DISTANCE
+            ),
+          )),
     );
   }
   /**
    *
    */
+  getTempsParcours(x = monProfil.x, y = monProfil.y) {
+    return Joueur.tempsTrajet(this, { x, y }, this._niveauRecherche[6]);
+  }
+  /**
+   *
+   */
   getTempsParcours2(joueur) {
-    return Math.round(
-      Math.pow(0.9, this._niveauRecherche[6]) *
-        637200 *
-        (1 -
-          Math.exp(
-            -(Math.sqrt(Math.pow(joueur.x - this._x, 2) + Math.pow(joueur.y - this._y, 2)) / 350),
-          )),
-    );
+    return Joueur.tempsTrajet(this, joueur, this._niveauRecherche[6]);
   }
   /**
    *

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.124.0",
+    notes: [
+      "Carte de l'alliance (menu Alliance → Carte) : bouton « Exporter en Excel ». Le fichier donne les coordonnées des membres affichés, le temps de trajet entre chacun (vitesse d'attaque 10, à changer dans la case B1 de la feuille « Trajets » : tout se recalcule) et la formule utilisée.",
+    ],
+  },
+  {
     version: "1.123.2",
     notes: [
       "Le temps avant que les entrepôts soient pleins ne compte plus le terrain que rapporteront tes chasses et tes floods en cours (dit dans Préférences → Ressources, « Méthode de calcul »).",

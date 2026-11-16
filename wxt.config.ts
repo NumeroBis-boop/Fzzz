@@ -135,6 +135,7 @@ export default defineConfig({
           "js/class/Utils.js",
           "js/class/ExportJoueurs.js",
           "js/class/ExportRapports.js",
+          "js/class/Classeur.js",
           "js/class/Alliance.js",
           "js/class/Armee.js",
           "js/class/AttaqueLancee.js",

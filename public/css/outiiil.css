@@ -3468,3 +3468,29 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   font-weight: bold;
   text-decoration: underline;
 }
+/* encart « S5 Pseudo » : temps avant que l'entrepôt soit plein (Entrepots),
+   aligné sur le nombre du jeu */
+.o_entrepotPlein {
+  padding: 0 0 2px 45px;
+  font-size: 0.9em;
+  line-height: 1.15;
+  text-align: left;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.o_entrepotRempli {
+  color: #ff4d4d;
+  opacity: 1;
+}
+/* page Ressources, bloc « Récoltes » : synthèse sous un séparateur fin */
+.o_recolteSeparateur {
+  width: 12em;
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.4;
+}
+.o_recolteSynthese p {
+  margin: 0;
+  text-indent: 0;
+}

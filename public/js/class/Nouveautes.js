@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.122.0",
+    notes: [
+      "Encart « S5 Pseudo » : sous la nourriture et les matériaux, le temps avant que l'entrepôt soit plein, avec la production du jour, le pillage (seigneur ou vassal) et le TdC de tes chasses et floods en cours. Ouvre la page Ressources pour que le pillage et les chasses soient comptés.",
+      "Page Ressources, bloc « Récoltes » : sous un trait fin, ce que tu récoltes vraiment chaque jour une fois le pillage compté.",
+    ],
+  },
+  {
     version: "1.121.0",
     notes: [
       "Forum caché : les floods arrivés sont seulement retirés de ta réponse dans « BDD générale flood », ils ne sont plus recopiés dans des sujets « Historique Floods ». L'historique des chasses ne change pas.",

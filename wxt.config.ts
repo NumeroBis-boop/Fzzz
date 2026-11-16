@@ -138,6 +138,7 @@ export default defineConfig({
           "js/class/Alliance.js",
           "js/class/Armee.js",
           "js/class/AttaqueLancee.js",
+          "js/class/Entrepots.js",
           "js/class/Chasse.js",
           "js/class/Combat.js",
           "js/class/Horloge.js",

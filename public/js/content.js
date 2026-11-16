@@ -595,6 +595,14 @@ const DATEPICKER_OPTION = {
         } catch (e) {
           console.error("Fzzz : rappel d'export des chasses", e);
         }
+        // temps avant que les entrepôts soient pleins, sous la nourriture et les
+        // matériaux de l'encart « S5 Pseudo » : avant le Dock, qui place les
+        // encadrés suivants d'après sa hauteur
+        try {
+          if (!origineGenerale) Entrepots.afficher();
+        } catch (e) {
+          console.error("Fzzz : remplissage des entrepôts", e);
+        }
         // Ajout des outils, sous l'encadré Compte+
         let boite = new Dock();
         boite.afficher();
@@ -728,9 +736,12 @@ const DATEPICKER_OPTION = {
           // fn par défaut retourne attr("title") = "" → pas de rendu).
           $td.attr("title", "");
           $td.attr("data-tooltip-original-title", "");
+          const entrepot = type === "Nourriture" ? 0 : type === "Matériaux" ? 1 : -1;
           $td
             .on("mouseenter.toolzzzInfo", () => {
-              $tip.find(".ui-tooltip-content").html(html);
+              $tip
+                .find(".ui-tooltip-content")
+                .html(html + (entrepot < 0 ? "" : Entrepots.ligneInfobulle(entrepot)));
               $tip.show();
               const offset = $td.offset();
               $tip.css({

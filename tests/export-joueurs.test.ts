@@ -31,7 +31,15 @@ describe("export public des joueurs", () => {
       null,
     ]))`);
     expect(index).toEqual({
-      SerPounce: { id: 12, pseudo: "SerPounce", x: 10, y: 22, terrain: 81975, alliance: "OUAF" },
+      SerPounce: {
+        id: 12,
+        pseudo: "SerPounce",
+        x: 10,
+        y: 22,
+        terrain: 81975,
+        alliance: "OUAF",
+        seigneur: null,
+      },
     });
   });
   test("dernière version demandée, puis ses joueurs", async () => {
@@ -64,9 +72,9 @@ describe("export public des joueurs", () => {
     garderBase(2 * HEURE, { A: [1, 2, 3] });
     const [appels, base] = await avecExport("ExportJoueurs.base()");
     expect(appels.length).toBe(2);
-    expect(base).toEqual({ B: [5, 6, 7] });
+    expect(base).toEqual({ B: [5, 6, 7, 1, null] });
     const gardee = page.lire<any>(`JSON.parse(localStorage.getItem("fzzz_joueurs_S5"))`);
-    expect(gardee.joueurs).toEqual({ B: [5, 6, 7] });
+    expect(gardee.joueurs).toEqual({ B: [5, 6, 7, 1, null] });
     expect(Date.now() - gardee.t).toBeLessThan(HEURE);
   });
 
@@ -115,5 +123,26 @@ describe("export public des joueurs", () => {
       [10, 22, 81975],
       [3, 4, 500],
     ]);
+  });
+
+  test("colonies d'un joueur : les joueurs dont il est le seigneur, avec leur TdC", async () => {
+    const joueurs = `[
+      { id: 1, pseudo: "Seigneur", x: 1, y: 1, field: 500000, masterPlayerId: null },
+      { id: 2, pseudo: "Vassal", x: 2, y: 2, field: 120000, masterPlayerId: 1 },
+      { id: 3, pseudo: "Autre", x: 3, y: 3, field: 90000, masterPlayerId: 9 },
+      { id: 4, pseudo: "Deux", x: 4, y: 4, field: 80000, masterPlayerId: 1 },
+    ]`;
+    // base gardée par une version qui ne notait pas les seigneurs : relue
+    garderBase(HEURE / 2, { Seigneur: [1, 1, 500000] });
+    const [appels, colonies] = await avecExport(`ExportJoueurs.colonies("seigneur")`, joueurs);
+    expect(appels.length).toBe(2);
+    expect(colonies).toEqual([
+      { pseudo: "Vassal", terrain: 120000 },
+      { pseudo: "Deux", terrain: 80000 },
+    ]);
+    // base à jour : aucune requête ; pas de colonie
+    const [appels2, aucune] = await avecExport(`ExportJoueurs.colonies("Vassal")`, joueurs);
+    expect(appels2).toEqual([]);
+    expect(aucune).toEqual([]);
   });
 });

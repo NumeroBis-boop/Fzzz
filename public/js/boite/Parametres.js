@@ -571,8 +571,8 @@ class BoiteParametre extends Boite {
           "Entrepôts",
           this.cases("General", ["remplissageEntrepots"]) +
             this.aide(
-              "Compte la production du jour, la consommation de l'armée, le pillage (vassal ou seigneur) et le terrain que rapporteront tes chasses et tes floods en cours.",
-              "Le pillage, l'affectation automatique des ouvrières et les chasses en cours sont relus à chaque ouverture de la page Ressources : ouvre-la après un changement. Aucune requête au jeu.",
+              "Compte la récolte du terrain à chaque récolte du jeu, la champignonnière, la consommation de l'armée, le pillage que tu subis, les convois qui arrivent et le terrain de tes chasses et floods en cours (avec l'affectation automatique). Ce que tu pilles sur tes colonies n'y est pas compté : l'info-bulle le montre.",
+              "Le pillage subi, l'affectation automatique, la prochaine récolte et les chasses sont relus à chaque ouverture de la page Ressources, les convois qui arrivent à chaque ouverture de la page Convois : ouvre-les après un changement. Le bilan de la page Ressources compte aussi ce que tu pilles sur tes colonies : leurs TdC viennent de l'export public des joueurs (relu au plus une fois par heure), le niveau de leur champignonnière du fichier « Stats membres » de l'alliance (une fois par jour).",
             ),
         )}
         ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}

@@ -3496,3 +3496,11 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   margin: 0;
   text-indent: 0;
 }
+.o_recolteSynthese p + p {
+  margin-top: 6px;
+  font-size: 0.9em;
+}
+/* un nombre ne se coupe pas à l'espace des milliers */
+.o_recolteSynthese strong {
+  white-space: nowrap;
+}

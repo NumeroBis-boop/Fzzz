@@ -9,9 +9,10 @@ const DUREE_BASE_JOUEURS = 3600000;
 
 /**
  * Le jeu publie chaque heure la liste de tous les joueurs (pseudo, id,
- * coordonnées, TdC, alliance) : une requête au lieu d'une page de profil par
- * joueur. C'est la collecte automatique prévue par le jeu. Le TdC y date de
- * l'export : le TdC en direct reste celui des pages du jeu.
+ * coordonnées, TdC, alliance, id du seigneur d'une colonie) : une requête au
+ * lieu d'une page de profil par joueur. C'est la collecte automatique prévue
+ * par le jeu. Le TdC y date de l'export : le TdC en direct reste celui des
+ * pages du jeu.
  */
 class ExportJoueurs {
   static get cle() {
@@ -23,7 +24,7 @@ class ExportJoueurs {
    *
    * @static
    * @method lire
-   * @return {Promise<Map<string, {id: number, pseudo: string, x: number, y: number, terrain: number, alliance: string|null}>>}
+   * @return {Promise<Map<string, {id: number, pseudo: string, x: number, y: number, terrain: number, alliance: string|null, seigneur: number|null}>>}
    */
   static lire() {
     let racine = location.origin + "/api/exports/";
@@ -48,7 +49,7 @@ class ExportJoueurs {
    * @static
    * @method indexer
    * @param {Array<Object>} joueurs réponse de /api/exports/players/
-   * @return {Map<string, {id: number, pseudo: string, x: number, y: number, terrain: number, alliance: string|null}>}
+   * @return {Map<string, {id: number, pseudo: string, x: number, y: number, terrain: number, alliance: string|null, seigneur: number|null}>}
    */
   static indexer(joueurs) {
     let index = new Map();
@@ -62,28 +63,59 @@ class ExportJoueurs {
           y: j.y,
           terrain: j.field || 0,
           alliance: j.alliance ?? null,
+          seigneur: j.masterPlayerId ?? null,
         });
     });
     return index;
   }
   /**
-   * {pseudo: [x, y, terrain]} : ~50 000 caractères pour les 2 000 joueurs du s5.
+   * {pseudo: [x, y, terrain, id, id du seigneur ou null]} : ~80 000 caractères
+   * pour les 2 000 joueurs du s5.
    *
    * @static
    * @method compacter
-   * @param {Map<string, {x: number, y: number, terrain: number}>} index
-   * @return {Object<string, Array<number>>}
+   * @param {Map<string, {x: number, y: number, terrain: number, id: number, seigneur: number|null}>} index
+   * @return {Object<string, Array<number|null>>}
    */
   static compacter(index) {
-    /** @type {Object<string, Array<number>>} */
+    /** @type {Object<string, Array<number|null>>} */
     let joueurs = {};
-    index.forEach((j, pseudo) => (joueurs[pseudo] = [j.x, j.y, j.terrain]));
+    index.forEach(
+      (j, pseudo) => (joueurs[pseudo] = [j.x, j.y, j.terrain, j.id ?? null, j.seigneur ?? null]),
+    );
     return joueurs;
+  }
+  /**
+   * Colonies d'un joueur et leur TdC, d'après l'export (à l'heure près). Une
+   * base gardée par une version qui ne notait pas les seigneurs est relue.
+   *
+   * @static
+   * @method colonies
+   * @param {String} pseudo
+   * @return {Promise<Array<{pseudo: String, terrain: Number}>>} rejetée si le
+   *   joueur n'est pas dans l'export
+   */
+  static colonies(pseudo) {
+    return ExportJoueurs.base()
+      .then((base) =>
+        Object.values(base).some((j) => j.length >= 5)
+          ? base
+          : ExportJoueurs.lire().then((index) => ExportJoueurs.compacter(index)),
+      )
+      .then((base) => {
+        let cle = String(pseudo).toLowerCase(),
+          moi = Object.entries(base).find(([p]) => p.toLowerCase() == cle);
+        if (!moi || moi[1][3] == null) throw new Error("joueur absent de l'export des joueurs");
+        let id = moi[1][3];
+        return Object.entries(base)
+          .filter(([, j]) => j[4] === id)
+          .map(([p, j]) => ({ pseudo: p, terrain: Number(j[2]) || 0 }));
+      });
   }
   /**
    * @static
    * @method garder
-   * @param {Map<string, {x: number, y: number, terrain: number}>} index
+   * @param {Map<string, {x: number, y: number, terrain: number, id: number, seigneur: number|null}>} index
    */
   static garder(index) {
     try {
@@ -102,7 +134,7 @@ class ExportJoueurs {
    *
    * @static
    * @method base
-   * @return {Promise<Object<string, Array<number>>>} {pseudo: [x, y, terrain]}
+   * @return {Promise<Object<string, Array<number|null>>>} {pseudo: [x, y, terrain, id, seigneur]}
    */
   static base() {
     let gardee = Utils.lireStockage(ExportJoueurs.cle);

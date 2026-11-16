@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.123.0",
+    notes: [
+      "Encart « S5 Pseudo » : le temps avant que l'entrepôt soit plein compte la récolte du terrain toutes les 30 min, à l'heure des récoltes du jeu, et les convois qui arrivent (vus sur la page Convois). Si ton armée mange plus que ce qui rentre, la nourriture annonce « Famine dans … ». La ligne se met à jour chaque minute. Le terrain de tes chasses et floods n'est compté qu'avec l'affectation automatique des ouvrières.",
+      "Seigneur : ce que tu pilles sur tes colonies n'est plus compté dans le remplissage, il est montré dans l'info-bulle. Sur la page Ressources, le bilan du jour le compte : 20 % + 1 % par niveau de ton Étable à pucerons, sur le TdC de chaque colonie et sur sa champignonnière (niveau lu dans le fichier « Stats membres »).",
+    ],
+  },
+  {
     version: "1.122.1",
     notes: [
       "Encart « S5 Pseudo » : un entrepôt plein dans moins de 8 h s'affiche en rouge. Préférences → Général, section « Entrepôts » : une case (cochée) pour masquer ces lignes et le bilan de la page Ressources.",

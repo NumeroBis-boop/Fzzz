@@ -103,7 +103,7 @@ const AFFICHAGES_FZZZ = {
   infobulleRessources:
     "Info-bulles Nourriture et Matériaux de la barre d'infos : capacité de l'entrepôt et place libre",
   remplissageEntrepots:
-    "Temps avant que les entrepôts soient pleins, sous la nourriture et les matériaux de l'encart « S5 pseudo » (en rouge à moins de 8 h), et bilan de la récolte du jour sur la page Ressources",
+    "Temps avant que les entrepôts soient pleins (ou avant la famine), sous la nourriture et les matériaux de l'encart « S5 pseudo » (en rouge à moins de 8 h), et bilan de la récolte du jour sur la page Ressources",
   menuCarte: "Entrée « Carte » dans le menu Alliance",
   menuCouts: "Entrée « Coûts » dans le menu Fourmilière",
   styleFormulaires:

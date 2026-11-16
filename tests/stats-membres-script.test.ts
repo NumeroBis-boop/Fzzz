@@ -484,3 +484,47 @@ describe("relevés refusés : rien n'est écrit", () => {
     expect(Object.keys(f.onglets)).toHaveLength(0);
   });
 });
+
+describe("lecture des niveaux de champignonnière (colonies d'un seigneur, 1.123.0)", () => {
+  test("niveau et jour de chaque joueur demandé, pseudo sans les majuscules ; rien d'écrit", () => {
+    const f = fichier();
+    f.doPost(releve({ joueur: "Vassal Un" }));
+    f.doPost(releve({ joueur: "Autre", donnees: { ...DONNEES, champignonniere: 21 } }));
+    const avant = JSON.stringify(f.onglets[ONGLET].grille);
+    expect(f.doPost({ niveaux: { joueurs: ["vassal un", "Autre", "Inconnu"] } })).toEqual({
+      ok: true,
+      niveaux: {
+        "vassal un": { champignonniere: 17, jour: jour() },
+        Autre: { champignonniere: 21, jour: jour() },
+      },
+    });
+    expect(JSON.stringify(f.onglets[ONGLET].grille)).toBe(avant);
+  });
+
+  test("case vide (jamais partagée) : niveau inconnu ; colonnes déplacées à la main", () => {
+    const f = fichier({
+      "Dernier relevé": feuille("Dernier relevé", [
+        ["Champignonnière", "Joueur", "Date"],
+        ["", "Vassal", "16/11/2026"],
+        ["18", "Deux", "16/11/2026"],
+      ]),
+    });
+    expect(f.doPost({ niveaux: { joueurs: ["Vassal", "Deux"] } })).toEqual({
+      ok: true,
+      niveaux: {
+        Vassal: { champignonniere: null, jour: "2026-11-16" },
+        Deux: { champignonniere: 18, jour: "2026-11-16" },
+      },
+    });
+  });
+
+  test("demande invalide refusée ; fichier vide : aucun niveau", () => {
+    const f = fichier();
+    expect(f.doPost({ niveaux: { joueurs: "Vassal" } })).toEqual({ erreur: "joueurs invalides" });
+    expect(f.doPost({ niveaux: { joueurs: Array(51).fill("A") } })).toEqual({
+      erreur: "joueurs invalides",
+    });
+    expect(f.doPost({ niveaux: { joueurs: ["Vassal"] } })).toEqual({ ok: true, niveaux: {} });
+    expect(f.doGet()).toMatchObject({ niveaux: true });
+  });
+});

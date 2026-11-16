@@ -27,6 +27,9 @@
  * Les colonnes se repèrent par leur titre : elles peuvent être déplacées, et
  * d'autres ajoutées à la main. Un joueur se retrouve par son pseudo : les
  * lignes peuvent être triées.
+ *
+ * L'extension lit aussi le niveau de champignonnière des colonies d'un
+ * seigneur (requête « niveaux », sans écriture), pour calculer ce qu'il pille.
  */
 
 var ONGLET = "Dernier relevé";
@@ -56,10 +59,12 @@ var LEGENDE = [
 ];
 // l'heure du jeu et celle de Google peuvent différer autour de minuit
 var JOURS_ECART_MAX = 1;
+// requête « niveaux » : les colonies d'un seigneur, quelques joueurs
+var JOUEURS_LUS_MAX = 50;
 var VALEUR_MAX = 1e15;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-12.4";
+var VERSION_SCRIPT = "stats-membres 2026-11-16.1";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -71,6 +76,7 @@ function doGet() {
     fichier: classeur.getName(),
     version: VERSION_SCRIPT,
     suivi: true,
+    niveaux: true,
   });
 }
 
@@ -81,11 +87,23 @@ function doPost(e) {
   } catch (err) {
     return reponseJson({ erreur: "requête illisible" });
   }
-  var classeur = SpreadsheetApp.getActiveSpreadsheet(),
-    refus =
-      d && d.suivi && typeof d.suivi == "object"
-        ? refusDuReleve(d.suivi, classeur.getSpreadsheetTimeZone())
-        : "requête invalide";
+  var classeur = SpreadsheetApp.getActiveSpreadsheet();
+  if (d && d.niveaux && typeof d.niveaux == "object") {
+    var joueurs = d.niveaux.joueurs;
+    if (
+      !Array.isArray(joueurs) ||
+      joueurs.length > JOUEURS_LUS_MAX ||
+      joueurs.some(function (j) {
+        return typeof j != "string" || !j.trim() || j.length > 40;
+      })
+    )
+      return reponseJson({ erreur: "joueurs invalides" });
+    return reponseJson(lireNiveaux(classeur, joueurs));
+  }
+  var refus =
+    d && d.suivi && typeof d.suivi == "object"
+      ? refusDuReleve(d.suivi, classeur.getSpreadsheetTimeZone())
+      : "requête invalide";
   if (refus) return reponseJson({ erreur: refus });
   // deux joueurs qui envoient en même temps : l'un après l'autre
   return reponseJson(
@@ -93,6 +111,43 @@ function doPost(e) {
       return enregistrer(classeur, d.suivi);
     }),
   );
+}
+
+/**
+ * Niveau de champignonnière de chaque joueur demandé, d'après sa ligne de
+ * « Dernier relevé » : {pseudo demandé: {champignonniere: nombre ou null,
+ * jour: "AAAA-MM-JJ"}}, rien pour un joueur sans ligne. Lecture seule.
+ */
+function lireNiveaux(classeur, joueurs) {
+  var feuille = classeur.getSheetByName(ONGLET),
+    niveaux = {};
+  if (!feuille || feuille.getLastRow() < 2) return { ok: true, niveaux: niveaux };
+  var lignes = feuille
+      .getRange(1, 1, feuille.getLastRow(), Math.max(feuille.getLastColumn(), 1))
+      .getValues(),
+    colonnes = {},
+    voulus = {},
+    fuseau = classeur.getSpreadsheetTimeZone();
+  lignes[0].forEach(function (t, i) {
+    var titre = String(t == null ? "" : t).trim();
+    if (titre && colonnes[titre] === undefined) colonnes[titre] = i;
+  });
+  if (colonnes[COLONNE_JOUEUR] === undefined) return { ok: true, niveaux: niveaux };
+  joueurs.forEach(function (j) {
+    voulus[cleJoueur(j)] = j;
+  });
+  lignes.slice(1).forEach(function (l) {
+    var demande = voulus[cleJoueur(l[colonnes[COLONNE_JOUEUR]])];
+    if (demande === undefined) return;
+    var brut = colonnes["Champignonnière"] === undefined ? "" : l[colonnes["Champignonnière"]],
+      chiffres = String(brut == null ? "" : brut).replace(/[^\d]/g, "");
+    niveaux[demande] = {
+      champignonniere: chiffres === "" ? null : Number(chiffres),
+      jour:
+        colonnes[COLONNE_DATE] === undefined ? "" : jourCellule(l[colonnes[COLONNE_DATE]], fuseau),
+    };
+  });
+  return { ok: true, niveaux: niveaux };
 }
 
 function avecVerrou(action) {

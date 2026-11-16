@@ -98,6 +98,7 @@ beforeEach(() =>
     NIVEAUX = {};
     JOURNAL = [];
     Journal.info = (s, m) => JOURNAL.push(m);
+    history.replaceState(null, "", "/Armee.php");
     $.ajax = () => { throw new Error("aucune requête au jeu attendue"); };
   })()`),
 );
@@ -374,6 +375,120 @@ describe("encart « S5 Pseudo » : lignes sous la nourriture et les matériaux",
     expect(lignes()).toEqual(["Plein dans 1 j 10 h", "Plein dans 1 j 4 h"]);
     lire(`(() => { heure += ${30 * H}; Entrepots.majLignes(); })()`);
     expect(lignes()[1]).toBe("Entrepôt plein");
+  });
+});
+
+describe("entrepôt en construction : un niveau de plus à la fin de la construction", () => {
+  /** Ligne de l'encart Compte+ du jeu, sur chaque page : nom sans niveau et temps restant. */
+  const comptePlus = (nom = "Aucune construction", secondes = 0) =>
+    `<table><tr id="ligne_construction" onclick="document.location.href='construction.php'" class="lien tooltip_compte_plus" title=""> <td><a href="construction.php"><div class="mini_icone_construction"></div></a></td> <td> <a href="construction.php" >${nom}</a></td> <td style="text-align:right;">${
+      secondes
+        ? `<a href="construction.php" id="temps_construction"></a> <script language="JavaScript">$(function() { resteTemps(${secondes},"temps_construction"); });</script>`
+        : ""
+    }<script language="JavaScript">$(function() { $("#ligne_construction").tooltip({ tooltipClass: "warning-tooltip", content:"" }); });</script></td></tr></table>`;
+  /** Construction en cours de la page Construction, telle que le jeu l'écrit. */
+  const pageConstruction = (nom: string, secondes: number) =>
+    `<div id="centre"><strong>- ${nom} se termine dans : <span id="batiment_2"></span><script type="text/javascript">reste(${secondes}, "batiment_2");</script> - <a href="construction.php?annuler=2&amp;t=1c34">Annuler</a></strong><br/></div>`;
+  const PAGE = encart([197540, 3460273]) + INFOBULLE;
+  const garde = () =>
+    lire<any>(`JSON.parse(localStorage.getItem("fzzz_chantierEntrepot") || "{}")`);
+  const garder = (chantier: object) =>
+    lire(
+      `localStorage.setItem("fzzz_chantierEntrepot", JSON.stringify({ moi: ${JSON.stringify(chantier)} }))`,
+    );
+  const nombre = (n: number) => lire<string>(`numeral(${n}).format()`);
+  const afficher = (html: string) => {
+    ouvrir(html);
+    lire(`Entrepots.afficher()`);
+    return lignes();
+  };
+
+  test("calcul pas à pas : la capacité change à la fin de la construction", () => {
+    const simuler = (agrandissement: object) =>
+      lire<{ plein: number | null }>(
+        `Entrepots.simuler({ stock: 0, capacite: 1000, continu: 1000, recolte: 0, prochaine: null, convois: [], maintenant: heure, agrandissement: ${JSON.stringify(agrandissement)} })`,
+      ).plein;
+    // 500 en stock à la fin de la construction, 2 000 de capacité ensuite
+    expect(simuler({ t: HEURE + 12 * H, capacite: 2000 })).toBe(HEURE + 48 * H);
+    // plein avant la fin de la construction : plein quand même
+    expect(simuler({ t: HEURE + 30 * H, capacite: 2000 })).toBe(HEURE + 24 * H);
+    expect(lire(`Entrepots.capaciteSuivante(500 + 1200 * Math.pow(2, 12))`)).toBe(
+      500 + 1200 * Math.pow(2, 13),
+    );
+  });
+
+  test("Compte+ : entrepôt vu dans l'encart du jeu, compté à la fin de sa construction", () => {
+    // matériaux niveau 12 : 4 915 700 ; niveau 13 dans 10 h : 9 830 900
+    expect(afficher(PAGE + comptePlus("Entrepôt de Matériaux", 36000))).toEqual([
+      "Plein dans 1 j 20 h",
+      "Plein dans 6 j 22 h",
+    ]);
+    expect(lire<string>(`Entrepots.ligneInfobulle(1)`)).toBe(
+      `<br/>Production : +${nombre(916560)} par jour<br/>Construction en cours comptée : capacité ${nombre(4915700)} → ${nombre(9830900)} le 16/11 à 20h00<br/>Entrepôt plein le 23/11 à 08h48`,
+    );
+    expect(garde()).toEqual({ moi: { i: 1, fin: HEURE + 10 * H, niveau: 12 } });
+    // relue une minute plus tard, 5 s d'écart : la première lecture reste
+    lire(`heure += ${MIN}`);
+    afficher(PAGE + comptePlus("Entrepôt de Matériaux", 36000 - 55));
+    expect(garde()).toEqual({ moi: { i: 1, fin: HEURE + 10 * H, niveau: 12 } });
+    // plein avant la fin de la construction : toujours au niveau 12
+    expect(afficher(PAGE + comptePlus("Entrepôt de Matériaux", 60 * 3600))[1]).toBe(
+      "Plein dans 1 j 14 h",
+    );
+  });
+
+  test("construction finie : comptée tant que le niveau connu ne la compte pas, puis oubliée", () => {
+    garder({ i: 1, fin: HEURE - H, niveau: 12 });
+    // l'encart ne montre plus de construction ; le niveau 12 date d'avant
+    expect(afficher(PAGE + comptePlus())[1]).toBe("Plein dans 6 j 22 h");
+    expect(lire<string>(`Entrepots.ligneInfobulle(1)`)).not.toContain("Construction");
+    expect(garde().moi).toEqual({ i: 1, fin: HEURE - H, niveau: 12 });
+    // page Construction ouverte depuis : le niveau 13 la compte
+    lire(`monProfil.niveauConstruction = [-1, 10, 13]`);
+    expect(afficher(PAGE + comptePlus())[1]).toBe("Plein dans 6 j 22 h");
+    expect(garde()).toEqual({});
+  });
+
+  test("annulée : une autre construction vue avant sa fin", () => {
+    garder({ i: 1, fin: HEURE + 5 * H, niveau: 12 });
+    expect(afficher(PAGE + comptePlus("Laboratoire", 15045))[1]).toBe("Plein dans 1 j 14 h");
+    expect(garde()).toEqual({});
+  });
+
+  test("sans Compte+ : vue sur la page Construction, gardée pour les autres pages", () => {
+    lire(`history.replaceState(null, "", "/construction.php")`);
+    expect(afficher(PAGE + pageConstruction("Entrepôt de Matériaux 13", 36000))[1]).toBe(
+      "Plein dans 6 j 22 h",
+    );
+    expect(garde()).toEqual({ moi: { i: 1, fin: HEURE + 10 * H, niveau: 12 } });
+    lire(`history.replaceState(null, "", "/Armee.php")`);
+    expect(afficher(PAGE)[1]).toBe("Plein dans 6 j 22 h");
+    // la page Construction ne la montre plus avant sa fin : annulée
+    lire(`history.replaceState(null, "", "/construction.php")`);
+    expect(afficher(PAGE)[1]).toBe("Plein dans 1 j 14 h");
+    expect(garde()).toEqual({});
+  });
+
+  test("sans Compte+ : construction gardée par l'encadré de synthèse de l'extension", () => {
+    lire(`localStorage.setItem("outiiil_evolution", JSON.stringify({
+      construction: "Entrepôt de Matériaux 13", expConstruction: moment(heure + ${10 * H}).toISOString() }))`);
+    expect(afficher(PAGE)[1]).toBe("Plein dans 6 j 22 h");
+    expect(garde()).toEqual({ moi: { i: 1, fin: HEURE + 10 * H, niveau: 12 } });
+  });
+
+  test("niveau inconnu : capacité d'après le pourcentage de l'encart, doublée moins 500", () => {
+    lire(`monProfil.niveauConstruction = [-1, -1, -1]`);
+    // nourriture : 197 540 / 16 % = 1 234 625, puis 2 468 750 dans 10 h
+    expect(afficher(PAGE + comptePlus("Entrepôt de Nourriture", 36000))[0]).toBe(
+      "Plein dans 4 j 2 h",
+    );
+    expect(lire<string>(`Entrepots.ligneInfobulle(0)`)).toContain(
+      `capacité ${nombre(1234625)} → ${nombre(2468750)} le 16/11 à 20h00`,
+    );
+    // finie : le pourcentage de l'encart la compte déjà
+    lire(`heure += ${11 * H}`);
+    afficher(PAGE + comptePlus());
+    expect(garde()).toEqual({});
   });
 });
 

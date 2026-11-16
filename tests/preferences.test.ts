@@ -430,6 +430,8 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     expect(methode).toContain(
       "pas compté : le terrain que rapporteront tes chasses et tes floods en cours",
     );
+    // demande du mainteneur, 16/11/2026
+    expect(methode).toContain("un entrepôt en construction");
     expect(
       lire(`$("#o_tabsParametreGeneral input[data-affichage='remplissageEntrepots']").length`),
     ).toBe(0);

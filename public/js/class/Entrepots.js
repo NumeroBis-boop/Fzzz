@@ -36,12 +36,23 @@ const CHAMPIGNONNIERE_FACTEUR = 1.7;
 const CLE_NIVEAUX_COLONIES = "fzzz_niveauxColonies";
 const MS_NIVEAUX_COLONIES = MS_JOUR;
 const JOURNAL_ENTREPOTS = "Entrepôts";
+// capacité d'un entrepôt : 500 + 1 200 × 2^niveau, donc 2 × capacité − 500 au niveau suivant
+const ENTREPOT_BASE = 500;
+const ENTREPOT_PAR_NIVEAU = 1200;
+// entrepôt en construction, par joueur : vu dans l'encart Compte+ du jeu ou sur
+// la page Construction, gardé après sa fin tant que le niveau connu ne le compte pas
+const CLE_CHANTIER_ENTREPOT = "fzzz_chantierEntrepot";
+// écart toléré entre deux lectures de la fin d'une même construction
+const ECART_FIN_CHANTIER = 30000;
+// noms des deux entrepôts dans le jeu (rangs 1 et 2 de CONSTRUCTION, content.js)
+const NOMS_ENTREPOTS = [/entrep[oô]t de nourriture/i, /entrep[oô]t de mat[eé]riaux/i];
 
 /**
  * Remplissage des entrepôts. Sous la nourriture et les matériaux de l'encart
  * « S5 Pseudo », le temps avant qu'ils soient pleins (ou la famine) : récolte
  * du terrain exploité à chaque récolte du jeu, champignonnière et armée,
- * pillage subi (page Ressources) et convois qui arrivent (page Convois). Ni le
+ * pillage subi (page Ressources), convois qui arrivent (page Convois) et
+ * entrepôt agrandi à la fin de sa construction (chantier). Ni le
  * terrain des chasses et floods en cours, ni le pillage reçu en seigneur n'y
  * sont comptés (règles du mainteneur) : l'info-bulle montre ce dernier. Sur la page Ressources, un bilan sous
  * le bloc « Récoltes », pillage des colonies compris. Cases
@@ -465,13 +476,23 @@ class Entrepots {
    *
    * @static
    * @method simuler
-   * @param {{stock: Number, capacite: Number, continu: Number, recolte: Number, prochaine: Number|null, convois: Array<{t: Number, q: Number}>, maintenant: Number}} e
+   * @param {{stock: Number, capacite: Number, continu: Number, recolte: Number, prochaine: Number|null, convois: Array<{t: Number, q: Number}>, maintenant: Number, agrandissement?: {t: Number, capacite: Number}|null}} e
    *   continu et recolte par jour ; prochaine : heure d'une récolte (sans elle,
-   *   la récolte est étalée sur la journée)
+   *   la récolte est étalée sur la journée) ; agrandissement : capacité à la fin
+   *   d'une construction de l'entrepôt
    * @return {{plein: Number|null, famine: Number|null}} ms ; plein : maintenant
    *   s'il l'est déjà, null au-delà de JOURS_REMPLISSAGE_MAX jours
    */
-  static simuler({ stock, capacite, continu, recolte, prochaine, convois, maintenant }) {
+  static simuler({
+    stock,
+    capacite,
+    continu,
+    recolte,
+    prochaine,
+    convois,
+    maintenant,
+    agrandissement = null,
+  }) {
     if (stock >= capacite) return { plein: maintenant, famine: null };
     let limite = maintenant + JOURS_REMPLISSAGE_MAX * MS_JOUR,
       parPaquets = prochaine != null,
@@ -485,16 +506,29 @@ class Entrepots {
       evenements = convois
         .filter((x) => x.t > maintenant && x.t <= limite)
         .sort((a, b) => a.t - b.t),
-      k = 0;
+      k = 0,
+      palier =
+        agrandissement && agrandissement.t > maintenant && agrandissement.t <= limite
+          ? agrandissement
+          : null;
     while (suivante < t) suivante += MS_RECOLTE;
     while (t < limite) {
-      let fin = Math.min(suivante, k < evenements.length ? evenements[k].t : Infinity, limite),
+      let fin = Math.min(
+          suivante,
+          k < evenements.length ? evenements[k].t : Infinity,
+          palier ? palier.t : Infinity,
+          limite,
+        ),
         apres = s + (v * (fin - t)) / MS_JOUR;
       if (v > 0 && apres >= capacite) return { plein: t + ((capacite - s) / v) * MS_JOUR, famine };
       if (v < 0 && famine == null && apres <= 0) famine = t + (s / -v) * MS_JOUR;
       s = Math.max(0, apres);
       t = fin;
       if (t >= limite) break;
+      if (palier && palier.t === t) {
+        capacite = palier.capacite;
+        palier = null;
+      }
       for (; k < evenements.length && evenements[k].t === t; k++) s += evenements[k].q;
       if (suivante === t) {
         s += h / RECOLTES_PAR_JOUR;
@@ -516,7 +550,7 @@ class Entrepots {
    */
   static capacite(i, stock) {
     let niveau = (monProfil.niveauConstruction || [])[i + 1];
-    if (niveau >= 0) return 500 + 1200 * Math.pow(2, niveau);
+    if (niveau >= 0) return ENTREPOT_BASE + ENTREPOT_PAR_NIVEAU * Math.pow(2, niveau);
     let titre =
         $("#boiteInfo")
           .find(`.icone_${i ? "materiaux" : "nourriture"}_boite_info`)
@@ -526,12 +560,132 @@ class Entrepots {
     return pourcent > 0 && stock > 0 ? Math.round(stock / (pourcent / 100)) : null;
   }
   /**
+   * Capacité au niveau suivant : 500 + 1 200 × 2^(niveau + 1).
+   *
+   * @static
+   * @method capaciteSuivante
+   * @param {Number} capacite
+   * @return {Number}
+   */
+  static capaciteSuivante(capacite) {
+    return 2 * capacite - ENTREPOT_BASE;
+  }
+  /**
+   * Entrepôt en construction d'après la page ouverte : l'encart Compte+ du
+   * jeu, sur chaque page (nom sans niveau et temps restant), sinon la page
+   * Construction (« - Entrepôt de Nourriture 15 se termine dans : »).
+   *
+   * @static
+   * @method chantierVu
+   * @param {Number} maintenant
+   * @return {{i: Number, fin: Number}|null|undefined} null : autre construction ou
+   *   aucune ; undefined : la page n'en dit rien
+   */
+  static chantierVu(maintenant) {
+    let entrepot = (/** @type {String} */ nom, /** @type {Number} */ secondes) => {
+      let i = NOMS_ENTREPOTS.findIndex((r) => r.test(nom));
+      return i >= 0 && secondes > 0 ? { i, fin: maintenant + secondes * 1000 } : null;
+    };
+    let $ligne = $("#ligne_construction");
+    if ($ligne.length)
+      return entrepot(
+        $ligne.find("td").eq(1).text(),
+        parseInt(
+          ($ligne
+            .find("script")
+            .text()
+            .match(/resteTemps\((\d+)/) || [])[1],
+        ),
+      );
+    if (location.pathname.toLowerCase() != "/construction.php") return undefined;
+    /** @type {{i: Number, fin: Number}|null} */
+    let vu = null;
+    $("#centre > strong").each((/** @type {Number} */ k, /** @type {Element} */ elt) => {
+      vu =
+        vu ||
+        entrepot(
+          $(elt).text(),
+          parseInt(
+            ($(elt)
+              .children("script")
+              .text()
+              .match(/reste\((\d+),/) || [])[1],
+          ),
+        );
+    });
+    return vu;
+  }
+  /**
+   * Entrepôt en construction pour le calcul, gardé par joueur : celui que
+   * montre la page, sinon le dernier vu. Après sa fin, il reste compté tant
+   * que le niveau connu ne le compte pas (lu sur la page Construction : un
+   * compte Compte+ ne le met à jour qu'en l'ouvrant) ; une autre construction
+   * vue avant sa fin l'annule.
+   *
+   * @static
+   * @method chantier
+   * @param {Number} maintenant
+   * @return {{i: Number, fin: Number, niveau: Number}|null} niveau : celui d'avant
+   *   la construction, -1 s'il est inconnu
+   */
+  static chantier(maintenant) {
+    let pseudo = String(monProfil.pseudo || "").toLowerCase(),
+      tout = Utils.lireStockage(CLE_CHANTIER_ENTREPOT),
+      /** @type {{i: Number, fin: Number, niveau: Number}|null} */
+      garde = (pseudo && tout[pseudo]) || null,
+      vu = Entrepots.chantierVu(maintenant),
+      niveaux = monProfil.niveauConstruction || [],
+      connu = (/** @type {Number} */ i) => (niveaux[i + 1] >= 0 ? niveaux[i + 1] : -1),
+      chantier = garde;
+    if (vu) {
+      let meme = !!garde && garde.i == vu.i && Math.abs(garde.fin - vu.fin) < ECART_FIN_CHANTIER;
+      // la même construction : sa première lecture, sans réécrire à chaque page
+      chantier =
+        meme && garde.niveau >= 0
+          ? garde
+          : { ...(meme ? { i: garde.i, fin: garde.fin } : vu), niveau: connu(vu.i) };
+    } else if (vu === null && garde && garde.fin > maintenant + ECART_FIN_CHANTIER) chantier = null;
+    else if (vu === undefined && !garde) chantier = Entrepots._chantierSynthese(maintenant, connu);
+    // finie et comptée : par le niveau connu, sinon par le « rempli à N % » de l'encart
+    if (
+      chantier &&
+      (connu(chantier.i) >= 0 && chantier.niveau >= 0
+        ? connu(chantier.i) > chantier.niveau
+        : chantier.fin <= maintenant)
+    )
+      chantier = null;
+    if (pseudo && JSON.stringify(chantier) != JSON.stringify(garde)) {
+      if (chantier) tout[pseudo] = chantier;
+      else delete tout[pseudo];
+      try {
+        localStorage.setItem(CLE_CHANTIER_ENTREPOT, JSON.stringify(tout));
+      } catch (e) {}
+    }
+    return chantier;
+  }
+  /**
+   * Hors Compte+ : construction en cours que garde l'encadré de synthèse de
+   * l'extension (lue sur la page Construction), quand ce calcul ne l'a pas vue.
+   *
+   * @private
+   * @static
+   * @param {Number} maintenant
+   * @param {function(Number): Number} connu niveau connu d'un entrepôt, -1 sinon
+   * @return {{i: Number, fin: Number, niveau: Number}|null}
+   */
+  static _chantierSynthese(maintenant, connu) {
+    let evolution = Utils.lireStockage("outiiil_evolution"),
+      i = NOMS_ENTREPOTS.findIndex((r) => r.test(String(evolution.construction || ""))),
+      fin = moment(evolution.expConstruction).valueOf();
+    return i >= 0 && fin > maintenant ? { i, fin, niveau: connu(i) } : null;
+  }
+  /**
    * Prévision des deux entrepôts d'après la page ouverte et la dernière
    * lecture de la page Ressources.
    *
    * @static
    * @method prevision
-   * @return {{maintenant: Number, entrepots: Array<{stock: Number, capacite: Number|null, debit: Number, convois: Number, instant: Number|null, famine: Number|null}>, pillage: Boolean, lecture: any}|null}
+   * @return {{maintenant: Number, entrepots: Array<{stock: Number, capacite: Number|null, debit: Number, convois: Number, instant: Number|null, famine: Number|null, agrandissement: {t: Number, capacite: Number}|null}>, pillage: Boolean, lecture: any}|null}
    *   null : production inconnue
    */
   static prevision() {
@@ -556,14 +710,24 @@ class Entrepots {
         : [production.champignon[0] * garde + production.armee[0], 0],
       convois = Entrepots.convois(maintenant),
       stocks = [Utils.nourriture, Utils.materiaux],
-      prochaine = (lecture && lecture.recolte) || null;
+      prochaine = (lecture && lecture.recolte) || null,
+      chantier = Entrepots.chantier(maintenant);
     return {
       maintenant: maintenant,
       pillage: compte || taux > 0,
       lecture: lecture,
       entrepots: [0, 1].map((i) => {
         let stock = stocks[i] || 0,
-          capacite = Entrepots.capacite(i, stock),
+          ch = chantier && chantier.i == i ? chantier : null,
+          finie = !!ch && ch.fin <= maintenant,
+          base = Entrepots.capacite(i, stock),
+          // construction finie que le niveau connu, celui d'avant, ne compte pas encore
+          retard = finie && (monProfil.niveauConstruction || [])[i + 1] === ch.niveau,
+          capacite = base != null && retard ? Entrepots.capaciteSuivante(base) : base,
+          agrandissement =
+            ch && !finie && capacite != null
+              ? { t: ch.fin, capacite: Entrepots.capaciteSuivante(capacite) }
+              : null,
           r = Entrepots.simuler({
             stock,
             capacite: capacite == null ? Infinity : capacite,
@@ -572,6 +736,7 @@ class Entrepots {
             prochaine,
             convois: convois[i],
             maintenant,
+            agrandissement,
           });
         return {
           stock: stock,
@@ -581,6 +746,7 @@ class Entrepots {
           instant: r.plein,
           // seule la nourriture se mange
           famine: i == 0 ? r.famine : null,
+          agrandissement: agrandissement,
         };
       }),
     };
@@ -669,6 +835,10 @@ class Entrepots {
         `Production : ${e.debit > 0 ? "+" : ""}${numeral(Math.round(e.debit)).format()} par jour${p.pillage ? " (pillage subi compté)" : ""}`,
       );
       if (e.convois > 0) lignes.push(`Convois attendus : +${numeral(e.convois).format()}`);
+      if (e.agrandissement && e.capacite != null)
+        lignes.push(
+          `Construction en cours comptée : capacité ${numeral(e.capacite).format()} → ${numeral(e.agrandissement.capacite).format()} ${date(e.agrandissement.t)}`,
+        );
       if (Entrepots.avantPlein(e))
         lignes.push(
           `Famine ${/** @type {Number} */ (e.famine) <= maintenant ? "en cours" : date(/** @type {Number} */ (e.famine))}`,

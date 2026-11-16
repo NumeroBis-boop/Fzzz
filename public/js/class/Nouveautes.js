@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.124.1",
+    notes: [
+      "Encart « S5 Pseudo » : un entrepôt en construction compte dans le temps avant qu'il soit plein. Sa nouvelle capacité s'applique à la fin de la construction (vue dans l'encart Compte+ du jeu ou sur la page Construction), et l'info-bulle le dit.",
+    ],
+  },
+  {
     version: "1.124.0",
     notes: [
       "Carte de l'alliance (menu Alliance → Carte) : bouton « Exporter en Excel ». Le fichier donne les coordonnées des membres affichés, le temps de trajet entre chacun (vitesse d'attaque 10, à changer dans la case B1 de la feuille « Trajets » : tout se recalcule) et la formule utilisée.",

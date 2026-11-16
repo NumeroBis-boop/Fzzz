@@ -611,9 +611,9 @@ class BoiteParametre extends Boite {
       <p><b>Temps avant que l'entrepôt soit plein</b> (encart « S5 pseudo » et son info-bulle), recalculé à chaque page, la ligne mise à jour chaque minute :</p>
       ${liste([
         "départ : le stock de l'encart ; capacité de l'entrepôt : 500 + 1 200 × 2<sup>niveau</sup> (niveau lu sur la page Construction ; sinon d'après le « rempli à N % » de l'encart) ;",
-        "rentre : la récolte du terrain couvert par tes ouvrières, ajoutée à chaque récolte du jeu, toutes les 30 min (1 par ouvrière au travail, heure lue sur la page Ressources) ; la champignonnière, en continu ; les convois qui arrivent, vus sur la page Convois ; le terrain de tes chasses et floods en cours, seulement avec l'affectation automatique des ouvrières et tant qu'il reste des ouvrières libres ;",
+        "rentre : la récolte du terrain couvert par tes ouvrières, ajoutée à chaque récolte du jeu, toutes les 30 min (1 par ouvrière au travail, heure lue sur la page Ressources) ; la champignonnière, en continu ; les convois qui arrivent, vus sur la page Convois ;",
         "sort : la consommation de l'armée, en continu, et ce que pille ton seigneur si tu es vassal (lu sur la page Ressources) ;",
-        "pas compté : ce que tu pilles sur tes colonies (montré dans l'info-bulle), la nourriture rapportée par les chasses, les floods reçus, les pontes, les constructions et recherches ;",
+        "pas compté : le terrain que rapporteront tes chasses et tes floods en cours, ce que tu pilles sur tes colonies (montré dans l'info-bulle), la nourriture rapportée par les chasses, les floods reçus, les pontes, les constructions et recherches ;",
         "« Famine dans … » quand la nourriture tombe à zéro avant que l'entrepôt soit plein ; en rouge à moins de 8 h.",
       ])}
       <p><b>Bilan de la récolte</b> (page Ressources, sous le bloc « Récoltes »), par jour :</p>

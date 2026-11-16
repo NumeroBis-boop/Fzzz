@@ -38,10 +38,10 @@ class PageRessource {
    *
    */
   executer() {
-    // pillage et chasses en cours gardés pour l'encart des autres pages ;
-    // synthèse sous « Récoltes » ; avant que l'affectation ne touche aux champs
+    // pillage subi et prochaine récolte gardés pour l'encart des autres pages ;
+    // bilan sous « Récoltes » ; avant que l'affectation ne touche aux champs
     try {
-      Entrepots.recolte(PageRessource.lireChasses());
+      Entrepots.recolte();
     } catch (e) {
       console.error("Fzzz : synthèse de la récolte", e);
     }

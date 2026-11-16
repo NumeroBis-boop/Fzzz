@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.123.2",
+    notes: [
+      "Le temps avant que les entrepôts soient pleins ne compte plus le terrain que rapporteront tes chasses et tes floods en cours (dit dans Préférences → Ressources, « Méthode de calcul »).",
+    ],
+  },
+  {
     version: "1.123.1",
     notes: [
       "Les Préférences s'ouvrent toujours sur l'onglet « Général ».",

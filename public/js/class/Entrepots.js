@@ -9,9 +9,9 @@
 const RECOLTES_PAR_JOUR = 48;
 const MS_JOUR = 86400000;
 const MS_RECOLTE = MS_JOUR / RECOLTES_PAR_JOUR;
-// lecture de la page Ressources, par joueur : pillage subi, affectation
-// automatique, production, chasses en cours, prochaine récolte et colonies,
-// reprise sur les autres pages, où l'encart « S5 Pseudo » n'en dit rien
+// lecture de la page Ressources, par joueur : pillage subi, production,
+// prochaine récolte et colonies, reprise sur les autres pages, où l'encart
+// « S5 Pseudo » n'en dit rien
 const CLE_RECOLTE = "fzzz_recolte";
 // au-delà, l'entrepôt est dit « plein dans plus d'un an »
 const JOURS_REMPLISSAGE_MAX = 365;
@@ -41,10 +41,9 @@ const JOURNAL_ENTREPOTS = "Entrepôts";
  * Remplissage des entrepôts. Sous la nourriture et les matériaux de l'encart
  * « S5 Pseudo », le temps avant qu'ils soient pleins (ou la famine) : récolte
  * du terrain exploité à chaque récolte du jeu, champignonnière et armée,
- * pillage subi (page Ressources), convois qui arrivent (page Convois) et TdC à
- * venir (chasses et floods lancés), exploité seulement avec l'affectation
- * automatique. Le pillage reçu en seigneur n'y est pas compté (règle du
- * mainteneur) : l'info-bulle le montre. Sur la page Ressources, un bilan sous
+ * pillage subi (page Ressources) et convois qui arrivent (page Convois). Ni le
+ * terrain des chasses et floods en cours, ni le pillage reçu en seigneur n'y
+ * sont comptés (règles du mainteneur) : l'info-bulle montre ce dernier. Sur la page Ressources, un bilan sous
  * le bloc « Récoltes », pillage des colonies compris. Cases
  * « remplissageEntrepots » (encart) et « bilanRecolte » (bilan), Préférences →
  * Ressources.
@@ -271,36 +270,29 @@ class Entrepots {
   }
   /**
    * Page Ressources : garde ce que les autres pages ne savent pas (pillage
-   * subi, affectation automatique, chasses en cours, prochaine récolte), même
-   * case décochée, ajoute le bilan sous le bloc « Récoltes », refait les
+   * subi, prochaine récolte), même case décochée, ajoute le bilan sous le bloc « Récoltes », refait les
    * lignes de l'encart, puis calcule le pillage des colonies (requêtes, une
    * des deux cases cochée) et refait le bilan.
    *
    * @static
    * @method recolte
-   * @param {Array<{impact: any, terrain: Number}>} chasses chasses en cours (PageRessource.lireChasses)
    * @return {Promise<void>}
    */
-  static recolte(chasses = []) {
+  static recolte() {
     let lu = Entrepots.lireRecolte();
     if (!lu) return Promise.resolve();
     let production = Entrepots.lireInfobulle() || lu,
       base = production.terrain[0] + production.terrain[1] + production.champignon[0],
-      choix = $("input[name=choixOuvriere]:checked").not("#o_ratioRadio").val(),
       avant = Entrepots.lecture();
     Entrepots._noter({
       lu: Horloge.maintenant(),
       pille: lu.pille,
       taux: base > 0 ? (lu.pille[0] + lu.pille[1]) / base : 0,
-      choix: choix || null,
       production: {
         terrain: production.terrain,
         champignon: production.champignon,
         armee: production.armee,
       },
-      chasses: chasses
-        .filter((c) => c.terrain > 0)
-        .map((c) => ({ t: moment(c.impact).valueOf(), terrain: c.terrain })),
       recolte: Entrepots.prochaineRecolte(),
       colonies: (avant && avant.colonies) || null,
     });
@@ -445,35 +437,6 @@ class Entrepots {
     } catch (e) {}
   }
   /**
-   * Changements de la récolte par jour quand le TdC grandit : la terre gagnée
-   * n'est exploitée qu'avec l'affectation automatique, tant qu'il reste des
-   * ouvrières (une par cm²), la part du seigneur en moins.
-   *
-   * @static
-   * @method changements
-   * @param {Array<{t: Number, terrain: Number}>} gains
-   * @param {{tdc: Number, ouvrieres: Number, partNourriture: Number|null, taux: Number}} etat
-   *   partNourriture : 1 ou 0 selon l'affectation automatique, null sans elle
-   * @return {Array<Array<{t: Number, d: Number}>>} [nourriture, matériaux]
-   */
-  static changements(gains, { tdc, ouvrieres, partNourriture, taux }) {
-    /** @type {Array<Array<{t: Number, d: Number}>>} */
-    let parType = [[], []];
-    if (partNourriture == null) return parType;
-    let terrain = tdc,
-      max = ouvrieres > 0 ? ouvrieres : Infinity;
-    gains
-      .slice()
-      .sort((a, b) => a.t - b.t)
-      .forEach((g) => {
-        let avant = Math.min(terrain, max);
-        terrain += g.terrain;
-        let plus = (Math.min(terrain, max) - avant) * RECOLTES_PAR_JOUR * (1 - taux);
-        if (plus > 0) parType[partNourriture ? 0 : 1].push({ t: g.t, d: plus });
-      });
-    return parType;
-  }
-  /**
    * Convois qui arrivent chez le joueur, lus sur la page Convois (« Vous allez
    * recevoir … »).
    *
@@ -502,13 +465,13 @@ class Entrepots {
    *
    * @static
    * @method simuler
-   * @param {{stock: Number, capacite: Number, continu: Number, recolte: Number, prochaine: Number|null, gains: Array<{t: Number, d: Number}>, convois: Array<{t: Number, q: Number}>, maintenant: Number}} e
+   * @param {{stock: Number, capacite: Number, continu: Number, recolte: Number, prochaine: Number|null, convois: Array<{t: Number, q: Number}>, maintenant: Number}} e
    *   continu et recolte par jour ; prochaine : heure d'une récolte (sans elle,
-   *   la récolte est étalée sur la journée) ; gains : récolte par jour en plus
+   *   la récolte est étalée sur la journée)
    * @return {{plein: Number|null, famine: Number|null}} ms ; plein : maintenant
    *   s'il l'est déjà, null au-delà de JOURS_REMPLISSAGE_MAX jours
    */
-  static simuler({ stock, capacite, continu, recolte, prochaine, gains, convois, maintenant }) {
+  static simuler({ stock, capacite, continu, recolte, prochaine, convois, maintenant }) {
     if (stock >= capacite) return { plein: maintenant, famine: null };
     let limite = maintenant + JOURS_REMPLISSAGE_MAX * MS_JOUR,
       parPaquets = prochaine != null,
@@ -519,8 +482,7 @@ class Entrepots {
       suivante = parPaquets ? /** @type {Number} */ (prochaine) : Infinity,
       /** @type {Number|null} */
       famine = null,
-      /** @type {Array<{t: Number, d?: Number, q?: Number}>} */
-      evenements = [...gains, ...convois]
+      evenements = convois
         .filter((x) => x.t > maintenant && x.t <= limite)
         .sort((a, b) => a.t - b.t),
       k = 0;
@@ -533,12 +495,7 @@ class Entrepots {
       s = Math.max(0, apres);
       t = fin;
       if (t >= limite) break;
-      for (; k < evenements.length && evenements[k].t === t; k++) {
-        let ev = evenements[k];
-        s += ev.q || 0;
-        if (parPaquets) h += ev.d || 0;
-        else v += ev.d || 0;
-      }
+      for (; k < evenements.length && evenements[k].t === t; k++) s += evenements[k].q;
       if (suivante === t) {
         s += h / RECOLTES_PAR_JOUR;
         suivante += MS_RECOLTE;
@@ -597,23 +554,6 @@ class Entrepots {
       continu = compte
         ? [info.total[0] - production.terrain[0], info.total[1] - production.terrain[1]]
         : [production.champignon[0] * garde + production.armee[0], 0],
-      choix = lecture && lecture.choix,
-      // rentrées de TdC à venir : chasses lues sur la page Ressources, floods lancés
-      gains = [
-        ...((lecture && lecture.chasses) || []),
-        ...AttaqueLancee.charger()
-          .filter((a) => a.id && a.arrivee && a.terrainDepart != null && a.terrainCible != null)
-          .map((a) => ({
-            t: Utils.minuteRC(a.arrivee).valueOf(),
-            terrain: Math.max(0, a.terrainDepart - a.terrainCible),
-          })),
-      ].filter((g) => g.t > maintenant && g.terrain > 0),
-      changements = Entrepots.changements(gains, {
-        tdc: Utils.terrain || 0,
-        ouvrieres: Utils.ouvrieres || 0,
-        partNourriture: choix == "nourriture" ? 1 : choix == "materiaux" ? 0 : null,
-        taux: taux,
-      }),
       convois = Entrepots.convois(maintenant),
       stocks = [Utils.nourriture, Utils.materiaux],
       prochaine = (lecture && lecture.recolte) || null;
@@ -630,7 +570,6 @@ class Entrepots {
             continu: continu[i],
             recolte: recolte[i],
             prochaine,
-            gains: changements[i],
             convois: convois[i],
             maintenant,
           });

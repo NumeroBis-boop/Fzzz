@@ -426,6 +426,10 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     const methode = lire<string>(`$("#o_tabsParametreRessources details").last().text()`);
     expect(methode).toContain("toutes les 30 min");
     expect(methode).toContain("20 % + 1 % par niveau de ton Étable à pucerons");
+    // règle du mainteneur, 16/11/2026 : dit dans les Préférences
+    expect(methode).toContain(
+      "pas compté : le terrain que rapporteront tes chasses et tes floods en cours",
+    );
     expect(
       lire(`$("#o_tabsParametreGeneral input[data-affichage='remplissageEntrepots']").length`),
     ).toBe(0);

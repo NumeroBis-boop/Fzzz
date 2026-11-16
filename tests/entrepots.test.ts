@@ -66,7 +66,6 @@ Chaque jour, vous récoltez <strong id="nbNourriture">${terrain[0]}</strong> ${I
 /** Compte à rebours de la récolte, comme le script de la page Ressources. */
 const COMPTE_A_REBOURS = (secondes: number) =>
   `<span id="retour_ouvrieres"></span><script>reste(${secondes}, "retour_ouvrieres");</script>`;
-const AUTOMATIQUE = `<input type="radio" name="choixOuvriere" value="materiaux" checked/>`;
 /** Encart « S5 Pseudo » et données cachées du jeu. */
 function encart(stock: [number, number], tdc = 19095, ouvrieres = 68031) {
   return `<div id="data" style="display:none"><div id="pseudo">Moi</div><div id="nb_ouvrieres">${ouvrieres}</div><div id="nb_materiaux">${stock[1]}</div><div id="nb_nourriture">${stock[0]}.36482010334</div><div id="quantite_tdc">${tdc}</div></div>
@@ -195,30 +194,10 @@ describe("calcul pas à pas", () => {
     expect(simuler({ continu: 2 })).toEqual({ plein: null, famine: null });
   });
 
-  test("convoi qui arrive : ajouté à son arrivée ; terre gagnée : récolte en plus", () => {
+  test("convoi qui arrive : ajouté à son arrivée", () => {
     expect(simuler({ convois: [{ t: HEURE + 3 * H, q: 1000 }] }).plein).toBe(HEURE + 3 * H);
     // un convoi déjà arrivé ne compte pas
     expect(simuler({ convois: [{ t: HEURE - H, q: 1000 }] }).plein).toBeNull();
-    // rien, puis 48 000 par jour à partir de +1 h : 1 000 à la récolte de +1 h 10
-    expect(
-      simuler({
-        capacite: 1000,
-        prochaine: HEURE + 10 * MIN,
-        gains: [{ t: HEURE + H, d: 48000 }],
-      }).plein,
-    ).toBe(HEURE + 70 * MIN);
-  });
-
-  test("terre gagnée : seulement avec l'affectation automatique, tant qu'il reste des ouvrières", () => {
-    const ch = (partNourriture: number | null, ouvrieres = 150) =>
-      lire(
-        `Entrepots.changements([{ t: heure + ${H}, terrain: 100 }, { t: heure + ${2 * H}, terrain: 100 }], { tdc: 100, ouvrieres: ${ouvrieres}, partNourriture: ${partNourriture}, taux: 0.3 })`,
-      );
-    // +50 cm² exploités (150 ouvrières), puis plus rien : 50 × 48 × 0,7
-    expect(ch(0)).toEqual([[], [{ t: HEURE + H, d: 1680 }]]);
-    expect(ch(1)).toEqual([[{ t: HEURE + H, d: 1680 }], []]);
-    // sans affectation automatique, le jeu ne met pas d'ouvrières sur la terre gagnée
-    expect(ch(null)).toEqual([[], []]);
   });
 
   test("convois de la page Convois : ceux qui arrivent chez le joueur, pas encore arrivés", () => {
@@ -361,28 +340,18 @@ describe("encart « S5 Pseudo » : lignes sous la nourriture et les matériaux",
     expect(lignes()[1]).toBe("Plein dans 2 j 6 h");
   });
 
-  test("rentrées de TdC : chasses et floods lancés, exploités avec l'affectation automatique", () => {
-    const avecChasses = (choix: string) => {
-      noterLecture({
-        choix,
-        chasses: [
-          { t: HEURE + 2 * H, terrain: 20000 },
-          { t: HEURE - H, terrain: 50000 },
-        ],
-      });
-      lire(
-        `ATTAQUES = [{ id: 7, arrivee: heure + ${3 * H} - 20000, terrainDepart: 60000, terrainCible: 50000 }, { id: null, arrivee: null }]`,
-      );
-      ouvrir(encart([197540, 3460273]) + INFOBULLE);
-      lire(`Entrepots.afficher()`);
-      return lignes();
-    };
-    // chasse dans 2 h (+20 000 cm²) et flood dont le RC est dans 3 h (+10 000 cm²) :
-    // 68 031 ouvrières pour 19 095 cm², tout est exploité, en matériaux :
-    // 2 h à 916 560, 1 h à 1 876 560, puis 2 356 560 par jour
-    expect(avecChasses("materiaux")).toEqual(["Plein dans 1 j 20 h", "Plein dans 16 h 15"]);
-    // sans affectation automatique : la terre gagnée ne rapporte rien
-    expect(avecChasses("rien")).toEqual(["Plein dans 1 j 20 h", "Plein dans 1 j 14 h"]);
+  test("terrain des chasses et floods en cours : pas compté (règle du mainteneur, 16/11/2026)", () => {
+    // chasses gardées par la 1.123.0 et flood lancé depuis ce navigateur : ignorés
+    noterLecture({
+      choix: "materiaux",
+      chasses: [{ t: HEURE + 2 * H, terrain: 20000 }],
+    });
+    lire(
+      `ATTAQUES = [{ id: 7, arrivee: heure + ${3 * H} - 20000, terrainDepart: 60000, terrainCible: 50000 }]`,
+    );
+    ouvrir(encart([197540, 3460273]) + INFOBULLE);
+    lire(`Entrepots.afficher()`);
+    expect(lignes()).toEqual(["Plein dans 1 j 20 h", "Plein dans 1 j 14 h"]);
   });
 
   test("convoi qui arrive (page Convois) : compté à son arrivée, montré dans l'info-bulle", () => {
@@ -422,10 +391,9 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
       encart([197540, 3460273]) +
         VASSAL +
         recoltes(["0", "10 000 000"], "2 000 000", "50 000", PILLAGE) +
-        COMPTE_A_REBOURS(227) +
-        AUTOMATIQUE,
+        COMPTE_A_REBOURS(227),
     );
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     const bloc = lire<any>(`(() => {
       let $s = $(".o_recolteSynthese");
       return {
@@ -439,17 +407,16 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
     expect(bilan()).toEqual([
       "En prenant en compte les vassalisations, la consommation de l'armée et les productions actuelles, chaque jour, vous gagnez 1 350 000 et 7 000 000 .",
     ]);
-    // lecture gardée pour les autres pages : part du seigneur, affectation, production, récolte
+    // lecture gardée pour les autres pages : part du seigneur, production, récolte
     expect(lire(`Entrepots.lecture()`)).toMatchObject({
       pille: [600000, 3000000],
       taux: 0.3,
-      choix: "materiaux",
       production: { terrain: [0, 10000000], champignon: [2000000, 0], armee: [-50000, 0] },
       recolte: HEURE + 227000,
       colonies: { vassaux: [], total: [0, 0] },
     });
     // page relue : un seul bilan
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect(lire(`$(".o_recolteSynthese").length`)).toBe(1);
   });
 
@@ -464,7 +431,7 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
         ]) +
         recoltes(["0", "916 560"], "0", "42 173"),
     );
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect(bilan()[0]).toContain("chaque jour, vous perdez 42 173 et gagnez 916 560 .");
     expect(lire<string>(`Entrepots.phraseBilan([-5, -7]).replace(/<[^>]*>/g, "")`)).toBe(
       "vous perdez 5  et 7 ",
@@ -478,7 +445,7 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
       NIVEAUX = { Vassal: { champignonniere: 20, jour: "2026-11-16" } };
     })()`);
     ouvrir(encart([197540, 3460273]) + INFOBULLE + recoltes(["0", "916 560"], "595 612", "42 173"));
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     // taxe 26 % : champignonnière niveau 20 (2 926 246) → 760 823 ; TdC 100 000 × 48 → 1 248 000,
     // 50 000 × 48 → 624 000, en matériaux ; l'autre colonie, absente du fichier, sans champignonnière
     expect(bilan()).toEqual([
@@ -498,20 +465,20 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
     );
     // niveaux gardés un jour : la page relue ne relit pas le fichier
     lire(`APPELS = []`);
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect(lire(`APPELS`)).toEqual(["export Moi"]);
   });
 
   test("seigneur sans niveau d'étable connu ; export indisponible : bilan sans colonies", async () => {
     lire(`COLONIES = [{ pseudo: "Vassal", terrain: 100000 }]`);
     ouvrir(encart([197540, 3460273]) + INFOBULLE + recoltes(["0", "916 560"], "595 612", "42 173"));
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect(bilan()).toEqual([
       "En prenant en compte les vassalisations, la consommation de l'armée et les productions actuelles, chaque jour, vous gagnez 553 439 et 916 560 .",
       "Pillage de vos colonies non compté : niveau de votre Étable à pucerons inconnu (ouvrez la page Construction).",
     ]);
     lire(`(() => { localStorage.clear(); COLONIES = "indisponible"; })()`);
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect(bilan().length).toBe(1);
     expect(lire(`JOURNAL`)).toEqual(["colonies non relues"]);
   });
@@ -523,14 +490,14 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
       );
     lire(`localStorage.setItem("fzzz_affichage_remplissageEntrepots", "0")`);
     page();
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect([lignes().length, bilan().length]).toEqual([0, 1]);
     lire(`(() => {
       localStorage.clear();
       localStorage.setItem("fzzz_affichage_bilanRecolte", "0");
     })()`);
     page();
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect([lignes().length, bilan().length]).toEqual([2, 0]);
   });
 
@@ -540,17 +507,12 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
       localStorage.setItem("fzzz_affichage_bilanRecolte", "0");
       COLONIES = [{ pseudo: "Vassal", terrain: 100000 }];
     })()`);
-    ouvrir(
-      encart([197540, 3460273]) +
-        INFOBULLE +
-        recoltes(["0", "916 560"], "595 612", "42 173") +
-        AUTOMATIQUE,
-    );
-    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    ouvrir(encart([197540, 3460273]) + INFOBULLE + recoltes(["0", "916 560"], "595 612", "42 173"));
+    await lire<Promise<void>>(`Entrepots.recolte()`);
     expect(lire(`$(".o_recolteSynthese, .o_entrepotPlein").length`)).toBe(0);
     expect(lire<string>(`Entrepots.ligneInfobulle(1)`)).toBe("");
     expect(lire(`APPELS`)).toEqual([]);
-    expect(lire(`Entrepots.lecture().choix`)).toBe("materiaux");
+    expect(lire(`Entrepots.lecture().production.terrain`)).toEqual([0, 916560]);
     // cochées par défaut
     lire(`localStorage.clear()`);
     lire(`Entrepots.afficher()`);

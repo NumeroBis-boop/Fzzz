@@ -94,6 +94,7 @@ describe("onglets de la liste du mainteneur", () => {
     expect(Object.fromEntries(cases.map((c) => [c[1], c[0]]))).toMatchObject({
       horloge: "General",
       nouveautes: "General",
+      remplissageEntrepots: "General",
       affectationOuvrieres: "Ressources",
       lanceurChasse: "Ressources",
       armeeMiseEnPage: "Armee",

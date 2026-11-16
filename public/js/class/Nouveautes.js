@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.122.1",
+    notes: [
+      "Encart « S5 Pseudo » : un entrepôt plein dans moins de 8 h s'affiche en rouge. Préférences → Général, section « Entrepôts » : une case (cochée) pour masquer ces lignes et le bilan de la page Ressources.",
+      "Page Ressources, bloc « Récoltes » : le bilan du jour déduit aussi ce que consomme ton armée, et le trait qui le sépare traverse le bloc.",
+    ],
+  },
+  {
     version: "1.122.0",
     notes: [
       "Encart « S5 Pseudo » : sous la nourriture et les matériaux, le temps avant que l'entrepôt soit plein, avec la production du jour, le pillage (seigneur ou vassal) et le TdC de tes chasses et floods en cours. Ouvre la page Ressources pour que le pillage et les chasses soient comptés.",

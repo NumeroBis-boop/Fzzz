@@ -16,6 +16,8 @@ const JOURS_REMPLISSAGE_MAX = 365;
 // écart entre le total de l'info-bulle du jeu et la somme de ses lignes connues
 // au-delà duquel le total compte déjà autre chose (pillage) : arrondis du jeu
 const ECART_TOTAL_RECOLTE = 2;
+// ligne de l'encart en rouge quand l'entrepôt sera plein avant (règle du mainteneur, 16/11/2026)
+const HEURES_ALERTE_PLEIN = 8;
 const MS_JOUR = 86400000;
 
 /**
@@ -24,7 +26,8 @@ const MS_JOUR = 86400000;
  * (info-bulle du jeu sur la ligne du TdC de l'encart), pillage subi en vassal
  * ou reçu en seigneur (page Ressources), et rentrées de TdC à venir (chasses
  * et floods lancés), exploitées par les ouvrières libres. Sur la page
- * Ressources, une synthèse sous le bloc « Récoltes ». Aucune requête : tout
+ * Ressources, une synthèse sous le bloc « Récoltes ». Case
+ * « remplissageEntrepots » (Préférences → Général). Aucune requête : tout
  * vient de la page ouverte et de la dernière lecture de la page Ressources.
  *
  * @class Entrepots
@@ -148,26 +151,48 @@ class Entrepots {
     };
   }
   /**
-   * Récolte du jour en comptant le pillage, sans la consommation de l'armée :
-   * [nourriture, matériaux].
+   * Bilan du jour, pillage et consommation de l'armée comptés : [nourriture,
+   * matériaux], négatif quand le stock baisse.
    *
    * @static
    * @method recolteNette
-   * @param {{terrain: Array<Number>, champignon: Array<Number>}} production
+   * @param {{terrain: Array<Number>, champignon: Array<Number>, armee: Array<Number>}} production
+   *   armee : consommation, négative
    * @param {Array<Number>} pille
    * @param {Array<Number>} recu
    * @return {Array<Number>}
    */
   static recolteNette(production, pille, recu) {
     return [
-      production.terrain[0] + production.champignon[0] - pille[0] + recu[0],
+      production.terrain[0] + production.champignon[0] + production.armee[0] - pille[0] + recu[0],
       production.terrain[1] - pille[1] + recu[1],
     ];
   }
   /**
+   * Phrase du bilan : « vous gagnez X et Y », « vous perdez X et gagnez Y ».
+   *
+   * @static
+   * @method phraseBilan
+   * @param {Array<Number>} net [nourriture, matériaux] (recolteNette)
+   * @return {String} HTML
+   */
+  static phraseBilan(net) {
+    let icones = [
+        `<img alt="nourritures" src="/images/icone/icone_pomme.png" width="18" height="18" title="Nourriture"/>`,
+        `<img alt="materiaux" src="/images/icone/icone_bois.png" width="18" height="17" title="Matériaux"/>`,
+      ],
+      verbe = (/** @type {Number} */ n) => (n < 0 ? "perdez" : "gagnez"),
+      montant = (/** @type {Number} */ i) =>
+        `<strong>${numeral(Math.abs(net[i])).format()}</strong> ${icones[i]}`;
+    return verbe(net[0]) == verbe(net[1])
+      ? `vous ${verbe(net[0])} ${montant(0)} et ${montant(1)}`
+      : `vous ${verbe(net[0])} ${montant(0)} et ${verbe(net[1])} ${montant(1)}`;
+  }
+  /**
    * Page Ressources : garde ce que les autres pages ne savent pas (pillage,
-   * affectation automatique, chasses en cours), puis ajoute la synthèse sous
-   * le bloc « Récoltes » et refait les lignes de l'encart.
+   * affectation automatique, chasses en cours), même case décochée, puis
+   * ajoute la synthèse sous le bloc « Récoltes » et refait les lignes de
+   * l'encart.
    *
    * @static
    * @method recolte
@@ -195,15 +220,11 @@ class Entrepots {
         .filter((c) => c.terrain > 0)
         .map((c) => ({ t: moment(c.impact).valueOf(), terrain: c.terrain })),
     });
-    let net = Entrepots.recolteNette(production, lu.pille, lu.recu),
-      icone = (/** @type {String} */ type) =>
-        type == "nourriture"
-          ? `<img alt="nourritures" src="/images/icone/icone_pomme.png" width="18" height="18" title="Nourriture"/>`
-          : `<img alt="materiaux" src="/images/icone/icone_bois.png" width="18" height="17" title="Matériaux"/>`;
     $(".o_recolteSynthese").remove();
-    lu.$p.after(
-      `<div class='o_recolteSynthese'><hr class='o_recolteSeparateur'/><p>En prenant en compte les vassalisations et les productions actuelles, chaque jour, vous récoltez <strong>${numeral(net[0]).format()}</strong> ${icone("nourriture")} et <strong>${numeral(net[1]).format()}</strong> ${icone("materiaux")} sur votre terrain et avec votre champignonnière.</p></div>`,
-    );
+    if (Utils.affichage("remplissageEntrepots"))
+      lu.$p.after(
+        `<div class='o_recolteSynthese'><hr class='o_recolteSeparateur'/><p>En prenant en compte les vassalisations, la consommation de l'armée et les productions actuelles, chaque jour, ${Entrepots.phraseBilan(Entrepots.recolteNette(production, lu.pille, lu.recu))}.</p></div>`,
+      );
     Entrepots.afficher();
   }
   /**
@@ -422,9 +443,10 @@ class Entrepots {
     return `Plein dans ${Entrepots.duree(e.instant - maintenant)}`;
   }
   /**
-   * Ligne de l'info-bulle de l'encart (Préférences → Général : info-bulles
-   * Nourriture et Matériaux) : l'heure où l'entrepôt sera plein et la
-   * production par jour comptée.
+   * Ajout à l'info-bulle Nourriture ou Matériaux de l'encart (affichage
+   * infobulleRessources, sans case) : l'heure où l'entrepôt sera plein et la
+   * production par jour comptée ; rien quand la case remplissageEntrepots est
+   * décochée.
    *
    * @static
    * @method ligneInfobulle
@@ -453,17 +475,21 @@ class Entrepots {
   static afficher() {
     let $boite = $("#boiteInfo");
     if (!$boite.length) return;
-    let p = Entrepots.prevision();
-    Entrepots.derniere = p;
     $boite.find(".o_entrepotPlein").remove();
+    let p = Utils.affichage("remplissageEntrepots") ? Entrepots.prevision() : null;
+    Entrepots.derniere = p;
     if (!p) return;
     ["nourriture", "materiaux"].forEach((type, i) => {
       let $td = $boite.find(`.icone_${type}_boite_info`).closest("td"),
-        texte = Entrepots.libelle(p.entrepots[i], p.maintenant);
+        e = p.entrepots[i],
+        texte = Entrepots.libelle(e, p.maintenant);
       if (!$td.length || !texte) return;
       $("<div class='o_entrepotPlein'></div>")
         .text(texte)
-        .toggleClass("o_entrepotRempli", p.entrepots[i].instant === p.maintenant)
+        .toggleClass(
+          "o_entrepotAlerte",
+          e.instant != null && e.instant - p.maintenant < HEURES_ALERTE_PLEIN * 3600000,
+        )
         .appendTo($td);
     });
   }

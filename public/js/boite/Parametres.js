@@ -12,7 +12,12 @@ const SCRIPT_UTILISATEUR =
 // d'AFFICHAGES_REGLABLES de l'onglet ; pages : groupes de PAGES_EXTENSION dont
 // la case décochée rend ses réglages sans effet
 const ONGLETS_PARAMETRE = [
-  { id: "General", titre: "Général", pages: ["General"], affichages: ["horloge", "nouveautes"] },
+  {
+    id: "General",
+    titre: "Général",
+    pages: ["General"],
+    affichages: ["horloge", "nouveautes", "remplissageEntrepots"],
+  },
   {
     id: "Ressources",
     titre: "Ressources",
@@ -561,7 +566,15 @@ class BoiteParametre extends Boite {
   ongletGeneral() {
     let p = monProfil.parametre;
     $("#o_tabsParametreGeneral").append(`<form>
-        ${this.section("Horloge et nouveautés", this.cases("General"))}
+        ${this.section("Horloge et nouveautés", this.cases("General", ["horloge", "nouveautes"]))}
+        ${this.section(
+          "Entrepôts",
+          this.cases("General", ["remplissageEntrepots"]) +
+            this.aide(
+              "Compte la production du jour, la consommation de l'armée, le pillage (vassal ou seigneur) et le terrain que rapporteront tes chasses et tes floods en cours.",
+              "Le pillage, l'affectation automatique des ouvrières et les chasses en cours sont relus à chaque ouverture de la page Ressources : ouvre-la après un changement. Aucune requête au jeu.",
+            ),
+        )}
         ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}
         ${this.section(
           "Rôle",

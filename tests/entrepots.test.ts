@@ -132,7 +132,7 @@ describe("page Ressources : synthèse sous « Récoltes »", () => {
   ]);
   const PILLAGE = ` et Suzerain vous pille <strong>600 000</strong> ${ICONE_N} et <strong>3 000 000</strong> ${ICONE_M}.`;
 
-  test("séparateur fin puis la récolte du jour, pillage déduit, dans le même bloc", () => {
+  test("séparateur fin puis le bilan du jour, pillage et armée déduits, dans le même bloc", () => {
     ouvrir(
       encart([197540, 3460273]) +
         VASSAL +
@@ -152,8 +152,9 @@ describe("page Ressources : synthèse sous « Récoltes »", () => {
     expect(bloc).toEqual({
       place: true,
       separateur: true,
+      // nourriture : 2 000 000 − 50 000 (armée) − 600 000 ; matériaux : 10 000 000 − 3 000 000
       texte:
-        "En prenant en compte les vassalisations et les productions actuelles, chaque jour, vous récoltez 1 400 000 et 7 000 000 sur votre terrain et avec votre champignonnière.",
+        "En prenant en compte les vassalisations, la consommation de l'armée et les productions actuelles, chaque jour, vous gagnez 1 350 000 et 7 000 000 .",
       icones: ["nourritures", "materiaux"],
     });
     // lecture gardée pour les autres pages : part du seigneur, affectation, production
@@ -169,12 +170,50 @@ describe("page Ressources : synthèse sous « Récoltes »", () => {
     expect(lire(`$(".o_recolteSynthese").length`)).toBe(1);
   });
 
-  test("sans seigneur ni vassal : la récolte du jour telle quelle", () => {
+  test("sans seigneur ni vassal : production moins l'armée, le « Total par Jour » du jeu", () => {
     ouvrir(encart([197540, 3460273]) + INFOBULLE + recoltes(["0", "916 560"], "595 612", "42 173"));
     lire(`Entrepots.recolte([])`);
     expect(lire<string>(`$(".o_recolteSynthese p").text().replace(/\\s+/g, " ")`)).toContain(
-      "vous récoltez 595 612 et 916 560 sur votre terrain",
+      "chaque jour, vous gagnez 553 439 et 916 560 .",
     );
+  });
+
+  test("armée qui mange plus que la production : « vous perdez »", () => {
+    ouvrir(
+      encart([197540, 3460273]) +
+        infobulle([
+          ["Total par Jour", "-42 173", "+916 560"],
+          ["Terrain", "0", "916 560"],
+          ["Champignon", "0", ""],
+          ["Armée", "-42 173", ""],
+        ]) +
+        recoltes(["0", "916 560"], "0", "42 173"),
+    );
+    lire(`Entrepots.recolte([])`);
+    expect(lire<string>(`$(".o_recolteSynthese p").text().replace(/\\s+/g, " ")`)).toContain(
+      "chaque jour, vous perdez 42 173 et gagnez 916 560 .",
+    );
+    expect(lire<string>(`Entrepots.phraseBilan([-5, -7]).replace(/<[^>]*>/g, "")`)).toBe(
+      "vous perdez 5  et 7 ",
+    );
+  });
+
+  test("case « remplissageEntrepots » décochée : ni synthèse ni lignes, la lecture est gardée", () => {
+    lire(`localStorage.setItem("fzzz_affichage_remplissageEntrepots", "0")`);
+    ouvrir(
+      encart([197540, 3460273]) +
+        INFOBULLE +
+        recoltes(["0", "916 560"], "595 612", "42 173") +
+        `<input type="radio" name="choixOuvriere" value="materiaux" checked/>`,
+    );
+    lire(`Entrepots.recolte([])`);
+    expect(lire(`$(".o_recolteSynthese, .o_entrepotPlein").length`)).toBe(0);
+    expect(lire<string>(`Entrepots.ligneInfobulle(1)`)).toBe("");
+    expect(lire(`Entrepots.lecture().choix`)).toBe("materiaux");
+    // cochée par défaut
+    lire(`localStorage.removeItem("fzzz_affichage_remplissageEntrepots")`);
+    lire(`Entrepots.afficher()`);
+    expect(lignes().length).toBe(2);
   });
 });
 
@@ -251,7 +290,25 @@ describe("encart « S5 Pseudo » : lignes sous la nourriture et les matériaux",
     lire(`Entrepots.afficher()`);
     // nourriture : 197 540 / 16 % = 1 234 625 ; matériaux : 2 900 de capacité, déjà dépassée
     expect(lignes()).toEqual(["Plein dans 1 j 20 h", "Entrepôt plein"]);
-    expect(lire(`$(".o_entrepotRempli").length`)).toBe(1);
+    expect(
+      lire(`$(".o_entrepotPlein").map((i, e) => $(e).hasClass("o_entrepotAlerte")).get()`),
+    ).toEqual([false, true]);
+  });
+
+  test("plein dans moins de 8 h : en rouge ; à 8 h et plus : couleur normale", () => {
+    const rouges = (stockMateriaux: number) => {
+      ouvrir(encart([197540, stockMateriaux]) + INFOBULLE);
+      lire(`Entrepots.afficher()`);
+      return lire<any[]>(
+        `$(".o_entrepotPlein").map((i, e) => $(e).text() + ($(e).hasClass("o_entrepotAlerte") ? " (rouge)" : "")).get()`,
+      );
+    };
+    // matériaux : 4 915 700 de capacité, 916 560 par jour, soit 38 190 par heure
+    expect(rouges(4915700 - 38190 * 7.5)).toEqual([
+      "Plein dans 1 j 20 h",
+      "Plein dans 7 h 30 (rouge)",
+    ]);
+    expect(rouges(4915700 - 38190 * 8.5)).toEqual(["Plein dans 1 j 20 h", "Plein dans 8 h 30"]);
   });
 
   test("stock qui baisse : « Ne se remplit pas » ; production inconnue : aucune ligne", () => {

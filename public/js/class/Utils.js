@@ -102,6 +102,8 @@ const AFFICHAGES_FZZZ = {
   jaugeTdc: "Jauge du TdC en rouge dans la barre d'infos quand du terrain est découvert",
   infobulleRessources:
     "Info-bulles Nourriture et Matériaux de la barre d'infos : capacité de l'entrepôt et place libre",
+  remplissageEntrepots:
+    "Temps avant que les entrepôts soient pleins, sous la nourriture et les matériaux de l'encart « S5 pseudo » (en rouge à moins de 8 h), et bilan de la récolte du jour sur la page Ressources",
   menuCarte: "Entrée « Carte » dans le menu Alliance",
   menuCouts: "Entrée « Coûts » dans le menu Fourmilière",
   styleFormulaires:
@@ -259,6 +261,7 @@ const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800, 43200, 5760
 const AFFICHAGES_REGLABLES = {
   horloge: true,
   nouveautes: true,
+  remplissageEntrepots: true,
   affectationOuvrieres: true,
   armeeMiseEnPage: true,
   replacerArmee: true,
@@ -330,6 +333,7 @@ const AFFICHAGES_ONGLET = {
   radar: "General",
   jaugeTdc: "General",
   infobulleRessources: "General",
+  remplissageEntrepots: "General",
   menuCarte: "General",
   menuCouts: "General",
   styleFormulaires: "General",

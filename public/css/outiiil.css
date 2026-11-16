@@ -3478,14 +3478,16 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   white-space: nowrap;
   opacity: 0.85;
 }
-.o_entrepotRempli {
+/* plein dans moins de HEURES_ALERTE_PLEIN heures */
+.o_entrepotAlerte {
   color: #ff4d4d;
   opacity: 1;
 }
-/* page Ressources, bloc « Récoltes » : synthèse sous un séparateur fin */
+/* page Ressources, bloc « Récoltes » : synthèse sous un séparateur fin, de la
+   largeur du texte du bloc, donc centré dans son cadre */
 .o_recolteSeparateur {
-  width: 12em;
-  margin: 8px 0;
+  width: auto;
+  margin: 10px 0;
   border: 0;
   border-top: 1px solid currentColor;
   opacity: 0.4;

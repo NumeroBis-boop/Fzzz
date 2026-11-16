@@ -1197,6 +1197,14 @@ form > .o_sectionParam:first-child > .o_titreParam:first-child {
   cursor: pointer;
   text-decoration: underline;
 }
+/* « Méthode de calcul » (Préférences → Ressources) : listes lisibles sur un téléphone */
+.o_methode {
+  margin: 2px 0 6px;
+  padding-left: 18px;
+}
+.o_methode li {
+  margin: 2px 0;
+}
 /* page décochée dans l'onglet « Pages » : réglages de l'onglet sans effet */
 .o_pageDesactivee {
   margin: 0 0 8px;

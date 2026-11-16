@@ -12,17 +12,12 @@ const SCRIPT_UTILISATEUR =
 // d'AFFICHAGES_REGLABLES de l'onglet ; pages : groupes de PAGES_EXTENSION dont
 // la case décochée rend ses réglages sans effet
 const ONGLETS_PARAMETRE = [
-  {
-    id: "General",
-    titre: "Général",
-    pages: ["General"],
-    affichages: ["horloge", "nouveautes", "remplissageEntrepots"],
-  },
+  { id: "General", titre: "Général", pages: ["General"], affichages: ["horloge", "nouveautes"] },
   {
     id: "Ressources",
     titre: "Ressources",
     pages: ["Ressources"],
-    affichages: ["affectationOuvrieres", "lanceurChasse"],
+    affichages: ["affectationOuvrieres", "lanceurChasse", "remplissageEntrepots", "bilanRecolte"],
   },
   {
     id: "Armee",
@@ -85,8 +80,8 @@ const ONGLETS_PARAMETRE = [
   { id: "Pages", titre: "Pages", pages: [], affichages: [] },
   { id: "Apropos", titre: "À propos", pages: [], affichages: [] },
 ];
-// dernier onglet ouvert, gardé dans ce navigateur
-const CLE_ONGLET_PARAMETRE = "fzzz_ongletParametre";
+// onglet montré à chaque ouverture des Préférences (règle du mainteneur, 16/11/2026)
+const ONGLET_OUVERTURE = "General";
 // titres montrés dans la confirmation de « Supprimer les sujets de floods
 // inutiles » ; au-delà, leur nombre (fenêtre de confirmation lisible sur un téléphone)
 const SUJETS_FLOODS_MONTRES = 15;
@@ -154,29 +149,25 @@ class BoiteParametre extends Boite {
     ];
   }
   /**
-   * Affiche la boite, sur le dernier onglet ouvert dans ce navigateur.
+   * Affiche la boite sur l'onglet « Général » ; déjà ouverte, elle garde son
+   * onglet (un lien vers un onglet, BoiteParametre.ouvrirOnglet, l'ouvre ensuite).
    *
    * @method afficher
    */
   afficher() {
+    let $boite = $("#o_boiteParametre"),
+      ouverte = $boite.length > 0 && $boite.css("display") != "none",
+      general = Math.max(
+        0,
+        ONGLETS_PARAMETRE.findIndex((o) => o.id == ONGLET_OUVERTURE),
+      );
     if (super.afficher()) {
       $("#o_tabsParametre")
-        .tabs({
-          active: Math.max(
-            0,
-            ONGLETS_PARAMETRE.findIndex((o) => o.id == BoiteParametre.ongletRetenu()),
-          ),
-          activate: (e, ui) => {
-            BoiteParametre.retenirOnglet(
-              String(ui.newPanel.attr("id")).replace("o_tabsParametre", ""),
-            );
-            this.css().ajusterTaille();
-          },
-        })
+        .tabs({ active: general, activate: () => this.css().ajusterTaille() })
         .removeClass("ui-widget");
       this.construireOnglets().css().event();
       $(window).on("resize.o_boiteParametre", () => this.ajusterTaille());
-    }
+    } else if (!ouverte) $("#o_tabsParametre").tabs("option", "active", general);
     // après l'effet d'ouverture : la taille n'est mesurable qu'une fois affichée
     $("#o_boiteParametre")
       .promise()
@@ -204,30 +195,6 @@ class BoiteParametre extends Boite {
       ),
     );
     return this.majPagesDesactivees();
-  }
-  /**
-   * Dernier onglet ouvert dans ce navigateur (id de ONGLETS_PARAMETRE).
-   *
-   * @static
-   * @method ongletRetenu
-   * @return {String|null}
-   */
-  static ongletRetenu() {
-    try {
-      return localStorage.getItem(CLE_ONGLET_PARAMETRE);
-    } catch (e) {
-      return null;
-    }
-  }
-  /**
-   * @static
-   * @method retenirOnglet
-   * @param {String} id
-   */
-  static retenirOnglet(id) {
-    try {
-      localStorage.setItem(CLE_ONGLET_PARAMETRE, id);
-    } catch (e) {}
   }
   /**
    * La boîte tient dans la fenêtre : seul le contenu de l'onglet défile, le
@@ -566,15 +533,7 @@ class BoiteParametre extends Boite {
   ongletGeneral() {
     let p = monProfil.parametre;
     $("#o_tabsParametreGeneral").append(`<form>
-        ${this.section("Horloge et nouveautés", this.cases("General", ["horloge", "nouveautes"]))}
-        ${this.section(
-          "Entrepôts",
-          this.cases("General", ["remplissageEntrepots"]) +
-            this.aide(
-              "Compte la récolte du terrain à chaque récolte du jeu, la champignonnière, la consommation de l'armée, le pillage que tu subis, les convois qui arrivent et le terrain de tes chasses et floods en cours (avec l'affectation automatique). Ce que tu pilles sur tes colonies n'y est pas compté : l'info-bulle le montre.",
-              "Le pillage subi, l'affectation automatique, la prochaine récolte et les chasses sont relus à chaque ouverture de la page Ressources, les convois qui arrivent à chaque ouverture de la page Convois : ouvre-les après un changement. Le bilan de la page Ressources compte aussi ce que tu pilles sur tes colonies : leurs TdC viennent de l'export public des joueurs (relu au plus une fois par heure), le niveau de leur champignonnière du fichier « Stats membres » de l'alliance (une fois par jour).",
-            ),
-        )}
+        ${this.section("Horloge et nouveautés", this.cases("General"))}
         ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}
         ${this.section(
           "Rôle",
@@ -628,9 +587,42 @@ class BoiteParametre extends Boite {
               "À 7,2 plus aucune chance de réplique à 50 % ; à 6, l'ancien plancher du lanceur par budget, 65 % des chasses subissent 30 % de réplique mais le budget sert en entier.",
             ),
         )}
+        ${this.section(
+          "Entrepôts et récolte",
+          this.cases("Ressources", ["remplissageEntrepots", "bilanRecolte"]) +
+            BoiteParametre.methodeEntrepots(),
+        )}
       </form>`);
     this.majEtiquettes();
     return this;
+  }
+  /**
+   * Méthode des calculs de l'encart « S5 Pseudo » et du bilan de la page
+   * Ressources (Entrepots.js), repliée (demande du mainteneur, 16/11/2026).
+   *
+   * @static
+   * @method methodeEntrepots
+   * @return {String} HTML
+   */
+  static methodeEntrepots() {
+    let liste = (/** @type {Array<String>} */ l) =>
+      `<ul class='o_methode'>${l.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+    return `<details class='o_aidePlus o_aideParam left'><summary>Méthode de calcul</summary>
+      <p><b>Temps avant que l'entrepôt soit plein</b> (encart « S5 pseudo » et son info-bulle), recalculé à chaque page, la ligne mise à jour chaque minute :</p>
+      ${liste([
+        "départ : le stock de l'encart ; capacité de l'entrepôt : 500 + 1 200 × 2<sup>niveau</sup> (niveau lu sur la page Construction ; sinon d'après le « rempli à N % » de l'encart) ;",
+        "rentre : la récolte du terrain couvert par tes ouvrières, ajoutée à chaque récolte du jeu, toutes les 30 min (1 par ouvrière au travail, heure lue sur la page Ressources) ; la champignonnière, en continu ; les convois qui arrivent, vus sur la page Convois ; le terrain de tes chasses et floods en cours, seulement avec l'affectation automatique des ouvrières et tant qu'il reste des ouvrières libres ;",
+        "sort : la consommation de l'armée, en continu, et ce que pille ton seigneur si tu es vassal (lu sur la page Ressources) ;",
+        "pas compté : ce que tu pilles sur tes colonies (montré dans l'info-bulle), la nourriture rapportée par les chasses, les floods reçus, les pontes, les constructions et recherches ;",
+        "« Famine dans … » quand la nourriture tombe à zéro avant que l'entrepôt soit plein ; en rouge à moins de 8 h.",
+      ])}
+      <p><b>Bilan de la récolte</b> (page Ressources, sous le bloc « Récoltes »), par jour :</p>
+      ${liste([
+        "récolte du terrain + champignonnière − consommation de l'armée − pillage subi + pillage de tes colonies ;",
+        "pillage de tes colonies : 20 % + 1 % par niveau de ton Étable à pucerons, sur le TdC de chaque colonie × 48, compté en matériaux, et sur sa champignonnière (72 × 1,7<sup>niveau</sup> par jour), en nourriture ;",
+        "colonies et leur TdC : export public des joueurs, à l'heure près ; niveau de leur champignonnière : fichier « Stats membres » de l'alliance, relu une fois par jour (une colonie absente du fichier compte sans champignonnière).",
+      ])}
+    </details>`;
   }
   /**
    * Armée : affichages de la page, replacement et antisondes.

@@ -103,7 +103,9 @@ const AFFICHAGES_FZZZ = {
   infobulleRessources:
     "Info-bulles Nourriture et Matériaux de la barre d'infos : capacité de l'entrepôt et place libre",
   remplissageEntrepots:
-    "Temps avant que les entrepôts soient pleins (ou avant la famine), sous la nourriture et les matériaux de l'encart « S5 pseudo » (en rouge à moins de 8 h), et bilan de la récolte du jour sur la page Ressources",
+    "Temps avant que les entrepôts soient pleins (ou avant la famine), sous la nourriture et les matériaux de l'encart « S5 pseudo » et dans leur info-bulle, en rouge à moins de 8 h (toutes les pages)",
+  bilanRecolte:
+    "Bilan de la récolte du jour sous le bloc « Récoltes » de la page Ressources : armée, pillage subi et pillage de tes colonies comptés",
   menuCarte: "Entrée « Carte » dans le menu Alliance",
   menuCouts: "Entrée « Coûts » dans le menu Fourmilière",
   styleFormulaires:
@@ -262,6 +264,7 @@ const AFFICHAGES_REGLABLES = {
   horloge: true,
   nouveautes: true,
   remplissageEntrepots: true,
+  bilanRecolte: true,
   affectationOuvrieres: true,
   armeeMiseEnPage: true,
   replacerArmee: true,
@@ -334,6 +337,7 @@ const AFFICHAGES_ONGLET = {
   jaugeTdc: "General",
   infobulleRessources: "General",
   remplissageEntrepots: "General",
+  bilanRecolte: "Ressources",
   menuCarte: "General",
   menuCouts: "General",
   styleFormulaires: "General",

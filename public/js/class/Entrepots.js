@@ -45,8 +45,9 @@ const JOURNAL_ENTREPOTS = "Entrepôts";
  * venir (chasses et floods lancés), exploité seulement avec l'affectation
  * automatique. Le pillage reçu en seigneur n'y est pas compté (règle du
  * mainteneur) : l'info-bulle le montre. Sur la page Ressources, un bilan sous
- * le bloc « Récoltes », pillage des colonies compris. Case
- * « remplissageEntrepots » (Préférences → Général).
+ * le bloc « Récoltes », pillage des colonies compris. Cases
+ * « remplissageEntrepots » (encart) et « bilanRecolte » (bilan), Préférences →
+ * Ressources.
  *
  * @class Entrepots
  */
@@ -272,8 +273,8 @@ class Entrepots {
    * Page Ressources : garde ce que les autres pages ne savent pas (pillage
    * subi, affectation automatique, chasses en cours, prochaine récolte), même
    * case décochée, ajoute le bilan sous le bloc « Récoltes », refait les
-   * lignes de l'encart, puis calcule le pillage des colonies (requêtes, case
-   * cochée seulement) et refait le bilan.
+   * lignes de l'encart, puis calcule le pillage des colonies (requêtes, une
+   * des deux cases cochée) et refait le bilan.
    *
    * @static
    * @method recolte
@@ -305,7 +306,8 @@ class Entrepots {
     });
     Entrepots.afficherBilan(lu, production);
     Entrepots.afficher();
-    if (!Utils.affichage("remplissageEntrepots")) return Promise.resolve();
+    if (!Utils.affichage("remplissageEntrepots") && !Utils.affichage("bilanRecolte"))
+      return Promise.resolve();
     return Entrepots.colonies().then(
       (colonies) => {
         let lecture = Entrepots.lecture();
@@ -328,7 +330,7 @@ class Entrepots {
    */
   static afficherBilan(lu, production) {
     $(".o_recolteSynthese").remove();
-    if (!Utils.affichage("remplissageEntrepots")) return;
+    if (!Utils.affichage("bilanRecolte")) return;
     let lecture = Entrepots.lecture(),
       c = lecture && lecture.colonies && lecture.colonies.vassaux.length ? lecture.colonies : null,
       net = Entrepots.recolteNette(production, lu.pille, c && c.taux != null ? c.total : [0, 0]);
@@ -361,6 +363,7 @@ class Entrepots {
                       champignonniere == null
                         ? 0
                         : Math.floor(taux * Entrepots.productionChampignonniere(champignonniere)),
+                      // production d'une colonie supposée toute en matériaux (règle du mainteneur)
                       Math.floor(taux * v.terrain * RECOLTES_PAR_JOUR),
                     ];
             total[0] += pille[0];

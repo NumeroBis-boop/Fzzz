@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.123.1",
+    notes: [
+      "Les Préférences s'ouvrent toujours sur l'onglet « Général ».",
+      "Préférences → Ressources, section « Entrepôts et récolte » : une case pour le temps avant que les entrepôts soient pleins (encart « S5 Pseudo »), une autre pour le bilan de la récolte (page Ressources), et la méthode de calcul à déplier.",
+    ],
+  },
+  {
     version: "1.123.0",
     notes: [
       "Encart « S5 Pseudo » : le temps avant que l'entrepôt soit plein compte la récolte du terrain toutes les 30 min, à l'heure des récoltes du jeu, et les convois qui arrivent (vus sur la page Convois). Si ton armée mange plus que ce qui rentre, la nourriture annonce « Famine dans … ». La ligne se met à jour chaque minute. Le terrain de tes chasses et floods n'est compté qu'avec l'affectation automatique des ouvrières.",

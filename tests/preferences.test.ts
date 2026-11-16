@@ -94,7 +94,8 @@ describe("onglets de la liste du mainteneur", () => {
     expect(Object.fromEntries(cases.map((c) => [c[1], c[0]]))).toMatchObject({
       horloge: "General",
       nouveautes: "General",
-      remplissageEntrepots: "General",
+      remplissageEntrepots: "Ressources",
+      bilanRecolte: "Ressources",
       affectationOuvrieres: "Ressources",
       lanceurChasse: "Ressources",
       armeeMiseEnPage: "Armee",
@@ -413,11 +414,45 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     );
   });
 
-  test("dernier onglet ouvert gardé dans ce navigateur", () => {
-    lire(`localStorage.clear()`);
-    expect(lire(`BoiteParametre.ongletRetenu()`)).toBeNull();
-    lire(`BoiteParametre.retenirOnglet("Convois")`);
-    expect(lire(`BoiteParametre.ongletRetenu()`)).toBe("Convois");
+  test("onglet Ressources : remplissage des entrepôts et bilan, deux cases, méthode de calcul repliée", () => {
+    construire();
+    const section = lire<string[]>(
+      `$("#o_tabsParametreRessources input[data-affichage]").map((i, e) => e.dataset.affichage).get()`,
+    );
+    expect(section).toEqual(expect.arrayContaining(["remplissageEntrepots", "bilanRecolte"]));
+    expect(lire<string>(`$("#o_tabsParametreRessources details > summary").last().text()`)).toBe(
+      "Méthode de calcul",
+    );
+    const methode = lire<string>(`$("#o_tabsParametreRessources details").last().text()`);
+    expect(methode).toContain("toutes les 30 min");
+    expect(methode).toContain("20 % + 1 % par niveau de ton Étable à pucerons");
+    expect(
+      lire(`$("#o_tabsParametreGeneral input[data-affichage='remplissageEntrepots']").length`),
+    ).toBe(0);
+  });
+
+  test("chaque ouverture des Préférences montre l'onglet « Général » (règle du mainteneur, 16/11/2026)", () => {
+    const actif = () =>
+      lire<string>(`ONGLETS_PARAMETRE[$("#o_tabsParametre").tabs("option", "active")].id`);
+    lire(`(() => {
+      localStorage.clear();
+      // onglet retenu par les versions 1.117.0 à 1.123.0 : ignoré
+      localStorage.setItem("fzzz_ongletParametre", "Convois");
+      window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
+      document.body.innerHTML = "";
+      window.boite = new BoiteParametre();
+      boite.ajusterTaille = () => boite;
+      boite.afficher();
+    })()`);
+    expect(actif()).toBe("General");
+    // un autre onglet, la boîte fermée puis rouverte : de nouveau « Général »
+    lire(
+      `$("#o_tabsParametre").tabs("option", "active", ONGLETS_PARAMETRE.findIndex((o) => o.id == "Convois"))`,
+    );
+    expect(actif()).toBe("Convois");
+    lire(`(() => { boite.masquer(); boite.afficher(); })()`);
+    expect(actif()).toBe("General");
+    expect(lire(`$("#o_boiteParametre").length`)).toBe(1);
   });
 
   test("« Réinitialiser » dit ce qu'il remet et ce qu'il garde", () => {

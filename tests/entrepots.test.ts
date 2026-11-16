@@ -516,9 +516,28 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
     expect(lire(`JOURNAL`)).toEqual(["colonies non relues"]);
   });
 
-  test("case « remplissageEntrepots » décochée : ni bilan ni lignes ni requête, la lecture est gardée", async () => {
+  test("deux cases distinctes : remplissage (encart) et bilan (page Ressources)", async () => {
+    const page = () =>
+      ouvrir(
+        encart([197540, 3460273]) + INFOBULLE + recoltes(["0", "916 560"], "595 612", "42 173"),
+      );
+    lire(`localStorage.setItem("fzzz_affichage_remplissageEntrepots", "0")`);
+    page();
+    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    expect([lignes().length, bilan().length]).toEqual([0, 1]);
+    lire(`(() => {
+      localStorage.clear();
+      localStorage.setItem("fzzz_affichage_bilanRecolte", "0");
+    })()`);
+    page();
+    await lire<Promise<void>>(`Entrepots.recolte([])`);
+    expect([lignes().length, bilan().length]).toEqual([2, 0]);
+  });
+
+  test("les deux cases décochées : ni bilan ni lignes ni requête, la lecture est gardée", async () => {
     lire(`(() => {
       localStorage.setItem("fzzz_affichage_remplissageEntrepots", "0");
+      localStorage.setItem("fzzz_affichage_bilanRecolte", "0");
       COLONIES = [{ pseudo: "Vassal", terrain: 100000 }];
     })()`);
     ouvrir(
@@ -532,8 +551,8 @@ describe("page Ressources : bilan sous « Récoltes »", () => {
     expect(lire<string>(`Entrepots.ligneInfobulle(1)`)).toBe("");
     expect(lire(`APPELS`)).toEqual([]);
     expect(lire(`Entrepots.lecture().choix`)).toBe("materiaux");
-    // cochée par défaut
-    lire(`localStorage.removeItem("fzzz_affichage_remplissageEntrepots")`);
+    // cochées par défaut
+    lire(`localStorage.clear()`);
     lire(`Entrepots.afficher()`);
     expect(lignes().length).toBe(2);
   });

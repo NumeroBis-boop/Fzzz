@@ -26,7 +26,9 @@ export function fichiersManifeste(config: string): { js: string[]; css: string[]
   return { js: lister(/"(js\/[^"*]+\.js)"/g), css: lister(/"(css\/[^"*]+\.css)"/g) };
 }
 
-const TOUTES_LES_PAGES = "*://s5.fourmizzz.fr/*";
+/** Serveurs de jeu où l'extension s'active (s1 à s5, choix du mainteneur, 17/11/2026). */
+export const SERVEURS = ["s1", "s2", "s3", "s4", "s5"];
+const TOUTES_LES_PAGES = SERVEURS.map((s) => `*://${s}.fourmizzz.fr/*`);
 
 /**
  * Scripts réservés à certaines pages (bloc dont `matches` n'est pas toutes les
@@ -44,10 +46,15 @@ export function scriptsDePages(config: string): { js: string; pages: string[] }[
       const matches = [...(segment.match(/\[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map(
         (m) => m[1]!,
       );
-      if (matches.every((m) => m == TOUTES_LES_PAGES)) return [];
+      if (matches.every((m) => TOUTES_LES_PAGES.includes(m))) return [];
       const pages = [
         ...new Set(
-          matches.map((m) => m.replace("*://s5.fourmizzz.fr", "").replace(/\*$/, "").toLowerCase()),
+          matches.map((m) =>
+            m
+              .replace(/^\*:\/\/s\d+\.fourmizzz\.fr/, "")
+              .replace(/\*$/, "")
+              .toLowerCase(),
+          ),
         ),
       ];
       return [...segment.matchAll(/"(js\/[^"*]+\.js)"/g)].map((m) => ({ js: m[1]!, pages }));
@@ -123,15 +130,15 @@ export function entete(
     ["@name:fr", variante.nomFr],
     ["@namespace", variante.espace],
     ["@version", version],
-    ["@description", "Outils de l'alliance OUAF pour Fourmizzz (serveur s5)."],
-    ["@description:fr", "Outils de l'alliance OUAF pour Fourmizzz (serveur s5)."],
+    ["@description", "Outils de l'alliance OUAF pour Fourmizzz (serveurs s1 à s5)."],
+    ["@description:fr", "Outils de l'alliance OUAF pour Fourmizzz (serveurs s1 à s5)."],
     ["@author", "Hraesvelg (Outiiil), GuiEpi (Toolzzz), NumeroBis-boop (Fzzz)"],
     ["@license", "GPL-3.0"],
     ["@homepageURL", `https://github.com/${DEPOT}`],
     ["@supportURL", `https://github.com/${DEPOT}/issues`],
     ["@updateURL", brut],
     ["@downloadURL", brut],
-    ["@match", "*://s5.fourmizzz.fr/*"],
+    ...TOUTES_LES_PAGES.map((m) => ["@match", m]),
     ["@run-at", "document-end"],
     ["@noframes", ""],
     ...[

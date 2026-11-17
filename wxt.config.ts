@@ -22,7 +22,7 @@ export default defineConfig({
   manifest: {
     // nom affiché ; le nom technique (Fzzz) reste celui du dépôt et de l'identifiant Firefox
     name: "Extension OUAF",
-    description: "Outils de l'alliance OUAF pour Fourmizzz (s5), d'après Toolzzz et Outiiil.",
+    description: "Outils de l'alliance OUAF pour Fourmizzz (s1 à s5), d'après Toolzzz et Outiiil.",
     // version : pas déclarée ici — WXT reprend celle de package.json (source unique,
     // le bump de release ne doit toucher qu'un seul fichier).
     // @ts-expect-error AMO refuse la forme objet; Chrome accepte la string. On s'aligne sur Firefox.
@@ -61,7 +61,13 @@ export default defineConfig({
       default_icon: "images/icons/48.png",
     },
     permissions: ["webRequest", "storage"],
-    host_permissions: ["*://s5.fourmizzz.fr/*"],
+    host_permissions: [
+      "*://s1.fourmizzz.fr/*",
+      "*://s2.fourmizzz.fr/*",
+      "*://s3.fourmizzz.fr/*",
+      "*://s4.fourmizzz.fr/*",
+      "*://s5.fourmizzz.fr/*",
+    ],
     // site de suivi des convois de la OUAF : accès demandé au premier envoi
     // (page ouaf-autorisation.html), pas à l'installation
     optional_host_permissions: [
@@ -76,12 +82,24 @@ export default defineConfig({
       // de contenu natif (sur construction.php#cout notamment) en laissant
       // outiiil.css cacher la simulation pendant le parse.
       {
-        matches: ["*://s5.fourmizzz.fr/*"],
+        matches: [
+          "*://s1.fourmizzz.fr/*",
+          "*://s2.fourmizzz.fr/*",
+          "*://s3.fourmizzz.fr/*",
+          "*://s4.fourmizzz.fr/*",
+          "*://s5.fourmizzz.fr/*",
+        ],
         js: ["js/bootstrap.js"],
         run_at: "document_start",
       },
       {
-        matches: ["*://s5.fourmizzz.fr/*"],
+        matches: [
+          "*://s1.fourmizzz.fr/*",
+          "*://s2.fourmizzz.fr/*",
+          "*://s3.fourmizzz.fr/*",
+          "*://s4.fourmizzz.fr/*",
+          "*://s5.fourmizzz.fr/*",
+        ],
         css: ["css/outiiil.css", "css/toasts.css", "css/datatables.css"],
         js: [
           "js/lib/jquery_3.2.1.js",
@@ -101,8 +119,20 @@ export default defineConfig({
       // (messagerie).
       {
         matches: [
+          "*://s1.fourmizzz.fr/alliance.php*",
+          "*://s2.fourmizzz.fr/alliance.php*",
+          "*://s3.fourmizzz.fr/alliance.php*",
+          "*://s4.fourmizzz.fr/alliance.php*",
           "*://s5.fourmizzz.fr/alliance.php*",
+          "*://s1.fourmizzz.fr/construction.php*",
+          "*://s2.fourmizzz.fr/construction.php*",
+          "*://s3.fourmizzz.fr/construction.php*",
+          "*://s4.fourmizzz.fr/construction.php*",
           "*://s5.fourmizzz.fr/construction.php*",
+          "*://s1.fourmizzz.fr/messagerie.php*",
+          "*://s2.fourmizzz.fr/messagerie.php*",
+          "*://s3.fourmizzz.fr/messagerie.php*",
+          "*://s4.fourmizzz.fr/messagerie.php*",
           "*://s5.fourmizzz.fr/messagerie.php*",
         ],
         js: [
@@ -113,7 +143,13 @@ export default defineConfig({
         ],
       },
       {
-        matches: ["*://s5.fourmizzz.fr/*"],
+        matches: [
+          "*://s1.fourmizzz.fr/*",
+          "*://s2.fourmizzz.fr/*",
+          "*://s3.fourmizzz.fr/*",
+          "*://s4.fourmizzz.fr/*",
+          "*://s5.fourmizzz.fr/*",
+        ],
         js: [
           "js/lib/datatables_1.10.16.js",
           "js/lib/numeral_2.0.6.js",
@@ -125,7 +161,13 @@ export default defineConfig({
         ],
       },
       {
-        matches: ["*://s5.fourmizzz.fr/*"],
+        matches: [
+          "*://s1.fourmizzz.fr/*",
+          "*://s2.fourmizzz.fr/*",
+          "*://s3.fourmizzz.fr/*",
+          "*://s4.fourmizzz.fr/*",
+          "*://s5.fourmizzz.fr/*",
+        ],
         js: [
           "js/class/Journal.js",
           "js/class/Fuseau.js",
@@ -194,7 +236,13 @@ export default defineConfig({
     web_accessible_resources: [
       {
         resources: ["images/*", "images/**", "css/*", "css/**", "ouaf-autorisation.html"],
-        matches: ["*://s5.fourmizzz.fr/*"],
+        matches: [
+          "*://s1.fourmizzz.fr/*",
+          "*://s2.fourmizzz.fr/*",
+          "*://s3.fourmizzz.fr/*",
+          "*://s4.fourmizzz.fr/*",
+          "*://s5.fourmizzz.fr/*",
+        ],
       },
     ],
   },

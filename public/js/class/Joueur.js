@@ -648,13 +648,14 @@ class Joueur {
    * @static
    * @method chasseurParDefaut
    * @param {String} pseudo
-   * @return {Boolean} joueur de CHASSEURS_PAR_DEFAUT, casse ignorée
+   * @return {Boolean} joueur de CHASSEURS_PAR_DEFAUT, casse ignorée, sur le
+   *   serveur de la OUAF (un homonyme d'un autre serveur n'en est pas)
    */
   static chasseurParDefaut(pseudo) {
     let p = String(pseudo || "")
       .trim()
       .toLowerCase();
-    return !!p && CHASSEURS_PAR_DEFAUT.some((j) => j.toLowerCase() == p);
+    return !!p && Utils.surServeurOuaf && CHASSEURS_PAR_DEFAUT.some((j) => j.toLowerCase() == p);
   }
   /**
    *

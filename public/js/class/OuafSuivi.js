@@ -70,6 +70,8 @@ class OuafSuivi {
    * @return {Promise<String>} code enregistré, ou ""
    */
   static lireCode() {
+    // gardé dans un stockage commun à tous les serveurs : ailleurs, aucun envoi
+    if (!Utils.surServeurOuaf) return Promise.resolve("");
     try {
       return chrome.storage.local
         .get(CLE_OUAF_CODE)

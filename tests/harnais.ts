@@ -30,10 +30,15 @@ export interface Page {
 /**
  * @param fichiers scripts de public/ à charger après les bibliothèques
  * @param avant code exécuté avant ces scripts (constantes et objets simulés)
+ * @param url adresse de la page (serveur s5 par défaut)
  */
-export function creerPage(fichiers: string[], avant = ""): Page {
+export function creerPage(
+  fichiers: string[],
+  avant = "",
+  url = "https://s5.fourmizzz.fr/Armee.php",
+): Page {
   const window = new Window({
-    url: "https://s5.fourmizzz.fr/Armee.php",
+    url,
     // code de confiance (celui du dépôt) : évaluation activée, sans avertissement
     settings: {
       enableJavaScriptEvaluation: true,

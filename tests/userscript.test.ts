@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
-import { entete, fichiersManifeste, globales, scriptsDePages, TEST } from "../scripts/userscript";
+import {
+  entete,
+  fichiersManifeste,
+  globales,
+  scriptsDePages,
+  SERVEURS,
+  TEST,
+} from "../scripts/userscript";
 import { creerPage } from "./harnais";
 
 const RACINE = join(import.meta.dir, "..");
@@ -21,18 +28,25 @@ describe("en-tête du script utilisateur", () => {
     for (const f of [...js, ...css]) expect(existsSync(join(RACINE, "public", f))).toBe(true);
   });
 
-  test("ne s'exécute que sur le serveur s5", () => {
+  test("ne s'exécute que sur les serveurs s1 à s5", () => {
     const matches = entete("abc123", "9.9.9", config)
       .split("\n")
       .filter((l) => /^\/\/ @(match|include)/.test(l))
       .map((l) => l.split(/\s+/).at(-1));
-    expect(matches).toEqual(["*://s5.fourmizzz.fr/*"]);
+    expect(SERVEURS).toEqual(["s1", "s2", "s3", "s4", "s5"]);
+    expect(matches).toEqual(SERVEURS.map((s) => `*://${s}.fourmizzz.fr/*`));
   });
 
-  test("manifeste : pages et autorisations limitées au serveur s5", () => {
-    const hotes = [...config.matchAll(/"(\*:\/\/[^"]*fourmizzz[^"]*)"/g)].map((m) => m[1] ?? "");
-    expect(hotes.length).toBeGreaterThan(5);
-    expect(hotes.every((h) => h.startsWith("*://s5.fourmizzz.fr/"))).toBe(true);
+  test("manifeste et horloge de l'extension : serveurs s1 à s5, chacun avec les mêmes pages", () => {
+    const hotes = (texte: string) =>
+      [...texte.matchAll(/"(\*:\/\/[^"]*fourmizzz[^"]*)"/g)].map((m) => m[1] ?? "");
+    expect(hotes(config).every((h) => /^\*:\/\/s[1-5]\.fourmizzz\.fr\//.test(h))).toBe(true);
+    for (const s of SERVEURS)
+      for (const page of ["*", "alliance.php*", "construction.php*", "messagerie.php*"])
+        expect(hotes(config)).toContain(`*://${s}.fourmizzz.fr/${page}`);
+    expect(hotes(readFileSync(join(RACINE, "entrypoints/background.ts"), "utf8"))).toEqual(
+      SERVEURS.map((s) => `*://${s}.fourmizzz.fr/*`),
+    );
   });
 
   test("charge la couche GM avant tout le reste, à un commit fixe", () => {
@@ -101,6 +115,48 @@ describe("couche GM (userscript/shim.js)", () => {
     vm.runInContext(readFileSync(join(RACINE, "userscript/shim.js"), "utf8"), contexte);
     return vm.runInContext("chrome", contexte);
   }
+
+  test("horloge : échantillons des seules réponses du serveur de la page, rangés par serveur", async () => {
+    const valeurs = new Map<string, unknown>(),
+      ecouteurs: (() => void)[] = [];
+    class FauxXHR {
+      readyState = 0;
+      responseURL = "";
+      date = "";
+      addEventListener(type: string, f: () => void) {
+        if (type == "readystatechange") ecouteurs.push(f);
+      }
+      getResponseHeader() {
+        return this.date;
+      }
+      send() {}
+    }
+    const contexte = vm.createContext({
+      location: { hostname: "s1.fourmizzz.fr" },
+      URL,
+      window: { XMLHttpRequest: FauxXHR },
+      GM_info: { script: { version: "9.9.9", resources: [] } },
+      GM_getValue: (c: string) => valeurs.get(c),
+      GM_setValue: (c: string, v: unknown) => valeurs.set(c, v),
+      GM_deleteValue: (c: string) => valeurs.delete(c),
+      GM_listValues: () => [...valeurs.keys()],
+    });
+    vm.runInContext(readFileSync(join(RACINE, "userscript/shim.js"), "utf8"), contexte);
+    const repondre = async (url: string) => {
+      const x = new FauxXHR();
+      x.send();
+      Object.assign(x, { responseURL: url, date: "Tue, 17 Nov 2026 12:00:00 GMT", readyState: 2 });
+      ecouteurs.at(-1)!();
+      // la chaîne de promesses du stockage, sans minuterie
+      await new Promise((r) => setTimeout(r, 0));
+    };
+    await repondre("https://s1.fourmizzz.fr/Armee.php");
+    // un autre serveur, ou le site hors jeu : pas l'horloge de cette page
+    await repondre("https://s5.fourmizzz.fr/Armee.php");
+    await repondre("https://www.fourmizzz.fr/");
+    expect([...valeurs.keys()]).toEqual(["fzzz_horloge_s1"]);
+    expect(valeurs.get("fzzz_horloge_s1")).toHaveLength(1);
+  });
 
   test("adresses des fichiers statiques à la version installée", () => {
     const chrome = charger();

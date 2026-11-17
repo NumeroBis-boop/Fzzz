@@ -11,7 +11,13 @@
  */
 
 const FILTRE: Browser.webRequest.RequestFilter = {
-  urls: ["*://s5.fourmizzz.fr/*"],
+  urls: [
+    "*://s1.fourmizzz.fr/*",
+    "*://s2.fourmizzz.fr/*",
+    "*://s3.fourmizzz.fr/*",
+    "*://s4.fourmizzz.fr/*",
+    "*://s5.fourmizzz.fr/*",
+  ],
   types: ["main_frame", "xmlhttprequest"],
 };
 const MAX_ECHANTILLONS = 30;

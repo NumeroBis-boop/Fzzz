@@ -143,7 +143,8 @@ class CommerceFzzz {
    * @method suiviOuaf
    */
   static suiviOuaf() {
-    if (!Utils.affichage("convoisSuiviLignes") || $(".o_ouafLigne").length) return;
+    if (!Utils.surServeurOuaf || !Utils.affichage("convoisSuiviLignes") || $(".o_ouafLigne").length)
+      return;
     let convois = OuafSuivi.convoisJeu();
     CommerceFzzz.reporterAnnulations(convois);
     if (!convois.length) return;
@@ -944,7 +945,13 @@ class CommerceFzzz {
    * @method membresSuivis
    */
   static membresSuivis() {
-    if (!Utils.affichage("convoisMembres") || $("#o_convoisMembres").length) return;
+    // fait pour le site de suivi de la OUAF (« Convoi à faire ») : sur son serveur
+    if (
+      !Utils.surServeurOuaf ||
+      !Utils.affichage("convoisMembres") ||
+      $("#o_convoisMembres").length
+    )
+      return;
     let cache = Utils.lireStockage(`outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`),
       connus = {};
     (cache.members || []).forEach((m) => {

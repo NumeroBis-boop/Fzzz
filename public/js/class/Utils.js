@@ -22,6 +22,9 @@ const NOM_EXTENSION =
   (typeof FZZZ_NOM_EXTENSION == "string" && FZZZ_NOM_EXTENSION) || "Extension OUAF";
 // titre de l'encadré de synthèse recréé hors Compte+ (et de son bascule radar)
 const TITRE_SYNTHESE = "Synthèse OUAF";
+// serveur de la OUAF : le seul du site de suivi des convois et de la liste des
+// chasseurs par défaut (l'extension marche sur les serveurs s1 à s5)
+const SERVEUR_OUAF = "s5";
 
 // Fzzz : champs jQuery UI « spinner » : nombres affichés et relus à la
 // française, quelle que soit la langue du navigateur. Le widget délègue à
@@ -368,6 +371,28 @@ class Utils {
    */
   static get serveur() {
     return location.hostname.split(".")[0].toUpperCase();
+  }
+  /**
+   * @static
+   * @method surServeurOuaf
+   * @return {Boolean} page du serveur de la OUAF (SERVEUR_OUAF)
+   */
+  static get surServeurOuaf() {
+    return location.hostname.split(".")[0].toLowerCase() == SERVEUR_OUAF;
+  }
+  /**
+   * Clé du stockage de l'extension ou du gestionnaire de scripts, commun à tous
+   * les serveurs, au contraire du localStorage du jeu : celle d'avant sur le
+   * serveur de la OUAF, une par serveur ailleurs (un même pseudo sur deux
+   * serveurs n'en mélange pas les données).
+   *
+   * @static
+   * @method cleServeur
+   * @param {String} cle
+   * @return {String}
+   */
+  static cleServeur(cle) {
+    return Utils.surServeurOuaf ? cle : `${cle}_${location.hostname.split(".")[0].toLowerCase()}`;
   }
   /**
    * AntLeaks ne référence que le serveur s4 : ailleurs, ses liens mèneraient

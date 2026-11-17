@@ -14,9 +14,11 @@ const JOURNAL_REPETITION = 60000;
 const NIVEAUX_JOURNAL = { erreur: "ERREUR", alerte: "ALERTE", succes: "OK", info: "INFO" };
 // en-têtes génériques des notifications (TOAST_*) : la source devient « Notification »
 const TITRES_NOTIFICATION = ["Erreur", "Succès", "Attention", "Information"];
-// journal réservé au mainteneur (règle du mainteneur) : pour les autres joueurs,
-// rien n'est noté ni affiché ; casse ignorée
+// journal et boutons qui suppriment des sujets du forum, réservés au mainteneur
+// (règle du mainteneur), sur le serveur de son compte : pour les autres joueurs
+// et un homonyme d'un autre serveur, rien n'est noté ni affiché ; casse ignorée
 const JOURNAL_JOUEURS = ["DoggyBag"];
+const JOURNAL_SERVEUR = "s5";
 // installé (joueur de JOURNAL_JOUEURS) : sinon les notes sont ignorées
 let journalInstalle = false;
 
@@ -251,7 +253,11 @@ class Journal {
     let p = String(pseudo || "")
       .trim()
       .toLowerCase();
-    return !!p && JOURNAL_JOUEURS.some((j) => j.toLowerCase() == p);
+    return (
+      !!p &&
+      location.hostname.split(".")[0].toLowerCase() == JOURNAL_SERVEUR &&
+      JOURNAL_JOUEURS.some((j) => j.toLowerCase() == p)
+    );
   }
   /**
    * Active le journal et y note les notifications affichées, les erreurs

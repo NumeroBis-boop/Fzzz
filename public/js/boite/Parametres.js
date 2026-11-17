@@ -868,6 +868,12 @@ class BoiteParametre extends Boite {
    * @method ongletConvois
    */
   ongletConvois() {
+    if (!Utils.surServeurOuaf) {
+      $("#o_tabsParametreConvois").append(
+        `<p class='left'>Le suivi des convois de la OUAF (site de suivi, Récapitulatif de la page Convois, convoi avant la récolte) ne fonctionne que sur le serveur ${SERVEUR_OUAF}.</p>`,
+      );
+      return this;
+    }
     $("#o_tabsParametreConvois").append(`<form autocomplete='off'>
         ${this.section(
           `Suivi des convois de la OUAF ${this.etiquette("Grenier")}`,

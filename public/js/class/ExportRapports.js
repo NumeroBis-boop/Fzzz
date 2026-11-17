@@ -1112,10 +1112,11 @@ class ExportRapports {
    * @return {Promise<String>} valeur gardée, ou ""
    */
   static _lire(cle) {
+    let c = Utils.cleServeur(cle);
     try {
       return chrome.storage.local
-        .get(cle)
-        .then((/** @type {Object} */ r) => r[cle] || "")
+        .get(c)
+        .then((/** @type {Object} */ r) => r[c] || "")
         .catch(() => "");
     } catch (e) {
       return Promise.resolve("");
@@ -1129,9 +1130,10 @@ class ExportRapports {
    * @return {Promise}
    */
   static _garder(cle, valeur) {
+    let c = Utils.cleServeur(cle);
     try {
       return (
-        valeur ? chrome.storage.local.set({ [cle]: valeur }) : chrome.storage.local.remove(cle)
+        valeur ? chrome.storage.local.set({ [c]: valeur }) : chrome.storage.local.remove(c)
       ).catch(() => {});
     } catch (e) {
       return Promise.resolve();

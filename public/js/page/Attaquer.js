@@ -610,7 +610,7 @@ class PageAttaquer {
       .append(`<fieldset id='o_prepaFlood' class='centre'><legend><span class='titre'>Lanceur de Flood</span> <span class='reduce'>(${creneaux} créneau${creneaux > 1 ? "x" : ""} libre${creneaux > 1 ? "s" : ""} sur ${monProfil.niveauRecherche[6] + 1})</span></legend>
             <table id='o_simulationFlood' class='o_maxWidth' cellspacing=0>
 			<tr class='gras'><td>Etape</td><td>Troupes</td><td>Reste</td><td>Mon Terrain</td><td>${this._cible.pseudo} (${Utils.intToTime(monProfil.getTempsParcours2(this._cible))})</td></tr>
-			<tr><td><select id='o_methodeFlood'><option value='0' ${methode == 0 ? "selected" : ""}>${METHODE_FLOOD[0]}</option><option value='1' ${methode == 1 ? "selected" : ""}>${METHODE_FLOOD[1]}</option><option value='2' ${methode == 2 ? "selected" : ""}>${METHODE_FLOOD[2]}</option><option value='3' ${methode == 3 ? "selected" : ""}>${METHODE_FLOOD[3]}</option></select></td><td colspan="2"></td><td><input value='${Utils.terrain}' size='12' id='o_floodTDCA'/></td><td><input value='${this._cible.terrain}' size='12' id='o_floodTDCB'/></td></tr>
+			<tr><td><select id='o_methodeFlood'><option value='0' ${methode == 0 ? "selected" : ""}>${METHODE_FLOOD[0]}</option><option value='1' ${methode == 1 ? "selected" : ""}>${METHODE_FLOOD[1]}</option><option value='2' ${methode == 2 ? "selected" : ""}>${METHODE_FLOOD[2]}</option><option value='3' ${methode == 3 ? "selected" : ""}>${METHODE_FLOOD[3]}</option></select></td><td colspan="2" class="o_floodPortee"></td><td><input value='${Utils.terrain}' size='12' id='o_floodTDCA'/></td><td><input value='${this._cible.terrain}' size='12' id='o_floodTDCB'/></td></tr>
 			<tr><td>Antisonde (<span id="o_pourcentAttaque0">0</span>%)</td><td><input value='0' size='12' id='o_floodAntiSonde'/></td><td></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>
             <tr id="o_floodActions" class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
             ${
@@ -635,14 +635,18 @@ class PageAttaquer {
     this._unitesGardees.brancher();
     this._armee.gardees = this._unitesGardees.reglage;
     this.afficherGardees();
-    let proposees = Math.max(1, parseInt(monProfil.parametre["floodAttaques"].valeur) || 3);
-    for (let i = 1; i < Math.min(proposees + 1, this._nbAttaque); i++) this.ajouterAttaque();
+    this._methodeFlood = $("#o_methodeFlood").val();
+    this.proposerAttaques();
     // Si la methode par defaut est par standard on prepare
     if (methode)
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     // event
     $("#o_methodeFlood").change((e) => {
       this._saisieDegressive = null;
+      // Optimisée choisit elle-même le nombre d'attaques : en la quittant, on
+      // repart du nombre proposé, comme à l'ouverture de la page
+      if (this._methodeFlood == "1" && e.currentTarget.value != "1") this.proposerAttaques();
+      this._methodeFlood = e.currentTarget.value;
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
       if (e.currentTarget.value == "1")
         // en optimisee on peut ni ajouter ni supprimer d'attaques
@@ -1016,84 +1020,103 @@ class PageAttaquer {
    * @method compileDataFlood
    */
   preparerFlood(tdcAtt, tdcCible, bRecup = false, ligne = 0) {
-    // Si la cible est à porter
-    if (tdcCible >= tdcAtt * 0.5 && tdcCible <= tdcAtt * 3) {
-      let methode = $("#o_methodeFlood").val(),
-        p = monProfil.parametre;
-      // Dégressive : l'attaque 1 saisie relance le calcul des suivantes ; une
-      // attaque suivante saisie fige toutes les valeurs, jusqu'au changement de méthode
-      if (methode == "3" && bRecup && ligne) this._saisieDegressive = ligne == 1 ? 1 : 2;
-      if (methode == "3" && this._saisieDegressive == 2) methode = "0";
-      // on recup les attaques manuellement
-      let attaques = new Array();
-      // on push au moins l'antisonde quelque soit le cas !
-      attaques.push($("#o_floodAntiSonde").spinner("value"));
-      if (bRecup || methode == "0") {
-        for (let i = 1; i < this._nbAttaque; i++)
-          if ($("#o_attaque" + i).length) attaques.push($("#o_attaque" + i).spinner("value"));
-      }
-      // si attaques n'est pas vide c'est qu'on parametre soit meme les floods
-      // si la methode est uniforme ou degressive on utilise que le nbAttaque dans le tableau
-      let indSupp = $("input[name='o_suppAttaque']:checked").length
-        ? $("input[name='o_suppAttaque']:checked").attr("id").replace("o_suppAttaque", "")
-        : -1;
-      let simulation = this._armee.simulerFlood(
-        tdcAtt,
-        tdcCible,
-        methode,
-        attaques,
-        $("#o_attaque1").spinner("value"),
-        methode == "2" || methode == "3"
-          ? Math.min($("input[id^='o_attaque']").length, this._nbAttaque)
-          : this._nbAttaque,
-        indSupp,
-        {
-          base: p["degressifBase"].valeur > 0 ? p["degressifBase"].valeur : 20,
-          regle: p["degressifRegle"].valeur == 1 ? "ecart" : "restant",
-          premiere: this._saisieDegressive == 1 ? $("#o_attaque1").spinner("value") : null,
-        },
-      );
-      // mise a jour de l'antisonde
-      let priseMax = Math.floor(tdcCible * 0.2),
-        pourcent = 0;
-      if (simulation[0]) {
-        priseMax = simulation[0] > priseMax ? priseMax : simulation[0];
-        pourcent = Math.round((priseMax * 100) / tdcCible);
-        tdcAtt += priseMax;
-        tdcCible -= priseMax;
-        $("#o_pourcentAttaque" + 0).text(pourcent);
-        $("#o_simulationFlood tr:eq(2) td:eq(3)").text(numeral(tdcAtt).format());
-        $("#o_simulationFlood tr:eq(2) td:eq(4)").text(numeral(tdcCible).format());
-      }
-      // mise à jour des attaques
-      for (let i = 1; i < simulation.length; i++) {
-        if (!$("#o_attaque" + i).length) this.ajouterAttaque(true);
-        $("#o_attaque" + i).spinner("value", simulation[i]);
-        // Calcule des terrains
-        if (tdcCible >= tdcAtt * 0.5) {
-          priseMax = Math.floor(tdcCible * 0.2);
-          priseMax = simulation[i] > priseMax ? priseMax : simulation[i];
-          pourcent = Math.round((priseMax * 100) / tdcCible);
-          tdcAtt += priseMax;
-          tdcCible -= priseMax;
-        }
-        $("#o_pourcentAttaque" + i).text(pourcent);
+    // champ vide ou en cours de saisie : rien à calculer
+    if (!(tdcAtt > 0 && tdcCible > 0)) return;
+    // hors de portée (TdC à l'impact mis dans les champs, par exemple), le
+    // flood est calculé quand même, à 0 % : sans cela les montants restaient
+    // ceux d'avant, quelle que soit la méthode choisie
+    let $portee = $("#o_simulationFlood .o_floodPortee");
+    if (Utils.aPortee(tdcCible, tdcAtt)) $portee.text("").removeAttr("title");
+    else
+      $portee
+        .text("Hors de portée")
+        .attr(
+          "title",
+          `Avec ces TdC, ${this._cible.pseudo} doit avoir de ${numeral(Math.ceil(tdcAtt / 2)).format()} à ${numeral(tdcAtt * 3 - 1).format()} cm² (de la moitié au triple de « Mon Terrain ») : aucune attaque ne prendrait de TdC.`,
+        );
+    let methode = $("#o_methodeFlood").val(),
+      p = monProfil.parametre;
+    // Dégressive : l'attaque 1 saisie relance le calcul des suivantes ; une
+    // attaque suivante saisie fige toutes les valeurs, jusqu'au changement de méthode
+    if (methode == "3" && bRecup && ligne) this._saisieDegressive = ligne == 1 ? 1 : 2;
+    if (methode == "3" && this._saisieDegressive == 2) methode = "0";
+    // on recup les attaques manuellement
+    let attaques = new Array();
+    // on push au moins l'antisonde quelque soit le cas !
+    attaques.push($("#o_floodAntiSonde").spinner("value"));
+    if (bRecup || methode == "0") {
+      for (let i = 1; i < this._nbAttaque; i++)
+        if ($("#o_attaque" + i).length) attaques.push($("#o_attaque" + i).spinner("value"));
+    }
+    // si attaques n'est pas vide c'est qu'on parametre soit meme les floods
+    // si la methode est uniforme ou degressive on utilise que le nbAttaque dans le tableau
+    let indSupp = $("input[name='o_suppAttaque']:checked").length
+      ? $("input[name='o_suppAttaque']:checked").attr("id").replace("o_suppAttaque", "")
+      : -1;
+    let simulation = this._armee.simulerFlood(
+      tdcAtt,
+      tdcCible,
+      methode,
+      attaques,
+      $("#o_attaque1").spinner("value"),
+      methode == "2" || methode == "3"
+        ? Math.min($("input[id^='o_attaque']").length, this._nbAttaque)
+        : this._nbAttaque,
+      indSupp,
+      {
+        base: p["degressifBase"].valeur > 0 ? p["degressifBase"].valeur : 20,
+        regle: p["degressifRegle"].valeur == 1 ? "ecart" : "restant",
+        premiere: this._saisieDegressive == 1 ? $("#o_attaque1").spinner("value") : null,
+      },
+    );
+    // le jeu prend au plus 20 % du TdC de la cible, et rien hors de portée :
+    // une attaque arrivée après que la cible en est sortie est à 0 %
+    let prendre = (/** @type {Number} */ envoi) => {
+        if (!(envoi > 0) || !Utils.aPortee(tdcCible, tdcAtt)) return 0;
+        let prise = Math.min(envoi, Math.floor(tdcCible * 0.2)),
+          pourcent = Math.round((prise * 100) / tdcCible);
+        tdcAtt += prise;
+        tdcCible -= prise;
+        return pourcent;
+      },
+      // ligne 0 : l'antisonde ; TdC de chacun après cette attaque
+      afficher = (/** @type {Number} */ i, /** @type {Number} */ pourcent) => {
+        $("#o_pourcentAttaque" + i).text(numeral(pourcent).format());
         $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(3)").text(numeral(tdcAtt).format());
         $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(4)").text(numeral(tdcCible).format());
-      }
-      // attaques en trop : retirées en Optimisée, qui en fixe le nombre ; à 0
-      // sinon, pour garder le nombre choisi (unités épuisées, réserve agrandie)
-      let lignes = $("input[id^='o_attaque']").length;
-      if (methode == "1")
-        for (let n = lignes - (simulation.length - 1); n > 0; n--) this.supprimerAttaque();
-      else
-        for (let i = simulation.length; i <= lignes; i++) {
-          $("#o_attaque" + i).spinner("value", 0);
-          $("#o_pourcentAttaque" + i).text(0);
-          $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(3)").text(numeral(tdcAtt).format());
-          $("#o_simulationFlood tr:eq(" + (i + 2) + ") td:eq(4)").text(numeral(tdcCible).format());
-        }
+      };
+    afficher(0, prendre(simulation[0]));
+    for (let i = 1; i < simulation.length; i++) {
+      if (!$("#o_attaque" + i).length) this.ajouterAttaque(true);
+      $("#o_attaque" + i).spinner("value", simulation[i]);
+      afficher(i, prendre(simulation[i]));
     }
+    // attaques en trop : retirées en Optimisée, qui en fixe le nombre ; à 0
+    // sinon, pour garder le nombre choisi (unités épuisées, réserve agrandie)
+    let lignes = $("input[id^='o_attaque']").length;
+    if (methode == "1")
+      for (let n = lignes - (simulation.length - 1); n > 0; n--) this.supprimerAttaque();
+    else
+      for (let i = simulation.length; i <= lignes; i++) {
+        $("#o_attaque" + i).spinner("value", 0);
+        afficher(i, 0);
+      }
+  }
+  /**
+   * Lignes d'attaque manquantes jusqu'au nombre proposé (Préférences →
+   * Attaque), dans la limite des créneaux libres.
+   *
+   * @private
+   * @method proposerAttaques
+   */
+  proposerAttaques() {
+    let proposees = Math.max(1, parseInt(monProfil.parametre["floodAttaques"].valeur) || 3);
+    for (
+      let i = $("input[id^='o_attaque']").length + 1;
+      i < Math.min(proposees + 1, this._nbAttaque);
+      i++
+    )
+      this.ajouterAttaque(true);
   }
   /**
    *

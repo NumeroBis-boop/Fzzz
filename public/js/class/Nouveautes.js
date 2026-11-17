@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.125.2",
+    notes: [
+      "Lanceur de Flood : changer de méthode recalcule de nouveau les troupes quand la cible est hors de portée avec les TdC des champs (TdC à l'impact par exemple) ; « Hors de portée » s'affiche alors à côté des TdC.",
+      "Une attaque qui ne prendrait rien (cible déjà hors de portée) affiche 0 % au lieu de la part de l'attaque précédente, et en quittant Optimisée le nombre d'attaques proposé revient.",
+    ],
+  },
+  {
     version: "1.125.1",
     notes: [
       "Lanceur de Flood : « Relire » du TdC actuel refait aussi le TdC à l'impact à partir des TdC relus, sans relire le forum ; le TdC relu de la cible est celui noté dans le partage au lancement.",

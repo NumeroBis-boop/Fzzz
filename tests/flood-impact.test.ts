@@ -184,6 +184,9 @@ describe("TdC à l'impact : calcul", () => {
 // auto : option « TdC à l'impact dès l'ouverture » cochée ; tdc : TdC lus à l'ouverture
 function ouvrir(auto = false, tdc = { moi: 60000, cible: 100000 }) {
   page.lire(`(() => {
+    // lanceur du test précédent : sa mise à jour de chaque seconde écrirait
+    // ses TdC à l'impact dans la page de ce test
+    if (window.p && p._suiviImpact) clearInterval(p._suiviImpact);
     localStorage.clear();
     if (!window.AJAX_ORIGINE) window.AJAX_ORIGINE = $.ajax;
     $.ajax = AJAX_ORIGINE;
@@ -210,7 +213,12 @@ function ouvrir(auto = false, tdc = { moi: 60000, cible: 100000 }) {
     p.formulaireFlood();
   })()`);
 }
-const attendre = () => new Promise((r) => setTimeout(r, 30));
+// fin des lectures en cours (TdC à l'impact, « Relire » du TdC actuel) : leurs
+// promesses plutôt qu'un délai fixe, trop court quand toute la suite tourne
+const attendre = async () => {
+  await page.lire(`p._lectureImpact`);
+  await page.lire(`p._lectureActuel`);
+};
 const texte = (s: string) =>
   page
     .lire<string>(`$(${JSON.stringify(s)}).text()`)
@@ -287,6 +295,32 @@ describe("TdC à l'impact : lanceur de flood", () => {
     expect(texte(".o_floodHorsPortee")).toBe(
       "Hors portée à l'impact : le flood ne prendrait rien.",
     );
+  });
+
+  test("option « dès l'ouverture », cible hors de portée à l'impact : changer de méthode recalcule quand même", async () => {
+    // à portée à l'ouverture (36 000 contre 60 000), plus à l'impact : avant,
+    // les montants restaient ceux de l'ouverture, quelle que soit la méthode
+    ouvrir(true, { moi: 60000, cible: 36000 });
+    await attendre();
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([64700, 27000]);
+    expect(texte(".o_floodPortee")).toBe("Hors de portée");
+    const attaques = () =>
+      page.lire<number[]>(`[1, 2, 3].map((i) => $("#o_attaque" + i).spinner("value"))`);
+    page.lire(`$("#o_methodeFlood").val("3").trigger("change")`);
+    expect(attaques()).toEqual([5400, 4320, 3456]);
+    expect(page.lire(`[1, 2, 3].map((i) => $("#o_pourcentAttaque" + i).text())`)).toEqual([
+      "0",
+      "0",
+      "0",
+    ]);
+    page.lire(`$("#o_methodeFlood").val("2").trigger("change")`);
+    expect(attaques()).toEqual([5400, 5400, 5400]);
+    // retour au TdC actuel d'un clic : de nouveau à portée
+    page.lire(`$(".o_tdcActuel[data-champ='o_floodTDCA']").click()`);
+    page.lire(`$(".o_tdcActuel[data-champ='o_floodTDCB']").click()`);
+    expect(texte(".o_floodPortee")).toBe("");
   });
 
   test("option « dès l'ouverture » : lu sans clic, mis dans les champs, flood recalculé", async () => {

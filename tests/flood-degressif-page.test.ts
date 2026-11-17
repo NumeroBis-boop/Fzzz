@@ -52,6 +52,17 @@ const garderEnPlus = (n: number) =>
     $b.find(".o_gardeesNombre:first").spinner("value", ${n});
   })()`);
 const nombre = (n: number) => page.lire<string>(`numeral(${n}).format()`);
+// part prise par l'antisonde (0) et chaque attaque, en %
+const pourcents = () =>
+  page.lire<string[]>(`[0, 1, 2, 3].map((i) => $("#o_pourcentAttaque" + i).text())`);
+// TdC de moi et de la cible après la ligne i (0 : antisonde)
+const apres = (i: number) =>
+  page.lire<string[]>(
+    `$("#o_simulationFlood tr:eq(${i + 2}) td").slice(3, 5).map((k, td) => td.textContent).get()`,
+  );
+const portee = () => page.lire<string>(`$("#o_simulationFlood .o_floodPortee").text()`);
+const changerMethode = (methode: number) =>
+  page.lire(`$("#o_methodeFlood").val("${methode}").trigger("change")`);
 
 describe("page d'attaque : flood dégressif réglable", () => {
   test("préférences par défaut : 20 % du TdC restant, comme avant", () => {
@@ -219,6 +230,44 @@ describe("page d'attaque : flood dégressif réglable", () => {
     // même modifiées par programme, les attaques prévues ne changent pas
     garderEnPlus(400000);
     expect(page.lire<number>(`p._armee.repartition[1][0]`)).toBe(700000);
+  });
+
+  test("TdC des champs hors de portée : chaque méthode recalcule, rien n'est pris", () => {
+    ouvrir({ methodeFlood: 3 });
+    expect(portee()).toBe("");
+    // signalé le 17/11/2026 : TdC à l'impact de la cible sous la moitié du mien
+    // dans son champ, les montants restaient ceux d'avant, quelle que soit la méthode
+    page.lire(`$("#o_floodTDCB").spinner("value", 40000).trigger("input")`);
+    expect(portee()).toBe("Hors de portée");
+    expect(attaques()).toEqual([8000, 6400, 5120]);
+    expect(pourcents()).toEqual(["0", "0", "0", "0"]);
+    // l'antisonde et chaque attaque partent des TdC des champs, sans rien prendre
+    expect(apres(0)).toEqual([nombre(100000), nombre(40000)]);
+    expect(apres(3)).toEqual([nombre(100000), nombre(40000)]);
+    changerMethode(2);
+    expect(attaques()).toEqual([8000, 8000, 8000]);
+    page.lire(`$("#o_floodTDCB").spinner("value", 100000).trigger("input")`);
+    expect(portee()).toBe("");
+  });
+
+  test("attaque arrivée quand la cible est hors de portée : 0 %, pas la part de la précédente", () => {
+    ouvrir({ methodeFlood: 3 });
+    // 100 000 contre 100 000 : après deux attaques, 64 000 contre 136 000, sous la moitié
+    expect(attaques()).toEqual([20000, 16000, 12800]);
+    expect(pourcents()).toEqual(["0", "20", "20", "0"]);
+    expect(apres(2)).toEqual([nombre(136000), nombre(64000)]);
+    expect(apres(3)).toEqual([nombre(136000), nombre(64000)]);
+  });
+
+  test("en quittant Optimisée, le nombre d'attaques proposé revient", () => {
+    ouvrir({ methodeFlood: 1 });
+    // cible à la moitié de mon terrain : Optimisée ne garde qu'une attaque
+    page.lire(`$("#o_floodTDCB").spinner("value", 50000).trigger("input")`);
+    expect(page.lire<number>(`$("input[id^='o_attaque']").length`)).toBe(1);
+    changerMethode(3);
+    expect(attaques()).toEqual([10000, 8000, 6400]);
+    changerMethode(2);
+    expect(page.lire<number>(`$("input[id^='o_attaque']").length`)).toBe(3);
   });
 
   test("nombre d'attaques proposées réglable, dans la limite des créneaux", () => {

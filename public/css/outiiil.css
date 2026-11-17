@@ -3125,9 +3125,13 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   text-decoration: underline dotted;
   cursor: pointer;
 }
-#o_simulationFlood .o_floodHorsPortee {
+#o_simulationFlood .o_floodHorsPortee,
+#o_simulationFlood .o_floodPortee {
   color: var(--fzzz-erreur);
   font-weight: bold;
+}
+#o_simulationFlood .o_floodPortee {
+  text-align: center;
 }
 /* unités gardées au flood (lanceur, multi-flood, préférences) : une ligne
    par unité ; chaque ligne passe à la ligne sur téléphone */

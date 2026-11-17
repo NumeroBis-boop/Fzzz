@@ -482,6 +482,7 @@ class CommerceFzzz {
    * @method remplirMateriaux
    * @param {Number} du montant restant à livrer
    * @param {Number|null} [trajet] temps de trajet vers le destinataire (s), null si inconnu
+   * @return {Promise<void>|undefined} la lecture d'avant la récolte, quand l'option la fait
    */
   static remplirMateriaux(du, trajet = null) {
     if (!$("#input_nbMateriaux").length) return;
@@ -493,7 +494,7 @@ class CommerceFzzz {
       if (ecrit.reduit) $.toast({ ...TOAST_INFO, text: ecrit.reduit });
       return;
     }
-    CommerceFzzz.remplirAvantRecolte(du, libres, ecrit, trajet);
+    return CommerceFzzz.remplirAvantRecolte(du, libres, ecrit, trajet);
   }
   /**
    * Matériaux et ouvrières du convoi pour `libres` ouvrières disponibles.

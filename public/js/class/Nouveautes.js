@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.125.1",
+    notes: [
+      "Lanceur de Flood : « Relire » du TdC actuel refait aussi le TdC à l'impact à partir des TdC relus, sans relire le forum ; le TdC relu de la cible est celui noté dans le partage au lancement.",
+    ],
+  },
+  {
     version: "1.125.0",
     notes: [
       "Page d'attaque, Lanceur de Flood : sous le TdC à l'impact, une ligne « TdC actuel » pour revenir en arrière. Un clic sur un TdC le remet dans son champ (il ne suit plus l'impact) ; « Relire » relit le TdC actuel de la cible et le tien.",

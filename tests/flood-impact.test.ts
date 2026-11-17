@@ -181,16 +181,18 @@ describe("TdC à l'impact : calcul", () => {
 });
 
 // lanceur ouvert sur Cible (100 000 cm²), moi à 60 000 cm², 1 h de trajet ;
-// auto : option « TdC à l'impact dès l'ouverture » cochée
-function ouvrir(auto = false) {
+// auto : option « TdC à l'impact dès l'ouverture » cochée ; tdc : TdC lus à l'ouverture
+function ouvrir(auto = false, tdc = { moi: 60000, cible: 100000 }) {
   page.lire(`(() => {
     localStorage.clear();
+    if (!window.AJAX_ORIGINE) window.AJAX_ORIGINE = $.ajax;
+    $.ajax = AJAX_ORIGINE;
     localStorage.setItem("outiiil_parametre", JSON.stringify({ reserveFlood: 0, reserveFloodAuto: false, methodeFlood: 0, floodImpactAuto: ${auto} }));
     window.monProfil = new Joueur({ pseudo: "Moi" }).getParametre();
     monProfil.getTempsParcours2 = () => 3600;
-    document.body.innerHTML = '<span id="quantite_tdc">60000</span><table class="simulateur"></table>';
+    document.body.innerHTML = '<span id="quantite_tdc">${tdc.moi}</span><table class="simulateur"></table>';
     window.p = Object.create(PageAttaquer.prototype);
-    p._cible = { pseudo: "Cible", terrain: 100000, x: 0, y: 0, id: 5 };
+    p._cible = { pseudo: "Cible", terrain: ${tdc.cible}, x: 0, y: 0, id: 5 };
     p._armee = new Armee({ unite: { "Jeune Soldate Naine": 1000000 } });
     p._armee.envoyerFlood = () => {};
     p._nbAttaque = 4;
@@ -279,8 +281,8 @@ describe("TdC à l'impact : lanceur de flood", () => {
   });
 
   test("cible hors portée à l'impact : mention en rouge", async () => {
-    ouvrir();
-    page.lire(`p._cible.terrain = 25000; $(".o_floodImpactLire").click()`);
+    ouvrir(false, { moi: 60000, cible: 25000 });
+    page.lire(`$(".o_floodImpactLire").click()`);
     await attendre();
     expect(texte(".o_floodHorsPortee")).toBe(
       "Hors portée à l'impact : le flood ne prendrait rien.",
@@ -342,7 +344,7 @@ describe("TdC à l'impact : lanceur de flood", () => {
   });
 
   test("flood d'un autre membre hors portée à l'impact : il ne compte pas (TdC lu sur la page Membres)", async () => {
-    ouvrir();
+    ouvrir(false, { moi: 130008, cible: 81824 });
     // moi à 130 008, ma chasse de +40 433 (Ressources, 10h20), trois floods de
     // Lanceur (232 643 sur la page Membres) sur moi à 10h30 : le 3e est hors
     // portée (moi 109 083, lui 294 001) ; compté à 20 %, j'étais à 87 267
@@ -357,8 +359,6 @@ describe("TdC à l'impact : lanceur de flood", () => {
       lanceur: "Lanceur",
     }));
     page.lire(`(() => {
-      $("#quantite_tdc").text("130008");
-      p._cible.terrain = 81824;
       AttaqueLancee.extraireLignes = () => [];
       window.aPartager = PageRessource.aPartager;
       PageRessource.aPartager = () => [{ impact: moment("2026-11-09 10:20", "YYYY-MM-DD HH:mm"), terrain: 40433 }];
@@ -447,6 +447,69 @@ describe("TdC à l'impact : lanceur de flood", () => {
     await attendre();
     expect(texte(".o_floodActuelInfo")).toBe("TdC actuel illisible : réessayer");
     expect(page.lire(`$(".o_floodActuelLire").length`)).toBe(1);
+    page.lire(`heure -= 4 * 60000;`);
+  });
+
+  // page du membre visé, lue par « Relire » de la ligne « TdC actuel » : Cible à
+  // 95 000 cm², moi à 61 000 cm² (encart de la page), 4 min après l'ouverture
+  const relireActuel = () =>
+    page.lire(`(() => {
+      $.ajax = (o) => /Membre\.php/.test(o.url) ? Promise.resolve(
+        "<div><div id='data' style='display:none'><div id='quantite_tdc'>61000</div></div>" +
+        "<table class='tableau_score'><tr><td>Score</td></tr><tr><td>Terrain</td><td>95 000</td></tr></table></div>") : AJAX_ORIGINE(o);
+      heure += 4 * 60000;
+      $(".o_floodActuelLire").click();
+    })()`);
+
+  test("« Relire » du TdC actuel : le TdC à l'impact repart des TdC relus, sans relire les partages", async () => {
+    ouvrir();
+    page.lire(`$(".o_floodImpactLire").click()`);
+    await attendre();
+    expect(page.lire(`$(".o_tdcImpact").map((i, e) => e.dataset.valeur).get()`)).toEqual([
+      "64700",
+      "91000",
+    ]);
+    const lues = page.lire<number>(`lectures`);
+    relireActuel();
+    await attendre();
+    // impact à 11h05 : mêmes mouvements, depuis 61 000 et 95 000
+    expect(page.lire<number>(`lectures`)).toBe(lues);
+    expect(page.lire(`$(".o_tdcImpact").map((i, e) => e.dataset.valeur).get()`)).toEqual([
+      "65700",
+      "86000",
+    ]);
+    expect(texte(".o_floodImpact")).toBe("65 700 (+4 700)86 000 (-9 000)");
+    expect(texte(".o_floodImpactInfo")).toBe("TdC à l'impact (09/11 11h05) · Relire");
+    // au lancement avec la valeur à l'impact, les partages gardent le TdC relu
+    page.lire(`$(".o_tdcImpact[data-champ='o_floodTDCB']").click(); $("#o_lanceFlood").click();`);
+    expect(page.lire(`AttaqueLancee.contexteFlood.terrain`)).toBe(95000);
+    page.lire(`heure -= 4 * 60000;`);
+  });
+
+  test("« Relire » avant le calcul : le TdC à l'impact part des TdC relus", async () => {
+    ouvrir();
+    relireActuel();
+    await attendre();
+    page.lire(`$(".o_floodImpactLire").click()`);
+    await attendre();
+    expect(page.lire(`$(".o_tdcImpact").map((i, e) => e.dataset.valeur).get()`)).toEqual([
+      "65700",
+      "86000",
+    ]);
+    page.lire(`heure -= 4 * 60000;`);
+  });
+
+  test("option « dès l'ouverture » : après « Relire », les champs qui suivent l'impact prennent le nouveau", async () => {
+    ouvrir(true);
+    await attendre();
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([64700, 91000]);
+    relireActuel();
+    await attendre();
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([65700, 86000]);
     page.lire(`heure -= 4 * 60000;`);
   });
 

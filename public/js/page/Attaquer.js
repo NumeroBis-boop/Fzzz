@@ -836,16 +836,8 @@ class PageAttaquer {
         );
       })
       .then(({ d, tdc }) => {
-        this._simImpact = PartageChasses.simuler(
-          d,
-          PartageChasses.tdcConnus(tdc, {
-            [monProfil.pseudo]: Utils.terrain,
-            [this._cible.pseudo]: this._cible.terrain,
-          }),
-          this._ouverture,
-        );
-        this._minuteImpact = null;
-        this.afficherImpact();
+        this._partagesImpact = { d, tdc };
+        this.simulerImpact();
         if (!this._suiviImpact) this._suiviImpact = setInterval(() => this.afficherImpact(), 1000);
       })
       .catch(() =>
@@ -857,6 +849,31 @@ class PageAttaquer {
         mesure.fin();
         this._lectureImpact = null;
       });
+  }
+  /**
+   * TdC à l'impact depuis les TdC actuels (ouverture de la page, ou dernier
+   * « Relire » de la ligne « TdC actuel ») et les partages déjà lus, sans requête.
+   *
+   * @private
+   * @method simulerImpact
+   */
+  simulerImpact() {
+    let base = this._actuel || {
+        moi: Utils.terrain,
+        cible: this._cible.terrain,
+        lu: this._ouverture,
+      },
+      { d, tdc } = this._partagesImpact;
+    this._simImpact = PartageChasses.simuler(
+      d,
+      PartageChasses.tdcConnus(tdc, {
+        [monProfil.pseudo]: base.moi,
+        [this._cible.pseudo]: base.cible,
+      }),
+      base.lu,
+    );
+    this._minuteImpact = null;
+    this.afficherImpact();
   }
   /**
    * TdC à l'impact d'un flood lancé maintenant (minute du RC), recalculés
@@ -916,7 +933,7 @@ class PageAttaquer {
   }
   /**
    * « Relire » de la ligne « TdC actuel » : la page du membre visé, au clic,
-   * donne son TdC et le mien (encart de la page).
+   * donne son TdC et le mien (encart de la page) ; le TdC à l'impact en repart.
    *
    * @private
    * @method lireActuel
@@ -937,7 +954,10 @@ class PageAttaquer {
           cible: cible.terrain,
           lu: Horloge.serveur(),
         };
+        // le plus frais : celui que les partages gardent au lancement
+        this._cible.terrain = cible.terrain;
         this.afficherActuel();
+        if (this._partagesImpact) this.simulerImpact();
       })
       .catch(() =>
         $("#o_simulationFlood .o_floodActuelInfo").html(

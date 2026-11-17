@@ -363,11 +363,10 @@ describe("mes floods : la prise de la synthèse, sinon les troupes", () => {
     lire(
       `CommerceFzzz.attaquesArmee(${JSON.stringify(html)}, ["chasses déjà lues"]).then((r) => (window.FLOODS = r))`,
     );
-  const attendre = () => new Promise((r) => setTimeout(r, 20));
 
   test("prise de la synthèse ; sans elle, les troupes (le plus qu'il puisse prendre) ; renforts ignorés", async () => {
     synthese({ 501: { prise: 4000 } });
-    floods(
+    await floods(
       ARMEE(
         ATTAQUE(501, "Cible", 1830, TROUPES("5 000 Jeunes Soldates Naines", "14h30")) +
           ATTAQUE(502, "Autre", 3010, TROUPES("20 000 Jeunes Soldates Naines", "14h50")) +
@@ -375,7 +374,6 @@ describe("mes floods : la prise de la synthèse, sinon les troupes", () => {
           ATTAQUE(504, "Golf", 4000),
       ),
     );
-    await attendre();
     expect(lire(`FLOODS`)).toEqual({
       liste: [
         { arrivee: a("14:30:30"), terrain: 4000 },
@@ -390,18 +388,17 @@ describe("mes floods : la prise de la synthèse, sinon les troupes", () => {
 
   test("flood hors de portée à l'impact : 0 cm²", async () => {
     synthese({ 501: { prise: 0 } });
-    floods(ARMEE(ATTAQUE(501, "Cible", 1830, TROUPES("5 000 Jeunes Soldates Naines", "14h30"))));
-    await attendre();
+    await floods(
+      ARMEE(ATTAQUE(501, "Cible", 1830, TROUPES("5 000 Jeunes Soldates Naines", "14h30"))),
+    );
     expect(lire(`FLOODS.liste`)).toEqual([{ arrivee: a("14:30:30"), terrain: 0 }]);
   });
 
   test("pas une page Armée (connexion) : signalé ; aucune attaque : synthèse pas calculée", async () => {
     synthese();
-    floods("<html>connexion</html>");
-    await attendre();
+    await floods("<html>connexion</html>");
     expect(lire(`FLOODS`)).toEqual({ liste: [], inconnues: 0, lue: false });
-    floods(ARMEE(RENFORT(503, 600)));
-    await attendre();
+    await floods(ARMEE(RENFORT(503, 600)));
     expect(lire(`[FLOODS, MOUV.appels.length]`)).toEqual([
       { liste: [], inconnues: 0, lue: true },
       0,
@@ -446,15 +443,13 @@ describe("clic sur un montant du Récapitulatif", () => {
       `["#input_nbMateriaux", "#nbMateriaux", "#input_nbOuvriere", "#nbOuvriere"].map((s) => String($(s).val()))`,
     );
   const toast = () => espaces(lire<string[]>(`TOASTS`)[0]!);
-  const attendre = () => new Promise((r) => setTimeout(r, 30));
 
   test("option décochée (par défaut) : remplissage habituel, aucune page lue", async () => {
     option(false);
     expect(lire(`new Joueur({ pseudo: "X" }).parametre["convoisAvantRecolte"].valeur`)).toBe(false);
     ouvrirConvois();
     pages(RESSOURCES());
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     // 1 000 libres × 20 = 20 000, moins 1 000 de nourriture
     expect(champs()).toEqual(["19000", "19000", "1000", "1000"]);
     expect(lire(`LECTURES`)).toEqual([]);
@@ -469,10 +464,10 @@ describe("clic sur un montant du Récapitulatif", () => {
     synthese();
     pages(RESSOURCES());
     // destinataire à 40 min : convoi lancé d'ici 14h05, de retour à 14h45
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
+    const lecture = lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     // d'abord le remplissage habituel, sans message
     expect(champs()).toEqual(["19000", "19000", "1000", "1000"]);
-    await attendre();
+    await lecture;
     expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Armee.php"]);
     // 15 000 + 10 000 (Alpha, de retour à 14h20:30) − 14 000 ; Bravo (14h30:10) trop tard
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
@@ -491,16 +486,14 @@ describe("clic sur un montant du Récapitulatif", () => {
       ARMEE(ATTAQUE(501, "Cible", 2400, TROUPES("9 000 Jeunes Soldates Naines", "14h40"))),
     );
     // destinataire à 2 h : récoltes de 14h30 à 16h00
-    lire(`CommerceFzzz.remplirMateriaux(300000, 7200)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 7200)`);
     // 15h00 : 15 000 + 17 500 − 14 000 − 9 000 (flood de 14h40)
     expect(champs()).toEqual(["189000", "189000", "9500", "9500"]);
     expect(toast()).toBe(
       "Récolte de 15h00 : 8 500 ouvrières de plus pour le convoi (comptées : 17 500 de retour de convoi ; terrain gagné d'ici là : 9 000 cm² de tes floods). Matériaux réduits à 189 000 sur 300 000 : ouvrières à garder pour exploiter le terrain. Valable si tu lances le convoi d'ici 14h05.",
     );
     // destinataire à 40 min : de retour avant 15h00, le flood ne change rien
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
   });
 
@@ -510,8 +503,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     synthese();
     pages(RESSOURCES());
     // destinataire à 10 min : de retour à 14h15
-    lire(`CommerceFzzz.remplirMateriaux(300000, 600)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 600)`);
     expect(champs()).toEqual(["299000", "299000", "15000", "15000"]);
     expect(toast()).toBe(
       "Le convoi revient au moins une minute avant la prochaine récolte : toutes tes ouvrières présentes peuvent partir. Matériaux réduits à 299 000 sur 300 000 : pas assez d'ouvrières. Valable si tu lances le convoi d'ici 14h05.",
@@ -523,8 +515,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     ouvrirConvois();
     synthese();
     pages(RESSOURCES());
-    lire(`CommerceFzzz.remplirMateriaux(300000)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000)`);
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
     expect(toast()).not.toContain("Valable si");
   });
@@ -534,8 +525,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     ouvrirConvois(2);
     synthese();
     pages(RESSOURCES(1800, "rien"), false, ARMEE(ATTAQUE(504, "Golf", 4000)));
-    lire(`CommerceFzzz.remplirMateriaux(100000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(100000, 2400)`);
     const texte = toast();
     expect(texte).toContain(
       "Sans affectation automatique des ouvrières (Compte+ réglé sur Nourriture ou Matériaux, page Ressources), affecte toi-même celles qui arrivent avant chaque récolte.",
@@ -550,13 +540,11 @@ describe("clic sur un montant du Récapitulatif", () => {
     synthese();
     ouvrirConvois(0, true);
     pages(RESSOURCES());
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(lire(`LECTURES`)).toEqual(["/Ressources.php"]);
     ouvrirConvois(1, true);
     pages(RESSOURCES());
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Armee.php"]);
   });
 
@@ -565,8 +553,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     ouvrirConvois(1);
     synthese();
     pages(RESSOURCES(), false, false);
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
     expect(toast()).toContain(
       "Page Armée illisible : le terrain de tes floods en cours n'est pas compté.",
@@ -580,8 +567,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     // plus de convoi en cours : seule la chasse compte (arrivée à 14h10)
     lire(`$("#centre strong, #centre small").remove()`);
     pages(RESSOURCES(1800, "materiaux", CHASSE(7, "500", 600)));
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["9000", "9000", "500", "500"]);
     expect(toast()).toBe(
       "Récolte de 14h30 : 500 ouvrières de moins pour le convoi, gardées pour exploiter ton terrain (500 cm² de chasses compris). Matériaux réduits à 9 000 sur 300 000 : ouvrières à garder pour exploiter le terrain. Valable si tu lances le convoi d'ici 14h05.",
@@ -593,8 +579,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     ouvrirConvois();
     synthese();
     pages(RESSOURCES(), true);
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["19000", "19000", "1000", "1000"]);
     expect(toast()).toBe(
       "Ouvrières d'avant la récolte non comptées (le jeu traitait une autre action) : remplissage habituel. Matériaux réduits à 19 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
@@ -606,8 +591,9 @@ describe("clic sur un montant du Récapitulatif", () => {
     ouvrirConvois();
     synthese();
     pages(RESSOURCES());
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400); $("#input_nbMateriaux").val("5000")`);
-    await attendre();
+    const lecture = lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
+    lire(`$("#input_nbMateriaux").val("5000")`);
+    await lecture;
     expect(champs()[0]).toBe("5000");
     expect(toast()).toContain("Champs du convoi changés entre-temps : non réécrits.");
   });
@@ -617,16 +603,15 @@ describe("clic sur un montant du Récapitulatif", () => {
     ouvrirConvois();
     synthese();
     pages(RESSOURCES());
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400); CommerceFzzz.remplirMateriaux(50000, 2400)`);
-    await attendre();
+    await lire(
+      `Promise.all([CommerceFzzz.remplirMateriaux(300000, 2400), CommerceFzzz.remplirMateriaux(50000, 2400)])`,
+    );
     expect(lire<string[]>(`TOASTS`).length).toBe(1);
     expect(champs()).toEqual(["50000", "50000", "2550", "2550"]);
-    lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(lire(`LECTURES`).length).toBe(2);
     // une minute plus tard : relues
-    lire(`NOW += 60000; CommerceFzzz.remplirMateriaux(300000, 2400)`);
-    await attendre();
+    await lire(`NOW += 60000; CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(lire(`LECTURES`).length).toBe(4);
     lire(`NOW -= 60000`);
   });

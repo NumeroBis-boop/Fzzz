@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.126.0",
+    notes: [
+      "L'extension marche maintenant sur les serveurs s1 à s5. Le suivi des convois de la OUAF reste sur le s5.",
+      "Sur un autre serveur, une alliance qui veut partager ses floods et ses chasses crée dans son forum la section « BDD partagée cachée » et les mêmes sujets que la OUAF.",
+    ],
+  },
+  {
     version: "1.125.2",
     notes: [
       "Lanceur de Flood : changer de méthode recalcule de nouveau les troupes quand la cible est hors de portée avec les TdC des champs (TdC à l'impact par exemple) ; « Hors de portée » s'affiche alors à côté des TdC.",

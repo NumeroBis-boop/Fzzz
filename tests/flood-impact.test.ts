@@ -374,6 +374,82 @@ describe("TdC à l'impact : lanceur de flood", () => {
     ]);
   });
 
+  test("ligne « TdC actuel » : les TdC de l'ouverture, un clic remet la valeur et le forum la garde", async () => {
+    ouvrir();
+    expect(page.lire(`$(".o_tdcActuel").map((i, e) => e.dataset.valeur).get()`)).toEqual([
+      "60000",
+      "100000",
+    ]);
+    expect(texte(".o_floodActuelInfo")).toBe("TdC actuel (lu à 10h00) · Relire");
+    // sous le TdC à l'impact
+    expect(
+      page.lire(`$(".o_floodImpactInfo").closest("tr").nextAll().find(".o_floodActuel").length`),
+    ).toBe(2);
+    page.lire(`$(".o_floodImpactLire").click()`);
+    await attendre();
+    page.lire(`$(".o_tdcImpact[data-champ='o_floodTDCB']").click()`);
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(91000);
+    // retour au TdC actuel : le champ le reprend, le flood se recalcule
+    const avant = page.lire<number>(`preparations`);
+    page.lire(`$(".o_tdcActuel[data-champ='o_floodTDCB']").click()`);
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(100000);
+    expect(page.lire<number>(`preparations`)).toBe(avant + 1);
+    // au lancement, le forum garde ce TdC, même égal à une valeur à l'impact déjà cliquée
+    page.lire(`p._cible.terrain = 99000; $("#o_lanceFlood").click()`);
+    expect(page.lire(`AttaqueLancee.contexteFlood.terrain`)).toBe(100000);
+  });
+
+  test("option « dès l'ouverture » : un clic sur le TdC actuel arrête le suivi de l'impact", async () => {
+    ouvrir(true);
+    await attendre();
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(91000);
+    page.lire(`$(".o_tdcActuel[data-champ='o_floodTDCB']").click()`);
+    // 30 min plus tard, l'impact change : le champ garde le TdC actuel
+    page.lire(`heure += 30 * 60000; p.afficherImpact();`);
+    expect(
+      page.lire(`[$("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value")]`),
+    ).toEqual([62700, 100000]);
+    // un clic sur la valeur à l'impact : le champ la suit de nouveau
+    page.lire(`$(".o_tdcImpact[data-champ='o_floodTDCB']").click()`);
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(91000);
+    page.lire(`heure -= 30 * 60000;`);
+  });
+
+  test("« Relire » : la page du membre visé, lue au clic, donne son TdC et le mien", async () => {
+    ouvrir();
+    page.lire(`(() => {
+      window.profils = [];
+      $.ajax = (o) => (profils.push(o.url), Promise.resolve(
+        "<div><div id='data' style='display:none'><div id='quantite_tdc'>61000</div></div><div class='boite_membre'><a href='carte.php?x=3&y=4'>x=3 et y=4</a></div>" +
+        "<table class='tableau_score'><tr><td>Score</td></tr><tr><td>Terrain</td><td>95 000</td></tr></table></div>"));
+      heure += 4 * 60000;
+    })()`);
+    page.lire(`$(".o_floodActuelLire").click()`);
+    expect(texte(".o_floodActuelInfo")).toBe("TdC actuel (lu à 10h00) · Lecture…");
+    // un second clic pendant la lecture ne relit pas
+    page.lire(`$(".o_floodActuelInfo span").click()`);
+    await attendre();
+    expect(page.lire(`profils`)).toEqual(["https://s5.fourmizzz.fr/Membre.php?Pseudo=Cible"]);
+    expect(page.lire(`$(".o_tdcActuel").map((i, e) => e.dataset.valeur).get()`)).toEqual([
+      "61000",
+      "95000",
+    ]);
+    expect(texte(".o_floodActuel")).toBe("61 00095 000");
+    expect(texte(".o_floodActuelInfo")).toBe("TdC actuel (lu à 10h04) · Relire");
+    // les champs ne changent qu'au clic sur une valeur
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(100000);
+    page.lire(`$(".o_tdcActuel[data-champ='o_floodTDCB']").click()`);
+    expect(page.lire(`$("#o_floodTDCB").spinner("value")`)).toBe(95000);
+    // page illisible : message et nouvel essai possible
+    page.lire(
+      `$.ajax = () => Promise.reject(new Error("hors ligne")); $(".o_floodActuelLire").click()`,
+    );
+    await attendre();
+    expect(texte(".o_floodActuelInfo")).toBe("TdC actuel illisible : réessayer");
+    expect(page.lire(`$(".o_floodActuelLire").length`)).toBe(1);
+    page.lire(`heure -= 4 * 60000;`);
+  });
+
   test("case décochée : ni lien ni lignes, boutons sous le tableau", () => {
     page.lire(`localStorage.setItem("fzzz_affichage_floodImpact", "0")`);
     ouvrir();

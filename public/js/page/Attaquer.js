@@ -615,8 +615,10 @@ class PageAttaquer {
             <tr id="o_floodActions" class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
             ${
               Utils.affichage("floodImpact")
-                ? `<tr class="o_floodImpactLigne"><td colspan="3" rowspan="2" class="o_floodBoutonsCase"></td><td colspan="2" class="o_floodImpact"><span class="souligne cursor o_floodImpactLire">Calculer le TdC à l'impact</span></td></tr>
-            <tr class="o_floodImpactLigne"><td colspan="2" class="o_floodImpactInfo"></td></tr>`
+                ? `<tr class="o_floodImpactLigne"><td colspan="3" rowspan="4" class="o_floodBoutonsCase"></td><td colspan="2" class="o_floodImpact"><span class="souligne cursor o_floodImpactLire">Calculer le TdC à l'impact</span></td></tr>
+            <tr class="o_floodImpactLigne"><td colspan="2" class="o_floodImpactInfo"></td></tr>
+            <tr class="o_floodImpactLigne"><td class="o_floodActuel"></td><td class="o_floodActuel"></td></tr>
+            <tr class="o_floodImpactLigne"><td colspan="2" class="o_floodActuelInfo"></td></tr>`
                 : ""
             }
             </table>
@@ -733,7 +735,19 @@ class PageAttaquer {
         // valeur remise d'un clic : le champ suit de nouveau l'impact
         if (this._impactAttendu) this._impactAttendu[champ] = valeur;
         this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
+      })
+      .on("click", ".o_floodActuelLire", () => this.lireActuel())
+      .on("click", ".o_tdcActuel", (e) => {
+        let champ = e.currentTarget.dataset.champ;
+        $("#" + champ).spinner("value", Number(e.currentTarget.dataset.valeur));
+        // retour au TdC actuel : le champ ne suit plus l'impact, et le forum
+        // garde ce TdC au lancement
+        if (champ == "o_floodTDCB") this._tdcImpactCible = null;
+        if (this._impactAttendu) this._impactAttendu[champ] = null;
+        this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
       });
+    this._actuel = { moi: Utils.terrain, cible: this._cible.terrain, lu: this._ouverture };
+    this.afficherActuel();
     // option : lu dès l'ouverture (une lecture des partages, comme un clic) et
     // mis dans les champs, qui suivent l'impact tant que le joueur n'y touche pas
     if (monProfil.parametre["floodImpactAuto"]?.valeur) {
@@ -875,6 +889,62 @@ class PageAttaquer {
           : ""),
     );
     if (this._impactAttendu) this.remplirImpact(r);
+  }
+  /**
+   * Ligne « TdC actuel » sous le TdC à l'impact : les TdC lus à l'ouverture de
+   * la page ou au dernier « Relire », un clic remet l'un d'eux dans son champ.
+   *
+   * @private
+   * @method afficherActuel
+   */
+  afficherActuel() {
+    let a = this._actuel,
+      cellule = (
+        /** @type {Number} */ tdc,
+        /** @type {String} */ champ,
+        /** @type {String} */ nom,
+      ) =>
+        tdc > 0
+          ? `<span class='o_tdcActuel' data-champ='${champ}' data-valeur='${tdc}' title='Remettre ce TdC dans ${Utils.echapper(nom)}'>${numeral(tdc).format()}</span>`
+          : "?",
+      $cases = $("#o_simulationFlood .o_floodActuel");
+    $cases.eq(0).html(cellule(a.moi, "o_floodTDCA", "« Mon Terrain »"));
+    $cases.eq(1).html(cellule(a.cible, "o_floodTDCB", "le champ de " + this._cible.pseudo));
+    $("#o_simulationFlood .o_floodActuelInfo").html(
+      `TdC actuel (lu à ${a.lu ? moment(a.lu).format("HH[h]mm") : "?"}) · <span class='souligne cursor o_floodActuelLire'>Relire</span>`,
+    );
+  }
+  /**
+   * « Relire » de la ligne « TdC actuel » : la page du membre visé, au clic,
+   * donne son TdC et le mien (encart de la page).
+   *
+   * @private
+   * @method lireActuel
+   */
+  lireActuel() {
+    if (this._lectureActuel) return;
+    $("#o_simulationFlood .o_floodActuelLire")
+      .removeClass("souligne cursor o_floodActuelLire")
+      .text("Lecture…");
+    let cible = new Joueur({ pseudo: this._cible.pseudo });
+    this._lectureActuel = Promise.resolve(cible.getProfil())
+      .then((html) => {
+        let texte = String(html);
+        if (!cible.chargerProfil(texte) || !(cible.terrain > 0)) throw new Error("TdC illisible");
+        let moi = parseInt(Utils.parseHtml(texte).find("#quantite_tdc").text());
+        this._actuel = {
+          moi: moi > 0 ? moi : this._actuel.moi,
+          cible: cible.terrain,
+          lu: Horloge.serveur(),
+        };
+        this.afficherActuel();
+      })
+      .catch(() =>
+        $("#o_simulationFlood .o_floodActuelInfo").html(
+          "TdC actuel illisible : <span class='souligne cursor o_floodActuelLire'>réessayer</span>",
+        ),
+      )
+      .then(() => (this._lectureActuel = null));
   }
   /**
    * TdC de moi et de la cible à une minute d'impact, d'après une simulation

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.125.0",
+    notes: [
+      "Page d'attaque, Lanceur de Flood : sous le TdC à l'impact, une ligne « TdC actuel » pour revenir en arrière. Un clic sur un TdC le remet dans son champ (il ne suit plus l'impact) ; « Relire » relit le TdC actuel de la cible et le tien.",
+    ],
+  },
+  {
     version: "1.124.1",
     notes: [
       "Encart « S5 Pseudo » : un entrepôt en construction compte dans le temps avant qu'il soit plein. Sa nouvelle capacité s'applique à la fin de la construction (vue dans l'encart Compte+ du jeu ou sur la page Construction), et l'info-bulle le dit.",

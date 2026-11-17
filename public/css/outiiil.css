@@ -3110,11 +3110,17 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   padding: 4px 0;
 }
 #o_simulationFlood .o_floodImpact,
-#o_simulationFlood .o_floodImpactInfo {
+#o_simulationFlood .o_floodImpactInfo,
+#o_simulationFlood .o_floodActuel,
+#o_simulationFlood .o_floodActuelInfo {
   vertical-align: top;
   text-align: center;
 }
-#o_simulationFlood .o_tdcImpact {
+#o_simulationFlood .o_floodActuel {
+  padding-top: 8px;
+}
+#o_simulationFlood .o_tdcImpact,
+#o_simulationFlood .o_tdcActuel {
   font-weight: bold;
   text-decoration: underline dotted;
   cursor: pointer;

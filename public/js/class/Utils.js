@@ -143,7 +143,7 @@ const AFFICHAGES_FZZZ = {
     "Info-bulle des statistiques de l'armée choisie (vie, attaque, défense, nombre) au survol du tableau des unités (page d'attaque)",
   lanceurFlood: "Bloc « Lanceur de Flood » (page d'attaque)",
   floodImpact:
-    "Lanceur de Flood : ton TdC et celui de la cible à l'impact (lien « Calculer le TdC à l'impact »), un clic les met dans leur champ",
+    "Lanceur de Flood : ton TdC et celui de la cible à l'impact (lien « Calculer le TdC à l'impact ») et le TdC actuel (« Relire » le relit), un clic les met dans leur champ",
   ennemisFiltre:
     "Bloc « Filtrer la liste » de la page Ennemies (filtre, « Charger toutes les pages », « Afficher tous les joueurs »)",
   ennemisTemps: "Colonne « Temps » (temps de trajet) de la page Ennemies",

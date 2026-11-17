@@ -41,7 +41,7 @@ Les archives à installer s'obtiennent de deux façons :
 2. Ouvre `chrome://extensions` (Edge : `edge://extensions`).
 3. Active le **Mode développeur** (interrupteur en haut à droite ; sur Edge, dans la colonne de gauche).
 4. Clique **Charger l'extension non empaquetée** et choisis le dossier décompressé, celui qui contient `manifest.json`.
-5. Ouvre ou recharge une page de `s5.fourmizzz.fr` : la boîte « Fzzz 1.0 » apparaît dans la colonne de gauche.
+5. Ouvre ou recharge une page d'un serveur de jeu (`s1.fourmizzz.fr` à `s5.fourmizzz.fr`) : la boîte « Fzzz 1.0 » apparaît dans la colonne de gauche.
 
 **Mise à jour** : décompresse la nouvelle version **dans le même dossier** en remplaçant les fichiers, puis clique l'icône ↻ de Fzzz dans `chrome://extensions`.
 

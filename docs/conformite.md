@@ -1,6 +1,7 @@
 # Conformité au règlement
 
 Source : règlement du s5 (sections C1, C2, C3, E3), transmis par le joueur le 2026-10-24.
+Le mainteneur a confirmé le 17/11/2026 que ce règlement s'applique sur tous les serveurs (l'extension marche sur les serveurs s1 à s5).
 Principe du règlement : **« L'optimisation est autorisée, pas l'automatisation. »**
 
 ## Ce que le règlement autorise explicitement (C2, C3)

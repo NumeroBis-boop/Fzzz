@@ -2,14 +2,14 @@
 
 > Nom technique : **Fzzz** (dépôt, identifiant Firefox `fzzz@numerobis-boop.github.io`, clés de stockage). La section cachée du forum d'alliance s'appelle « BDD partagée cachée » (anciennement « Fzzz-Chasses », nom encore reconnu). Les joueurs voient « Extension OUAF » depuis la version 1.41.
 
-Extension navigateur de l'alliance OUAF pour [Fourmizzz](http://www.fourmizzz.fr) (serveur s5), pour Chrome, Edge, Brave et Firefox (PC et Android).
+Extension navigateur de l'alliance OUAF pour [Fourmizzz](http://www.fourmizzz.fr) (serveurs s1 à s5 ; le suivi des convois de la OUAF, sur le s5 seulement), pour Chrome, Edge, Brave et Firefox (PC et Android).
 
 Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-même fork et maintenance d'[Outiiil](https://github.com/Hraesvelg/Outiiil) (Hraesvelg). La base est celle de Toolzzz 3.12.3, que nous améliorons pour l'alliance.
 
 ## Différences avec Toolzzz
 
 - Nom, identifiant Firefox (`fzzz@numerobis-boop.github.io`) et liens propres : Fzzz peut être installé à côté de Toolzzz, mais **il faut désactiver l'un des deux**, sinon les deux s'injectent dans les mêmes pages.
-- **Conformité au règlement du s5** (voir [docs/conformite.md](docs/conformite.md)) :
+- **Conformité au règlement du s5**, le même sur tous les serveurs (voir [docs/conformite.md](docs/conformite.md)) :
   - « Synchroniser » et « Sonder » n'envoient plus l'attaque tout seuls à la fin du compte à rebours. Ils affichent le décompte, puis mettent en évidence le bouton Lancer : **le clic final appartient au joueur**.
   - L'actualisation automatique du chat (une requête toutes les 5 s) est retirée.
 - **Retiré** : l'utilitaire d'alliance (stockage partagé dans le forum : commandes de convois, rangs et fiches SDC, onglet « Utilitaire » des paramètres), le lanceur de ponte de la barre d'outils, et les boutons Colonne, Copier, Copie simple, CSV et Excel de la liste des membres (seul « Synchroniser » reste).

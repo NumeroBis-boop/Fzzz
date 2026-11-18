@@ -500,10 +500,7 @@ class SuiviMembres {
       .then(({ url, manque }) => {
         // ligne présente, adresse illisible (message en cours d'écriture, lecture
         // ratée) : un échec, repris plus tard comme les autres
-        if (manque == "adresse")
-          throw new Error(
-            `pas d'adresse de script lisible à la ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} »`,
-          );
+        if (manque == "adresse") throw new Error(SuiviMembres.sansAdresse(manque));
         if (!url) {
           Journal.info(
             JOURNAL_SUIVI,
@@ -638,6 +635,8 @@ class SuiviMembres {
         ? `pas de sujet « ${TITRE_REGLAGES} » dans la section cachée du forum`
         : manque == "ligne"
           ? `pas de ligne « ${ligne} » dans le sujet « ${TITRE_REGLAGES} »`
-          : `pas d'adresse de script lisible à la ligne « ${ligne} » du sujet « ${TITRE_REGLAGES} »`;
+          : ReglagesAlliance.fichier("feuilleStats")
+            ? ReglagesAlliance.aideFichier("feuilleStats")
+            : `pas d'adresse de script lisible à la ligne « ${ligne} » du sujet « ${TITRE_REGLAGES} »`;
   }
 }

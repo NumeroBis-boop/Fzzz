@@ -994,7 +994,7 @@ class ExportRapports {
           adresse = autorise ? r.adresse : "";
         Journal.info(
           JOURNAL_EXPORT,
-          `forum lu : ${r.joueurs.length} joueur(s) dans la liste, toi ${autorise ? "dedans" : "hors liste"}, adresse de l'alliance ${r.adresse ? "postée" : "absente"}`,
+          `forum lu : ${r.joueurs.length} joueur(s) dans la liste, toi ${autorise ? "dedans" : "hors liste"}, adresse de l'alliance ${r.adresse ? "postée" : ReglagesAlliance.fichier("feuilleRc") ? "absente (adresse du fichier au lieu de celle de son script)" : "absente"}`,
         );
         // texte JSON : gardé tel quel par tous les gestionnaires de scripts
         return ExportRapports._garder(
@@ -1213,7 +1213,9 @@ class ExportRapports {
    */
   static sansAdresse(alliance, illisible) {
     return alliance
-      ? `l'adresse du Google Sheet de l'alliance manque dans le sujet « ${TITRE_REGLAGES} » du forum caché (ligne « ${REGLAGES_ALLIANCE.feuilleRc.nom} »)`
+      ? ReglagesAlliance.fichier("feuilleRc")
+        ? ReglagesAlliance.aideFichier("feuilleRc")
+        : `l'adresse du Google Sheet de l'alliance manque dans le sujet « ${TITRE_REGLAGES} » du forum caché (ligne « ${REGLAGES_ALLIANCE.feuilleRc.nom} »)`
       : illisible
         ? `le forum de l'alliance n'a pas pu être lu (sujet « ${TITRE_REGLAGES} »). Réessaie dans un instant`
         : `ton pseudo n'est pas dans la ligne « ${REGLAGES_ALLIANCE.autorisesRc.nom} » du sujet « ${TITRE_REGLAGES} » (forum caché) et aucune adresse de Google Sheet n'est renseignée dans Préférences → Partage de données`;

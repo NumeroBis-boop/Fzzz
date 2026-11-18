@@ -398,6 +398,20 @@ describe("annonce avant le premier envoi", () => {
     expect(await ouvrirPage()).toBe("annonce");
   });
 
+  test("adresse du fichier (docs.google.com) au lieu de celle de son script : l'échec dit quoi corriger", async () => {
+    lire(
+      `FORUM.sujets[0].messages = ["Google Sheet des stats membres : https://docs.google.com/spreadsheets/d/FichierInvente/edit?usp=sharing"]`,
+    );
+    expect(await ouvrirPage()).toBe("échec");
+    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
+      [
+        "relevé du 2026-11-12 non envoyé",
+        "la ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension » donne l'adresse du fichier (docs.google.com) au lieu de celle de son script, qui finit par /exec (dans le fichier : Extensions → Apps Script → Déployer → Gérer les déploiements)",
+      ],
+    ]);
+    expect([lues(), recus(), etat().fait]).toEqual([[], [], false]);
+  });
+
   test("« rien aujourd'hui » conclu par une autre version du script : revu à la page suivante ; par cette version : pas avant demain", async () => {
     const conclu = (plus: object) =>
       lire(

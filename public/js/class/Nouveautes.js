@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.129.1",
+    notes: [
+      "Réglages de l'alliance : une ligne « Google Sheet des RC » ou « Google Sheet des stats membres » qui donne l'adresse du fichier (docs.google.com) au lieu de celle de son script (…/exec) est maintenant signalée telle quelle, avec où trouver la bonne adresse (Préférences → Partage de données, export des RC, relevé des stats).",
+    ],
+  },
+  {
     version: "1.129.0",
     notes: [
       "Stats membres : une information qu'un joueur ne partage pas s'affiche sur fond rouge ; la légende sous le tableau l'explique.",

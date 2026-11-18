@@ -30,7 +30,8 @@ class ReglagesAlliance {
   /**
    * @static
    * @method vides
-   * @return {{siteConvois: String, feuilleRc: String, autorisesRc: Array<String>, feuilleStats: String, chasseurs: Array<String>, greniers: Array<String>, journal: Array<String>, lignes: Array<String>}}
+   * @return {{siteConvois: String, feuilleRc: String, autorisesRc: Array<String>, feuilleStats: String, chasseurs: Array<String>, greniers: Array<String>, journal: Array<String>, lignes: Array<String>, fichiers: Array<String>}}
+   *   fichiers : lignes de Google Sheet qui donnent l'adresse du fichier au lieu de celle de son script
    */
   static vides() {
     return {
@@ -42,6 +43,7 @@ class ReglagesAlliance {
       greniers: [],
       journal: [],
       lignes: [],
+      fichiers: [],
     };
   }
   /**
@@ -142,7 +144,37 @@ class ReglagesAlliance {
       let url = m ? m[0].replace(/[.,;)]+$/, "") : "";
       if (type == "sheet" ? ExportRapports.adresseValide(url) : ADRESSE_SITE.test(url))
         r[cle] = url;
+      // erreur vue le 18/11/2026 : le lien du fichier ne permet pas d'y écrire
+      else if (
+        type == "sheet" &&
+        /docs\.google\.com\/spreadsheets\//i.test(valeur) &&
+        !r.fichiers.includes(cle)
+      )
+        r.fichiers.push(cle);
     }
+  }
+  /**
+   * La ligne de ce Google Sheet donne-t-elle, à la dernière lecture, l'adresse
+   * du fichier (docs.google.com) au lieu de celle de son script ?
+   *
+   * @static
+   * @method fichier
+   * @param {String} cle "feuilleRc" ou "feuilleStats"
+   * @return {Boolean}
+   */
+  static fichier(cle) {
+    let g = ReglagesAlliance.garde(),
+      fichiers = g && g.reglages && g.reglages.fichiers;
+    return Array.isArray(fichiers) && fichiers.includes(cle);
+  }
+  /**
+   * @static
+   * @method aideFichier
+   * @param {String} cle "feuilleRc" ou "feuilleStats"
+   * @return {String} quoi corriger dans le sujet, et où trouver la bonne adresse
+   */
+  static aideFichier(cle) {
+    return `la ligne « ${REGLAGES_ALLIANCE[cle].nom} » du sujet « ${TITRE_REGLAGES} » donne l'adresse du fichier (docs.google.com) au lieu de celle de son script, qui finit par /exec (dans le fichier : Extensions → Apps Script → Déployer → Gérer les déploiements)`;
   }
   /**
    * @private
@@ -324,8 +356,14 @@ class ReglagesAlliance {
     if (!g.sujet)
       return `Lus ${quand} : pas de sujet « ${TITRE_REGLAGES} » dans la section cachée.`;
     let r = g.reglages,
-      liste = (/** @type {Array<String>} */ l) => numeral(l.length).format();
-    return `Lus ${quand} : site de suivi des convois ${r.siteConvois ? r.siteConvois.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "absent"} ; Google Sheet des RC ${r.feuilleRc ? "renseigné" : "absent"} (${liste(r.autorisesRc)} joueur(s) autorisé(s)) ; Google Sheet des stats membres ${r.feuilleStats ? "renseigné" : "absent"} ; ${liste(r.chasseurs)} chasseur(s), ${liste(r.greniers)} grenier(s), ${liste(r.journal)} au journal.`;
+      liste = (/** @type {Array<String>} */ l) => numeral(l.length).format(),
+      feuille = (/** @type {String} */ cle) =>
+        r[cle]
+          ? "renseigné"
+          : ReglagesAlliance.fichier(cle)
+            ? "à corriger : adresse du fichier au lieu de celle de son script (…/exec)"
+            : "absent";
+    return `Lus ${quand} : site de suivi des convois ${r.siteConvois ? r.siteConvois.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "absent"} ; Google Sheet des RC ${feuille("feuilleRc")} (${liste(r.autorisesRc)} joueur(s) autorisé(s)) ; Google Sheet des stats membres ${feuille("feuilleStats")} ; ${liste(r.chasseurs)} chasseur(s), ${liste(r.greniers)} grenier(s), ${liste(r.journal)} au journal.`;
   }
   /**
    * Relit les réglages à l'ouverture d'une page, au plus une fois par heure

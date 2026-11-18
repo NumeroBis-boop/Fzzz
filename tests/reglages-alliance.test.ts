@@ -72,7 +72,44 @@ describe("lecture du premier message", () => {
         "greniers",
         "journal",
       ],
+      fichiers: [],
     });
+  });
+
+  test("adresse du fichier (docs.google.com) au lieu de celle de son script : ligne non lue, et dite à corriger (erreur du 18/11/2026)", async () => {
+    const r = texte(
+      [
+        "Google Sheet des RC : https://docs.google.com/spreadsheets/d/FichierInvente1/edit?usp=sharing",
+        "Joueurs autorisés à partager des RC : Alpha",
+        "Google Sheet des stats membres :https://docs.google.com/spreadsheets/d/FichierInvente2/edit?usp=sharing",
+      ].join("\n"),
+    );
+    expect([r.feuilleRc, r.feuilleStats, r.fichiers, r.autorisesRc]).toEqual([
+      "",
+      "",
+      ["feuilleRc", "feuilleStats"],
+      ["Alpha"],
+    ]);
+    // une ligne au nom différent garde le lien du fichier pour les membres
+    expect(
+      texte("Fichier des RC à consulter : https://docs.google.com/spreadsheets/d/F/edit").fichiers,
+    ).toEqual([]);
+    // dernière lecture gardée de ce sujet
+    lire(`localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: heure, version: VERSION, alliance: "", section: true, sujet: true,
+      reglages: { ...ReglagesAlliance.vides(), autorisesRc: ["Alpha"], fichiers: ["feuilleRc", "feuilleStats"] } }))`);
+    expect(lire(`ReglagesAlliance.fichier("feuilleRc")`)).toBe(true);
+    expect(lire<string>(`ReglagesAlliance.resume()`)).toContain(
+      "Google Sheet des RC à corriger : adresse du fichier au lieu de celle de son script (…/exec) (1 joueur(s) autorisé(s)) ; Google Sheet des stats membres à corriger",
+    );
+    expect(lire<string>(`ExportRapports.sansAdresse(true)`)).toBe(
+      "la ligne « Google Sheet des RC » du sujet « Réglages de l'extension » donne l'adresse du fichier (docs.google.com) au lieu de celle de son script, qui finit par /exec (dans le fichier : Extensions → Apps Script → Déployer → Gérer les déploiements)",
+    );
+    // lecture d'une version d'avant (sans « fichiers ») : rien à corriger signalé
+    lire(
+      `(() => { let g = JSON.parse(localStorage.getItem("fzzz_reglagesAlliance")); delete g.reglages.fichiers; localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify(g)); })()`,
+    );
+    expect(lire(`ReglagesAlliance.fichier("feuilleRc")`)).toBe(false);
+    lire(`localStorage.clear()`);
   });
 
   test("noms sans tenir compte de la casse, des accents ni des espaces ; lignes inconnues ignorées", () => {

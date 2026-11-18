@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.137.2",
+    notes: [
+      "Multi-flood opti : la ligne sous le nom de chaque cible donne les TdC d'où partent ses attaques, avec les attaques cochées sur les cibles plus proches, et d'où vient l'écart (chasses et floods en cours, ce multi-flood).",
+      "Multi-flood opti : ces attaques comptent aussi pour les floods qui dépendent de ton TdC ; un flood déjà lancé qu'elles mettent hors de portée ne compte plus.",
+    ],
+  },
+  {
     version: "1.137.1",
     notes: [
       "Construction et Laboratoire : info-bulle des coûts plus courte. « Matériaux suffisants dans 6j21h (Le 25/11 à 07h33) », « Pommes suffisantes dans … », la plus tardive en premier et en gras ; dessous, seulement pour ce qui manque, ce qui est compté (production du TdC, convois, pillage, champignonnière, armée), en vert ou en rouge.",

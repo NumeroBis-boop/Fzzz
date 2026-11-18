@@ -211,6 +211,38 @@ describe("plan sur plusieurs cibles", () => {
     expect(r[1].t0).toBe(93254 + 35650);
   });
 
+  test("TdC à l'impact simulé avec les attaques cochées des plus proches : passées dans l'ordre d'envoi", () => {
+    lire(`(() => {
+      window.DEMANDES = [];
+      window.IMPACT = (c, precedentes) => {
+        DEMANDES.push([c.pseudo, precedentes.map((p) => [p.c.pseudo, p.prise])]);
+        // la simulation compte les prises, et un flood sur moi entre deux impacts
+        return { partages: true, moi: c.tdcMoi + precedentes.reduce((n, p) => n + p.prise, 0) - 1000, cible: c.tdc };
+      };
+    })()`);
+    const r = lire<any[]>(
+      `MultiFlood.plan({ armee: 1e9, attaquesDispo: 10 }, ${cibles([C("Grim", 200, 171672), C("Cocop", 100, 75253)])}, IMPACT)`,
+    );
+    // Cocop calculée sur mon TdC simulé (73 254 − 1 000), Grim avec ses attaques
+    const cocop = cible(72254, 75253).attaques.map((a: any) => a.prise);
+    expect(cocop).toEqual([15050, 11034, 9833]);
+    expect(lire(`DEMANDES`)).toEqual([
+      ["Cocop", []],
+      ["Grim", cocop.map((p: number) => ["Cocop", p])],
+    ]);
+    expect([r[0].t0, r[0].ti, r[1].t0, r[1].ti]).toEqual([
+      72254,
+      75253,
+      73254 + 15050 + 11034 + 9833 - 1000,
+      171672,
+    ]);
+    // sans simulation (partages : false) : les prises cochées ajoutées, comme avant
+    const sans = lire<any[]>(
+      `MultiFlood.plan({ armee: 1e9, attaquesDispo: 10 }, ${cibles([C("Cocop", 100, 75253), C("Grim", 200, 171672)])}, () => ({ partages: false }))`,
+    );
+    expect(sans[1].t0).toBe(73254 + 35650);
+  });
+
   test("prise max de tout le multi-flood : partagée entre les cibles", () => {
     const r = plan({ armee: 1e9, attaquesDispo: 10, priseMax: 40000 }, [
       C("Cocop", 100, 75253),
@@ -402,7 +434,9 @@ describe("vue de la page Ennemies", () => {
       expect(ligne(2)).toEqual(["Attaque 1 (20 %)", "80 000", "70 000", "14 000"]);
       const note = lire<string>(`$(".o_mfoCible:first .o_mfoNote").text()`);
       expect(note).toContain("À l'impact le 18/11 à");
-      expect(note).toContain("avant ce multi-flood : toi 80 000 (+6 746), Cocop 70 000 (-5 253)");
+      expect(note).toContain(
+        ": toi 80 000 (+6 746 des chasses et floods en cours), Cocop 70 000 (-5 253 des chasses et floods en cours)",
+      );
       // décochée : les TdC actuels, sans ligne d'impact, comme la page du jeu ; choix gardé
       lire(`$("#o_mfoImpact").prop("checked", false).trigger("change")`);
       expect(lire(`localStorage.getItem("fzzz_multiFloodImpact")`)).toBe("0");

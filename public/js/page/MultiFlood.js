@@ -27,6 +27,9 @@ const ARRONDIS_MULTI_FLOOD = [
 const MS_SUIVI_MULTI_FLOOD = 15000;
 // entre deux envois, comme le Lanceur de Flood
 const MS_ENTRE_ATTAQUES = 1000;
+// numéros des attaques de ce multi-flood dans la simulation des partages : elles
+// partent après celles du jeu, plus anciennes, et passent donc après elles à minute égale
+const NUMERO_ATTAQUES_MULTI_FLOOD = 1e15;
 
 /** @type {any} */
 let etatMultiFlood = null;
@@ -212,7 +215,7 @@ class MultiFlood {
    */
   static _explication() {
     return `<p><span class='gras'>À quoi ça sert ?</span><br/>Une attaque ne peut pas prendre plus de 20 % du terrain de chasse de sa cible. Cet outil cherche la meilleure série d'attaques pour prendre un maximum de terrain, comme le « Flood TdC » du Compte+, sur autant de cibles que tu veux.</p>
-      <p><span class='gras'>TdC à l'impact</span><br/>Case « Calculer avec le TdC de chacun à l'impact » cochée, chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches. Décochée, avec les TdC actuels, comme la page du Compte+.</p>
+      <p><span class='gras'>TdC à l'impact</span><br/>Case « Calculer avec le TdC de chacun à l'impact » cochée, chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches (elles changent aussi ce que prennent les floods qui dépendent de ton TdC : portée, 20 %). La ligne sous le nom de chaque cible donne ces TdC et d'où vient leur écart avec les TdC actuels. Décochée, avec les TdC actuels, comme la page du Compte+.</p>
       <p><span class='gras'>Comment ça marche ?</span><br/>Écris le pseudo d'une cible dans une case « Pseudo » et choisis-le dans la liste ; %% propose les membres de ton alliance à portée. Une case vidée retire sa cible ; une case vide de plus apparaît quand toutes sont prises. Les attaques commencent par la cible la plus proche. Coche ou décoche des attaques, dans la limite de tes attaques disponibles (Vitesse d'attaque + 1) et de ton armée sans les unités gardées (en bas de la page). « Lancer + partager » les envoie une à une par la page d'attaque de chaque cible, les publie dans le forum de l'alliance, puis ouvre la page Armée (replacement de l'armée).</p>
       <p><span class='gras'>Options</span><br/>- Terrain : ton TdC et celui de chaque cible, si tu en connais un plus récent.<br/>- Terrain final : celui que tu veux atteindre, ou laisser à ta cible.<br/>- Prise max : par cible, ou pour tout le multi-flood dans ta colonne.<br/>- Arrondir : une prise trop précise se repère si tes ennemis te surveillent.</p>`;
   }
@@ -602,18 +605,27 @@ class MultiFlood {
    * TdC de moi et d'une cible à l'impact d'une attaque lancée maintenant,
    * d'après les partages, depuis les TdC lus sur sa page (ou saisis) ; case
    * « TdC à l'impact » décochée : les TdC actuels, comme la page du Compte+.
+   * Les attaques de ce multi-flood sur les cibles plus proches sont des floods
+   * de la même simulation : ce qui dépend de mon TdC entre deux impacts (portée,
+   * 20 % d'un flood sur moi) en tient compte.
    *
    * @static
    * @method impact
    * @param {any} c cible
+   * @param {Array<{pseudo: String, cle: String, prise: Number, tdc: Number}>} [precedentes]
+   *   attaques cochées de ce multi-flood sur les cibles plus proches, dans l'ordre
+   *   d'envoi : cible, minute du RC, prise, TdC lu de la cible
+   * @param {any} [minute] minute du RC de la cible, déjà calculée pendant ce rendu
    * @return {{minute: any, cle: String, moi: Number, cible: Number, partages: Boolean, actuels: Boolean, moiAvant: Number, cibleAvant: Number}}
-   *   moiAvant, cibleAvant : TdC d'où part le calcul (lus ou saisis)
+   *   moiAvant, cibleAvant : TdC d'où part le calcul (lus ou saisis) ; partages :
+   *   TdC simulés
    */
-  static impact(c) {
+  static impact(c, precedentes = [], minute = undefined) {
     let e = etatMultiFlood,
-      cible = c.tdcSaisi ?? c.tdcLu,
-      minute = c.trajet != null ? Utils.roundMinute(c.trajet, Horloge.clic()) : null,
-      cle = minute ? minute.format("YYYY-MM-DD HH:mm") : "";
+      cible = c.tdcSaisi ?? c.tdcLu;
+    if (minute === undefined)
+      minute = c.trajet != null ? Utils.roundMinute(c.trajet, Horloge.clic()) : null;
+    let cle = minute ? minute.format("YYYY-MM-DD HH:mm") : "";
     if (!MultiFlood.avecImpact()) {
       let moi = MultiFlood._monTdc();
       return {
@@ -642,11 +654,26 @@ class MultiFlood {
         cibleAvant: cible,
       };
     if (!minute || !e.partages) return sans;
-    let sim = PartageChasses.simuler(
-        e.partages.d,
-        PartageChasses.tdcConnus(e.partages.tdc, { [monProfil.pseudo]: moi, [c.pseudo]: cible }),
-        depuis,
-      ),
+    /** @type {Object<string, Number>} */
+    let connus = {},
+      floods = precedentes.map((p, k) => {
+        connus[p.pseudo] = p.tdc;
+        return {
+          id: NUMERO_ATTAQUES_MULTI_FLOOD + k,
+          date: p.cle,
+          lanceur: monProfil.pseudo,
+          cible: p.pseudo,
+          unites: p.prise,
+          terrain: p.prise,
+        };
+      });
+    connus[monProfil.pseudo] = moi;
+    connus[c.pseudo] = cible;
+    // copie : les partages lus restent ceux du forum
+    let d = floods.length
+        ? { chasses: e.partages.d.chasses, floods: e.partages.d.floods.concat(floods) }
+        : e.partages.d,
+      sim = PartageChasses.simuler(d, PartageChasses.tdcConnus(e.partages.tdc, connus), depuis),
       r = PageAttaquer.tdcImpact(sim, monProfil.pseudo, c.pseudo, cle);
     return {
       ...sans,
@@ -685,6 +712,19 @@ class MultiFlood {
         attaquable: !c.mv,
         choix: c.choix,
       })),
+      (/** @type {any} */ x, /** @type {Array<any>} */ precedentes) =>
+        precedentes.length
+          ? MultiFlood.impact(
+              x.cible,
+              precedentes.map((p) => ({
+                pseudo: p.c.cible.pseudo,
+                cle: p.c.impact.cle,
+                prise: p.prise,
+                tdc: p.c.cible.tdcSaisi ?? p.c.cible.tdcLu,
+              })),
+              x.impact.minute,
+            )
+          : x.impact,
     );
     MultiFlood._afficherResultats();
     MultiFlood._afficherRecap();
@@ -844,7 +884,7 @@ class MultiFlood {
   }
   /**
    * Plan du multi-flood : cibles de la plus proche à la plus lointaine, mon TdC
-   * à l'impact de chacune augmenté des prises cochées sur les plus proches.
+   * à l'impact de chacune avec les attaques cochées sur les plus proches.
    * Cochées d'office tant que l'armée et les créneaux suffisent, comme la page
    * du jeu ; un choix du joueur garde sa case sans changer les autres.
    *
@@ -852,19 +892,29 @@ class MultiFlood {
    * @method plan
    * @param {{armee: Number|null, attaquesDispo: Number|null, priseMax: Number|null, terrainFinal: Number|null}} a
    * @param {Array<any>} cibles {trajet, tdcMoi, tdc, priseMax, terrainFinal, arrondi, attaquable, choix, …}
-   * @return {Array<any>} par cible, dans l'ordre d'envoi : la cible, ses attaques (coche), t0, lance
+   * @param {function(any, Array<{c: any, prise: Number}>): any} [impactAvec] TdC à
+   *   l'impact d'une cible simulés avec les attaques cochées des plus proches
+   *   (MultiFlood.impact) ; sans lui, ou sans simulation (partages : false), leurs
+   *   prises sont ajoutées à tdcMoi
+   * @return {Array<any>} par cible, dans l'ordre d'envoi : la cible, ses attaques
+   *   (coche), t0 et ti (mon TdC et le sien au départ des attaques), lance
    */
-  static plan(a, cibles) {
+  static plan(a, cibles, impactAvec = undefined) {
     let armee = a.armee == null ? Infinity : a.armee,
       dispo = a.attaquesDispo == null ? Infinity : a.attaquesDispo,
       gain = 0,
-      priseGlobale = a.priseMax != null && a.priseMax > 0 ? a.priseMax : null;
+      priseGlobale = a.priseMax != null && a.priseMax > 0 ? a.priseMax : null,
+      /** @type {Array<{c: any, prise: Number}>} */
+      precedentes = [];
     return cibles
       .map((c, rang) => ({ c, rang }))
       .sort((x, y) => (x.c.trajet ?? Infinity) - (y.c.trajet ?? Infinity) || x.rang - y.rang)
       .map(({ c }) => {
-        let t0 = c.tdcMoi + gain,
-          r = MultiFlood.attaquesCible(t0, c.tdc, {
+        let im = impactAvec ? impactAvec(c, precedentes.slice()) : null,
+          simule = !!(im && im.partages),
+          t0 = simule ? im.moi : c.tdcMoi + gain,
+          ti = simule ? im.cible : c.tdc,
+          r = MultiFlood.attaquesCible(t0, ti, {
             priseMax: c.priseMax,
             terrainFinal: c.terrainFinal,
             arrondi: c.arrondi,
@@ -883,12 +933,35 @@ class MultiFlood {
             } else armee = 0;
           }
           att.coche = !!c.attaquable && (choix === undefined ? tient : !!choix);
-          if (att.coche) lance += att.prise;
+          if (att.coche) {
+            lance += att.prise;
+            precedentes.push({ c, prise: att.prise });
+          }
         });
         gain += lance;
         if (priseGlobale != null) priseGlobale = Math.max(0, priseGlobale - lance);
-        return { ...c, ...r, t0, lance };
+        return { ...c, ...r, t0, ti, lance };
       });
+  }
+  /**
+   * D'où vient l'écart entre un TdC lu et celui d'où partent les attaques :
+   * « (+61 648 des chasses et floods en cours, +46 648 de ce multi-flood) ».
+   *
+   * @static
+   * @method origines
+   * @param {Number} lu TdC lu (ou saisi)
+   * @param {Number} partages TdC à l'impact d'après les partages seuls
+   * @param {Number} total TdC à l'impact avec les attaques de ce multi-flood sur les cibles plus proches
+   * @return {String} vide sans écart
+   */
+  static origines(lu, partages, total) {
+    let parts = [
+      [partages - lu, "des chasses et floods en cours"],
+      [total - partages, "de ce multi-flood"],
+    ]
+      .filter(([v]) => v)
+      .map(([v, texte]) => `${numeral(v).format("+0,0")} ${texte}`);
+    return parts.length ? ` (${parts.join(", ")})` : "";
   }
   /**
    * Un seul tableau, une section encadrée par cible (colonnes et cases des
@@ -900,7 +973,6 @@ class MultiFlood {
    */
   static _afficherResultats() {
     let e = etatMultiFlood,
-      ecart = (/** @type {Number} */ v) => (v ? ` (${numeral(v).format("+0,0")})` : ""),
       html = e.resultats.map((/** @type {any} */ r) => {
         let c = r.cible,
           im = r.impact,
@@ -910,7 +982,7 @@ class MultiFlood {
           tete = `<tr class='ligne_paire'><th class='left'>${pseudo} <span class='normal'>(${c.trajet != null ? MultiFlood.duree(c.trajet) : "?"})${c.mv ? " en vacances" : ""}</span></th><th>Mon Terrain</th><th>Terrain de ${pseudo}</th><th>Prise</th></tr>`,
           // partages illisibles : la ligne d'état le dit déjà, une fois
           note = calcule
-            ? `<tr><td colspan='4' class='left reduce o_mfoNote'>À l'impact le ${im.minute.format("DD/MM [à] HH[h]mm")}, avant ce multi-flood : toi ${numeral(im.moi).format()}${ecart(im.moi - im.moiAvant)}, ${pseudo} ${numeral(im.cible).format()}${ecart(im.cible - im.cibleAvant)}</td></tr>`
+            ? `<tr><td colspan='4' class='left reduce o_mfoNote'>À l'impact le ${im.minute.format("DD/MM [à] HH[h]mm")} : toi ${numeral(r.t0).format()}${MultiFlood.origines(im.moiAvant, im.moi, r.t0)}, ${pseudo} ${numeral(r.ti).format()}${MultiFlood.origines(im.cibleAvant, im.cible, r.ti)}</td></tr>`
             : !im.actuels && !im.minute
               ? `<tr><td colspan='4' class='left reduce o_mfoNote'>Trajet inconnu : TdC actuels</td></tr>`
               : "",

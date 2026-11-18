@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.128.0",
+    notes: [
+      "Les réglages de l'alliance sont lus dans un seul sujet de la section cachée du forum, « Réglages de l'extension » : site de suivi des convois, adresses des Google Sheet, joueurs autorisés à partager des RC, chasseurs, greniers. Préférences → Partage de données, « Fonctionnement sur les autres serveurs », montre ce qui a été lu.",
+      "Page Convois : le site de suivi des convois est à accepter une fois (« Accepter ce site ») avant que rien n'y soit envoyé.",
+      "Les greniers listés dans ce sujet reçoivent une fois les réglages des greniers (rôle Grenier, TdC à l'impact dès l'ouverture, replacement automatique de l'armée, convoi avant la récolte, sans le lanceur de chasses).",
+    ],
+  },
+  {
     version: "1.127.0",
     notes: [
       "Menu Alliance → « Stats membres » : le dernier relevé de chaque joueur du Google Sheet « Stats membres » (TdP, CdF, FdF, VA, VC, Puceron, Champignonnière), trié au clic sur une colonne. Une information qu'un joueur ne partage pas s'affiche « — ».",

@@ -1495,9 +1495,6 @@ class BoiteCombat extends Boite {
   }
   /**
    * Construit le payload `application/x-www-form-urlencoded` attendu par `ennemie.php`.
-   * Le mapping unite11/12/13/14 ↔ index 12/13/11/6 du tableau `repartition` reproduit
-   * exactement celui de `Armee.envoyerFlood:1010-1023` (ordre non-séquentiel hérité du
-   * jeu, où Concierge d'élite/Tank d'élite/Tueuse[E] ont été ajoutés a posteriori).
    *
    * @private
    * @method _mfBuildPayload
@@ -1509,21 +1506,7 @@ class BoiteCombat extends Boite {
     donnees["ChoixArmee"] = "1";
     donnees["lieu"] = "1";
     donnees["pseudoCible"] = pseudoCible;
-    donnees["unite1"] = repartition[0];
-    donnees["unite2"] = repartition[1];
-    donnees["unite3"] = repartition[2];
-    donnees["unite4"] = repartition[3];
-    donnees["unite5"] = repartition[4];
-    donnees["unite6"] = repartition[5];
-    donnees["unite7"] = repartition[7];
-    donnees["unite8"] = repartition[8];
-    donnees["unite9"] = repartition[9];
-    donnees["unite10"] = repartition[10];
-    donnees["unite11"] = repartition[12];
-    donnees["unite12"] = repartition[13];
-    donnees["unite13"] = repartition[11];
-    donnees["unite14"] = repartition[6];
-    return donnees;
+    return Object.assign(donnees, Armee.champsAttaque(repartition));
   }
   /**
    *

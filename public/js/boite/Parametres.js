@@ -91,7 +91,7 @@ const PAGES_EXTENSION = [
   {
     id: "General",
     libelle:
-      "Toutes les pages : horloge, alerte de ponte, encadré Compte+ et radar, entrées Carte et Coûts des menus, info-bulles des entrepôts, thème des fenêtres et style des champs (la boîte « Extension OUAF » reste, pour revenir ici)",
+      "Toutes les pages : horloge, alerte de ponte, encadré Compte+ et radar, entrées Carte, Stats membres et Multi-flood opti des menus, info-bulles des entrepôts, thème des fenêtres et style des champs (la boîte « Extension OUAF » reste, pour revenir ici)",
   },
   { id: "Ressources", libelle: "Ressources" },
   { id: "Armee", libelle: "Armée" },

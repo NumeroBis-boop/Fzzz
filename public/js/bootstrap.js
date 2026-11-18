@@ -4,8 +4,8 @@
  *
  * Mini-script chargé au plus tôt (`run_at: document_start`) pour poser des
  * classes CSS sur <html> avant que le navigateur ne parse le body. Permet à
- * outiiil.css d'appliquer des règles d'affichage conditionnelles (hide de la
- * simulation native quand on arrive sur construction.php#cout par exemple)
+ * outiiil.css d'appliquer des règles d'affichage conditionnelles (lignes des
+ * évolutions en cours de Construction et du Laboratoire cachées, par exemple)
  * sans flash.
  *
  * Il empêche aussi qu'actualiser une page de réponse renvoie le formulaire
@@ -23,17 +23,6 @@
   // règle est posée avant le parse du body, sur les deux navigateurs.
   let style = document.createElement("style");
   style.textContent = `
-    .toolzzz-mode-couts table:has(> tbody > tr.ligneAmelioration),
-    .toolzzz-mode-couts table:has(> tr.ligneAmelioration),
-    .toolzzz-mode-couts #centre > strong,
-    .toolzzz-mode-couts #centre > br,
-    .toolzzz-mode-couts #centre > small,
-    .toolzzz-mode-couts #centre > span.small,
-    /* En mode #cout on n'affiche que le widget Coûts ; le récap des évolutions
-     * en cours (tableauEvolution) est planqué pour ne pas polluer la vue. */
-    .toolzzz-mode-couts #o_evolutionEnCours,
-    .toolzzz-mode-couts .o_evolutionH2,
-    .toolzzz-mode-couts .o_annulationGroup,
     .toolzzz-mode-evolution #centre > strong,
     .toolzzz-mode-evolution #centre > br,
     .toolzzz-mode-evolution #centre > small,
@@ -106,10 +95,6 @@
   );
   let appliquer = () => {
     if (originePage) return;
-    document.documentElement.classList.toggle(
-      "toolzzz-mode-couts",
-      location.hash === "#cout" && !coupe("coutsDeveloppement"),
-    );
     // construction.php / laboratoire.php : on cache les `<strong>` (évolutions
     // en cours) avant le parse du body, pour éviter le flash entre le rendu
     // natif et notre tableau récap (cf. Utils.tableauEvolution).

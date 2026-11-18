@@ -80,8 +80,7 @@ export default defineConfig({
     content_scripts: [
       // Bootstrap au document_start : pose des classes CSS sur <html> dès
       // l'arrivée du HTML, avant le parsing du body. Permet d'éviter le flash
-      // de contenu natif (sur construction.php#cout notamment) en laissant
-      // outiiil.css cacher la simulation pendant le parse.
+      // de contenu natif en laissant outiiil.css le cacher pendant le parse.
       {
         matches: [
           "*://s1.fourmizzz.fr/*",
@@ -116,8 +115,7 @@ export default defineConfig({
       // Fzzz : bibliothèques lourdes injectées seulement sur les pages qui s'en
       // servent (les blocs sont injectés dans l'ordre du manifeste, avant le code
       // Fzzz/Toolzzz du dernier bloc). Highcharts (~2 Mo) : graphiques de la
-      // carte d'alliance, des coûts (construction.php#cout) et des chasses
-      // (messagerie).
+      // carte d'alliance et des chasses (messagerie).
       {
         matches: [
           "*://s1.fourmizzz.fr/alliance.php*",
@@ -125,11 +123,6 @@ export default defineConfig({
           "*://s3.fourmizzz.fr/alliance.php*",
           "*://s4.fourmizzz.fr/alliance.php*",
           "*://s5.fourmizzz.fr/alliance.php*",
-          "*://s1.fourmizzz.fr/construction.php*",
-          "*://s2.fourmizzz.fr/construction.php*",
-          "*://s3.fourmizzz.fr/construction.php*",
-          "*://s4.fourmizzz.fr/construction.php*",
-          "*://s5.fourmizzz.fr/construction.php*",
           "*://s1.fourmizzz.fr/messagerie.php*",
           "*://s2.fourmizzz.fr/messagerie.php*",
           "*://s3.fourmizzz.fr/messagerie.php*",
@@ -173,7 +166,6 @@ export default defineConfig({
           "js/class/Journal.js",
           "js/class/Fuseau.js",
           "js/class/Requetes.js",
-          "js/data/couts.js",
           "js/data/menuRapide.js",
           "js/class/Utils.js",
           "js/class/ReglagesAlliance.js",
@@ -232,6 +224,7 @@ export default defineConfig({
           "js/page/Reine.js",
           "js/page/Ressource.js",
           "js/page/StatsMembres.js",
+          "js/page/MultiFlood.js",
           "js/content.js",
         ],
       },

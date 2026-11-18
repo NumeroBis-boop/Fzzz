@@ -274,6 +274,7 @@ describe("chaque simulation hors page Membres reçoit les TdC des membres", () =
         );
       }
     }
-    expect(appels).toBe(3);
+    // lanceur de flood, bloc « Mes attaques en cours », page d'un membre, Multi-flood opti
+    expect(appels).toBe(4);
   });
 });

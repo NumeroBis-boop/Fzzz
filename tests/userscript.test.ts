@@ -42,7 +42,7 @@ describe("en-tête du script utilisateur", () => {
       [...texte.matchAll(/"(\*:\/\/[^"]*fourmizzz[^"]*)"/g)].map((m) => m[1] ?? "");
     expect(hotes(config).every((h) => /^\*:\/\/s[1-5]\.fourmizzz\.fr\//.test(h))).toBe(true);
     for (const s of SERVEURS)
-      for (const page of ["*", "alliance.php*", "construction.php*", "messagerie.php*"])
+      for (const page of ["*", "alliance.php*", "messagerie.php*"])
         expect(hotes(config)).toContain(`*://${s}.fourmizzz.fr/${page}`);
     expect(hotes(readFileSync(join(RACINE, "entrypoints/background.ts"), "utf8"))).toEqual(
       SERVEURS.map((s) => `*://${s}.fourmizzz.fr/*`),
@@ -69,7 +69,7 @@ describe("en-tête du script utilisateur", () => {
     expect(script).toMatch(
       /@resource\s+fzzzJs0 \S*@abc123\/public\/js\/lib\/highcharts_6\.0\.7\.js/,
     );
-    expect(script).toContain('["/alliance.php","/construction.php","/messagerie.php"].some(');
+    expect(script).toContain('["/alliance.php","/messagerie.php"].some(');
     expect(script).toContain(
       'eval(fzzzScript("fzzzJs0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@abc123/public/js/lib/highcharts_6.0.7.js") + "\\n;"); // js/lib/highcharts_6.0.7.js',
     );

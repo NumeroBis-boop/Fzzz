@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.130.0",
+    notes: [
+      "Menu Fourmilière → « Multi-flood opti » : le Flood TdC du Compte+, pour tous, avec le TdC de chacun à l'impact (floods et chasses partagés, tes chasses, tes attaques en cours) et autant de cibles que tu veux ; %% propose les membres à portée.",
+      "Les attaques partent au clic, de la cible la plus proche à la plus lointaine, puis la page Armée s'ouvre ; « Lancer + partager » les publie dans le forum de l'alliance.",
+      "L'entrée « Coûts » du menu Fourmilière et ses courbes sont retirées.",
+    ],
+  },
+  {
     version: "1.129.1",
     notes: [
       "Réglages de l'alliance : une ligne « Google Sheet des RC » ou « Google Sheet des stats membres » qui donne l'adresse du fichier (docs.google.com) au lieu de celle de son script (…/exec) est maintenant signalée telle quelle, avec où trouver la bonne adresse (Préférences → Partage de données, export des RC, relevé des stats).",

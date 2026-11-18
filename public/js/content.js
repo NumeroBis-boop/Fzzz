@@ -639,24 +639,8 @@ const DATEPICKER_OPTION = {
         // entrée « Stats membres » du menu Alliance : vue de la page Membres
         if (!origineGenerale && !Utils.origine("Membre")) StatsMembres.ajouterMenu();
 
-        // Onglet "Coûts" dans le menu colonie (Fourmilière) — injecté en bout de
-        // liste, sur toutes les pages où le menu existe. La feature vit sur
-        // construction.php (#cout) ; PageConstruction intercepte le hash pour
-        // masquer la simulation native et n'afficher que les courbes. Classe
-        // `boutonDescription` réutilisée pour le look graphique cohérent.
-        // Laboratoire et Construction désactivés (Préférences → Pages) : sans les courbes, l'entrée ne mènerait à rien
-        if (
-          !origineGenerale &&
-          Utils.affichage("menuCouts") &&
-          Utils.affichage("coutsDeveloppement") &&
-          !Utils.origine("Laboratoire") &&
-          $("#menuFourmiliere").length &&
-          !$("#o_ongletCouts").length
-        ) {
-          $("#menuFourmiliere").append(
-            `<li><a id='o_ongletCouts' class='boutonDescription' href='construction.php#cout'><span></span>Coûts</a></li>`,
-          );
-        }
+        // entrée « Multi-flood opti » du menu Fourmilière : vue de la page Ennemies
+        if (!origineGenerale && !Utils.origine("Attaque")) MultiFlood.ajouterMenu();
 
         // Nouveautés au premier chargement après une mise à jour
         const LAST_SEEN_VERSION_KEY = "outiiil_lastSeenVersion";
@@ -846,6 +830,7 @@ const DATEPICKER_OPTION = {
               page.executer();
               break;
             case uri == "/ennemie.php" && location.search == "":
+              MultiFlood.installer();
               PageAttaquer.ajouterFiltreEnnemis();
               if (Utils.affichage("ennemisTemps")) {
                 $("#tabEnnemie tr:eq(0) th:eq(5)").after("<th class='centre'>Temps</th>");

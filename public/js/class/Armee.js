@@ -3,6 +3,9 @@
  * Hraesvelg
  **********************************************************************/
 
+// rang dans Armee.unite des unités des champs unite1 à unite14 du formulaire d'attaque
+const RANGS_CHAMPS_ATTAQUE = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 11, 6];
+
 /**
  * Classe de gestion de l'armée.
  *
@@ -950,6 +953,20 @@ class Armee {
     return this._floods;
   }
   /**
+   * Champs des unités du formulaire d'attaque du jeu : unite7 à unite14 ne
+   * suivent pas l'ordre d'Armee.unite (unités ajoutées au jeu après coup).
+   *
+   * @static
+   * @method champsAttaque
+   * @param {Array<Number>} repartition nombre par type, dans l'ordre de Armee.unite
+   * @return {Object} {unite1: …, …, unite14: …}
+   */
+  static champsAttaque(repartition) {
+    let champs = {};
+    RANGS_CHAMPS_ATTAQUE.forEach((rang, k) => (champs["unite" + (k + 1)] = repartition[rang] ?? 0));
+    return champs;
+  }
+  /**
    * Envoie un flood.
    *
    * @private
@@ -970,20 +987,7 @@ class Armee {
         donnees["ChoixArmee"] = "1";
         donnees["lieu"] = "1"; //$("input[name=o_domeFlood]:checked").val() == "Oui" ? "2" : "1";
         donnees["pseudoCible"] = $("input[name=pseudoCible]").val();
-        donnees["unite1"] = this._repartition[indice][0];
-        donnees["unite2"] = this._repartition[indice][1];
-        donnees["unite3"] = this._repartition[indice][2];
-        donnees["unite4"] = this._repartition[indice][3];
-        donnees["unite5"] = this._repartition[indice][4];
-        donnees["unite6"] = this._repartition[indice][5];
-        donnees["unite7"] = this._repartition[indice][7];
-        donnees["unite8"] = this._repartition[indice][8];
-        donnees["unite9"] = this._repartition[indice][9];
-        donnees["unite10"] = this._repartition[indice][10];
-        donnees["unite11"] = this._repartition[indice][12];
-        donnees["unite12"] = this._repartition[indice][13];
-        donnees["unite13"] = this._repartition[indice][11];
-        donnees["unite14"] = this._repartition[indice][6];
+        Object.assign(donnees, Armee.champsAttaque(this._repartition[indice]));
         // Requete
         $.post(location.origin + "/ennemie.php?Attaquer=" + idCible, donnees, (data) => {
           let res = Utils.parseHtml(data).find("center:last").text();

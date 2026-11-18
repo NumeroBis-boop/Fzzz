@@ -110,7 +110,6 @@ const AFFICHAGES_FZZZ = {
   bilanRecolte:
     "Bilan de la récolte du jour sous le bloc « Récoltes » de la page Ressources : armée, pillage subi et pillage de tes colonies comptés",
   menuCarte: "Entrée « Carte » dans le menu Alliance",
-  menuCouts: "Entrée « Coûts » dans le menu Fourmilière",
   styleFormulaires:
     "Style des champs du jeu : cases à cocher et boutons radio alignés, champs nombre élargis, boutons inactifs grisés",
   nouveautes: "Notification des nouveautés après une mise à jour",
@@ -202,7 +201,6 @@ const AFFICHAGES_FZZZ = {
   evolutionEnCours:
     "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
   retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",
-  coutsDeveloppement: "Courbes « Coûts & temps de développement » (lien #cout de Construction)",
   laboBordures: "Lignes de Construction et du Laboratoire sans bordure",
   laboInfobulles: "Info-bulles de rentabilité sur les titres « Bouclier Thoracique » et « Armes »",
   reineBonus: "Hors Compte+ : vie et dégâts « Avec bonus » au clic sur l'icône d'une unité",
@@ -342,7 +340,6 @@ const AFFICHAGES_ONGLET = {
   remplissageEntrepots: "General",
   bilanRecolte: "Ressources",
   menuCarte: "General",
-  menuCouts: "General",
   styleFormulaires: "General",
   nouveautes: "General",
   rappelExport: "General",

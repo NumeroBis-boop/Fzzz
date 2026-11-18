@@ -3615,9 +3615,18 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   overflow-x: auto;
 }
 #o_mfoForm,
-#o_multiFlood .o_mfoCible {
+#o_mfoCibles {
   margin: 8px auto 0;
   border-collapse: collapse;
+}
+/* un seul tableau pour toutes les cibles : colonnes et cases des attaques
+   alignées ; chaque cible encadrée, un espace entre deux */
+#o_mfoCibles tbody.o_mfoCible {
+  border: 2px solid #8b7440;
+}
+#o_mfoCibles tbody.o_mfoEspace td {
+  height: 0.9em;
+  padding: 0;
 }
 /* tout centré, comme la page Flood TdC du Compte+ */
 #o_mfoForm td,
@@ -3660,8 +3669,12 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   white-space: normal;
   font-style: italic;
 }
-#o_multiFlood .o_mfoBoutons button + button {
-  margin-left: 12px;
+/* unités gardées en bas de la vue, sous un trait fin continu */
+#o_multiFlood .o_mfoSeparateur {
+  margin: 14px 0 8px;
+  border: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.4;
 }
 #o_multiFlood .o_mfoExplication {
   max-width: 700px;

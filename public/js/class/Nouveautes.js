@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.133.0",
+    notes: [
+      "Multi-flood opti : toutes les cibles dans un seul tableau, chacune encadrée, les cases des attaques alignées d'une cible à l'autre.",
+      "Un seul bouton, « Lancer + partager », en vert (les attaques vont au terrain de chasse).",
+      "Les unités gardées passent en bas de la page, sous un trait fin.",
+    ],
+  },
+  {
     version: "1.132.2",
     notes: [
       "Stats membres : la police du tableau rétrécit (jusqu'à 60 %) pour qu'il tienne dans la page ; trop large malgré tout (téléphone), il défile en largeur.",

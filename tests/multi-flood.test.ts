@@ -313,6 +313,13 @@ describe("vue de la page Ennemies", () => {
       "Cocop",
       "Grim",
     ]);
+    // un seul tableau : colonnes et cases alignées d'une cible à l'autre, un espace entre deux
+    expect(
+      lire(
+        `[$(".o_mfoCible").closest("table").length, $("#o_mfoCibles tbody.o_mfoEspace").length]`,
+      ),
+    ).toEqual([1, 1]);
+
     // partages illisibles : TdC actuels, dits une fois dans la ligne d'état
     expect(lire(`$(".o_mfoNote").length`)).toBe(0);
     expect(
@@ -322,7 +329,7 @@ describe("vue de la page Ennemies", () => {
     expect(lire<string>(`$("#o_mfoRecap").text()`)).toBe(
       "Ce flood demande 3 attaques et 35 650 fourmis,soit 30 % de tes attaques disponibles et 54 % de ton armée sans les unités gardées.",
     );
-    expect(lire(`$("#o_mfoLancer").prop("disabled")`)).toBe(false);
+    expect(lire(`$("#o_mfoLancerPartager").prop("disabled")`)).toBe(false);
   });
 
   test("lancer : armée relue, page d'attaque de chaque cible, attaques postées dans l'ordre, puis page Armée", async () => {
@@ -333,7 +340,7 @@ describe("vue de la page Ennemies", () => {
     lire(
       `$(".o_mfoCoche[data-pseudo='Grim'][data-i='0']").prop("checked", true).trigger("change")`,
     );
-    expect(lire(`$("#o_mfoLancer").prop("disabled")`)).toBe(true);
+    expect(lire(`$("#o_mfoLancerPartager").prop("disabled")`)).toBe(true);
     lire(
       `$(".o_mfoCoche[data-pseudo='Grim'][data-i='0']").prop("checked", false).trigger("change")`,
     );
@@ -371,7 +378,7 @@ describe("vue de la page Ennemies", () => {
     await lire(`MultiFlood.lancer(false)`);
     expect(lire(`ENVOIS.length`)).toBe(2);
     expect(lire(`OUVERT`)).toEqual([]);
-    expect(lire(`$("#o_mfoLancer").prop("disabled")`)).toBe(true);
+    expect(lire(`$("#o_mfoLancerPartager").prop("disabled")`)).toBe(true);
     expect(lire<string>(`$("#o_mfoEtat").text()`)).toContain("recharge la page");
   });
 
@@ -428,13 +435,21 @@ describe("vue de la page Ennemies", () => {
     expect(
       lire(`$("#o_mfoForm tr.o_mfoOpt").map((i, tr) => $(tr).children().eq(1).text()).get()`),
     ).toEqual(["Terrain", "Terrain final", "Prise max", "Arrondir"]);
-    expect(lire(`$("#o_mfoGardees").closest(".o_mfoOpt").length`)).toBe(1);
+    // unités gardées en bas, sous un trait fin, sans lien vers les Préférences
+    expect(lire(`$("#o_mfoGardees").closest(".o_mfoBas").length`)).toBe(1);
+    expect(lire(`$(".o_mfoBas").children().first().is("hr.o_mfoSeparateur")`)).toBe(true);
+    expect(lire(`$("#o_mfoRecap").nextAll(".o_mfoBas").length`)).toBe(1);
+    expect(lire(`$("#o_mfoGardees .o_gardeesDefaut").length`)).toBe(0);
     expect(lire(`$("#o_multiFlood").hasClass("o_mfoOptions")`)).toBe(false);
     lire(`$(".o_mfoBoutonOptions").trigger("click")`);
     expect(lire(`[$("#o_multiFlood").hasClass("o_mfoOptions"), $(".o_mfoFleche").text()]`)).toEqual(
       [true, "▲"],
     );
-    expect(lire(`$("#o_mfoLancer").text()`)).toBe("Lancer ces attaques");
+    // un seul bouton, au vert du terrain : un flood va toujours au terrain de chasse
+    expect(
+      lire(`$(".o_mfoBoutons button").map((i, b) => b.id + " " + b.textContent).get()`),
+    ).toEqual(["o_mfoLancerPartager Lancer + partager"]);
+    expect(lire(`$("#o_mfoLancerPartager").hasClass("o_lieu1")`)).toBe(true);
   });
 
   test("cases « Pseudo » : Entrée ajoute la cible, une case de plus quand toutes sont prises ; vidée, la cible part ; changée, elle est remplacée", async () => {

@@ -123,7 +123,8 @@ class MultiFlood {
   }
   /**
    * Vue de la forme de la page Flood TdC du Compte+ : attaquant et cibles côte
-   * à côte, options repliées, un tableau par cible, « Lancer ces attaques ».
+   * à côte, options repliées, les cibles dans un seul tableau, « Lancer +
+   * partager », les unités gardées en bas.
    *
    * @private
    * @static
@@ -147,6 +148,7 @@ class MultiFlood {
       enLecture: {},
       gardees: new UnitesGardees("o_mfoGardees", () => MultiFlood.rendre(), {
         titre: "Unités gardées pour ce multi-flood",
+        lienPreferences: false,
       }),
     };
     let options = MultiFlood.options(),
@@ -157,13 +159,12 @@ class MultiFlood {
         <p class='left'>Optimise tes attaques pour prendre un maximum de terrain… <span class='cliquable2 o_mfoAide'>En savoir plus ?</span></p>
         <div class='o_mfoExplication left' style='display:none'>${MultiFlood._explication()}</div>
         <div class='o_mfoTableau'><table id='o_mfoForm' cellspacing='0'></table></div>
-        <div class='o_mfoOpt'>${etatMultiFlood.gardees.html()}</div>
         <p class='o_mfoChoixImpact'><label title='Floods et chasses partagés dans le forum de l&#39;alliance, tes chasses et tes attaques en cours ; décochée : les TdC actuels, comme la page du Compte+'><input type='checkbox' id='o_mfoImpact'${MultiFlood.avecImpact() ? " checked" : ""}/> Calculer avec le TdC de chacun à l'impact</label></p>
         <p id='o_mfoEtat' class='reduce'></p>
         <div id='o_mfoResultats'></div>
-        <p class='o_mfoBoutons'><button type='button' id='o_mfoLancer' disabled>Lancer ces attaques</button>
-        <button type='button' id='o_mfoLancerPartager' disabled title='Lancement, puis publication des attaques dans le forum de la ${tag}'>Lancer + partager</button></p>
+        <p class='o_mfoBoutons'><button type='button' id='o_mfoLancerPartager' class='o_button o_lieu1' disabled title='Lancement, puis publication des attaques dans le forum de la ${tag}'>Lancer + partager</button></p>
         <p id='o_mfoRecap'></p>
+        <div class='o_mfoBas'><hr class='o_mfoSeparateur'/>${etatMultiFlood.gardees.html()}</div>
       </div>`);
     etatMultiFlood.gardees.brancher();
     MultiFlood._formulaire();
@@ -201,9 +202,8 @@ class MultiFlood {
       } catch (err) {}
       MultiFlood.rendre();
     });
-    $("#o_mfoLancer, #o_mfoLancerPartager").on("click", (e) =>
-      MultiFlood.lancer(e.currentTarget.id == "o_mfoLancerPartager"),
-    );
+    // un flood va toujours au terrain de chasse : un seul bouton, au vert du terrain
+    $("#o_mfoLancerPartager").on("click", () => MultiFlood.lancer(true));
   }
   /**
    * @private
@@ -213,8 +213,8 @@ class MultiFlood {
   static _explication() {
     return `<p><span class='gras'>À quoi ça sert ?</span><br/>Une attaque ne peut pas prendre plus de 20 % du terrain de chasse de sa cible. Cet outil cherche la meilleure série d'attaques pour prendre un maximum de terrain, comme le « Flood TdC » du Compte+, sur autant de cibles que tu veux.</p>
       <p><span class='gras'>TdC à l'impact</span><br/>Case « Calculer avec le TdC de chacun à l'impact » cochée, chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches. Décochée, avec les TdC actuels, comme la page du Compte+.</p>
-      <p><span class='gras'>Comment ça marche ?</span><br/>Écris le pseudo d'une cible dans une case « Pseudo » et choisis-le dans la liste ; %% propose les membres de ton alliance à portée. Une case vidée retire sa cible ; une case vide de plus apparaît quand toutes sont prises. Les attaques commencent par la cible la plus proche. Coche ou décoche des attaques, dans la limite de tes attaques disponibles (Vitesse d'attaque + 1) et de ton armée sans les unités gardées. « Lancer ces attaques » les envoie une à une par la page d'attaque de chaque cible, puis ouvre la page Armée (replacement de l'armée ; partage avec « Lancer + partager »).</p>
-      <p><span class='gras'>Options</span><br/>- Terrain : ton TdC et celui de chaque cible, si tu en connais un plus récent.<br/>- Terrain final : celui que tu veux atteindre, ou laisser à ta cible.<br/>- Prise max : par cible, ou pour tout le multi-flood dans ta colonne.<br/>- Arrondir : une prise trop précise se repère si tes ennemis te surveillent.<br/>- Unités gardées : celles qui ne partent jamais, par défaut celles des Préférences.</p>`;
+      <p><span class='gras'>Comment ça marche ?</span><br/>Écris le pseudo d'une cible dans une case « Pseudo » et choisis-le dans la liste ; %% propose les membres de ton alliance à portée. Une case vidée retire sa cible ; une case vide de plus apparaît quand toutes sont prises. Les attaques commencent par la cible la plus proche. Coche ou décoche des attaques, dans la limite de tes attaques disponibles (Vitesse d'attaque + 1) et de ton armée sans les unités gardées (en bas de la page). « Lancer + partager » les envoie une à une par la page d'attaque de chaque cible, les publie dans le forum de l'alliance, puis ouvre la page Armée (replacement de l'armée).</p>
+      <p><span class='gras'>Options</span><br/>- Terrain : ton TdC et celui de chaque cible, si tu en connais un plus récent.<br/>- Terrain final : celui que tu veux atteindre, ou laisser à ta cible.<br/>- Prise max : par cible, ou pour tout le multi-flood dans ta colonne.<br/>- Arrondir : une prise trop précise se repère si tes ennemis te surveillent.</p>`;
   }
   /**
    * @private
@@ -891,8 +891,9 @@ class MultiFlood {
       });
   }
   /**
-   * Un tableau par cible, comme la page du Compte+ ; TdC à l'impact : une
-   * ligne sous le titre dit d'où partent les chiffres.
+   * Un seul tableau, une section encadrée par cible (colonnes et cases des
+   * attaques alignées d'une cible à l'autre), comme la page du Compte+ ; TdC à
+   * l'impact : une ligne sous le titre dit d'où partent les chiffres.
    *
    * @private
    * @static
@@ -935,9 +936,13 @@ class MultiFlood {
                         )
                         .join(""),
           resultat = `<tr class='gras ligne_paire'><td>Résultat</td><td>${numeral(r.moiFin).format()}</td><td>${numeral(r.cibleFin).format()}</td><td>${numeral(r.total).format()}</td></tr>`;
-        return `<div class='o_mfoTableau'><table class='o_mfoCible' data-pseudo='${pseudo}' cellspacing='0'>${tete}${note}${corps}${resultat}</table></div>`;
+        return `<tbody class='o_mfoCible' data-pseudo='${pseudo}'>${tete}${note}${corps}${resultat}</tbody>`;
       });
-    $("#o_mfoResultats").html(html.join(""));
+    $("#o_mfoResultats").html(
+      html.length
+        ? `<div class='o_mfoTableau'><table id='o_mfoCibles' cellspacing='0'>${html.join("<tbody class='o_mfoEspace'><tr><td colspan='4'></td></tr></tbody>")}</table></div>`
+        : "",
+    );
   }
   /**
    * Récapitulatif de la page du jeu : attaques et fourmis demandées, part des
@@ -982,7 +987,7 @@ class MultiFlood {
       armee != null &&
       fourmis <= armee &&
       (dispo == null || attaques <= dispo);
-    $("#o_mfoLancer, #o_mfoLancerPartager").prop("disabled", !pret);
+    $("#o_mfoLancerPartager").prop("disabled", !pret);
   }
   /**
    * @private
@@ -1044,8 +1049,7 @@ class MultiFlood {
       return Promise.resolve();
     e.lance = true;
     e.gardees.activer(false);
-    $("#o_mfoLancer, #o_mfoLancerPartager").prop("disabled", true);
-    $("#o_mfoLancer").text("Lancement…");
+    $("#o_mfoLancerPartager").prop("disabled", true).text("Lancement…");
     Journal.info(
       "Multi-flood opti",
       `lancement de ${nombre} attaque(s) sur ${aLancer.map((/** @type {any} */ x) => x.cible.pseudo).join(", ")}`,
@@ -1080,7 +1084,7 @@ class MultiFlood {
       .catch((err) => {
         let message = String((err && err.message) || err);
         Journal.erreur("Multi-flood opti", "lancement interrompu", message);
-        $("#o_mfoLancer").text("Lancer ces attaques");
+        $("#o_mfoLancerPartager").text("Lancer + partager");
         if (suivi.parties) {
           // des attaques sont parties : pas de nouvel essai d'ici (rien ne part deux fois)
           $.toast({

@@ -17,18 +17,24 @@ class UnitesGardees {
   /**
    * @param {String} id identifiant du bloc dans la page
    * @param {Function} auChangement appelé après chaque modification
-   * @param {{titre?: String|null, preferences?: Boolean}} [options] preferences :
-   *   bloc de l'onglet « Attaque », sans liste des unités gardées ni lien
+   * @param {{titre?: String|null, preferences?: Boolean, lienPreferences?: Boolean}} [options] preferences :
+   *   bloc de l'onglet « Attaque », sans liste des unités gardées ni lien ;
+   *   lienPreferences : lien « par défaut : Préférences » après la liste
    */
   constructor(
     id,
     auChangement,
-    { titre = "Unités gardées pour cette attaque", preferences = false } = {},
+    {
+      titre = "Unités gardées pour cette attaque",
+      preferences = false,
+      lienPreferences = true,
+    } = {},
   ) {
     this._id = id;
     this._auChangement = auChangement;
     this._titre = titre;
     this._preferences = preferences;
+    this._lienPreferences = lienPreferences;
     this._actif = true;
     this._reglage = Armee.gardeesParDefaut();
   }
@@ -61,7 +67,7 @@ class UnitesGardees {
       titre = this._titre ? `<div class="o_gardeesTete gras">${this._titre} :</div>` : "",
       fin = this._preferences
         ? `<div class="o_gardeesAide o_aideParam">si l'armée en a moins qu'indiqué : toutes celles qu'elle a sont gardées, sans les compléter par d'autres unités</div>`
-        : `<div class="o_gardeesResultat">= <span class="o_gardeesTexte"></span> · <a href="#" class="o_gardeesDefaut">par défaut : Préférences</a></div>`;
+        : `<div class="o_gardeesResultat">= <span class="o_gardeesTexte"></span>${this._lienPreferences ? ` · <a href="#" class="o_gardeesDefaut">par défaut : Préférences</a>` : ""}</div>`;
     return `<div id="${this._id}" class="o_gardees${this._preferences ? "" : " reduce"}">
         ${titre}
         <div class="o_gardeesTete"><label><input type="checkbox" class="o_gardeesAntisondes" ${r.antisondes ? "checked" : ""}/> les antisondes <span class="o_gardeesNbAntisondes"></span></label></div>

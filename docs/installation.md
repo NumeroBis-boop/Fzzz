@@ -18,8 +18,8 @@ La façon la plus simple de partager Fzzz : un seul lien, et les mises à jour a
 - **Tiers contacté** : les images et feuilles de style viennent de cdn.jsdelivr.net, qui voit donc ton adresse IP.
 - **Horloge du serveur** : elle se cale sur l'en-tête `Date` des requêtes faites dans la page, et non sur les chargements de page. Tant qu'aucune requête n'a eu lieu, l'heure du PC est affichée.
 - **Démarrage** : le script démarre à la fin du chargement de la page. Le masquage de la simulation native de Construction (`#cout`) peut laisser voir un court clignotement.
-- **Suivi des convois OUAF** : l'accès à ouafchaine.fr est déclaré par `@connect`, sans page d'autorisation.
-- **Données** : les réglages enregistrés dans la page (`outiiil_*`) sont communs avec l'extension. L'horloge et le code du site OUAF sont stockés par le gestionnaire de scripts.
+- **Suivi des convois** : le site de suivi vient des réglages de l'alliance ; le script le déclare par `@connect *`, sans page d'autorisation (Tampermonkey demande d'autoriser ce site la première fois).
+- **Données** : les réglages enregistrés dans la page (`outiiil_*`) sont communs avec l'extension. L'horloge, le code du site de suivi des convois et le site accepté sont stockés par le gestionnaire de scripts.
 - **Ne pas cumuler** : n'active pas à la fois le script et l'extension, sinon les outils s'affichent deux fois.
 
 ## Extension

@@ -314,10 +314,11 @@ class Classeur {
    * @method telecharger
    * @param {Uint8Array<ArrayBuffer>} octets
    * @param {string} nom
+   * @param {string} [type] type du fichier ; un classeur Excel sans lui
    */
-  static telecharger(octets, nom) {
+  static telecharger(octets, nom, type = TYPE_XLSX) {
     const lien = document.createElement("a");
-    lien.href = URL.createObjectURL(new Blob([octets], { type: TYPE_XLSX }));
+    lien.href = URL.createObjectURL(new Blob([octets], { type }));
     lien.download = nom;
     document.body.appendChild(lien);
     lien.click();

@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.131.0",
+    notes: [
+      "Stats membres : colonnes dans un nouvel ordre (TdP, Ov, CdF, FdF HB, FdF AB, VA, VC, Champi, Puceron), toutes centrées, et ta ligne mise en valeur ; CdF et FdF sont abrégés en k, m, g, t (2,4m), la valeur exacte au survol.",
+      "Nouvelle colonne TdC à la fin : le TdC actuel de chaque membre, lu sur la page Membres.",
+      "Bouton « Exporter en CSV » : le tableau dans un fichier pour Excel, daté de l'export et de la lecture des TdC.",
+    ],
+  },
+  {
     version: "1.130.0",
     notes: [
       "Menu Fourmilière → « Multi-flood opti » : le Flood TdC du Compte+, pour tous, avec le TdC de chacun à l'impact (floods et chasses partagés, tes chasses, tes attaques en cours) et autant de cibles que tu veux ; %% propose les membres à portée.",

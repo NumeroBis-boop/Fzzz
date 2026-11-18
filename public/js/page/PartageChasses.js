@@ -1813,9 +1813,10 @@ class PartageChasses {
    *
    * @static
    * @method tdcMembres
+   * @param {Boolean} [frais] lus de nouveau même si une lecture de moins d'une minute est gardée
    * @return {Promise<Object>} {pseudo: TdC} ; {} si aucune n'est lisible
    */
-  static tdcMembres() {
+  static tdcMembres(frais = false) {
     let lire = (adresse, colonnePseudo, colonneTerrain) =>
       Promise.resolve($.get(location.origin + adresse)).then(
         (html) => {
@@ -1832,7 +1833,7 @@ class PartageChasses {
           throw new Error(`${adresse} : HTTP ${xhr && xhr.status}`);
         },
       );
-    return PartageChasses._enCache("tdcMembres", true, () =>
+    return PartageChasses._enCache("tdcMembres", !frais, () =>
       lire("/alliance.php?Membres", 3, 5).catch((e) =>
         Utils.alliance
           ? lire("/classementAlliance.php?alliance=" + encodeURIComponent(Utils.alliance), 2, 4)

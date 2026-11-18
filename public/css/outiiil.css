@@ -3524,17 +3524,18 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 }
 
 /* vue « Stats membres » (page Membres, menu Alliance → Stats membres) : cases
-   du partage et des couleurs sur des lignes compactes ; le tableau défile
-   dans sa largeur sur un téléphone */
+   du partage, mise en couleur et export sur des lignes compactes, à gauche ;
+   le tableau défile dans sa largeur sur un téléphone */
 .o_statsMembresReglages {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 2px 12px;
   margin: 4px 0;
+  text-align: left;
 }
-/* une case de partage ne se coupe pas ; le libellé des couleurs passe à la ligne */
+/* une case de partage ne se coupe pas */
 .o_statsMembresReglages label.o_statsMembresCase {
   white-space: nowrap;
 }
@@ -3543,36 +3544,59 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   overflow-x: auto;
   margin: 8px 0;
 }
+/* cases séparées, comme le tableau de la page Membres, dont la ligne du
+   joueur est surlignée de la même façon */
 #o_statsMembresTable {
   margin: 0 auto;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 #o_statsMembresTable td,
 #o_statsMembresTable th {
   padding: 2px 6px;
   white-space: nowrap;
+  text-align: center;
 }
-/* place des flèches de tri de DataTables, à droite du titre */
+/* flèches de tri de DataTables à droite du titre : la même marge à gauche
+   le garde centré sur sa colonne ; leur image, transparente sur ses 5 px de
+   droite, décalée vers le bord pour ne pas toucher un titre court */
 #o_statsMembresTable thead th {
-  padding-right: 20px;
-}
-#o_statsMembresTable td:nth-child(n + 3) {
-  text-align: right;
+  padding-left: 16px;
+  padding-right: 16px;
+  background-position: right -3px center;
 }
 /* information que le joueur ne partage pas : le rouge des cases du fichier */
 #o_statsMembres .o_statsNonPartage {
   background-color: #f4cccc;
   color: #a61b1b;
 }
-#o_statsMembresTable td.o_statsNonPartage {
-  text-align: center;
-}
 .o_statsLegende {
   display: inline-block;
   padding: 0 8px;
 }
-#o_statsMembresTable tr.o_statsMoi > td {
+/* ligne du joueur : gras, fond clair et cadre ; ombres intérieures plutôt que
+   bordures, la largeur du tableau ne change pas ; une case mise en couleur ou
+   rouge garde sa couleur */
+#o_statsMembresTable tbody tr.o_statsMoi > td {
   font-weight: bold;
+  box-shadow:
+    inset 0 2px #8b7440,
+    inset 0 -2px #8b7440;
+}
+#o_statsMembresTable tbody tr.o_statsMoi > td:first-child {
+  box-shadow:
+    inset 2px 0 #8b7440,
+    inset 0 2px #8b7440,
+    inset 0 -2px #8b7440;
+}
+#o_statsMembresTable tbody tr.o_statsMoi > td:last-child {
+  box-shadow:
+    inset -2px 0 #8b7440,
+    inset 0 2px #8b7440,
+    inset 0 -2px #8b7440;
+}
+#o_statsMembresTable tbody tr.o_statsMoi > td:not(.o_statsNonPartage) {
+  background-color: #fff8d6;
 }
 
 /* Multi-flood opti (menu Fourmilière) : vue de la page Ennemies, contenu du jeu caché */

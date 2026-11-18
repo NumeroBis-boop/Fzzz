@@ -295,9 +295,11 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     expect(
       ids.filter((id) => lire<number>(`$("#o_tabsParametre [id='${id}']").length`) != 1),
     ).toEqual([]);
-    expect(lire<number>(`$("#o_tabsParametre input[data-partage]").length`)).toBe(
-      lire<number>(`DONNEES_PARTAGEES.length`),
-    );
+    // deux cases par information du partage des stats : avec les chefs, avec les autres
+    for (const niveau of ["chefs", "autres"])
+      expect(lire<number>(`$("#o_tabsParametre input[data-partage-${niveau}]").length`)).toBe(
+        lire<number>(`DONNEES_PARTAGEES.length`),
+      );
   });
 
   test("tout renvoi « Préférences → … » des textes de l'extension nomme un onglet qui existe", () => {
@@ -332,7 +334,11 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     lire(
       `$("#o_boiteParametre").prepend("<input id='o_rechercheParam'/><ul id='o_rechercheResultats' hidden></ul>")`,
     );
-    expect(resultats("UNITÉ envoyée")).toEqual(["Attaque › Sonder › Unité envoyée en sonde"]);
+    // le réglage d'abord, puis la section dont l'aide a les deux mots (unités de la CdF, envoyée)
+    expect(resultats("UNITÉ envoyée")).toEqual([
+      "Attaque › Sonder › Unité envoyée en sonde",
+      "Partage de données › Statistiques des membres",
+    ]);
     expect(resultats("ratio plancher")).toEqual([
       "Ressources › Lanceur de chasses › Ratio plancher",
     ]);

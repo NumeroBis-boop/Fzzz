@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.136.0",
+    notes: [
+      "Stats membres : deux lignes de cases, « Partagé avec les chefs » et « Partagé avec les autres » (dans la vue Stats membres et dans Préférences → Partage de données).",
+      "Champignonnière et Puceron sont toujours partagés avec les chefs.",
+      "Les membres qui ne sont pas chefs voient dans le tableau les joueurs qui partagent des informations avec les autres, et ces informations-là.",
+    ],
+  },
+  {
     version: "1.135.1",
     notes: [
       "Stats membres : l'entrée du menu Alliance et la vue reviennent pour tous (cases « Je partage ») ; seul le tableau est réservé aux chefs.",

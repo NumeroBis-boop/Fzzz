@@ -209,6 +209,7 @@ const avancer = (minutes: number) => lire(`heure += ${minutes} * 60000`);
 const decocher = (...cles: string[]) =>
   lire(`${JSON.stringify(cles)}.forEach((c) => localStorage.setItem("fzzz_partage_" + c, "0"))`);
 const etat = () => lire<any>(`SuiviMembres.etat()`);
+const AUCUN = Object.fromEntries(CLES.map((c) => [c, false]));
 
 describe("première page du jour", () => {
   test("adresse lue dans le sujet caché, pages Construction, Laboratoire et Reine lues une fois chacune, relevé envoyé au script", async () => {
@@ -227,6 +228,7 @@ describe("première page du jour", () => {
             jour: "2026-11-12",
             donnees: DONNEES,
             partages: TOUT,
+            publics: TOUT,
             version: "1.104.0",
           },
         },
@@ -485,21 +487,27 @@ describe("cases de Préférences → Partage de données", () => {
     });
   });
 
-  test("Ouvrières seule partagée : la page Reine est lue, pas la page Armée", async () => {
+  test("Ouvrières seule cochée (avec Champignonnière et Puceron, toujours partagés) : pages Reine et Construction lues, pas Laboratoire ni Armée", async () => {
     annonceVue();
     decocher(...CLES.filter((c) => c != "ouvrieres"));
     await ouvrirPage();
-    expect(lues()).toEqual(["/Reine.php"]);
-    expect(recus()[0].corps.suivi.donnees).toEqual({ ouvrieres: 70481 });
+    expect(lues()).toEqual(["/construction.php", "/Reine.php"]);
+    expect(recus()[0].corps.suivi.donnees).toEqual({
+      ouvrieres: 70481,
+      puceron: 2,
+      champignonniere: 17,
+    });
   });
 
-  test("tout décoché : aucune page du jeu lue, seul le fait de ne rien partager est envoyé", async () => {
+  test("tout décoché : seules Champignonnière et Puceron, toujours partagés avec les chefs, sont relevés ; rien avec les autres membres", async () => {
     annonceVue();
     decocher(...CLES);
     expect(await ouvrirPage()).toBe("envoyé");
-    expect(lues()).toEqual([]);
+    expect(lues()).toEqual(["/construction.php"]);
     const s = recus()[0].corps.suivi;
-    expect([s.donnees, Object.values(s.partages).every((p) => p === false)]).toEqual([{}, true]);
+    expect(s.donnees).toEqual({ puceron: 2, champignonniere: 17 });
+    expect(s.partages).toEqual({ ...AUCUN, puceron: true, champignonniere: true });
+    expect(s.publics).toEqual(AUCUN);
   });
 
   test("case changée dans la journée : le fichier le sait à la page suivante, sans attendre le lendemain", async () => {
@@ -524,7 +532,7 @@ describe("cases de Préférences → Partage de données", () => {
     decocher("puceron", "champignonniere", "fdfHB", "fdfAB", "va", "vc", "ouvrieres");
     await ouvrirPage();
     expect(lire(`SuiviMembres.resume()`)).toBe(
-      "Dernier envoi depuis ce navigateur : le 12/11/2026 à 08h03 (TdP et CdF).",
+      "Dernier envoi depuis ce navigateur : le 12/11/2026 à 08h03 (TdP, CdF, Puceron et Champignonnière ; avec les autres membres : TdP et CdF).",
     );
     lire(`SuiviMembres.choisir("va", true)`);
     expect(lire<string>(`SuiviMembres.resume()`)).toEndWith(
@@ -645,24 +653,32 @@ describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : re
     expect(changements()).toEqual(["Puceron", "Champignonnière"]);
   });
 
-  test("niveaux inchangés, autre bâtiment monté, information décochée : rien de refait", async () => {
+  test("niveaux inchangés, autre bâtiment monté : rien de refait ; niveaux vus ailleurs que sur la page Construction : jamais comparés", async () => {
     await releveDuJour();
     avancer(60);
     expect(await visiter("/construction.php", pageConstruction())).toBe("attente");
     expect(await visiter("/construction.php", pageConstruction({ Couveuse: 15 }))).toBe("attente");
-    decocher("puceron");
-    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
-      "attente",
-    );
     expect([recus().length, forum().length]).toEqual([1, 3]);
-    // niveaux affichés ailleurs que sur la page Construction du joueur : jamais comparés
     expect(await visiter("/Membre.php", pageConstruction({ Champignonnière: 21 }))).toBe("attente");
-    // la Champignonnière reste partagée
     expect(await visiter("/construction.php", pageConstruction({ Champignonnière: 18 }))).toBe(
       "envoyé",
     );
     expect(recus()[1].corps.suivi.donnees).toMatchObject({ champignonniere: 18 });
-    expect(recus()[1].corps.suivi.donnees.puceron).toBeUndefined();
+  });
+
+  test("Champignonnière et Puceron décochés avant cette règle : toujours partagés avec les chefs (pas avec les autres), leur changement de niveau refait le relevé", async () => {
+    decocher("puceron", "champignonniere");
+    await releveDuJour();
+    expect(recus()[0].corps.suivi.partages).toMatchObject({ puceron: true, champignonniere: true });
+    expect(recus()[0].corps.suivi.publics).toMatchObject({
+      puceron: false,
+      champignonniere: false,
+    });
+    avancer(60);
+    expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
+      "envoyé",
+    );
+    expect(recus()[1].corps.suivi.donnees.puceron).toBe(3);
   });
 
   test("relevé du jour pas encore parti (annonce, échec) ou sans sujet : rien de forcé, les essais gardent leur rythme", async () => {
@@ -783,13 +799,14 @@ describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : re
     expect([recus().length, etat().chantier]).toEqual([1, undefined]);
   });
 
-  test("information décochée : la fin de sa construction ne refait rien", async () => {
+  test("Puceron décoché avant cette règle : la fin de sa construction refait quand même le relevé", async () => {
     await releveDuJour();
     await visiter("/construction.php", pageConstruction({}, ["Etable à pucerons 3", 2 * H]));
     decocher("puceron");
     avancer(150);
-    expect(await visiter("/Armee.php")).toBe("attente");
-    expect([recus().length, etat().chantier]).toEqual([1, undefined]);
+    jeuConstruction({ "Etable à pucerons": 3 });
+    expect(await visiter("/Armee.php")).toBe("envoyé");
+    expect([recus().length, recus()[1].corps.suivi.donnees.puceron]).toEqual([2, 3]);
   });
 
   test("construction lancée ailleurs : vue par le relevé du jour qui lit la page Construction, puis relevé refait après sa fin", async () => {
@@ -1002,11 +1019,14 @@ describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : re
     expect(lire(`localStorage.getItem("fzzz_suiviMembres")`)).toBeNull();
   });
 
-  test("annonce : le renvoi au changement de niveau n'est dit que si l'un des deux niveaux est partagé", async () => {
+  test("annonce : Champignonnière et Puceron, toujours partagés, y sont même décochés, avec leur renvoi au changement de niveau", async () => {
     decocher("puceron", "champignonniere");
     expect(await visiter("/Armee.php")).toBe("annonce");
     expect(lire<string>(`TOASTS[0].text`)).toContain(
-      "tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC et Ouvrières. Le premier envoi se fera à ta prochaine page.",
+      "tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron, Champignonnière et Ouvrières. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change.",
+    );
+    expect(lire<string>(`TOASTS[0].text`)).toContain(
+      "Tu choisis ce que tu partages avec les chefs et avec les autres membres dans",
     );
   });
 });
@@ -1084,10 +1104,27 @@ describe("Préférences → Partage de données", () => {
       boite.ajusterTaille = () => boite;
       boite.ongletPartage();
     })()`);
+  // chaque information, dans l'ordre de la vue : [clé, avec les chefs, verrouillée, avec les autres]
   const cases = () =>
-    preferences.lire<[string, boolean][]>(
-      `$("#o_tabsParametrePartage input[data-partage]").map((i, c) => [[c.dataset.partage, c.checked]]).get()`,
+    preferences.lire<[string, boolean, boolean, boolean][]>(
+      `$("#o_tabsParametrePartage input[data-partage-chefs]").map((i, c) => [[c.dataset.partageChefs, c.checked, c.disabled,
+        $("#o_tabsParametrePartage input[data-partage-autres='" + c.dataset.partageChefs + "']").prop("checked")]]).get()`,
     );
+  const cocher = (niveau: string, cle: string, coche: boolean) =>
+    preferences.lire(
+      `$("#o_tabsParametrePartage input[data-partage-${niveau}='${cle}']").prop("checked", ${coche}).trigger("change")`,
+    );
+  const ORDRE = [
+    "tdp",
+    "ouvrieres",
+    "cdf",
+    "fdfHB",
+    "fdfAB",
+    "va",
+    "vc",
+    "champignonniere",
+    "puceron",
+  ];
 
   test("un onglet « Partage de données », une case par information, toutes cochées par défaut", () => {
     preferences.lire(`localStorage.clear()`);
@@ -1095,33 +1132,39 @@ describe("Préférences → Partage de données", () => {
     expect(
       preferences.lire(`ONGLETS_PARAMETRE.filter((o) => o.id == "Partage").map((o) => o.titre)`),
     ).toEqual(["Partage de données"]);
-    expect(cases()).toEqual(CLES.map((c) => [c, true]));
+    // tout partagé avec les autres par défaut : les cases des chefs, cochées, en sont verrouillées
+    expect(cases()).toEqual(ORDRE.map((c) => [c, true, true, true]));
     expect(
       preferences.lire<string[]>(
-        `$("#o_tabsParametrePartage label.o_affichageFzzz:has(input[data-partage])").map((i, l) => l.textContent.trim()).get()`,
+        `$("#o_tabsParametrePartage .o_partageLigne").map((i, l) => l.textContent.replace(/\\s+/g, " ").trim()).get()`,
       ),
     ).toEqual([
-      "TdP : Couveuse + Solarium + Technique de ponte",
-      "CdF : nombre total d'unités de ton armée, ouvrières non comptées",
-      "FdF HB : force de frappe de ton armée, hors bonus",
-      "FdF AB : force de frappe avec le bonus de la recherche Armes",
-      "VA : niveau de Vitesse d'attaque",
-      "VC : niveau de Vitesse de chasse",
-      "Puceron : niveau de l'Étable à pucerons",
-      "Champignonnière : niveau",
-      "Ouvrières : nombre total, y compris celles parties en convoi",
+      "Partagé avec les chefs : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
+      "Partagé avec les autres : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
     ]);
-    // ce qui est envoyé, où, et ce que devient une case décochée : dit dans l'onglet
+    // l'info-bulle dit l'information, et pourquoi une case des chefs est verrouillée
+    expect(
+      preferences.lire<string[]>(
+        `["cdf", "champignonniere"].map((c) => $("#o_tabsParametrePartage input[data-partage-chefs='" + c + "']").parent().attr("title"))`,
+      ),
+    ).toEqual([
+      "CdF : nombre total d'unités de ton armée, ouvrières non comptées (partagé avec les chefs puisque partagé avec les autres)",
+      "Champignonnière : niveau (toujours partagé avec les chefs)",
+    ]);
+    // ce qui est envoyé, où, à qui, et ce que devient une case décochée : dit dans l'onglet
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     for (const dit of [
       "Une fois par jour, à la première page que tu ouvres",
-      "Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau.",
       "Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension",
+      "Les chefs voient dans la vue « Stats membres » du menu Alliance ce que tu partages avec eux, les autres membres ce que tu partages avec les autres.",
+      "Partager une information avec les autres, c'est aussi la partager avec les chefs.",
+      "Champignonnière et Puceron sont toujours partagés avec les chefs.",
+      "Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons.",
       "ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension »",
-      "sans elle, rien n'est relevé ni envoyé",
-      "Les chefs de l'alliance (ligne « Chefs » de ce sujet) les voient dans la vue « Stats membres » du menu Alliance.",
-      "« Chefs : … » : pseudos des chefs : eux seuls voient le tableau de la vue « Stats membres » (menu Alliance), le dernier relevé de chaque joueur",
-      "le fichier indique seulement que tu ne la partages pas",
+      "sans elle, rien n'est relevé ni envoyé ; les chefs sont ceux de la ligne « Chefs » de ce sujet.",
+      "TdP : Couveuse + Solarium + Technique de ponte ; CdF : nombre total d'unités de ton armée, ouvrières non comptées",
+      "« Chefs : … » : pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient tout ce que les joueurs partagent avec les chefs ; les autres membres, ce qu'ils partagent avec les autres",
+      "Décochée pour les chefs : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas.",
       "Aucun envoi depuis ce navigateur pour l'instant.",
     ])
       expect(texte).toContain(dit);
@@ -1133,16 +1176,55 @@ describe("Préférences → Partage de données", () => {
       `localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ doggybag: { jour: "2026-11-12", fait: true, essais: 1, essai: heure, raison: "sans sujet" } }))`,
     );
     ouvrir();
-    preferences.lire(`$("input[data-partage='fdfAB']").prop("checked", false).trigger("change")`);
-    expect(preferences.lire(`localStorage.getItem("fzzz_partage_fdfAB")`)).toBe("0");
+    // vue « Stats membres » construite ensuite, qui rebranche les cases : l'état de l'onglet suit quand même
+    preferences.lire(`SuiviMembres.brancherCases()`);
+    // plus partagée avec les autres : la case des chefs se déverrouille, toujours cochée
+    cocher("autres", "fdfAB", false);
+    expect(preferences.lire(`localStorage.getItem("fzzz_partageAutres_fdfAB")`)).toBe("0");
+    expect(cases().find(([c]) => c == "fdfAB")).toEqual(["fdfAB", true, false, false]);
     expect(preferences.lire(`SuiviMembres.etat()`)).toMatchObject({ fait: false, essais: 0 });
     expect(preferences.lire<string>(`$("#o_partageEtat").text()`)).toEndWith(
       "Le prochain envoi se fera à ta prochaine page.",
     );
+    // plus partagée avec les chefs non plus : gardé, relu à la réouverture
+    cocher("chefs", "fdfAB", false);
+    expect(preferences.lire(`localStorage.getItem("fzzz_partage_fdfAB")`)).toBe("0");
     ouvrir();
-    expect(cases().filter(([, coche]) => !coche)).toEqual([["fdfAB", false]]);
-    preferences.lire(`$("input[data-partage='fdfAB']").prop("checked", true).trigger("change")`);
-    expect(preferences.lire(`SuiviMembres.partage("fdfAB")`)).toBe(true);
+    expect(cases().filter(([, chefs, , autres]) => !chefs || !autres)).toEqual([
+      ["fdfAB", false, false, false],
+    ]);
+    // de nouveau partagée avec les autres : aussi avec les chefs, case verrouillée
+    cocher("autres", "fdfAB", true);
+    expect(cases().find(([c]) => c == "fdfAB")).toEqual(["fdfAB", true, true, true]);
+    expect(
+      preferences.lire(
+        `[SuiviMembres.partage("fdfAB"), localStorage.getItem("fzzz_partage_fdfAB")]`,
+      ),
+    ).toEqual([true, "1"]);
+  });
+
+  test("Champignonnière et Puceron : case des chefs toujours cochée et verrouillée, même décochée avant ; celle des autres au choix", () => {
+    preferences.lire(`(() => {
+      localStorage.clear();
+      localStorage.setItem("fzzz_partage_puceron", "0");
+    })()`);
+    ouvrir();
+    expect(cases().filter(([c]) => c == "champignonniere" || c == "puceron")).toEqual([
+      ["champignonniere", true, true, true],
+      // décoché avant : partagé avec les chefs, pas avec les autres
+      ["puceron", true, true, false],
+    ]);
+    cocher("autres", "champignonniere", false);
+    expect(cases().find(([c]) => c == "champignonniere")).toEqual([
+      "champignonniere",
+      true,
+      true,
+      false,
+    ]);
+    // une case verrouillée qu'on ferait changer quand même : rien n'est gardé
+    cocher("chefs", "champignonniere", false);
+    expect(preferences.lire(`SuiviMembres.partage("champignonniere")`)).toBe(true);
+    expect(cases().find(([c]) => c == "champignonniere")?.[1]).toBe(true);
   });
 
   test("export automatique des chasses : une case cochée par défaut, gardée dans ce navigateur, et où en est l'export", () => {
@@ -1198,7 +1280,7 @@ describe("Préférences → Partage de données", () => {
     preferences.lire(`$("#o_partageChasses").prop("checked", true).trigger("change")`);
     expect(preferences.lire(`ExportAuto.actif()`)).toBe(true);
     // les cases des statistiques ne sont pas touchées par celle des chasses
-    expect(cases()).toEqual(CLES.map((c) => [c, true]));
+    expect(cases()).toEqual(ORDRE.map((c) => [c, true, true, true]));
   });
 
   test("bouton « Envoyer maintenant » : un relevé forcé, l'état mis à jour", async () => {

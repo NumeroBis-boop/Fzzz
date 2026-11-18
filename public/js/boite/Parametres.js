@@ -974,7 +974,7 @@ class BoiteParametre extends Boite {
         "pseudos des joueurs qui exportent leurs RC vers ce Google Sheet sans rien régler, séparés par des virgules",
       feuilleStats: "adresse du script du Google Sheet du relevé quotidien des stats membres",
       chefs:
-        "pseudos des chefs : eux seuls voient le tableau de la vue « Stats membres » (menu Alliance), le dernier relevé de chaque joueur",
+        "pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient tout ce que les joueurs partagent avec les chefs ; les autres membres, ce qu'ils partagent avec les autres",
       chasseurs: "pseudos des chasseurs : rôle Chasseur par défaut",
       greniers: "pseudos des greniers : rôle Grenier et réglages des greniers par défaut",
       journal:
@@ -1034,15 +1034,12 @@ class BoiteParametre extends Boite {
         ${this.section(
           "Statistiques des membres",
           this.aide(
-            `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension.`,
-            `Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé. Les chefs de l'alliance (ligne « ${REGLAGES_ALLIANCE.chefs.nom} » de ce sujet) les voient dans la vue « Stats membres » du menu Alliance.`,
+            `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension. Les chefs voient dans la vue « Stats membres » du menu Alliance ce que tu partages avec eux, les autres membres ce que tu partages avec les autres.`,
+            `Partager une information avec les autres, c'est aussi la partager avec les chefs. Champignonnière et Puceron sont toujours partagés avec les chefs. Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé ; les chefs sont ceux de la ligne « ${REGLAGES_ALLIANCE.chefs.nom} » de ce sujet. ${DONNEES_PARTAGEES.map((d) => d.libelle).join(" ; ")}.`,
           ) +
-            DONNEES_PARTAGEES.map(
-              (d) =>
-                `<label class='o_affichageFzzz'><input type='checkbox' data-partage='${d.cle}' ${SuiviMembres.partage(d.cle) ? "checked" : ""}/> ${d.libelle}</label>`,
-            ).join("") +
+            SuiviMembres.casesPartage("o_partageLigne") +
             this.aide(
-              "Décochée : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas. Réglage propre à ce navigateur, envoyé à ta prochaine page.",
+              "Décochée pour les chefs : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas. Réglage propre à ce navigateur, envoyé à ta prochaine page.",
             ) +
             `<p id='o_partageEtat' class='left small'></p>
             <p class='left o_reglage'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>`,
@@ -1119,10 +1116,12 @@ class BoiteParametre extends Boite {
     });
     // rappel d'export en cours (rôle Chasseur) : le bouton à cliquer, encadré
     if (RappelExport.aRappeler()) $exports.filter("[data-quoi='chasse']").addClass("o_synchroPret");
-    $onglet.find("input[data-partage]").on("change", (e) => {
-      SuiviMembres.choisir(e.currentTarget.dataset.partage, e.currentTarget.checked);
-      etat();
-    });
+    // les mêmes cases que la vue « Stats membres », qui suivent si elle est ouverte
+    SuiviMembres.majCases();
+    SuiviMembres.brancherCases();
+    $(document)
+      .off("o_partageChoisi.preferences")
+      .on("o_partageChoisi.preferences", () => etat());
     $onglet.find(".o_partageRanger").on("click", (e) => {
       e.preventDefault();
       // supprimer des sujets ne se défait pas

@@ -3526,7 +3526,8 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 /* vue « Stats membres » (page Membres, menu Alliance → Stats membres) : cases
    du partage, mise en couleur et export sur des lignes compactes, à gauche ;
    le tableau défile dans sa largeur sur un téléphone */
-.o_statsMembresReglages {
+.o_statsMembresReglages,
+.o_partageLigne {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -3536,7 +3537,7 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   text-align: left;
 }
 /* une case de partage ne se coupe pas */
-.o_statsMembresReglages label.o_statsMembresCase {
+.o_partageCase {
   white-space: nowrap;
 }
 .o_statsMembresTableau {

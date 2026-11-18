@@ -223,7 +223,7 @@ describe("tableau du dernier relevé de chaque joueur", () => {
     ).toEqual(["ouvrieres", "cdf"]);
     expect(lire(`$("#o_statsMembres > p:last .o_statsNonPartage").text()`)).toBe("—");
     expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).toContain(
-      "— case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là",
+      "— case rouge : information que le joueur ne partage pas avec toi. Case vide : information pas relevée ce jour-là",
     );
     expect(lire(`$("#o_statsMembresTable tbody a").last().attr("href")`)).toBe(
       "Membre.php?Pseudo=Char%3Clie%3E",
@@ -379,30 +379,70 @@ describe("colonne TdC : TdC actuel de chaque membre, page Membres", () => {
   });
 });
 
-describe("cases du partage, comme dans Préférences → Partage de données", () => {
-  test("état de ce navigateur ; décochée ici : gardée, relevé à refaire, case des Préférences suivie", async () => {
-    lire(`localStorage.setItem("fzzz_partage_vc", "0")`);
-    lire(`$("body").append("<input type='checkbox' data-partage='cdf' checked/>")`);
+describe("cases du partage : avec les chefs, avec les autres, les mêmes que dans Préférences → Partage de données", () => {
+  // chaque information, dans l'ordre des colonnes : [clé, chefs, verrouillée, autres]
+  const cases = () =>
+    lire<[string, boolean, boolean, boolean][]>(
+      `$("#o_statsMembres input[data-partage-chefs]").map((i, c) => [[c.dataset.partageChefs, c.checked, c.disabled,
+        $("#o_statsMembres input[data-partage-autres='" + c.dataset.partageChefs + "']").prop("checked")]]).get()`,
+    );
+
+  test("deux lignes, dans l'ordre et avec les titres des colonnes ; état de ce navigateur ; Champi et Puceron verrouillés", async () => {
+    lire(`(() => {
+      localStorage.setItem("fzzz_partage_vc", "0");
+      localStorage.setItem("fzzz_partageAutres_tdp", "0");
+      localStorage.setItem("fzzz_partage_champignonniere", "0");
+    })()`);
     await ouvrir();
     expect(
-      lire(
-        `$("#o_statsMembres input[data-stats-partage]").map((i, c) => [[c.dataset.statsPartage, c.checked]]).get()`,
+      lire<string[]>(
+        `$("#o_statsMembres .o_statsMembresReglages").slice(0, 2).map((i, l) => l.textContent.replace(/\\s+/g, " ").trim()).get()`,
       ),
-    ).toEqual(CLES.map((c) => [c, c != "vc"]));
-    // dans l'ordre et avec les titres des colonnes ; plus de mention de l'envoi
-    expect(lire(`$("#o_statsMembres .o_statsMembresReglages").first().text()`)).toBe(
-      "Je partage : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
+    ).toEqual([
+      "Partagé avec les chefs : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
+      "Partagé avec les autres : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
+    ]);
+    expect(cases()).toEqual(
+      CLES.map((c) =>
+        c == "vc"
+          ? [c, false, false, false]
+          : c == "tdp"
+            ? [c, true, false, false]
+            : c == "champignonniere"
+              ? [c, true, true, false]
+              : [c, true, true, true],
+      ),
     );
+  });
+
+  test("choix gardés, relevé à refaire, et la même case des Préférences ouvertes suit", async () => {
+    // cases des Préférences ouvertes en même temps
     lire(
-      `$("#o_statsMembres input[data-stats-partage='cdf']").prop("checked", false).trigger("change")`,
+      `$("body").append(SuiviMembres.casesPartage("o_partageLigne").replace(/<div /g, "<div data-pref ")); SuiviMembres.majCases()`,
+    );
+    await ouvrir();
+    lire(
+      `$("#o_statsMembres input[data-partage-autres='cdf']").prop("checked", false).trigger("change")`,
+    );
+    expect(lire(`localStorage.getItem("fzzz_partageAutres_cdf")`)).toBe("0");
+    expect(lire(`SuiviMembres.etat().fait`)).toBe(false);
+    // la case des chefs de la CdF se déverrouille, ici et dans les Préférences
+    expect(
+      lire(`$("input[data-partage-chefs='cdf']").map((i, c) => [[c.checked, c.disabled]]).get()`),
+    ).toEqual([
+      [true, false],
+      [true, false],
+    ]);
+    lire(
+      `$("#o_statsMembres input[data-partage-chefs='cdf']").prop("checked", false).trigger("change")`,
     );
     expect(lire(`localStorage.getItem("fzzz_partage_cdf")`)).toBe("0");
-    expect(lire(`SuiviMembres.etat().fait`)).toBe(false);
-    expect(lire(`$("body > input[data-partage='cdf']").prop("checked")`)).toBe(false);
+    expect(lire(`$("[data-pref] input[data-partage-chefs='cdf']").prop("checked")`)).toBe(false);
+    lire(`$("[data-pref]").remove()`);
   });
 });
 
-describe("tableau réservé aux chefs, vue ouverte à tous : ligne « Chefs » du sujet des réglages (règle du mainteneur, 18/11/2026)", () => {
+describe("ce que voit un membre qui n'est pas chef : ce que les joueurs partagent avec les autres (règle du mainteneur, 18/11/2026)", () => {
   const garder = (chefs: string[]) =>
     `localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, alliance: "OUAF", section: true, sujet: true, reglages: { chefs: ${JSON.stringify(chefs)} } }))`;
   // réglages relus à l'affichage de la vue (SuiviMembres.adresse) : cette liste de chefs
@@ -412,56 +452,78 @@ describe("tableau réservé aux chefs, vue ouverte à tous : ligne « Chefs » d
       ${garder(chefs)};
       return Promise.resolve(ADRESSE);
     }`);
-  // couleur, export, tableau et légende : affichage de chacun
-  const zonesChefs = () =>
-    lire<string[]>(`$("#o_statsMembres .o_statsChefs").map((i, e) => e.style.display).get()`);
-  const RESERVE =
-    "Le tableau des stats est réservé aux chefs de l'alliance (ligne « Chefs » du sujet « Réglages de l'extension »).";
-  const lectureFichier = () =>
-    lire<any[]>(`APPELS`).filter((a) => Array.isArray(a) && a[0] == ADRESSE);
+  const demandes = () =>
+    lire<any[]>(`APPELS`)
+      .filter((a) => Array.isArray(a) && a[0] == ADRESSE)
+      .map((a) => a[2]);
+  // réponse de la requête « relevesPublics » : Alpha partage TdP et VA avec les autres ; une ligne
+  // sans rien de partagé ou une valeur non partagée, que le script ne rend pas, sont écartées quand même
+  const PUBLICS = [
+    {
+      joueur: "Alpha",
+      date: "2026-11-18 08:03",
+      valeurs: { ...tous(null), tdp: 30, va: 5, cdf: 1000 },
+      partages: { ...tous(false), tdp: true, va: true },
+    },
+    {
+      joueur: "Bravo",
+      date: "2026-11-17 22:10",
+      valeurs: { ...tous(null), tdp: 40 },
+      partages: tous(false),
+    },
+  ];
 
-  test("joueur qui n'est pas chef : l'entrée, la vue et ses cases « Je partage », sans tableau ; ni le fichier ni les TdC ne sont lus", async () => {
+  test("non chef : la requête des seules informations partagées avec les autres, les joueurs qui en partagent au moins une", async () => {
     lire(garder(["Alpha"]));
     relus(["Alpha"]);
+    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(PUBLICS)} }`);
     await ouvrir();
-    expect([
-      lire(`$("#o_ongletStatsMembres").length`),
-      lire(`$("#o_statsMembres").css("display")`),
-      lire(`$("#o_statsMembres input[data-stats-partage]").length`),
-    ]).toEqual([1, "block", CLES.length]);
-    expect(zonesChefs()).toEqual(["none", "none", "none", "none"]);
-    expect([
-      lire(`$("#o_statsMembresEtat").text()`),
-      lire(`$("#o_statsMembresEtat").hasClass("red")`),
-    ]).toEqual([RESERVE, false]);
-    expect(lire(`APPELS`)).toEqual(["forum"]);
+    expect(demandes()).toEqual([{ relevesPublics: true }]);
+    expect(cellules()).toEqual([
+      ["Alpha", "18/11 08h03", "30", "—", "—", "—", "—", "5", "—", "—", "—", "2 345 678"],
+    ]);
+    expect(etat()).toMatch(/^1 joueur\(s\) partagent avec les autres membres, fichier lu à/);
+    expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).toContain(
+      "Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance : seulement les joueurs qui partagent au moins une information avec les autres membres, et ces informations-là.",
+    );
+    // ses propres cases du partage restent là, avec la couleur et l'export
+    expect(
+      lire(
+        `[$("#o_statsMembres input[data-partage-autres]").length, $("#o_statsMembresCouleurs").length, $("#o_statsMembresCsv").prop("disabled")]`,
+      ),
+    ).toEqual([CLES.length, 1, false]);
   });
 
-  test("chef, pseudo écrit avec une autre casse : le tableau", async () => {
+  test("chef (pseudo écrit avec une autre casse) : tout ce qui est partagé avec les chefs", async () => {
     lire(garder(["BRAVO"]));
     relus(["BRAVO"]);
     await ouvrir();
-    expect(zonesChefs()).toEqual(["", "", "", ""]);
+    expect(demandes()).toEqual([{ releves: true }]);
     expect(lire(`$("#o_statsMembresTable tbody tr").length`)).toBe(RELEVES.length);
-    expect(lectureFichier()).toHaveLength(1);
+    expect(etat()).toMatch(/^3 joueur\(s\), fichier lu à/);
+    expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).not.toContain(
+      "seulement les joueurs qui partagent",
+    );
   });
 
-  test("chef retiré depuis la dernière lecture : tableau caché après la relecture des réglages, fichier non lu", async () => {
+  test("chef retiré depuis la dernière lecture des réglages : relu à l'affichage, il ne demande que ce qui est partagé avec les autres", async () => {
     lire(garder(["Bravo"]));
     relus(["Alpha"]);
+    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(PUBLICS)} }`);
     await ouvrir();
-    expect(zonesChefs()).toEqual(["none", "none", "none", "none"]);
-    expect(lire(`$("#o_statsMembresEtat").text()`)).toBe(RESERVE);
-    expect(lectureFichier()).toEqual([]);
+    expect(demandes()).toEqual([{ relevesPublics: true }]);
+    expect(cellules().map((l) => l[0])).toEqual(["Alpha"]);
   });
 
-  test("ajouté aux chefs depuis la dernière lecture : tableau montré et rempli dès l'affichage de la vue", async () => {
+  test("script pas encore redéployé : il refuse la requête, rien n'est montré au non-chef", async () => {
     lire(garder(["Alpha"]));
-    relus(["Alpha", "Bravo"]);
+    relus(["Alpha"]);
+    lire(`REPONSE = new Error("le script refuse : requête invalide")`);
     await ouvrir();
-    expect(zonesChefs()).toEqual(["", "", "", ""]);
-    expect(lire(`$("#o_statsMembresTable tbody tr").length`)).toBe(RELEVES.length);
-    expect(lectureFichier()).toHaveLength(1);
+    expect([lire(`$("#o_statsMembresTable tbody tr").length`), etat()]).toEqual([
+      0,
+      "Stats illisibles : le script du Google Sheet « Stats membres » n'est pas à jour, son propriétaire doit le redéployer (nouvelle version).",
+    ]);
   });
 });
 

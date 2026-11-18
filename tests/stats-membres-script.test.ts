@@ -66,6 +66,7 @@ const releve = (plus: Record<string, unknown> = {}) => ({
 });
 // lignes de l'onglet : dates rendues en jours de Paris
 const ONGLET = "Dernier relevé";
+const AUTRES = "Partagé avec les autres";
 const lignes = (f: ReturnType<typeof fichier>) =>
   f.onglets[ONGLET].grille.map((l: unknown[]) =>
     l.map((v) =>
@@ -82,21 +83,22 @@ describe("premier relevé : un seul onglet, une ligne par joueur", () => {
     const f = fichier();
     expect(f.doPost(releve())).toEqual({ ok: true, nouveau: true, dernier: true });
     expect(f.ordre).toEqual([ONGLET]);
-    expect(lignes(f).map((l: unknown[]) => l.slice(0, 12))).toEqual([
-      ["Joueur", "Date", ...TITRES, "Version"],
-      ["DoggyBag", jour(), 38, 250000, 3100000, 5890000, 7, 8, 2, 17, 412000, "1.104.0"],
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 13))).toEqual([
+      ["Joueur", "Date", ...TITRES, AUTRES, "Version"],
+      ["DoggyBag", jour(), 38, 250000, 3100000, 5890000, 7, 8, 2, 17, 412000, "", "1.104.0"],
     ]);
   });
 
   test("légende des couleurs à droite des titres ; cases partagées en vert, joueur et date sans couleur", () => {
     const f = fichier();
     f.doPost(releve());
-    expect(f.onglets[ONGLET].grille[0].slice(13, 15)).toEqual(["partagé", "non partagé"]);
-    expect(fonds(f, 1, [14, 15])).toEqual([VERT, ROUGE]);
-    expect(fonds(f, 2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])).toEqual([
+    expect(f.onglets[ONGLET].grille[0].slice(14, 16)).toEqual(["partagé", "non partagé"]);
+    expect(fonds(f, 1, [15, 16])).toEqual([VERT, ROUGE]);
+    expect(fonds(f, 2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])).toEqual([
       undefined,
       undefined,
       ...TITRES.map(() => VERT),
+      undefined,
       undefined,
     ]);
   });
@@ -334,10 +336,11 @@ describe("information décochée par le joueur", () => {
   test("tout décoché dès le premier relevé : la ligne du joueur existe, tout en rouge, sans aucune valeur", () => {
     const f = fichier();
     f.doPost(releve({ donnees: {}, partages: Object.fromEntries(CLES.map((c) => [c, false])) }));
-    expect(lignes(f)[1].slice(0, 12)).toEqual([
+    expect(lignes(f)[1].slice(0, 13)).toEqual([
       "DoggyBag",
       jour(),
       ...TITRES.map(() => ""),
+      "",
       "1.104.0",
     ]);
     expect(fonds(f, 2, [3, 11])).toEqual([ROUGE, ROUGE]);
@@ -444,6 +447,7 @@ describe("fichier modifié à la main", () => {
       "",
       "TdP",
       ...TITRES.filter((t) => t != "TdP"),
+      AUTRES,
       "Version",
       "Joueur",
       "Date",
@@ -454,6 +458,7 @@ describe("fichier modifié à la main", () => {
       "",
       1,
       ...TITRES.slice(1).map(() => ""),
+      "",
       "",
       "Lassie",
       "01/11/2026",
@@ -490,13 +495,36 @@ describe("fichier modifié à la main", () => {
     f.onglets[ONGLET].fonds["1,14"] = ROUGE;
     f.doPost(releve());
     const [titres, lassie, moi] = lignes(f);
-    expect(titres).toEqual(["Joueur", "Date", ...TITRES, "Version", "", "partagé", "non partagé"]);
-    expect(lassie).toEqual(["Lassie", jour(-1), 30, 1000, 2000, 3000, 5, 6, 1, 15, "", "1.128.0"]);
-    expect(moi.slice(10, 12)).toEqual([412000, "1.104.0"]);
+    expect(titres).toEqual([
+      "Joueur",
+      "Date",
+      ...TITRES,
+      AUTRES,
+      "Version",
+      "",
+      "partagé",
+      "non partagé",
+    ]);
+    expect(lassie).toEqual([
+      "Lassie",
+      jour(-1),
+      30,
+      1000,
+      2000,
+      3000,
+      5,
+      6,
+      1,
+      15,
+      "",
+      "",
+      "1.128.0",
+    ]);
+    expect(moi.slice(10, 13)).toEqual([412000, "", "1.104.0"]);
     // la case insérée ne prend pas le rouge de sa voisine : rien n'y dit « non partagé »
-    expect(fonds(f, 2, [10, 11])).toEqual([ROUGE, null]);
+    expect(fonds(f, 2, [10, 11, 12])).toEqual([ROUGE, null, null]);
     expect(fonds(f, 3, [10, 11])).toEqual([VERT, VERT]);
-    expect(fonds(f, 1, [14, 15])).toEqual([VERT, ROUGE]);
+    expect(fonds(f, 1, [15, 16])).toEqual([VERT, ROUGE]);
     expect(f.onglets[ONGLET].formats["2,11"]).toBe("#,##0");
     const { releves } = f.doPost({ releves: true });
     expect(releves.map((r: any) => [r.joueur, r.valeurs.ouvrieres, r.partages.ouvrieres])).toEqual([
@@ -654,7 +682,90 @@ describe("lecture de tout l'onglet pour la vue « Stats membres » (1.127.0)", (
     expect(fichier().doPost({ releves: true })).toEqual({ ok: true, releves: [] });
     expect(fichier().doGet()).toMatchObject({
       releves: true,
-      version: "stats-membres 2026-11-18.2",
+      relevesPublics: true,
+      version: "stats-membres 2026-11-18.3",
     });
+  });
+});
+
+describe("partage avec les autres membres (1.136.0) : colonne « Partagé avec les autres », lecture des non-chefs", () => {
+  const AUCUN = Object.fromEntries(CLES.map((c) => [c, false]));
+  const colonneAutres = (f: ReturnType<typeof fichier>) => {
+    const [titres, ...rangs] = lignes(f);
+    return rangs.map((l: unknown[]) => [l[titres.indexOf("Joueur")], l[titres.indexOf(AUTRES)]]);
+  };
+
+  test("le relevé liste les informations partagées avec les autres, jamais une information décochée pour les chefs ; extension d'avant : rien", () => {
+    const f = fichier();
+    f.doPost(releve({ joueur: "Alpha", publics: { ...AUCUN, tdp: true, va: true } }));
+    f.doPost(
+      releve({
+        joueur: "Bravo",
+        donnees: { ...DONNEES, cdf: undefined },
+        partages: { ...TOUT, cdf: false },
+        publics: { ...AUCUN, cdf: true, champignonniere: true },
+      }),
+    );
+    f.doPost(releve({ joueur: "Charlie" }));
+    expect(colonneAutres(f)).toEqual([
+      ["Alpha", "TdP, VA"],
+      ["Bravo", "Champignonnière"],
+      ["Charlie", ""],
+    ]);
+    // plus rien partagé avec les autres au relevé suivant : la case est vidée
+    f.doPost(releve({ joueur: "Alpha", publics: AUCUN }));
+    expect(colonneAutres(f)[0]).toEqual(["Alpha", ""]);
+  });
+
+  test("lecture d'un non-chef : seulement les joueurs qui partagent au moins une information avec les autres, et celles-là ; rien d'écrit", () => {
+    const f = fichier();
+    f.doPost(releve({ joueur: "Alpha", publics: { ...AUCUN, tdp: true, va: true } }));
+    f.doPost(releve({ joueur: "Bravo", publics: AUCUN }));
+    f.doPost(releve({ joueur: "Charlie" }));
+    // TdP listé à la main mais décoché ensuite pour les chefs (fond rouge) : pas rendu
+    f.doPost(
+      releve({
+        joueur: "Delta",
+        donnees: { ...DONNEES, tdp: undefined },
+        partages: { ...TOUT, tdp: false },
+        publics: { ...AUCUN, ouvrieres: true },
+      }),
+    );
+    const [titres] = lignes(f);
+    f.onglets[ONGLET].grille[4][titres.indexOf(AUTRES)] = "Ouvrières, TdP";
+    const avant = JSON.stringify([f.onglets[ONGLET].grille, f.onglets[ONGLET].fonds]);
+    const r = f.doPost({ relevesPublics: true });
+    expect(JSON.stringify([f.onglets[ONGLET].grille, f.onglets[ONGLET].fonds])).toBe(avant);
+    expect(r.releves.map((x: any) => x.joueur)).toEqual(["Alpha", "Delta"]);
+    const [alpha, delta] = r.releves;
+    expect(alpha.partages).toEqual({ ...AUCUN, tdp: true, va: true });
+    expect(alpha.valeurs).toEqual({
+      ...Object.fromEntries(CLES.map((c) => [c, null])),
+      tdp: 38,
+      va: 7,
+    });
+    expect(delta.partages).toEqual({ ...AUCUN, ouvrieres: true });
+    expect(delta.valeurs.tdp).toBe(null);
+    // la lecture d'un chef rend toujours tout ce qui est partagé avec les chefs
+    expect(f.doPost({ releves: true }).releves.map((x: any) => x.joueur)).toEqual([
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+    ]);
+  });
+
+  test("onglet d'avant cette colonne : aucun joueur pour un non-chef ; partage avec les autres invalide refusé", () => {
+    const f = fichier({
+      "Dernier relevé": feuille("Dernier relevé", [
+        ["Joueur", "Date", "TdP"],
+        ["Alpha", "16/11/2026", 38],
+      ]),
+    });
+    expect(f.doPost({ relevesPublics: true })).toEqual({ ok: true, releves: [] });
+    expect(f.doPost(releve({ publics: { tdp: "oui" } }))).toEqual({
+      erreur: "partage invalide : TdP",
+    });
+    expect(f.doPost(releve({ publics: "tout" }))).toEqual({ erreur: "informations invalides" });
   });
 });

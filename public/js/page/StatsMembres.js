@@ -25,20 +25,6 @@ const VERTS_STATS = [
 ];
 const VERT_TEXTE_BLANC = 5;
 const HASH_STATS_MEMBRES = "#statsMembres";
-// ordre des colonnes de la vue (mainteneur, 18/11/2026) ; une information
-// partagée qui n'y est pas va à la fin
-const ORDRE_STATS = [
-  "tdp",
-  "ouvrieres",
-  "cdf",
-  "fdfHB",
-  "fdfAB",
-  "va",
-  "vc",
-  "champignonniere",
-  "puceron",
-];
-const TITRES_COURTS_STATS = { ouvrieres: "Ov", champignonniere: "Champi" };
 // grands nombres écrits avec trois chiffres, tronqués : « 3,67m », « 150k »
 const STATS_ABREGEES = ["cdf", "fdfHB", "fdfAB"];
 /** @type {Array<[string, number]>} */
@@ -61,6 +47,8 @@ let lectureStatsMembres = null;
 /** @type {Array<any>|null} */
 let relevesStatsMembres = null;
 let fichierLuStats = 0;
+// dernière lecture faite pour un chef (tout) ou un autre membre (partagé avec les autres)
+let vueChefStats = true;
 // TdC des membres : {valeurs: {pseudo en minuscules: TdC}, heure: ms à l'horloge du serveur}
 /** @type {{valeurs: Object<string, number>, heure: number}|null} */
 let tdcStatsMembres = null;
@@ -77,9 +65,10 @@ let ajustementStatsActif = false;
  */
 class StatsMembres {
   /**
-   * Le tableau est réservé aux chefs de l'alliance, la vue restant ouverte à
-   * tous (règle du mainteneur, 18/11/2026) : ligne « Chefs » de la dernière
-   * lecture des réglages, sans requête.
+   * Un chef voit tout ce qui est partagé avec les chefs, un autre membre
+   * seulement ce que les joueurs partagent avec les autres (règle du
+   * mainteneur, 18/11/2026) : ligne « Chefs » de la dernière lecture des
+   * réglages, sans requête.
    *
    * @static
    * @method autorise
@@ -87,14 +76,6 @@ class StatsMembres {
    */
   static autorise() {
     return ReglagesAlliance.contient("chefs", monProfil.pseudo);
-  }
-  /**
-   * @static
-   * @method reservee
-   * @return {String} ce que voit, à la place du tableau, un joueur qui n'est pas chef
-   */
-  static reservee() {
-    return `Le tableau des stats est réservé aux chefs de l'alliance (ligne « ${REGLAGES_ALLIANCE.chefs.nom} » du sujet « ${TITRE_REGLAGES} »).`;
   }
   /**
    * Entrée « Stats membres » du menu Alliance, après « Carte » (sinon après
@@ -197,11 +178,7 @@ class StatsMembres {
    * @return {Array<{cle: String, titre: String, libelle: String}>} DONNEES_PARTAGEES dans l'ordre des colonnes de la vue
    */
   static donnees() {
-    let rang = (/** @type {{cle: String}} */ d) => {
-      let i = ORDRE_STATS.indexOf(d.cle);
-      return i < 0 ? ORDRE_STATS.length : i;
-    };
-    return [...DONNEES_PARTAGEES].sort((a, b) => rang(a) - rang(b));
+    return SuiviMembres.ordonnees();
   }
   /**
    * @static
@@ -210,41 +187,28 @@ class StatsMembres {
    * @return {String} titre de sa colonne
    */
   static titre(d) {
-    return TITRES_COURTS_STATS[d.cle] || d.titre;
+    return SuiviMembres.titreCourt(d);
   }
   /**
    * @private
    * @static
    */
   static _construire() {
-    let donnees = StatsMembres.donnees(),
-      cases = donnees
-        .map(
-          (d) =>
-            `<label class='o_statsMembresCase' title='${Utils.echapper(d.libelle)}'><input type='checkbox' data-stats-partage='${d.cle}' ${SuiviMembres.partage(d.cle) ? "checked" : ""}/> ${StatsMembres.titre(d)}</label>`,
-        )
-        .join(""),
-      titres = donnees
-        .map((d) => `<th title='${Utils.echapper(d.libelle)}'>${StatsMembres.titre(d)}</th>`)
-        .join(""),
-      // tableau, sa couleur, son export et sa légende : pour les chefs (revu après la relecture des réglages)
-      cache = StatsMembres.autorise() ? "" : "style='display:none'";
+    let titres = StatsMembres.donnees()
+      .map((d) => `<th title='${Utils.echapper(d.libelle)}'>${StatsMembres.titre(d)}</th>`)
+      .join("");
     $("#alliance")
       .after(`<div id='o_statsMembres' class='boite_amelioration simulateur centre' style='display:none'>
         <h2>Stats membres</h2>
-        <div class='o_statsMembresReglages'><span class='gras'>Je partage :</span>${cases}</div>
-        <div class='o_statsMembresReglages o_statsChefs' ${cache}><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
-        <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success o_statsChefs' ${cache} disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
-        <div class='o_statsMembresTableau o_statsChefs' ${cache}><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
-        <p class='reduce left o_statsChefs' ${cache}>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
+        ${SuiviMembres.casesPartage("o_statsMembresReglages")}
+        <div class='o_statsMembresReglages'><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
+        <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success' disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
+        <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
+        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance<span id='o_statsMembresPortee'></span>. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas avec toi. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
       </div>`);
-    $("#o_statsMembres input[data-stats-partage]").on("change", (e) => {
-      let caseCochee = /** @type {HTMLInputElement} */ (e.currentTarget),
-        cle = String(caseCochee.dataset.statsPartage);
-      SuiviMembres.choisir(cle, caseCochee.checked);
-      // la même case dans Préférences → Partage de données, si elle est ouverte
-      $(`input[data-partage='${cle}']`).prop("checked", caseCochee.checked);
-    });
+    // les mêmes cases que Préférences → Partage de données, qui suivent si elles sont ouvertes
+    SuiviMembres.majCases();
+    SuiviMembres.brancherCases();
     $("#o_statsMembresCouleurs").on("change", (e) => {
       let coche = /** @type {HTMLInputElement} */ (e.currentTarget).checked;
       try {
@@ -263,27 +227,23 @@ class StatsMembres {
    * @return {Promise<void>}
    */
   static charger() {
-    let chef = StatsMembres.autorise(),
-      $etat = $("#o_statsMembresEtat")
+    let $etat = $("#o_statsMembresEtat")
         .removeClass("red")
-        .text(
-          chef
-            ? "Lecture du Google Sheet « Stats membres »…"
-            : "Lecture des réglages de l'alliance…",
-        ),
-      // TdC lus en même temps que les réglages pour un chef d'après la dernière lecture
-      tdc = chef ? StatsMembres.tdc() : null;
+        .text("Lecture du Google Sheet « Stats membres »…"),
+      tdc = StatsMembres.tdc(),
+      chef = false;
     return SuiviMembres.adresse()
       .then(
         ({ url, manque }) => {
-          if (manque == "section" || manque == "sujet")
-            throw new Error(SuiviMembres.sansAdresse(manque));
-          // réglages relus si la dernière lecture a plus d'une minute : la ligne « Chefs » fait foi
-          chef = StatsMembres.autorise();
-          $("#o_statsMembres .o_statsChefs").toggle(chef);
-          if (!chef) throw new Error(StatsMembres.reservee());
           if (!url) throw new Error(SuiviMembres.sansAdresse(manque));
-          return ExportRapports.requete(url, "POST", { releves: true });
+          // réglages relus si la dernière lecture a plus d'une minute : la ligne « Chefs » fait foi ;
+          // un autre membre ne demande que ce que les joueurs partagent avec les autres
+          chef = StatsMembres.autorise();
+          return ExportRapports.requete(
+            url,
+            "POST",
+            chef ? { releves: true } : { relevesPublics: true },
+          );
         },
         () => {
           throw new Error("le forum de l'alliance n'a pas pu être lu, réessaie dans un instant");
@@ -292,24 +252,52 @@ class StatsMembres {
       .then((/** @type {any} */ donnees) => {
         if (!donnees || !Array.isArray(donnees.releves))
           throw new Error("réponse inattendue du script du Google Sheet");
+        vueChefStats = chef;
+        $("#o_statsMembresPortee").text(
+          chef
+            ? ""
+            : " : seulement les joueurs qui partagent au moins une information avec les autres membres, et ces informations-là",
+        );
         fichierLuStats = Horloge.maintenant();
-        return (tdc || StatsMembres.tdc()).then((t) => {
-          StatsMembres.remplir(donnees.releves, t);
+        let releves = chef ? donnees.releves : StatsMembres.publics(donnees.releves);
+        return tdc.then((t) => {
+          StatsMembres.remplir(releves, t);
           StatsMembres._etat();
         });
       })
       .catch((e) => {
         let message = String((e && e.message) || e);
-        if (message == StatsMembres.reservee()) {
-          $etat.text(message);
-          return;
-        }
         // script d'avant cette lecture : la requête lui est inconnue
         if (/requête invalide/.test(message))
           message =
             "le script du Google Sheet « Stats membres » n'est pas à jour, son propriétaire doit le redéployer (nouvelle version)";
         $etat.addClass("red").text(`Stats illisibles : ${message}.`);
       });
+  }
+  /**
+   * Ce que voit un membre qui n'est pas chef, que le script filtre déjà : les
+   * joueurs qui partagent au moins une information avec les autres membres, et
+   * ces informations-là.
+   *
+   * @static
+   * @method publics
+   * @param {Array<any>} releves réponse de la requête « relevesPublics »
+   * @return {Array<any>}
+   */
+  static publics(releves) {
+    return releves
+      .map((r) => {
+        let partages = r.partages || {},
+          valeurs = r.valeurs || {};
+        return {
+          ...r,
+          partages,
+          valeurs: Object.fromEntries(
+            Object.keys(valeurs).map((c) => [c, partages[c] === true ? valeurs[c] : null]),
+          ),
+        };
+      })
+      .filter((r) => Object.values(r.partages).some((p) => p === true));
   }
   /**
    * @static
@@ -350,7 +338,7 @@ class StatsMembres {
     $("#o_statsMembresEtat")
       .removeClass("red")
       .text(
-        `${numeral(n).format()} joueur(s), fichier lu ${StatsMembres.quand(fichierLuStats)}, ${tdcTableauStats ? `TdC lus ${StatsMembres.quand(tdcTableauStats.heure)}` : "TdC illisibles (page Membres)"}.`,
+        `${numeral(n).format()} joueur(s)${vueChefStats ? "" : " partagent avec les autres membres"}, fichier lu ${StatsMembres.quand(fichierLuStats)}, ${tdcTableauStats ? `TdC lus ${StatsMembres.quand(tdcTableauStats.heure)}` : "TdC illisibles (page Membres)"}.`,
       );
   }
   /**

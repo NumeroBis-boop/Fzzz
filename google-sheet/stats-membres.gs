@@ -26,8 +26,10 @@
  * « version », et crée l'onglet s'il manque.
  *
  * Les colonnes se repèrent par leur titre : elles peuvent être déplacées, et
- * d'autres ajoutées à la main. Un joueur se retrouve par son pseudo : les
- * lignes peuvent être triées.
+ * d'autres ajoutées à la main. Une colonne qui manque (nouvelle information
+ * relevée par l'extension) est insérée après celle qui la précède dans la
+ * liste. Un joueur se retrouve par son pseudo : les lignes peuvent être
+ * triées.
  *
  * L'extension lit aussi le niveau de champignonnière des colonies d'un
  * seigneur (requête « niveaux », sans écriture), pour calculer ce qu'il pille,
@@ -54,7 +56,9 @@ var DONNEES = [
   ["vc", "VC"],
   ["puceron", "Puceron"],
   ["champignonniere", "Champignonnière"],
+  ["ouvrieres", "Ouvrières"],
 ];
+var FORMAT_NOMBRE = "#,##0";
 var COULEUR_PARTAGE = "#d9ead3";
 var COULEUR_REFUS = "#f4cccc";
 var LEGENDE = [
@@ -68,7 +72,7 @@ var JOUEURS_LUS_MAX = 50;
 var VALEUR_MAX = 1e15;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-18.1";
+var VERSION_SCRIPT = "stats-membres 2026-11-18.2";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -307,7 +311,7 @@ function preparer(classeur) {
     lignes = feuille.getMaxRows() - 1;
   feuille.getRange(1, 1, 1, titres.length).setValues([titres]).setFontWeight("bold");
   feuille.setFrozenRows(1);
-  feuille.getRange(2, 3, lignes, DONNEES.length).setNumberFormat("#,##0");
+  feuille.getRange(2, 3, lignes, DONNEES.length).setNumberFormat(FORMAT_NOMBRE);
   LEGENDE.forEach(function (l, i) {
     feuille
       .getRange(1, titres.length + 2 + i)
@@ -464,24 +468,48 @@ function blocsDeColonnes(titres, colonnes, fonds) {
 }
 
 /**
- * Colonne (à partir de 1) de chaque titre, lue dans la première ligne ; un
- * titre absent (colonne supprimée, nouvelle information) est ajouté au bout.
+ * Colonne (à partir de 1) de chaque titre, lue dans la première ligne. Un
+ * titre absent (colonne supprimée, nouvelle information) est inséré après la
+ * colonne du titre qui le précède dans la liste, sinon ajouté au bout : une
+ * nouvelle information va avant « Version » et la légende des couleurs.
  */
 function colonnesDe(feuille, titres) {
-  var largeur = Math.max(feuille.getLastColumn(), 1),
-    lus = feuille.getRange(1, 1, 1, largeur).getValues()[0],
+  var colonnes = titresLus(feuille),
+    lignes = feuille.getMaxRows() - 1;
+  titres.forEach(function (t, k) {
+    if (colonnes[t]) return;
+    var avant = 0,
+      colonne;
+    for (var j = k - 1; j >= 0 && !avant; j--) avant = colonnes[titres[j]] || 0;
+    if (avant) {
+      feuille.insertColumnAfter(avant);
+      colonne = avant + 1;
+      // une colonne insérée prend la mise en forme de sa voisine : ses fonds
+      // verts et rouges diraient partagé ou non une information jamais relevée
+      if (lignes > 0) feuille.getRange(2, colonne, lignes, 1).setBackground(null);
+    } else {
+      colonne = Math.max(feuille.getLastColumn(), 1) + 1;
+      if (colonne > feuille.getMaxColumns())
+        feuille.insertColumnsAfter(feuille.getMaxColumns(), colonne - feuille.getMaxColumns());
+    }
+    feuille.getRange(1, colonne).setValue(t).setFontWeight("bold");
+    var donnee = DONNEES.some(function (d) {
+      return d[1] == t;
+    });
+    if (donnee && lignes > 0)
+      feuille.getRange(2, colonne, lignes, 1).setNumberFormat(FORMAT_NOMBRE);
+    colonnes = titresLus(feuille);
+  });
+  return colonnes;
+}
+
+/** Colonne (à partir de 1) de chaque titre de la première ligne. */
+function titresLus(feuille) {
+  var lus = feuille.getRange(1, 1, 1, Math.max(feuille.getLastColumn(), 1)).getValues()[0],
     colonnes = {};
   lus.forEach(function (t, i) {
     var titre = String(t == null ? "" : t).trim();
     if (titre && !colonnes[titre]) colonnes[titre] = i + 1;
-  });
-  titres.forEach(function (t) {
-    if (colonnes[t]) return;
-    largeur = Math.max(largeur, feuille.getLastColumn()) + 1;
-    if (largeur > feuille.getMaxColumns())
-      feuille.insertColumnsAfter(feuille.getMaxColumns(), largeur - feuille.getMaxColumns());
-    feuille.getRange(1, largeur).setValue(t).setFontWeight("bold");
-    colonnes[t] = largeur;
   });
   return colonnes;
 }

@@ -122,6 +122,8 @@ const DONNEES = {
   vc: 8,
   puceron: 2,
   champignonniere: 17,
+  // page Reine : toutes les ouvrières, celles parties en convoi comprises
+  ouvrieres: 70481,
 };
 const CLES = Object.keys(DONNEES);
 const TOUT = Object.fromEntries(CLES.map((c) => [c, true]));
@@ -304,7 +306,7 @@ describe("annonce avant le premier envoi", () => {
     const annonce = lire<any>(`TOASTS[0]`);
     expect(annonce.hideAfter).toBe(false);
     expect(annonce.text).toContain(
-      "Une fois par jour, l'extension envoie au Google Sheet des stats membres de ton alliance tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron et Champignonnière. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change. Le premier envoi se fera à ta prochaine page.",
+      "Une fois par jour, l'extension envoie au Google Sheet des stats membres de ton alliance tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron, Champignonnière et Ouvrières. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change. Le premier envoi se fera à ta prochaine page.",
     );
     expect(annonce.text).toContain("Préférences → Partage de données");
     // la page suivante, quelques secondes après
@@ -450,13 +452,27 @@ describe("annonce avant le premier envoi", () => {
 describe("cases de Préférences → Partage de données", () => {
   test("information décochée : sa page n'est pas lue, sa valeur n'est pas envoyée, le fichier sait qu'elle n'est pas partagée", async () => {
     annonceVue();
-    decocher("cdf", "fdfHB", "fdfAB");
+    decocher("cdf", "fdfHB", "fdfAB", "ouvrieres");
     await ouvrirPage();
-    // plus aucune information de l'armée : la page Reine n'est pas lue
+    // plus aucune information de la page Reine : elle n'est pas lue
     expect(lues()).toEqual(["/construction.php", "/laboratoire.php"]);
     const s = recus()[0].corps.suivi;
     expect(s.donnees).toEqual({ tdp: 38, va: 7, vc: 8, puceron: 2, champignonniere: 17 });
-    expect(s.partages).toEqual({ ...TOUT, cdf: false, fdfHB: false, fdfAB: false });
+    expect(s.partages).toEqual({
+      ...TOUT,
+      cdf: false,
+      fdfHB: false,
+      fdfAB: false,
+      ouvrieres: false,
+    });
+  });
+
+  test("Ouvrières seule partagée : la page Reine est lue, pas la page Armée", async () => {
+    annonceVue();
+    decocher(...CLES.filter((c) => c != "ouvrieres"));
+    await ouvrirPage();
+    expect(lues()).toEqual(["/Reine.php"]);
+    expect(recus()[0].corps.suivi.donnees).toEqual({ ouvrieres: 70481 });
   });
 
   test("tout décoché : aucune page du jeu lue, seul le fait de ne rien partager est envoyé", async () => {
@@ -487,7 +503,7 @@ describe("cases de Préférences → Partage de données", () => {
   test("état affiché dans l'onglet", async () => {
     expect(lire(`SuiviMembres.resume()`)).toBe("Aucun envoi depuis ce navigateur pour l'instant.");
     annonceVue();
-    decocher("puceron", "champignonniere", "fdfHB", "fdfAB", "va", "vc");
+    decocher("puceron", "champignonniere", "fdfHB", "fdfAB", "va", "vc", "ouvrieres");
     await ouvrirPage();
     expect(lire(`SuiviMembres.resume()`)).toBe(
       "Dernier envoi depuis ce navigateur : le 12/11/2026 à 08h03 (TdP et CdF).",
@@ -972,7 +988,7 @@ describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : re
     decocher("puceron", "champignonniere");
     expect(await visiter("/Armee.php")).toBe("annonce");
     expect(lire<string>(`TOASTS[0].text`)).toContain(
-      "tes statistiques : TdP, CdF, FdF HB, FdF AB, VA et VC. Le premier envoi se fera à ta prochaine page.",
+      "tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC et Ouvrières. Le premier envoi se fera à ta prochaine page.",
     );
   });
 });
@@ -1075,6 +1091,7 @@ describe("Préférences → Partage de données", () => {
       "VC : niveau de Vitesse de chasse",
       "Puceron : niveau de l'Étable à pucerons",
       "Champignonnière : niveau",
+      "Ouvrières : nombre total, y compris celles parties en convoi",
     ]);
     // ce qui est envoyé, où, et ce que devient une case décochée : dit dans l'onglet
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);

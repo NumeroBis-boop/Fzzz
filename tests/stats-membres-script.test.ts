@@ -12,8 +12,28 @@ import { classeurSimule, feuille } from "./sheet-simule";
  */
 const VERT = "#d9ead3",
   ROUGE = "#f4cccc";
-const TITRES = ["TdP", "CdF", "FdF HB", "FdF AB", "VA", "VC", "Puceron", "Champignonnière"];
-const CLES = ["tdp", "cdf", "fdfHB", "fdfAB", "va", "vc", "puceron", "champignonniere"];
+const TITRES = [
+  "TdP",
+  "CdF",
+  "FdF HB",
+  "FdF AB",
+  "VA",
+  "VC",
+  "Puceron",
+  "Champignonnière",
+  "Ouvrières",
+];
+const CLES = [
+  "tdp",
+  "cdf",
+  "fdfHB",
+  "fdfAB",
+  "va",
+  "vc",
+  "puceron",
+  "champignonniere",
+  "ouvrieres",
+];
 
 // jour de Paris, décalé de n jours : le script refuse un jour loin d'aujourd'hui
 const jour = (n = 0) =>
@@ -31,6 +51,7 @@ const DONNEES = {
   vc: 8,
   puceron: 2,
   champignonniere: 17,
+  ouvrieres: 412000,
 };
 const TOUT = Object.fromEntries(CLES.map((c) => [c, true]));
 const releve = (plus: Record<string, unknown> = {}) => ({
@@ -61,18 +82,18 @@ describe("premier relevé : un seul onglet, une ligne par joueur", () => {
     const f = fichier();
     expect(f.doPost(releve())).toEqual({ ok: true, nouveau: true, dernier: true });
     expect(f.ordre).toEqual([ONGLET]);
-    expect(lignes(f).map((l: unknown[]) => l.slice(0, 11))).toEqual([
+    expect(lignes(f).map((l: unknown[]) => l.slice(0, 12))).toEqual([
       ["Joueur", "Date", ...TITRES, "Version"],
-      ["DoggyBag", jour(), 38, 250000, 3100000, 5890000, 7, 8, 2, 17, "1.104.0"],
+      ["DoggyBag", jour(), 38, 250000, 3100000, 5890000, 7, 8, 2, 17, 412000, "1.104.0"],
     ]);
   });
 
   test("légende des couleurs à droite des titres ; cases partagées en vert, joueur et date sans couleur", () => {
     const f = fichier();
     f.doPost(releve());
-    expect(f.onglets[ONGLET].grille[0].slice(12, 14)).toEqual(["partagé", "non partagé"]);
-    expect(fonds(f, 1, [13, 14])).toEqual([VERT, ROUGE]);
-    expect(fonds(f, 2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])).toEqual([
+    expect(f.onglets[ONGLET].grille[0].slice(13, 15)).toEqual(["partagé", "non partagé"]);
+    expect(fonds(f, 1, [14, 15])).toEqual([VERT, ROUGE]);
+    expect(fonds(f, 2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])).toEqual([
       undefined,
       undefined,
       ...TITRES.map(() => VERT),
@@ -193,8 +214,12 @@ describe("colonne « Date » : le jour du relevé et l'heure du jeu à sa récep
       "dd/MM/yyyy",
       "dd/MM/yyyy HH:mm",
     ]);
-    // seule la case de la date reçoit ce format
-    expect(Object.keys(f.onglets[ONGLET].formats).sort()).toEqual(["2,2", "3,2"]);
+    // seule la case de la date reçoit ce format ; les colonnes ajoutées, celui des nombres
+    const formats = Object.entries(f.onglets[ONGLET].formats as Record<string, string>);
+    expect(formats.filter(([, v]) => v.startsWith("dd/")).map(([k]) => k)).toEqual(["2,2", "3,2"]);
+    expect(formats.filter(([, v]) => v == "#,##0").map(([k]) => k)).toEqual(
+      expect.arrayContaining([4, 5, 6, 7, 8, 9, 10, 11].map((c) => `2,${c}`)),
+    );
   });
 
   test("relevé plus ancien que la ligne : la date et l'heure de la ligne ne bougent pas", () => {
@@ -309,13 +334,13 @@ describe("information décochée par le joueur", () => {
   test("tout décoché dès le premier relevé : la ligne du joueur existe, tout en rouge, sans aucune valeur", () => {
     const f = fichier();
     f.doPost(releve({ donnees: {}, partages: Object.fromEntries(CLES.map((c) => [c, false])) }));
-    expect(lignes(f)[1].slice(0, 11)).toEqual([
+    expect(lignes(f)[1].slice(0, 12)).toEqual([
       "DoggyBag",
       jour(),
       ...TITRES.map(() => ""),
       "1.104.0",
     ]);
-    expect(fonds(f, 2, [3, 10])).toEqual([ROUGE, ROUGE]);
+    expect(fonds(f, 2, [3, 11])).toEqual([ROUGE, ROUGE]);
   });
 
   test("recochée : la nouvelle valeur remplace l'ancienne, en vert ; valeur partagée mais illisible ce jour-là : sans couleur", () => {
@@ -400,7 +425,7 @@ describe("une ligne par joueur", () => {
 });
 
 describe("fichier modifié à la main", () => {
-  test("colonnes déplacées, colonne ajoutée, colonne vide, lignes triées, date tapée : chaque valeur va sous son titre, les autres cases ne sont pas touchées", () => {
+  test("colonnes déplacées, colonne ajoutée, colonne vide, lignes triées, date tapée : chaque valeur va sous son titre, les autres cases restent sous le leur", () => {
     const f = fichier({
       "Dernier relevé": feuille("Dernier relevé", [
         ["Note", "", "TdP", "Joueur", "Date"],
@@ -413,20 +438,34 @@ describe("fichier modifié à la main", () => {
     f.onglets["Dernier relevé"].fonds["3,4"] = "#00ffff";
     f.doPost(releve());
     const [titres, lassie, moi] = lignes(f);
-    // titres manquants ajoutés au bout
+    // titre manquant inséré après celui qui le précède dans la liste (TdP, CdF…)
     expect(titres).toEqual([
       "Note",
       "",
       "TdP",
-      "Joueur",
-      "Date",
       ...TITRES.filter((t) => t != "TdP"),
       "Version",
+      "Joueur",
+      "Date",
     ]);
-    expect(lassie).toEqual(["chef", "", 1, "Lassie", "01/11/2026"]);
-    expect(moi.slice(0, 7)).toEqual(["à relancer", "x", 38, "DoggyBag", jour(), 250000, 3100000]);
-    // seules les cases des informations sont colorées
-    expect(fonds(f, 3, [1, 2, 3, 4, 5, 6])).toEqual([
+    // les cases glissent avec leur colonne : chacune reste sous son titre
+    expect(lassie).toEqual([
+      "chef",
+      "",
+      1,
+      ...TITRES.slice(1).map(() => ""),
+      "",
+      "Lassie",
+      "01/11/2026",
+    ]);
+    const colonne = (titre: string) => titres.indexOf(titre) + 1;
+    expect(
+      ["Note", "", "TdP", "Joueur", "Date", "CdF", "Ouvrières"].map((t, i) =>
+        i == 1 ? moi[1] : moi[colonne(t) - 1],
+      ),
+    ).toEqual(["à relancer", "x", 38, "DoggyBag", jour(), 250000, 412000]);
+    // seules les cases des informations sont colorées ; un fond mis à la main suit sa case
+    expect(fonds(f, 3, [1, 2, 3, colonne("Joueur"), colonne("Date"), colonne("CdF")])).toEqual([
       "#ffff00",
       undefined,
       VERT,
@@ -435,6 +474,35 @@ describe("fichier modifié à la main", () => {
       VERT,
     ]);
     expect(lignes(f)).toHaveLength(3);
+  });
+
+  test("nouvelle information (Ouvrières, 1.129.0) dans un onglet créé avant : colonne insérée après Champignonnière, sans couleur pour les autres joueurs", () => {
+    const anciens = TITRES.filter((t) => t != "Ouvrières");
+    const f = fichier({
+      "Dernier relevé": feuille("Dernier relevé", [
+        ["Joueur", "Date", ...anciens, "Version", "", "partagé", "non partagé"],
+        ["Lassie", jour(-1), 30, 1000, 2000, 3000, 5, 6, 1, 15, "1.128.0"],
+      ]),
+    });
+    // Lassie partage tout sauf sa Champignonnière : fonds verts et un rouge
+    anciens.forEach((t, i) => (f.onglets[ONGLET].fonds[`2,${i + 3}`] = i == 7 ? ROUGE : VERT));
+    f.onglets[ONGLET].fonds["1,13"] = VERT;
+    f.onglets[ONGLET].fonds["1,14"] = ROUGE;
+    f.doPost(releve());
+    const [titres, lassie, moi] = lignes(f);
+    expect(titres).toEqual(["Joueur", "Date", ...TITRES, "Version", "", "partagé", "non partagé"]);
+    expect(lassie).toEqual(["Lassie", jour(-1), 30, 1000, 2000, 3000, 5, 6, 1, 15, "", "1.128.0"]);
+    expect(moi.slice(10, 12)).toEqual([412000, "1.104.0"]);
+    // la case insérée ne prend pas le rouge de sa voisine : rien n'y dit « non partagé »
+    expect(fonds(f, 2, [10, 11])).toEqual([ROUGE, null]);
+    expect(fonds(f, 3, [10, 11])).toEqual([VERT, VERT]);
+    expect(fonds(f, 1, [14, 15])).toEqual([VERT, ROUGE]);
+    expect(f.onglets[ONGLET].formats["2,11"]).toBe("#,##0");
+    const { releves } = f.doPost({ releves: true });
+    expect(releves.map((r: any) => [r.joueur, r.valeurs.ouvrieres, r.partages.ouvrieres])).toEqual([
+      ["Lassie", null, null],
+      ["DoggyBag", 412000, true],
+    ]);
   });
 
   test("pseudo qui commencerait une formule : écrit comme du texte, retrouvé ensuite", () => {
@@ -586,7 +654,7 @@ describe("lecture de tout l'onglet pour la vue « Stats membres » (1.127.0)", (
     expect(fichier().doPost({ releves: true })).toEqual({ ok: true, releves: [] });
     expect(fichier().doGet()).toMatchObject({
       releves: true,
-      version: "stats-membres 2026-11-18.1",
+      version: "stats-membres 2026-11-18.2",
     });
   });
 });

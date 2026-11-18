@@ -26,20 +26,30 @@ const page = creerPage(
 const lire = <T = any>(e: string) => page.lire<T>(e);
 
 const ADRESSE = "https://script.google.com/macros/s/AKfycbInventeStats/exec";
-const CLES = ["tdp", "cdf", "fdfHB", "fdfAB", "va", "vc", "puceron", "champignonniere"];
+const CLES = [
+  "tdp",
+  "cdf",
+  "fdfHB",
+  "fdfAB",
+  "va",
+  "vc",
+  "puceron",
+  "champignonniere",
+  "ouvrieres",
+];
 const tous = (v: unknown) => Object.fromEntries(CLES.map((c) => [c, v]));
 const RELEVES = [
   {
     joueur: "Alpha",
     date: "2026-11-18 08:03",
-    valeurs: { ...tous(1), tdp: 30, cdf: 1000, fdfHB: 50000, va: 5 },
+    valeurs: { ...tous(1), tdp: 30, cdf: 1000, fdfHB: 50000, va: 5, ouvrieres: 350000 },
     partages: tous(true),
   },
   {
     joueur: "Bravo",
     date: "2026-11-17 22:10",
-    valeurs: { ...tous(1), tdp: 40, cdf: null, fdfHB: 150000, va: 9 },
-    partages: { ...tous(true), cdf: false },
+    valeurs: { ...tous(1), tdp: 40, cdf: null, fdfHB: 150000, va: 9, ouvrieres: null },
+    partages: { ...tous(true), cdf: false, ouvrieres: false },
   },
   {
     joueur: "Char<lie>",
@@ -133,7 +143,7 @@ describe("entrée du menu Alliance", () => {
 });
 
 describe("tableau du dernier relevé de chaque joueur", () => {
-  test("contenu de la page caché ; une ligne par joueur, nombres en français, non partagé « — », pas lu vide", async () => {
+  test("contenu de la page caché ; une ligne par joueur, nombres en français, non partagé « — » en rouge, pas lu vide", async () => {
     lire(`$("#alliance").after("<div id='o_carteAlliance'>carte</div>")`);
     await ouvrir();
     expect(
@@ -152,13 +162,22 @@ describe("tableau du dernier relevé de chaque joueur", () => {
       "VC",
       "Puceron",
       "Champignonnière",
+      "Ouvrières",
     ]);
     // trié par pseudo ; les pseudos viennent du fichier : échappés
     expect(cellules()).toEqual([
-      ["Alpha", "18/11 08h03", "30", "1 000", "50 000", "1", "5", "1", "1", "1"],
-      ["Bravo", "17/11 22h10", "40", "—", "150 000", "1", "9", "1", "1", "1"],
-      ["Char<lie>", "16/11", "35", "", "1 234 567", "", "", "", "", ""],
+      ["Alpha", "18/11 08h03", "30", "1 000", "50 000", "1", "5", "1", "1", "1", "350 000"],
+      ["Bravo", "17/11 22h10", "40", "—", "150 000", "1", "9", "1", "1", "1", "—"],
+      ["Char<lie>", "16/11", "35", "", "1 234 567", "", "", "", "", "", ""],
     ]);
+    // information non partagée : case rouge (classe), dite par la légende
+    expect(
+      lire(`$("#o_statsMembresTable td.o_statsNonPartage").map((i, td) => td.dataset.cle).get()`),
+    ).toEqual(["cdf", "ouvrieres"]);
+    expect(lire(`$("#o_statsMembres > p:last .o_statsNonPartage").text()`)).toBe("—");
+    expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).toContain(
+      "— case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là",
+    );
     expect(lire(`$("#o_statsMembresTable tbody a").last().attr("href")`)).toBe(
       "Membre.php?Pseudo=Char%3Clie%3E",
     );
@@ -186,7 +205,7 @@ describe("cases du partage, comme dans Préférences → Partage de données", (
       ),
     ).toEqual(CLES.map((c) => [c, c != "vc"]));
     expect(lire(`$("#o_statsMembres .o_statsMembresReglages").first().text()`)).toContain(
-      "Je partage : TdP CdF FdF HB FdF AB VA VC Puceron Champignonnière(envoyé au fichier à ta prochaine page)",
+      "Je partage : TdP CdF FdF HB FdF AB VA VC Puceron Champignonnière Ouvrières(envoyé au fichier à ta prochaine page)",
     );
     lire(
       `$("#o_statsMembres input[data-stats-partage='cdf']").prop("checked", false).trigger("change")`,

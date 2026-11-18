@@ -33,6 +33,27 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     insertColumnsAfter: (c: number, n: number) => {
       colonnesMax += n;
     },
+    // colonne insérée au milieu : les cases à sa droite glissent d'une colonne,
+    // la nouvelle prend la mise en forme de sa voisine de gauche, comme dans Sheets
+    insertColumnAfter: (c: number) => {
+      colonnesMax += 1;
+      for (const l of grille) if (l.length > c) l.splice(c, 0, "");
+      for (const table of [f.fonds, f.formats, f.formules] as Record<string, unknown>[]) {
+        const cles = Object.keys(table)
+          .map((k) => k.split(",").map(Number) as [number, number])
+          .filter(([, col]) => col > c)
+          .sort((a, b) => b[1] - a[1]);
+        for (const [r, col] of cles) {
+          table[`${r},${col + 1}`] = table[`${r},${col}`];
+          delete table[`${r},${col}`];
+        }
+        if (table != f.formules)
+          for (const k of Object.keys(table)) {
+            const [r, col] = k.split(",").map(Number);
+            if (col == c) table[`${r},${c + 1}`] = table[k];
+          }
+      }
+    },
     // mise en forme demandée par le script : hauteur forcée et alignement par ligne
     hauteurs: {} as Record<number, number>,
     alignements: {} as Record<number, string>,

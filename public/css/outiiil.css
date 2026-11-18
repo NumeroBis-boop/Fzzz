@@ -3559,9 +3559,17 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 #o_statsMembresTable td:nth-child(n + 3) {
   text-align: right;
 }
+/* information que le joueur ne partage pas : le rouge des cases du fichier */
+#o_statsMembres .o_statsNonPartage {
+  background-color: #f4cccc;
+  color: #a61b1b;
+}
 #o_statsMembresTable td.o_statsNonPartage {
   text-align: center;
-  opacity: 0.6;
+}
+.o_statsLegende {
+  display: inline-block;
+  padding: 0 8px;
 }
 #o_statsMembresTable tr.o_statsMoi > td {
   font-weight: bold;

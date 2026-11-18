@@ -114,7 +114,7 @@ class StatsMembres {
         <div class='o_statsMembresReglages'><label><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Couleurs par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée</label></div>
         <p id='o_statsMembresEtat' class='reduce'></p>
         <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}</tr></thead><tbody></tbody></table></div>
-        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. « — » : information que le joueur ne partage pas ; case vide : pas lue ce jour-là.</p>
+        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
       </div>`);
     $("#o_statsMembres input[data-stats-partage]").on("change", (e) => {
       let caseCochee = /** @type {HTMLInputElement} */ (e.currentTarget),

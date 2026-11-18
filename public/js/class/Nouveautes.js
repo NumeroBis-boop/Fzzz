@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.129.0",
+    notes: [
+      "Stats membres : une information qu'un joueur ne partage pas s'affiche sur fond rouge ; la légende sous le tableau l'explique.",
+      "Nouvelle information partagée, cochée par défaut : le nombre total d'ouvrières, celles parties en convoi comprises. Elle part avec ton prochain relevé (demain, ou tout de suite avec « Envoyer maintenant » dans Préférences → Partage de données), où tu peux aussi la décocher.",
+    ],
+  },
+  {
     version: "1.128.0",
     notes: [
       "Les réglages de l'alliance sont lus dans un seul sujet de la section cachée du forum, « Réglages de l'extension » : site de suivi des convois, adresses des Google Sheet, joueurs autorisés à partager des RC, chasseurs, greniers. Préférences → Partage de données, « Fonctionnement sur les autres serveurs », montre ce qui a été lu.",

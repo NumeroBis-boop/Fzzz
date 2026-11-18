@@ -28,6 +28,11 @@ const DONNEES_PARTAGEES = [
   { cle: "vc", titre: "VC", libelle: "VC : niveau de Vitesse de chasse" },
   { cle: "puceron", titre: "Puceron", libelle: "Puceron : niveau de l'Étable à pucerons" },
   { cle: "champignonniere", titre: "Champignonnière", libelle: "Champignonnière : niveau" },
+  {
+    cle: "ouvrieres",
+    titre: "Ouvrières",
+    libelle: "Ouvrières : nombre total, y compris celles parties en convoi",
+  },
 ];
 // case décochée : "0" ; cochée par défaut
 const CLE_PARTAGE = "fzzz_partage_";
@@ -43,6 +48,7 @@ const JOURNAL_SUIVI = "Partage de données";
 const SUIVI_CONSTRUCTION = ["tdp", "puceron", "champignonniere"];
 const SUIVI_LABORATOIRE = ["tdp", "va", "vc", "fdfAB"];
 const SUIVI_ARMEE = ["cdf", "fdfHB", "fdfAB"];
+const SUIVI_REINE = ["ouvrieres"];
 // niveaux dont le changement fait refaire le relevé du jour sans attendre le
 // lendemain (demande du mainteneur) : information partagée → nom du bâtiment
 const SUIVI_NIVEAUX_SUIVIS = { champignonniere: "champignonniere", puceron: "etable a pucerons" };
@@ -366,6 +372,20 @@ class SuiviMembres {
     });
   }
   /**
+   * Nombre total d'ouvrières de la page Reine (celles parties en convoi
+   * comprises), page déjà lue pour l'armée.
+   *
+   * @private
+   * @static
+   * @return {Promise<Number>}
+   */
+  static _ouvrieres() {
+    return Utils.lireReine().then((/** @type {any} */ reine) => {
+      if (!reine.reine) throw new Error(`page Reine illisible (${reine.raison})`);
+      return reine.ouvrieres;
+    });
+  }
+  /**
    * Valeurs des informations partagées ; seules les pages utiles sont lues.
    *
    * @static
@@ -381,7 +401,8 @@ class SuiviMembres {
       utile(SUIVI_CONSTRUCTION) ? SuiviMembres._niveauxDe("/construction.php", vu) : null,
       utile(SUIVI_LABORATOIRE) ? SuiviMembres._niveauxDe("/laboratoire.php") : null,
       utile(SUIVI_ARMEE) ? SuiviMembres._armee() : null,
-    ]).then(([construction, recherche, unites]) => {
+      utile(SUIVI_REINE) ? SuiviMembres._ouvrieres() : null,
+    ]).then(([construction, recherche, unites, ouvrieres]) => {
       let niveau = (/** @type {any} */ niveaux, /** @type {String} */ nom) => {
           if (!niveaux || niveaux[nom] == null) throw new Error(`niveau introuvable : ${nom}`);
           return niveaux[nom];
@@ -400,6 +421,7 @@ class SuiviMembres {
           vc: () => niveau(recherche, "vitesse de chasse"),
           puceron: () => niveau(construction, "etable a pucerons"),
           champignonniere: () => niveau(construction, "champignonniere"),
+          ouvrieres: () => Number(ouvrieres),
         },
         /** @type {Record<String, Number>} */
         donnees = {};

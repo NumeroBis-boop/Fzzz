@@ -599,4 +599,23 @@ class SuiviMembres {
       phrases.push("Le prochain envoi se fera à ta prochaine page.");
     return phrases.join(" ");
   }
+  /**
+   * Pourquoi le fichier de l'alliance est introuvable, d'après ce que
+   * `adresse()` dit qu'il manque.
+   *
+   * @static
+   * @method sansAdresse
+   * @param {String} manque "section", "sujet", "ligne" ou "adresse"
+   * @return {String}
+   */
+  static sansAdresse(manque) {
+    let ligne = REGLAGES_ALLIANCE.feuilleStats.nom;
+    return manque == "section"
+      ? `section cachée « ${FORUM_SECTIONS_CHASSES[0]} » du forum introuvable ou invisible pour ton grade`
+      : manque == "sujet"
+        ? `pas de sujet « ${TITRE_REGLAGES} » dans la section cachée du forum`
+        : manque == "ligne"
+          ? `pas de ligne « ${ligne} » dans le sujet « ${TITRE_REGLAGES} »`
+          : `pas d'adresse de script lisible à la ligne « ${ligne} » du sujet « ${TITRE_REGLAGES} »`;
+  }
 }

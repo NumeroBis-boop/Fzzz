@@ -152,6 +152,11 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
           return plage;
         },
         setValue: (x: unknown) => plage.setValues([[x]]),
+        // comme Apps Script : "#ffffff" pour une case sans couleur de fond
+        getBackgrounds: () =>
+          Array.from({ length: nl }, (_, i) =>
+            Array.from({ length: nc }, (_, j) => f.fonds[`${r + i},${c + j}`] || "#ffffff"),
+          ),
         setBackgrounds: (v: (string | null)[][]) => {
           if (v.length != nl || v.some((l) => l.length != nc))
             throw new Error("The number of rows or columns in the data does not match the range.");

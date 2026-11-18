@@ -231,6 +231,7 @@ export default defineConfig({
           "js/page/Profil.js",
           "js/page/Reine.js",
           "js/page/Ressource.js",
+          "js/page/StatsMembres.js",
           "js/content.js",
         ],
       },

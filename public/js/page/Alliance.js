@@ -31,6 +31,7 @@ class PageAlliance {
    *
    */
   executer() {
+    StatsMembres.installer();
     // Si le tableau des membres est déjà rendu, on enrichit directement.
     // Sinon, on observe `#alliance` pour réagir dès que le tableau apparaît
     // (rendu async sur certaines variantes de la page). Si aucun des deux
@@ -318,7 +319,7 @@ class PageAlliance {
   ongletCarte() {
     if (!$("#o_ongletCarte").length) return this;
     const showCarte = () => {
-      $("#alliance").hide();
+      $("#alliance, #o_statsMembres").hide();
       $("#o_carteAlliance").show();
     };
     $("#o_ongletCarte").click((e) => {

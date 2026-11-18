@@ -3522,3 +3522,47 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 .o_recolteSynthese strong {
   white-space: nowrap;
 }
+
+/* vue « Stats membres » (page Membres, menu Alliance → Stats membres) : cases
+   du partage et des couleurs sur des lignes compactes ; le tableau défile
+   dans sa largeur sur un téléphone */
+.o_statsMembresReglages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 2px 12px;
+  margin: 4px 0;
+}
+/* une case de partage ne se coupe pas ; le libellé des couleurs passe à la ligne */
+.o_statsMembresReglages label.o_statsMembresCase {
+  white-space: nowrap;
+}
+.o_statsMembresTableau {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+#o_statsMembresTable {
+  margin: 0 auto;
+  border-collapse: collapse;
+}
+#o_statsMembresTable td,
+#o_statsMembresTable th {
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+/* place des flèches de tri de DataTables, à droite du titre */
+#o_statsMembresTable thead th {
+  padding-right: 20px;
+}
+#o_statsMembresTable td:nth-child(n + 3) {
+  text-align: right;
+}
+#o_statsMembresTable td.o_statsNonPartage {
+  text-align: center;
+  opacity: 0.6;
+}
+#o_statsMembresTable tr.o_statsMoi > td {
+  font-weight: bold;
+}

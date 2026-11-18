@@ -14,11 +14,12 @@
  *     Code.gs par ce fichier.
  *  2. Déployer → Nouveau déploiement → type « Application Web » ;
  *     « Exécuter en tant que : moi », « Qui a accès : Tout le monde ».
- *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et la poster
- *     dans le forum de l'alliance, section « BDD partagée cachée », dans le
- *     premier message d'un sujet « Stats membres » : l'extension de chaque
- *     membre la lit toute seule. Pas de réponse dans ce sujet : elle
- *     empêcherait de modifier le message.
+ *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et l'écrire
+ *     dans le forum de l'alliance, section « BDD partagée cachée », sujet
+ *     « Réglages de l'extension », à la ligne « Google Sheet des stats
+ *     membres : … » de son premier message : l'extension de chaque membre la
+ *     lit toute seule (Préférences → Partage de données, section
+ *     « Fonctionnement sur les autres serveurs »).
  * Après une modification de ce code : Enregistrer, puis Déployer → Gérer les
  * déploiements → modifier → Version : Nouvelle version (l'adresse ne change
  * pas). L'adresse ouverte dans le navigateur montre alors la nouvelle
@@ -29,7 +30,10 @@
  * lignes peuvent être triées.
  *
  * L'extension lit aussi le niveau de champignonnière des colonies d'un
- * seigneur (requête « niveaux », sans écriture), pour calculer ce qu'il pille.
+ * seigneur (requête « niveaux », sans écriture), pour calculer ce qu'il pille,
+ * et tout l'onglet pour la vue « Stats membres » du menu Alliance (requête
+ * « releves », sans écriture) : une information sur fond rouge (non partagée)
+ * n'y est pas rendue.
  */
 
 var ONGLET = "Dernier relevé";
@@ -64,7 +68,7 @@ var JOUEURS_LUS_MAX = 50;
 var VALEUR_MAX = 1e15;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-16.1";
+var VERSION_SCRIPT = "stats-membres 2026-11-18.1";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -77,6 +81,7 @@ function doGet() {
     version: VERSION_SCRIPT,
     suivi: true,
     niveaux: true,
+    releves: true,
   });
 }
 
@@ -88,6 +93,7 @@ function doPost(e) {
     return reponseJson({ erreur: "requête illisible" });
   }
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
+  if (d && d.releves === true) return reponseJson(lireReleves(classeur));
   if (d && d.niveaux && typeof d.niveaux == "object") {
     var joueurs = d.niveaux.joueurs;
     if (
@@ -148,6 +154,70 @@ function lireNiveaux(classeur, joueurs) {
     };
   });
   return { ok: true, niveaux: niveaux };
+}
+
+/**
+ * Dernier relevé de chaque joueur de « Dernier relevé », pour les membres de
+ * l'alliance : [{joueur, date "AAAA-MM-JJ HH:mm" (ou "AAAA-MM-JJ" d'une ligne
+ * sans heure), valeurs {clé: nombre ou null}, partages {clé: vrai, faux ou
+ * null}}]. Une information sur fond rouge (décochée par le joueur) est rendue
+ * sans sa valeur, que la case garde pour le fichier seulement. Lecture seule.
+ */
+function lireReleves(classeur) {
+  var feuille = classeur.getSheetByName(ONGLET),
+    releves = [];
+  if (!feuille || feuille.getLastRow() < 2) return { ok: true, releves: releves };
+  var plage = feuille.getRange(1, 1, feuille.getLastRow(), Math.max(feuille.getLastColumn(), 1)),
+    lignes = plage.getValues(),
+    fonds = plage.getBackgrounds(),
+    colonnes = {},
+    fuseau = classeur.getSpreadsheetTimeZone();
+  lignes[0].forEach(function (t, i) {
+    var titre = String(t == null ? "" : t).trim();
+    if (titre && colonnes[titre] === undefined) colonnes[titre] = i;
+  });
+  if (colonnes[COLONNE_JOUEUR] === undefined) return { ok: true, releves: releves };
+  lignes.slice(1).forEach(function (l, n) {
+    var joueur = String(l[colonnes[COLONNE_JOUEUR]] == null ? "" : l[colonnes[COLONNE_JOUEUR]])
+      .replace(/^'/, "")
+      .trim();
+    if (!joueur) return;
+    var releve = {
+      joueur: joueur,
+      date:
+        colonnes[COLONNE_DATE] === undefined ? "" : dateCellule(l[colonnes[COLONNE_DATE]], fuseau),
+      valeurs: {},
+      partages: {},
+    };
+    DONNEES.forEach(function (d) {
+      var c = colonnes[d[1]];
+      if (c === undefined) {
+        releve.valeurs[d[0]] = null;
+        releve.partages[d[0]] = null;
+        return;
+      }
+      var fond = String(fonds[n + 1][c] || "").toLowerCase(),
+        partage = fond == COULEUR_REFUS ? false : fond == COULEUR_PARTAGE ? true : null;
+      releve.partages[d[0]] = partage;
+      releve.valeurs[d[0]] = partage === false ? null : nombreCellule(l[c]);
+    });
+    releves.push(releve);
+  });
+  return { ok: true, releves: releves };
+}
+
+/** Nombre d'une case : nombre, ou chiffres d'un texte tapé à la main ; null si vide. */
+function nombreCellule(v) {
+  if (typeof v == "number") return isFinite(v) ? v : null;
+  var chiffres = String(v == null ? "" : v).replace(/[^\d]/g, "");
+  return chiffres === "" ? null : Number(chiffres);
+}
+
+/** Date et heure d'une case, à l'heure du fichier : "AAAA-MM-JJ HH:mm", ou le jour seul. */
+function dateCellule(v, fuseau) {
+  if (Object.prototype.toString.call(v) == "[object Date]")
+    return isNaN(v.getTime()) ? "" : Utilities.formatDate(v, fuseau, "yyyy-MM-dd HH:mm");
+  return jourCellule(v, fuseau);
 }
 
 function avecVerrou(action) {

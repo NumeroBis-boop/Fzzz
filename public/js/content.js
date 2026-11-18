@@ -636,6 +636,8 @@ const DATEPICKER_OPTION = {
               `<li><a id='o_ongletCarte' class='boutonCarte' href='alliance.php?Membres#carte'><span></span>Carte</a></li>`,
             );
         }
+        // entrée « Stats membres » du menu Alliance : vue de la page Membres
+        if (!origineGenerale && !Utils.origine("Membre")) StatsMembres.ajouterMenu();
 
         // Onglet "Coûts" dans le menu colonie (Fourmilière) — injecté en bout de
         // liste, sur toutes les pages où le menu existe. La feature vit sur

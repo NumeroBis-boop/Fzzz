@@ -528,3 +528,65 @@ describe("lecture des niveaux de champignonnière (colonies d'un seigneur, 1.123
     expect(f.doGet()).toMatchObject({ niveaux: true });
   });
 });
+
+describe("lecture de tout l'onglet pour la vue « Stats membres » (1.127.0)", () => {
+  test("une entrée par joueur : date et heure, valeurs ; une information non partagée sans sa valeur ; rien d'écrit", () => {
+    const f = fichier();
+    f.doPost(releve({ joueur: "Alpha" }));
+    f.doPost(releve({ joueur: "Bravo", donnees: { ...DONNEES, va: 9 } }));
+    // Bravo décoche ensuite la CdF : la case garde sa valeur, sur fond rouge
+    f.doPost(
+      releve({
+        joueur: "Bravo",
+        donnees: { ...DONNEES, va: 10, cdf: undefined },
+        partages: { ...TOUT, cdf: false },
+      }),
+    );
+    const avant = JSON.stringify([f.onglets[ONGLET].grille, f.onglets[ONGLET].fonds]);
+    const r = f.doPost({ releves: true });
+    expect(JSON.stringify([f.onglets[ONGLET].grille, f.onglets[ONGLET].fonds])).toBe(avant);
+    expect(r.ok).toBe(true);
+    expect(r.releves.map((x: any) => x.joueur)).toEqual(["Alpha", "Bravo"]);
+    const [alpha, bravo] = r.releves;
+    expect(alpha.date).toMatch(new RegExp(`^${jour()} \\d{2}:\\d{2}$`));
+    expect(alpha.valeurs).toEqual(DONNEES);
+    expect(alpha.partages).toEqual(TOUT);
+    expect(bravo.valeurs).toEqual({ ...DONNEES, va: 10, cdf: null });
+    expect(bravo.partages).toEqual({ ...TOUT, cdf: false });
+    // la case garde la valeur pour le fichier
+    expect(lignes(f)[2][3]).toBe(250000);
+  });
+
+  test("colonnes déplacées ou absentes, ligne écrite à la main, jour sans heure ; onglet vide ou absent", () => {
+    const f = fichier({
+      "Dernier relevé": feuille("Dernier relevé", [
+        ["VA", "Joueur", "Date", "TdP"],
+        ["7", "'Alpha", "16/11/2026", 38],
+        ["", "Bravo", "16/11/2026", "1 234"],
+        ["5", "", "16/11/2026", 1],
+      ]),
+    });
+    expect(f.doPost({ releves: true })).toEqual({
+      ok: true,
+      releves: [
+        {
+          joueur: "Alpha",
+          date: "2026-11-16",
+          valeurs: { ...Object.fromEntries(CLES.map((c) => [c, null])), va: 7, tdp: 38 },
+          partages: Object.fromEntries(CLES.map((c) => [c, null])),
+        },
+        {
+          joueur: "Bravo",
+          date: "2026-11-16",
+          valeurs: { ...Object.fromEntries(CLES.map((c) => [c, null])), tdp: 1234 },
+          partages: Object.fromEntries(CLES.map((c) => [c, null])),
+        },
+      ],
+    });
+    expect(fichier().doPost({ releves: true })).toEqual({ ok: true, releves: [] });
+    expect(fichier().doGet()).toMatchObject({
+      releves: true,
+      version: "stats-membres 2026-11-18.1",
+    });
+  });
+});

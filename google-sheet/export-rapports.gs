@@ -10,12 +10,13 @@
  *  1. Extensions → Apps Script ; remplacer le contenu de Code.gs par ce fichier.
  *  2. Déployer → Nouveau déploiement → type « Application Web » ;
  *     « Exécuter en tant que : moi », « Qui a accès : Tout le monde ».
- *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et la poster
+ *  3. Autoriser, puis copier l'adresse de l'application (…/exec) et l'écrire
  *     dans le forum de l'alliance, section « BDD partagée cachée », sujet
- *     « Export Google Sheet », suivie de « Joueurs autorisés à partager des
- *     RC : » et de leurs pseudos : l'extension de ces joueurs lit l'adresse
- *     toute seule. Pas de réponse dans ce sujet : elle empêcherait de modifier
- *     le message (ajouter ou retirer un joueur).
+ *     « Réglages de l'extension », à la ligne « Google Sheet des RC : … » de
+ *     son premier message, avec la ligne « Joueurs autorisés à partager des
+ *     RC : » et leurs pseudos : l'extension de ces joueurs lit l'adresse toute
+ *     seule (Préférences → Partage de données, section « Fonctionnement sur
+ *     les autres serveurs »).
  * Après une modification de ce code : Enregistrer, puis Déployer → Gérer les
  * déploiements → modifier → Version : Nouvelle version (l'adresse ne change
  * pas). L'adresse ouverte dans le navigateur montre alors la nouvelle

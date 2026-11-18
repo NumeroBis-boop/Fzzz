@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.127.0",
+    notes: [
+      "Menu Alliance → « Stats membres » : le dernier relevé de chaque joueur du Google Sheet « Stats membres » (TdP, CdF, FdF, VA, VC, Puceron, Champignonnière), trié au clic sur une colonne. Une information qu'un joueur ne partage pas s'affiche « — ».",
+      "En haut du tableau : tes cases de partage (les mêmes que Préférences → Partage de données) et une case « Couleurs » qui colore chaque colonne du vert clair (valeur la plus faible) au vert foncé (la plus élevée).",
+    ],
+  },
+  {
     version: "1.126.0",
     notes: [
       "L'extension marche maintenant sur les serveurs s1 à s5. Le suivi des convois de la OUAF reste sur le s5.",

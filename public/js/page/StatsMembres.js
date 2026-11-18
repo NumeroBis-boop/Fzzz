@@ -211,6 +211,7 @@ class StatsMembres {
       .after(`<div id='o_statsMembres' class='boite_amelioration simulateur centre' style='display:none'>
         <h2>Stats membres</h2>
         <div class='o_statsMembresReglages'><span class='gras'>Je partage :</span>${cases}</div>
+        <div id='o_statsMembresHorsListe' class='o_statsMembresReglages red' style='display:none'></div>
         <div class='o_statsMembresReglages'><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
         <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success' disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
         <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
@@ -248,6 +249,8 @@ class StatsMembres {
     return SuiviMembres.adresse()
       .then(
         ({ url, manque }) => {
+          let horsListe = SuiviMembres.horsListe();
+          $("#o_statsMembresHorsListe").text(horsListe).toggle(!!horsListe);
           if (!url) throw new Error(SuiviMembres.sansAdresse(manque));
           return ExportRapports.requete(url, "POST", { releves: true });
         },

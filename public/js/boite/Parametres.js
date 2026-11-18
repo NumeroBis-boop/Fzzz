@@ -973,6 +973,8 @@ class BoiteParametre extends Boite {
       autorisesRc:
         "pseudos des joueurs qui exportent leurs RC vers ce Google Sheet sans rien régler, séparés par des virgules",
       feuilleStats: "adresse du script du Google Sheet du relevé quotidien des stats membres",
+      autorisesStats:
+        "pseudos des joueurs dont l'extension envoie chaque jour les stats à ce Google Sheet ; les autres n'envoient rien",
       chasseurs: "pseudos des chasseurs : rôle Chasseur par défaut",
       greniers: "pseudos des greniers : rôle Grenier et réglages des greniers par défaut",
       journal:
@@ -1033,7 +1035,7 @@ class BoiteParametre extends Boite {
           "Statistiques des membres",
           this.aide(
             `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension.`,
-            `Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé.`,
+            `Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé. Seuls les joueurs de la ligne « ${REGLAGES_ALLIANCE.autorisesStats.nom} » de ce sujet relèvent et envoient leurs stats.`,
           ) +
             DONNEES_PARTAGEES.map(
               (d) =>

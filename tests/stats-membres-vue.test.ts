@@ -400,6 +400,38 @@ describe("cases du partage, comme dans Préférences → Partage de données", (
   });
 });
 
+describe("joueur absent de la liste des autorisés à partager leurs stats", () => {
+  const garder = (autorises: string[]) =>
+    lire(
+      `localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: heure, alliance: "OUAF", section: true, sujet: true,
+        reglages: { feuilleStats: ${JSON.stringify(ADRESSE)}, autorisesStats: ${JSON.stringify(autorises)}, lignes: ["feuilleStats", "autorisesStats"] } }))`,
+    );
+  const note = () =>
+    lire<[string, string]>(
+      `[$("#o_statsMembresHorsListe").css("display"), $("#o_statsMembresHorsListe").text()]`,
+    );
+
+  test("la vue le dit sous ses cases, en rouge ; le tableau reste lisible", async () => {
+    garder(["Alpha"]);
+    await ouvrir();
+    expect(note()).toEqual([
+      "block",
+      "Rien n'est relevé ni envoyé : ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des stats membres » du sujet « Réglages de l'extension » (forum caché de ton alliance).",
+    ]);
+    expect(lire(`$("#o_statsMembresHorsListe").hasClass("red")`)).toBe(true);
+    expect(lire(`$("#o_statsMembresTable tbody tr").length`)).toBe(RELEVES.length);
+  });
+
+  test("dans la liste (casse ignorée) ou réglages pas encore lus : rien", async () => {
+    garder(["alpha", "BRAVO"]);
+    await ouvrir();
+    expect(note()).toEqual(["none", ""]);
+    lire(`localStorage.removeItem("fzzz_reglagesAlliance")`);
+    await lire(`StatsMembres.charger()`);
+    expect(note()).toEqual(["none", ""]);
+  });
+});
+
 describe("mise en couleur du tableau", () => {
   const rgb = (hex: string) =>
     `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;

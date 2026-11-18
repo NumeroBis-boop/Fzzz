@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.134.0",
+    notes: [
+      "Stats membres : seuls les joueurs de la ligne « Joueurs autorisés à partager des stats membres » du sujet « Réglages de l'extension » (forum caché) envoient leurs stats. Sans cette ligne, personne n'envoie rien.",
+      "Un joueur qui n'est pas dans la liste le voit dans Préférences → Partage de données et dans la vue Stats membres.",
+    ],
+  },
+  {
     version: "1.133.0",
     notes: [
       "Multi-flood opti : toutes les cibles dans un seul tableau, chacune encadrée, les cases des attaques alignées d'une cible à l'autre.",

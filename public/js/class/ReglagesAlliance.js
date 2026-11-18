@@ -16,6 +16,7 @@ const REGLAGES_ALLIANCE = {
   feuilleRc: { nom: "Google Sheet des RC", type: "sheet" },
   autorisesRc: { nom: "Joueurs autorisés à partager des RC", type: "liste" },
   feuilleStats: { nom: "Google Sheet des stats membres", type: "sheet" },
+  autorisesStats: { nom: "Joueurs autorisés à partager des stats membres", type: "liste" },
   chasseurs: { nom: "Chasseurs", type: "liste" },
   greniers: { nom: "Greniers", type: "liste" },
   journal: { nom: "Journal", type: "liste" },
@@ -30,7 +31,7 @@ class ReglagesAlliance {
   /**
    * @static
    * @method vides
-   * @return {{siteConvois: String, feuilleRc: String, autorisesRc: Array<String>, feuilleStats: String, chasseurs: Array<String>, greniers: Array<String>, journal: Array<String>, lignes: Array<String>, fichiers: Array<String>}}
+   * @return {{siteConvois: String, feuilleRc: String, autorisesRc: Array<String>, feuilleStats: String, autorisesStats: Array<String>, chasseurs: Array<String>, greniers: Array<String>, journal: Array<String>, lignes: Array<String>, fichiers: Array<String>}}
    *   fichiers : lignes de Google Sheet qui donnent l'adresse du fichier au lieu de celle de son script
    */
   static vides() {
@@ -39,6 +40,7 @@ class ReglagesAlliance {
       feuilleRc: "",
       autorisesRc: [],
       feuilleStats: "",
+      autorisesStats: [],
       chasseurs: [],
       greniers: [],
       journal: [],
@@ -292,7 +294,7 @@ class ReglagesAlliance {
   /**
    * @static
    * @method contient
-   * @param {"chasseurs"|"greniers"|"journal"|"autorisesRc"} cle
+   * @param {"chasseurs"|"greniers"|"journal"|"autorisesRc"|"autorisesStats"} cle
    * @param {String} pseudo
    * @return {Boolean} pseudo dans cette liste de la dernière lecture, casse ignorée
    */
@@ -363,7 +365,7 @@ class ReglagesAlliance {
           : ReglagesAlliance.fichier(cle)
             ? "à corriger : adresse du fichier au lieu de celle de son script (…/exec)"
             : "absent";
-    return `Lus ${quand} : site de suivi des convois ${r.siteConvois ? r.siteConvois.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "absent"} ; Google Sheet des RC ${feuille("feuilleRc")} (${liste(r.autorisesRc)} joueur(s) autorisé(s)) ; Google Sheet des stats membres ${feuille("feuilleStats")} ; ${liste(r.chasseurs)} chasseur(s), ${liste(r.greniers)} grenier(s), ${liste(r.journal)} au journal.`;
+    return `Lus ${quand} : site de suivi des convois ${r.siteConvois ? r.siteConvois.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "absent"} ; Google Sheet des RC ${feuille("feuilleRc")} (${liste(r.autorisesRc)} joueur(s) autorisé(s)) ; Google Sheet des stats membres ${feuille("feuilleStats")} (${liste(r.autorisesStats)} joueur(s) autorisé(s)) ; ${liste(r.chasseurs)} chasseur(s), ${liste(r.greniers)} grenier(s), ${liste(r.journal)} au journal.`;
   }
   /**
    * Relit les réglages à l'ouverture d'une page, au plus une fois par heure

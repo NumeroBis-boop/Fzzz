@@ -3,7 +3,8 @@
  * SuiviMembres.js
  * Partage de données : relevé quotidien des statistiques du joueur pour le
  * Google Sheet « Stats membres » de son alliance, refait quand le niveau de
- * sa Champignonnière ou de son Étable à pucerons change.
+ * sa Champignonnière ou de son Étable à pucerons change ; seulement pour les
+ * joueurs que son sujet des réglages autorise (règle du mainteneur, 18/11/2026).
  **********************************************************************/
 
 /**
@@ -61,7 +62,9 @@ const SUIVI_ECART_FIN = 30 * 1000;
  * cochées sont relevées (pages Construction, Laboratoire et Reine, lues une
  * fois chacune) et envoyées au script du fichier de l'alliance, dont l'adresse
  * est dans le sujet des réglages de l'alliance (ReglagesAlliance) : sans elle,
- * rien n'est lu ni envoyé. Une information décochée n'est ni relevée ni
+ * rien n'est lu ni envoyé, pas plus que pour un joueur absent de sa ligne
+ * « Joueurs autorisés à partager des stats membres » (ligne absente : aucun
+ * joueur). Une information décochée n'est ni relevée ni
  * envoyée ; le fichier reçoit seulement le fait qu'elle n'est pas partagée.
  * Le relevé du jour est refait à la première page ouverte après un changement
  * de niveau de SUIVI_NIVEAUX_SUIVIS (observer).
@@ -155,20 +158,58 @@ class SuiviMembres {
    *
    * @static
    * @method adresse
-   * @return {Promise<{url: String, manque: String}>} sans adresse, ce qui manque :
-   *   "section" (cachée absente ou invisible pour le grade), "sujet", "ligne" ou
-   *   "adresse" (ligne présente, adresse illisible) ; rejetée si le forum ne se lit pas
+   * @return {Promise<{url: String, manque: String, autorise: Boolean}>} sans adresse, ce
+   *   qui manque : "section" (cachée absente ou invisible pour le grade), "sujet",
+   *   "ligne" ou "adresse" (ligne présente, adresse illisible) ; autorise : le joueur
+   *   est dans la liste de ceux qui partagent leurs stats ; rejetée si le forum ne se lit pas
    */
   static adresse() {
-    return ReglagesAlliance.charger().then((r) =>
-      !r.section
-        ? { url: "", manque: "section" }
+    return ReglagesAlliance.charger().then((r) => {
+      let autorise = (r.reglages.autorisesStats || []).some(
+        (/** @type {String} */ j) => j.toLowerCase() == SuiviMembres._pseudo(),
+      );
+      return !r.section
+        ? { url: "", manque: "section", autorise }
         : !r.sujet
-          ? { url: "", manque: "sujet" }
+          ? { url: "", manque: "sujet", autorise }
           : r.reglages.feuilleStats
-            ? { url: r.reglages.feuilleStats, manque: "" }
-            : { url: "", manque: r.reglages.lignes.includes("feuilleStats") ? "adresse" : "ligne" },
-    );
+            ? { url: r.reglages.feuilleStats, manque: "", autorise }
+            : {
+                url: "",
+                manque: r.reglages.lignes.includes("feuilleStats") ? "adresse" : "ligne",
+                autorise,
+              };
+    });
+  }
+  /**
+   * @static
+   * @method nonAutorise
+   * @return {String} pourquoi le joueur ne relève ni n'envoie ses stats, d'après la
+   *   dernière lecture des réglages
+   */
+  static nonAutorise() {
+    let ligne = REGLAGES_ALLIANCE.autorisesStats.nom;
+    return ReglagesAlliance.reglages().lignes.includes("autorisesStats")
+      ? `ton pseudo n'est pas dans la ligne « ${ligne} » du sujet « ${TITRE_REGLAGES} »`
+      : `pas de ligne « ${ligne} » dans le sujet « ${TITRE_REGLAGES} »`;
+  }
+  /**
+   * Ce que voit un joueur que la dernière lecture des réglages n'autorise pas à
+   * partager ses stats, le fichier de l'alliance étant renseigné.
+   *
+   * @static
+   * @method horsListe
+   * @return {String} phrase, "" pour un joueur autorisé ou des réglages pas encore lus
+   */
+  static horsListe() {
+    let g = ReglagesAlliance.garde();
+    return g &&
+      g.section &&
+      g.sujet &&
+      g.reglages.lignes.includes("feuilleStats") &&
+      !ReglagesAlliance.contient("autorisesStats", SuiviMembres._pseudo())
+      ? `Rien n'est relevé ni envoyé : ${SuiviMembres.nonAutorise()} (forum caché de ton alliance).`
+      : "";
   }
   /**
    * @private
@@ -461,7 +502,8 @@ class SuiviMembres {
    * @static
    * @method lancer
    * @param {Boolean} [maintenant] bouton « Envoyer maintenant » : sans attendre le lendemain
-   * @return {Promise<String>} "sans alliance", "attente", "sans sujet", "annonce", "envoyé" ou "échec"
+   * @return {Promise<String>} "sans alliance", "attente", "sans sujet", "non autorisé",
+   *   "annonce", "envoyé" ou "échec"
    */
   static lancer(maintenant = false) {
     if (!SuiviMembres._pseudo() || !Utils.alliance) return Promise.resolve("sans alliance");
@@ -479,8 +521,15 @@ class SuiviMembres {
         essai: 0,
       };
     // « rien aujourd'hui » conclu par une autre version du script : à revoir
-    if (etat.raison == "sans sujet" && etat.version !== VERSION)
-      etat = { ...etat, fait: false, essais: 0, essai: 0, raison: "" };
+    let revoir =
+      (etat.raison == "sans sujet" || etat.raison == "non autorisé") && etat.version !== VERSION;
+    // joueur ajouté depuis à la liste (réglages relus au plus une fois par heure, sans requête ici)
+    if (
+      etat.raison == "non autorisé" &&
+      ReglagesAlliance.contient("autorisesStats", SuiviMembres._pseudo())
+    )
+      revoir = true;
+    if (revoir) etat = { ...etat, fait: false, essais: 0, essai: 0, raison: "" };
     if (
       !maintenant &&
       (etat.fait ||
@@ -497,7 +546,15 @@ class SuiviMembres {
         return resultat;
       };
     return SuiviMembres.adresse()
-      .then(({ url, manque }) => {
+      .then(({ url, manque, autorise }) => {
+        // fichier renseigné : seuls les joueurs de la liste du sujet relèvent et envoient
+        if ((url || manque == "adresse") && !autorise) {
+          Journal.info(
+            JOURNAL_SUIVI,
+            `${SuiviMembres.nonAutorise()} : rien n'est relevé aujourd'hui`,
+          );
+          return fin("non autorisé", { fait: true, raison: "non autorisé", version: VERSION });
+        }
         // ligne présente, adresse illisible (message en cours d'écriture, lecture
         // ratée) : un échec, repris plus tard comme les autres
         if (manque == "adresse") throw new Error(SuiviMembres.sansAdresse(manque));
@@ -600,21 +657,25 @@ class SuiviMembres {
    */
   static resume() {
     let e = SuiviMembres.etat(),
+      aujourdhui = e.jour == SuiviMembres.jour(),
+      horsListe = SuiviMembres.horsListe(),
       phrases = [];
     if (e.envoi && e.envoi.instant)
       phrases.push(
         `Dernier envoi depuis ce navigateur : le ${moment(e.envoi.instant).format("DD/MM/YYYY [à] HH[h]mm")} (${SuiviMembres._titres(e.envoi.cles || []) || "aucune information partagée"}).`,
       );
     else phrases.push("Aucun envoi depuis ce navigateur pour l'instant.");
-    if (e.jour == SuiviMembres.jour() && !e.fait && e.raison)
+    if (horsListe) phrases.push(horsListe);
+    else if (aujourdhui && !e.fait && e.raison)
       phrases.push(
         `Aujourd'hui, le relevé n'a pas pu être envoyé : ${e.raison}. Nouvel essai à une page ouverte plus tard (${numeral(SUIVI_ESSAIS_PAR_JOUR).format()} essais par jour au plus).`,
       );
-    else if (e.jour == SuiviMembres.jour() && e.raison == "sans sujet")
+    else if (aujourdhui && e.raison == "sans sujet")
       phrases.push(
         `Aujourd'hui, rien n'a été envoyé : pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} » du forum caché de ton alliance.`,
       );
-    else if (e.jour == SuiviMembres.jour() && !e.fait)
+    // non autorisé jusque-là, ajouté depuis à la liste : la prochaine page le revoit
+    else if (aujourdhui && (!e.fait || e.raison == "non autorisé"))
       phrases.push("Le prochain envoi se fera à ta prochaine page.");
     return phrases.join(" ");
   }

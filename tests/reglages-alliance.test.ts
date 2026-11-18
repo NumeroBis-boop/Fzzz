@@ -40,6 +40,7 @@ const MESSAGE = [
   `Google Sheet des RC : <a href="${SHEET_RC}">https://script.google.com/macros/s/AKfy...</a>`,
   "Joueurs autorisés à partager des RC : Alpha, Bravo",
   `Google Sheet des stats membres : ${SHEET_STATS}`,
+  "Joueurs autorisés à partager des stats membres : Bravo, Echo",
   "Chasseurs : Alpha ; Charlie",
   "Greniers : Delta",
   "Journal : Alpha",
@@ -60,6 +61,7 @@ describe("lecture du premier message", () => {
       feuilleRc: SHEET_RC,
       autorisesRc: ["Alpha", "Bravo"],
       feuilleStats: SHEET_STATS,
+      autorisesStats: ["Bravo", "Echo"],
       chasseurs: ["Alpha", "Charlie"],
       greniers: ["Delta"],
       journal: ["Alpha"],
@@ -68,6 +70,56 @@ describe("lecture du premier message", () => {
         "feuilleRc",
         "autorisesRc",
         "feuilleStats",
+        "autorisesStats",
+        "chasseurs",
+        "greniers",
+        "journal",
+      ],
+      fichiers: [],
+    });
+  });
+
+  test("message en blocs titrés, proposé au mainteneur le 18/11/2026 : tout est lu, titres et consigne ignorés", () => {
+    // tel que le forum le sert (lignes séparées par <br>), pseudos et adresses inventés
+    const r = reglages(
+      `<div class="messageForum">${[
+        "RÉGLAGES DE L'EXTENSION OUAF",
+        "Ne rien répondre dans ce sujet. Ne changer que ce qui suit les deux-points, et garder une ligne vide avant chaque titre.",
+        "",
+        "===== CONVOIS =====",
+        `Site de suivi des convois : ${SITE}`,
+        "",
+        "===== RAPPORTS DE COMBAT (RC) =====",
+        `Google Sheet des RC : ${SHEET_RC}`,
+        "Joueurs autorisés à partager des RC : Alpha, Bravo, Charlie",
+        "",
+        "===== STATS MEMBRES =====",
+        `Google Sheet des stats membres : ${SHEET_STATS}`,
+        "Joueurs autorisés à partager des stats membres : Alpha, Charlie",
+        "",
+        "===== RÔLES PAR DÉFAUT =====",
+        "Chasseurs : Alpha, Delta",
+        "Greniers : Bravo, Echo",
+        "",
+        "===== JOURNAL DE L'EXTENSION =====",
+        "Journal : Alpha",
+      ].join("<br/>")}</div>`,
+    );
+    expect(r).toEqual({
+      siteConvois: SITE,
+      feuilleRc: SHEET_RC,
+      autorisesRc: ["Alpha", "Bravo", "Charlie"],
+      feuilleStats: SHEET_STATS,
+      autorisesStats: ["Alpha", "Charlie"],
+      chasseurs: ["Alpha", "Delta"],
+      greniers: ["Bravo", "Echo"],
+      journal: ["Alpha"],
+      lignes: [
+        "siteConvois",
+        "feuilleRc",
+        "autorisesRc",
+        "feuilleStats",
+        "autorisesStats",
         "chasseurs",
         "greniers",
         "journal",
@@ -363,7 +415,7 @@ describe("ce qu'en montrent les Préférences", () => {
     lire(`heure += 3 * 60000`);
     const resume = lire<string>(`ReglagesAlliance.resume()`);
     expect(resume).toBe(
-      "Lus il y a 3 min : site de suivi des convois convois.example.org ; Google Sheet des RC renseigné (2 joueur(s) autorisé(s)) ; Google Sheet des stats membres renseigné ; 2 chasseur(s), 1 grenier(s), 1 au journal.",
+      "Lus il y a 3 min : site de suivi des convois convois.example.org ; Google Sheet des RC renseigné (2 joueur(s) autorisé(s)) ; Google Sheet des stats membres renseigné (2 joueur(s) autorisé(s)) ; 2 chasseur(s), 1 grenier(s), 1 au journal.",
     );
     expect(resume).not.toContain("script.google.com");
     lire(`localStorage.clear()`);

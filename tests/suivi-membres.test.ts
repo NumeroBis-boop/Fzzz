@@ -37,10 +37,8 @@ const lire = <T = any>(e: string) => page.lire<T>(e);
 const attendre = () => new Promise((r) => setTimeout(r, 0));
 
 const ADRESSE = "https://script.google.com/macros/s/AKfycbInvente123/exec";
-// premier message du sujet des réglages de l'alliance, écrit à la main (lignes
-// séparées par <br> comme le forum les sert)
-const AUTORISES = "Joueurs autorisés à partager des stats membres : DoggyBag, Lassie";
-const REGLAGE = `Google Sheet des stats membres : ${ADRESSE}<br/>${AUTORISES}`;
+// premier message du sujet des réglages de l'alliance, écrit à la main
+const REGLAGE = `Google Sheet des stats membres : ${ADRESSE}`;
 const ligne = (nom: string, niveau: number) =>
   `<tr class="ligneAmelioration"><td><div class="desciption_amelioration"><h2>${nom}</h2><span class="niveau_amelioration">niveau ${niveau}</span></div></td></tr>`;
 const BATIMENTS: [string, number][] = [
@@ -383,9 +381,7 @@ describe("annonce avant le premier envoi", () => {
   });
 
   test("ligne présente mais sans adresse lisible : un échec, repris une heure plus tard quand l'adresse y est", async () => {
-    lire(
-      `FORUM.sujets[0].messages = ["Google Sheet des stats membres : bientôt<br/>${AUTORISES}"]`,
-    );
+    lire(`FORUM.sujets[0].messages = ["Google Sheet des stats membres : bientôt"]`);
     expect(await ouvrirPage()).toBe("échec");
     expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
       [
@@ -404,7 +400,7 @@ describe("annonce avant le premier envoi", () => {
 
   test("adresse du fichier (docs.google.com) au lieu de celle de son script : l'échec dit quoi corriger", async () => {
     lire(
-      `FORUM.sujets[0].messages = ["Google Sheet des stats membres : https://docs.google.com/spreadsheets/d/FichierInvente/edit?usp=sharing<br/>${AUTORISES}"]`,
+      `FORUM.sujets[0].messages = ["Google Sheet des stats membres : https://docs.google.com/spreadsheets/d/FichierInvente/edit?usp=sharing"]`,
     );
     expect(await ouvrirPage()).toBe("échec");
     expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
@@ -428,8 +424,8 @@ describe("annonce avant le premier envoi", () => {
     conclu({ version: "1.104.0" });
     expect(await ouvrirPage()).toBe("attente");
     expect(recus()).toHaveLength(2);
-    // joueur hors liste pour une autre version : revu de même
-    conclu({ raison: "non autorisé", version: "1.103.0" });
+    // joueur hors de la liste d'envoi de la 1.134.0 (supprimée depuis) : revu de même
+    conclu({ raison: "non autorisé", version: "1.134.0" });
     expect(await ouvrirPage()).toBe("envoyé");
     expect(recus()).toHaveLength(3);
   });
@@ -468,103 +464,6 @@ describe("annonce avant le premier envoi", () => {
     garder({ version: "1.104.0" });
     expect(await ouvrirPage()).toBe("sans sujet");
     expect(forum()).toEqual([]);
-  });
-});
-
-describe("seuls les joueurs de la ligne « Joueurs autorisés à partager des stats membres » relèvent et envoient (règle du mainteneur, 18/11/2026)", () => {
-  // premier message du sujet des réglages avec cette liste ; sans liste : sans la ligne
-  const reglage = (liste?: string) =>
-    lire(
-      `FORUM.sujets[0].messages = [${JSON.stringify(
-        `Google Sheet des stats membres : ${ADRESSE}` +
-          (liste === undefined
-            ? ""
-            : `<br/>Joueurs autorisés à partager des stats membres : ${liste}`),
-      )}]`,
-    );
-  const HORS_LISTE =
-    "ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des stats membres » du sujet « Réglages de l'extension »";
-
-  test("pseudo absent de la liste : ni annonce, ni lecture du jeu, ni envoi ; le journal et les Préférences le disent ; rien d'autre ce jour-là", async () => {
-    reglage("Lassie, Bravo");
-    expect(await ouvrirPage()).toBe("non autorisé");
-    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
-      [`${HORS_LISTE} : rien n'est relevé aujourd'hui`, undefined],
-    ]);
-    expect([lues(), recus(), lire(`TOASTS.length`)]).toEqual([[], [], 0]);
-    expect(lire(`SuiviMembres.resume()`)).toBe(
-      `Aucun envoi depuis ce navigateur pour l'instant. Rien n'est relevé ni envoyé : ${HORS_LISTE} (forum caché de ton alliance).`,
-    );
-    // pages suivantes : rien, sans relire le forum ; « Envoyer maintenant » : rien non plus
-    const lectures = forum().length;
-    avancer(120);
-    expect(await ouvrirPage()).toBe("attente");
-    expect(forum()).toHaveLength(lectures);
-    expect(await lire<Promise<string>>(`SuiviMembres.lancer(true)`)).toBe("non autorisé");
-    expect([lues(), recus(), lire(`TOASTS.length`)]).toEqual([[], [], 0]);
-  });
-
-  test("sans cette ligne dans le sujet : personne n'envoie, et le journal dit que la ligne manque", async () => {
-    annonceVue();
-    reglage();
-    expect(await ouvrirPage()).toBe("non autorisé");
-    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
-      [
-        "pas de ligne « Joueurs autorisés à partager des stats membres » dans le sujet « Réglages de l'extension » : rien n'est relevé aujourd'hui",
-        undefined,
-      ],
-    ]);
-    expect([lues(), recus()]).toEqual([[], []]);
-    expect(lire<string>(`SuiviMembres.resume()`)).toEndWith(
-      "Rien n'est relevé ni envoyé : pas de ligne « Joueurs autorisés à partager des stats membres » dans le sujet « Réglages de l'extension » (forum caché de ton alliance).",
-    );
-  });
-
-  test("pseudo écrit avec une autre casse, liste continuée à la ligne suivante : autorisé", async () => {
-    annonceVue();
-    reglage("Lassie,<br/>DOGGYBAG ; Bravo");
-    expect(await ouvrirPage()).toBe("envoyé");
-    expect(lire(`SuiviMembres.horsListe()`)).toBe("");
-  });
-
-  test("ajouté à la liste dans la journée : relevé à la première page qui suit la relecture des réglages (au plus une fois par heure), sans attendre le lendemain", async () => {
-    annonceVue();
-    reglage("Lassie");
-    expect(await ouvrirPage()).toBe("non autorisé");
-    reglage("Lassie, DoggyBag");
-    // réglages pas encore relus : rien, sans requête
-    avancer(10);
-    const lectures = forum().length;
-    expect(await ouvrirPage()).toBe("attente");
-    expect(forum()).toHaveLength(lectures);
-    // relus à une page ouverte une heure plus tard (content.js : après lancer()), puis page suivante
-    avancer(55);
-    lire(`history.replaceState(null, "", "/Ressources.php")`);
-    await lire(`ReglagesAlliance.actualiser()`);
-    expect(lire<string>(`SuiviMembres.resume()`)).toEndWith(
-      "Le prochain envoi se fera à ta prochaine page.",
-    );
-    expect(await ouvrirPage("/Ressources.php")).toBe("envoyé");
-    expect(recus()).toHaveLength(1);
-  });
-
-  test("retiré de la liste : plus rien ne part, ni au changement de niveau ni le lendemain", async () => {
-    annonceVue();
-    expect(await ouvrirPage()).toBe("envoyé");
-    reglage("Lassie");
-    avancer(5);
-    expect(await visiter("/construction.php", pageConstruction({ Champignonnière: 18 }))).toBe(
-      "non autorisé",
-    );
-    lire(`(() => { heure += 24 * 3600000; PartageChasses.oublierCache(); })()`);
-    expect(await ouvrirPage()).toBe("non autorisé");
-    expect(recus()).toHaveLength(1);
-  });
-
-  test("règles de l'alliance absentes (section ou sujet) : la raison reste celle-là, pas la liste", async () => {
-    lire(`FORUM.section = false`);
-    expect(await ouvrirPage()).toBe("sans sujet");
-    expect(lire(`SuiviMembres.horsListe()`)).toBe("");
   });
 });
 
@@ -1220,25 +1119,12 @@ describe("Préférences → Partage de données", () => {
       "Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension",
       "ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension »",
       "sans elle, rien n'est relevé ni envoyé",
-      "Seuls les joueurs de la ligne « Joueurs autorisés à partager des stats membres » de ce sujet relèvent et envoient leurs stats.",
-      "« Joueurs autorisés à partager des stats membres : … » : pseudos des joueurs dont l'extension envoie chaque jour les stats à ce Google Sheet ; les autres n'envoient rien",
+      "Les chefs de l'alliance (ligne « Chefs » de ce sujet) les voient dans la vue « Stats membres » du menu Alliance.",
+      "« Chefs : … » : pseudos des chefs : eux seuls ont l'entrée « Stats membres » du menu Alliance, le dernier relevé de chaque joueur",
       "le fichier indique seulement que tu ne la partages pas",
       "Aucun envoi depuis ce navigateur pour l'instant.",
     ])
       expect(texte).toContain(dit);
-  });
-
-  test("joueur absent de la liste des autorisés (dernière lecture des réglages) : l'onglet le dit", () => {
-    preferences.lire(`(() => {
-      localStorage.clear();
-      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: heure, alliance: "", section: true, sujet: true,
-        reglages: { feuilleStats: "https://script.google.com/macros/s/AKfycbInvente/exec", autorisesStats: ["Lassie"], lignes: ["feuilleStats", "autorisesStats"] } }));
-    })()`);
-    ouvrir();
-    expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe(
-      "Aucun envoi depuis ce navigateur pour l'instant. Rien n'est relevé ni envoyé : ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des stats membres » du sujet « Réglages de l'extension » (forum caché de ton alliance).",
-    );
-    preferences.lire(`localStorage.clear()`);
   });
 
   test("case décochée : gardée dans ce navigateur, relue à la réouverture, envoyée à la page suivante", () => {

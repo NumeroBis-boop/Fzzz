@@ -79,6 +79,8 @@ const RELEVES = [
 beforeEach(() => {
   lire(`(() => {
     localStorage.clear();
+    // le joueur de la page (Bravo) est chef : la vue est réservée aux chefs
+    localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, alliance: "OUAF", section: true, sujet: true, reglages: { chefs: ["Alpha", "Bravo"] } }));
     lectureStatsMembres = null;
     relevesStatsMembres = null;
     tdcStatsMembres = null;
@@ -400,35 +402,61 @@ describe("cases du partage, comme dans Préférences → Partage de données", (
   });
 });
 
-describe("joueur absent de la liste des autorisés à partager leurs stats", () => {
-  const garder = (autorises: string[]) =>
+describe("vue réservée aux chefs : ligne « Chefs » du sujet des réglages (règle du mainteneur, 18/11/2026)", () => {
+  const chefs = (liste: string[] | null) =>
     lire(
-      `localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: heure, alliance: "OUAF", section: true, sujet: true,
-        reglages: { feuilleStats: ${JSON.stringify(ADRESSE)}, autorisesStats: ${JSON.stringify(autorises)}, lignes: ["feuilleStats", "autorisesStats"] } }))`,
-    );
-  const note = () =>
-    lire<[string, string]>(
-      `[$("#o_statsMembresHorsListe").css("display"), $("#o_statsMembresHorsListe").text()]`,
+      liste === null
+        ? `localStorage.removeItem("fzzz_reglagesAlliance")`
+        : `localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, alliance: "OUAF", section: true, sujet: true, reglages: { chefs: ${JSON.stringify(liste)} } }))`,
     );
 
-  test("la vue le dit sous ses cases, en rouge ; le tableau reste lisible", async () => {
-    garder(["Alpha"]);
-    await ouvrir();
-    expect(note()).toEqual([
-      "block",
-      "Rien n'est relevé ni envoyé : ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des stats membres » du sujet « Réglages de l'extension » (forum caché de ton alliance).",
-    ]);
-    expect(lire(`$("#o_statsMembresHorsListe").hasClass("red")`)).toBe(true);
-    expect(lire(`$("#o_statsMembresTable tbody tr").length`)).toBe(RELEVES.length);
+  test("joueur qui n'est pas chef, ou réglages pas encore lus : ni entrée de menu, ni vue, même à son adresse ; rien n'est lu", async () => {
+    for (const liste of [["Alpha"], null]) {
+      chefs(liste);
+      lire(
+        `(() => { lectureStatsMembres = null; history.replaceState(null, "", "/alliance.php?Membres#statsMembres"); })()`,
+      );
+      lire(`StatsMembres.ajouterMenu(); StatsMembres.installer()`);
+      await lire(`lectureStatsMembres`);
+      expect([
+        lire(`$("#o_ongletStatsMembres").length`),
+        lire(`$("#o_statsMembres").length`),
+        lire(`$("#alliance").css("display")`),
+        lire(`APPELS`),
+      ]).toEqual([0, 0, "block", []]);
+    }
   });
 
-  test("dans la liste (casse ignorée) ou réglages pas encore lus : rien", async () => {
-    garder(["alpha", "BRAVO"]);
+  test("chef, pseudo écrit avec une autre casse : l'entrée et la vue", async () => {
+    chefs(["BRAVO"]);
     await ouvrir();
-    expect(note()).toEqual(["none", ""]);
-    lire(`localStorage.removeItem("fzzz_reglagesAlliance")`);
-    await lire(`StatsMembres.charger()`);
-    expect(note()).toEqual(["none", ""]);
+    expect([
+      lire(`$("#o_ongletStatsMembres").length`),
+      lire(`$("#o_statsMembres").css("display")`),
+    ]).toEqual([1, "block"]);
+    expect(lire<any[]>(`APPELS`)).toContainEqual([ADRESSE, "POST", { releves: true }]);
+  });
+
+  test("chef retiré de la liste depuis la dernière lecture : la vue le dit et ne lit pas le fichier", async () => {
+    lire(`StatsMembres.ajouterMenu(); StatsMembres.installer()`);
+    // réglages relus à l'ouverture de la vue (SuiviMembres.adresse) : Bravo n'y est plus
+    lire(`SuiviMembres.adresse = () => {
+      APPELS.push("forum");
+      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, alliance: "OUAF", section: true, sujet: true, reglages: { chefs: ["Alpha"] } }));
+      return Promise.resolve(ADRESSE);
+    }`);
+    lire(`$("#o_ongletStatsMembres").trigger("click")`);
+    await lire(`lectureStatsMembres`);
+    expect([
+      lire(`$("#o_statsMembresEtat").text()`),
+      lire(`$("#o_statsMembresEtat").hasClass("red")`),
+      lire(`$("#o_statsMembresTable tbody tr").length`),
+    ]).toEqual([
+      "Vue réservée aux chefs de l'alliance (ligne « Chefs » du sujet « Réglages de l'extension »).",
+      true,
+      0,
+    ]);
+    expect(lire<any[]>(`APPELS`).filter((a) => Array.isArray(a) && a[0] == ADRESSE)).toEqual([]);
   });
 });
 

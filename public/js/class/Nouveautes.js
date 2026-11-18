@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.135.0",
+    notes: [
+      "Stats membres : chaque joueur envoie de nouveau ses stats (la 1.134.0 réservait l'envoi à une liste, par erreur).",
+      "La vue Stats membres (menu Alliance) est réservée aux chefs, listés sur la ligne « Chefs » du sujet « Réglages de l'extension » (forum caché).",
+    ],
+  },
+  {
     version: "1.134.0",
     notes: [
       "Stats membres : seuls les joueurs de la ligne « Joueurs autorisés à partager des stats membres » du sujet « Réglages de l'extension » (forum caché) envoient leurs stats. Sans cette ligne, personne n'envoie rien.",

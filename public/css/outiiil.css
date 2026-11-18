@@ -3616,17 +3616,21 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   margin: 8px auto 0;
   border-collapse: collapse;
 }
+/* tout centré, comme la page Flood TdC du Compte+ */
 #o_mfoForm td,
 #o_mfoForm th,
 #o_multiFlood .o_mfoCible td,
 #o_multiFlood .o_mfoCible th {
   padding: 2px 6px;
   white-space: nowrap;
-  text-align: right;
+  text-align: center;
 }
 #o_mfoForm .left,
 #o_multiFlood .o_mfoCible .left {
   text-align: left;
+}
+#o_mfoForm .right {
+  text-align: right;
 }
 /* titres sur deux lignes et marges serrées : la colonne « Prise » tient sur un téléphone */
 #o_multiFlood .o_mfoCible th {
@@ -3636,6 +3640,11 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 #o_multiFlood .o_mfoCible th {
   padding: 2px 4px;
 }
+#o_mfoForm input.o_mfoAttaquant,
+#o_mfoForm input.o_mfoCiblePseudo {
+  width: 8em;
+  box-sizing: border-box;
+}
 #o_mfoForm input.o_mfoChamp {
   width: 5.5em;
   text-align: right;
@@ -3643,14 +3652,13 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 #o_multiFlood:not(.o_mfoOptions) .o_mfoOpt {
   display: none;
 }
-#o_mfoPseudo {
-  width: min(100%, 24em);
-  box-sizing: border-box;
+/* d'où partent les chiffres du tableau (TdC à l'impact) */
+#o_multiFlood .o_mfoNote {
+  white-space: normal;
+  font-style: italic;
 }
-#o_multiFlood .o_mfoRetirer {
-  color: #a61b1b;
-  font-weight: bold;
-  padding: 0 4px;
+#o_multiFlood .o_mfoBoutons button + button {
+  margin-left: 12px;
 }
 #o_multiFlood .o_mfoExplication {
   max-width: 700px;

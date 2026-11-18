@@ -10,6 +10,12 @@
 const HASH_MULTI_FLOOD = "#multiflood";
 // options dépliées : "1" (la page du jeu garde aussi ce choix)
 const CLE_MULTI_FLOOD_OPTIONS = "fzzz_multiFloodOptions";
+// calcul avec le TdC de chacun à l'impact, coché par défaut ; "0" : décoché,
+// les TdC actuels, comme la page du Compte+
+const CLE_MULTI_FLOOD_IMPACT = "fzzz_multiFloodImpact";
+// cases « Pseudo » des cibles, comme la page du jeu ; une vide de plus dès
+// qu'elles sont toutes prises
+const PLACES_MULTI_FLOOD = 3;
 // arrondi de la page du jeu : 1 Fort, 2 Normal, 3 Faible, 4 Aucun
 const ARRONDIS_MULTI_FLOOD = [
   [4, "Aucun"],
@@ -104,13 +110,28 @@ class MultiFlood {
     }
   }
   /**
+   * @static
+   * @method avecImpact
+   * @return {Boolean} calcul avec le TdC de chacun à l'impact (sinon les TdC actuels)
+   */
+  static avecImpact() {
+    try {
+      return localStorage.getItem(CLE_MULTI_FLOOD_IMPACT) != "0";
+    } catch (e) {
+      return true;
+    }
+  }
+  /**
+   * Vue de la forme de la page Flood TdC du Compte+ : attaquant et cibles côte
+   * à côte, options repliées, un tableau par cible, « Lancer ces attaques ».
+   *
    * @private
    * @static
    */
   static _construire() {
     etatMultiFlood = {
       cibles: [],
-      moi: { tdcSaisi: null, terrainFinal: null, priseMax: null },
+      moi: { tdcSaisi: null, saisiA: null, tdcLu: null, terrainFinal: null, priseMax: null },
       armee: null,
       lignes: [],
       enCours: null,
@@ -122,6 +143,8 @@ class MultiFlood {
       minutes: "",
       resultats: [],
       lance: false,
+      // pages de membre en cours de lecture, par pseudo en minuscules
+      enLecture: {},
       gardees: new UnitesGardees("o_mfoGardees", () => MultiFlood.rendre(), {
         titre: "Unités gardées pour ce multi-flood",
       }),
@@ -131,16 +154,15 @@ class MultiFlood {
     $("#centre")
       .append(`<div id='o_multiFlood' class='boite_amelioration simulateur centre${options ? " o_mfoOptions" : ""}' style='display:none'>
         <h2>Multi-flood opti</h2>
-        <p class='left'>Optimise tes attaques pour prendre un maximum de terrain, avec le TdC de chacun à l'impact… <span class='cliquable2 o_mfoAide'>En savoir plus ?</span></p>
+        <p class='left'>Optimise tes attaques pour prendre un maximum de terrain… <span class='cliquable2 o_mfoAide'>En savoir plus ?</span></p>
         <div class='o_mfoExplication left' style='display:none'>${MultiFlood._explication()}</div>
         <div class='o_mfoTableau'><table id='o_mfoForm' cellspacing='0'></table></div>
-        <p class='o_mfoAjout'><input type='text' id='o_mfoPseudo' placeholder='Ajouter une cible (pseudo, ou %% : membres à portée)'/>
-        <span class='cliquable2 o_mfoBoutonOptions'>Options <span class='o_mfoFleche'>${options ? "▲" : "▼"}</span></span></p>
+        <div class='o_mfoOpt'>${etatMultiFlood.gardees.html()}</div>
+        <p class='o_mfoChoixImpact'><label title='Floods et chasses partagés dans le forum de l&#39;alliance, tes chasses et tes attaques en cours ; décochée : les TdC actuels, comme la page du Compte+'><input type='checkbox' id='o_mfoImpact'${MultiFlood.avecImpact() ? " checked" : ""}/> Calculer avec le TdC de chacun à l'impact</label></p>
         <p id='o_mfoEtat' class='reduce'></p>
         <div id='o_mfoResultats'></div>
-        ${etatMultiFlood.gardees.html()}
-        <div class='o_pile o_marginT15'><button type='button' id='o_mfoLancer' class='o_button o_lieu1' disabled>Lancer ces attaques</button>
-        <button type='button' id='o_mfoLancerPartager' class='o_button o_lieu1' disabled title='Lancement, puis publication des attaques dans le forum de la ${tag}'>Lancer + partager</button></div>
+        <p class='o_mfoBoutons'><button type='button' id='o_mfoLancer' disabled>Lancer ces attaques</button>
+        <button type='button' id='o_mfoLancerPartager' disabled title='Lancement, puis publication des attaques dans le forum de la ${tag}'>Lancer + partager</button></p>
         <p id='o_mfoRecap'></p>
       </div>`);
     etatMultiFlood.gardees.brancher();
@@ -155,43 +177,33 @@ class MultiFlood {
         localStorage.setItem(CLE_MULTI_FLOOD_OPTIONS, ouvert ? "1" : "0");
       } catch (e) {}
     });
-    $vue.on("click", ".o_mfoRetirer", (e) => {
-      let pseudo = String($(e.currentTarget).closest("tr").attr("data-pseudo"));
-      etatMultiFlood.cibles = etatMultiFlood.cibles.filter(
-        (/** @type {any} */ c) => c.pseudo != pseudo,
-      );
-      MultiFlood._formulaire();
-      MultiFlood.completer().then(() => MultiFlood.rendre());
-    });
     $vue.on("change", ".o_mfoCoche", (e) => {
       let caseCochee = /** @type {HTMLInputElement} */ (e.currentTarget),
         cible = MultiFlood._cible(String(caseCochee.dataset.pseudo));
       if (cible) cible.choix[Number(caseCochee.dataset.i)] = caseCochee.checked;
       MultiFlood.rendre();
     });
+    // un pseudo validé (Entrée, ou case quittée) : cible ajoutée, changée ou retirée
+    $vue.on("keydown", ".o_mfoCiblePseudo", (e) => {
+      if (e.key != "Enter") return;
+      e.preventDefault();
+      let champ = /** @type {HTMLInputElement} */ (e.currentTarget);
+      MultiFlood.choisirCible(Number(champ.dataset.i), champ.value);
+    });
+    $vue.on("change", ".o_mfoCiblePseudo", (e) => {
+      let champ = /** @type {HTMLInputElement} */ (e.currentTarget);
+      MultiFlood.choisirCible(Number(champ.dataset.i), champ.value);
+    });
+    $("#o_mfoImpact").on("change", (e) => {
+      let coche = /** @type {HTMLInputElement} */ (e.currentTarget).checked;
+      try {
+        localStorage.setItem(CLE_MULTI_FLOOD_IMPACT, coche ? "1" : "0");
+      } catch (err) {}
+      MultiFlood.rendre();
+    });
     $("#o_mfoLancer, #o_mfoLancerPartager").on("click", (e) =>
       MultiFlood.lancer(e.currentTarget.id == "o_mfoLancerPartager"),
     );
-    $("#o_mfoPseudo")
-      .autocomplete({
-        minLength: 1,
-        source: (/** @type {any} */ demande, /** @type {(l: Array<any>) => void} */ reponse) =>
-          MultiFlood._suggestions(String(demande.term || "").trim()).then(reponse),
-        select: (/** @type {any} */ e, /** @type {any} */ ui) => {
-          MultiFlood.ajouter(ui.item.value);
-          $("#o_mfoPseudo").val("");
-          return false;
-        },
-      })
-      .on("keydown", (e) => {
-        if (e.key != "Enter") return;
-        e.preventDefault();
-        let pseudo = String($("#o_mfoPseudo").val() || "").trim();
-        if (pseudo && pseudo != "%%") {
-          MultiFlood.ajouter(pseudo);
-          $("#o_mfoPseudo").val("");
-        }
-      });
   }
   /**
    * @private
@@ -200,9 +212,9 @@ class MultiFlood {
    */
   static _explication() {
     return `<p><span class='gras'>À quoi ça sert ?</span><br/>Une attaque ne peut pas prendre plus de 20 % du terrain de chasse de sa cible. Cet outil cherche la meilleure série d'attaques pour prendre un maximum de terrain, comme le « Flood TdC » du Compte+, sur autant de cibles que tu veux.</p>
-      <p><span class='gras'>TdC à l'impact</span><br/>Chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches.</p>
-      <p><span class='gras'>Comment ça marche ?</span><br/>Écris le pseudo d'une cible et choisis-le dans la liste ; %% propose les membres de ton alliance à portée. Les attaques commencent par la cible la plus proche. Coche ou décoche des attaques, dans la limite de tes attaques disponibles (Vitesse d'attaque + 1) et de ton armée sans les unités gardées. « Lancer ces attaques » les envoie une à une par la page d'attaque de chaque cible, puis ouvre la page Armée (replacement de l'armée ; partage avec « Lancer + partager »).</p>
-      <p><span class='gras'>Options</span><br/>- Ton TdC et celui de chaque cible, si tu en connais un plus récent.<br/>- Terrain final : celui que tu veux atteindre, ou laisser à ta cible.<br/>- Prise max : par cible, ou pour tout le multi-flood sur ta ligne.<br/>- Arrondir : une prise trop précise se repère si tes ennemis te surveillent.</p>`;
+      <p><span class='gras'>TdC à l'impact</span><br/>Case « Calculer avec le TdC de chacun à l'impact » cochée, chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches. Décochée, avec les TdC actuels, comme la page du Compte+.</p>
+      <p><span class='gras'>Comment ça marche ?</span><br/>Écris le pseudo d'une cible dans une case « Pseudo » et choisis-le dans la liste ; %% propose les membres de ton alliance à portée. Une case vidée retire sa cible ; une case vide de plus apparaît quand toutes sont prises. Les attaques commencent par la cible la plus proche. Coche ou décoche des attaques, dans la limite de tes attaques disponibles (Vitesse d'attaque + 1) et de ton armée sans les unités gardées. « Lancer ces attaques » les envoie une à une par la page d'attaque de chaque cible, puis ouvre la page Armée (replacement de l'armée ; partage avec « Lancer + partager »).</p>
+      <p><span class='gras'>Options</span><br/>- Terrain : ton TdC et celui de chaque cible, si tu en connais un plus récent.<br/>- Terrain final : celui que tu veux atteindre, ou laisser à ta cible.<br/>- Prise max : par cible, ou pour tout le multi-flood dans ta colonne.<br/>- Arrondir : une prise trop précise se repère si tes ennemis te surveillent.<br/>- Unités gardées : celles qui ne partent jamais, par défaut celles des Préférences.</p>`;
   }
   /**
    * @private
@@ -214,15 +226,30 @@ class MultiFlood {
     return etatMultiFlood.cibles.find((/** @type {any} */ c) => c.pseudo == pseudo);
   }
   /**
-   * Tableau des joueurs : moi, puis les cibles dans l'ordre de leur ajout.
-   * Refait à l'ajout ou au retrait d'une cible ; les valeurs suivent ensuite.
+   * Formulaire de la page du Compte+ : attaquant, puis une case « Pseudo » par
+   * cible (au moins trois, une vide de plus quand toutes sont prises) ; en
+   * options, une ligne par réglage et une colonne par joueur. Refait à l'ajout
+   * ou au retrait d'une cible, les pseudos tapés et pas encore lus gardés.
    *
    * @private
    * @static
    */
   static _formulaire() {
     let e = etatMultiFlood,
-      champ = (
+      n = e.cibles.length,
+      places = Math.max(PLACES_MULTI_FLOOD, n + 1),
+      pris = new Set(e.cibles.map((/** @type {any} */ c) => c.pseudo.toLowerCase())),
+      /** @type {Record<Number, String>} */
+      saisies = {},
+      focus = -1;
+    $("#o_mfoForm .o_mfoCiblePseudo").each((i, el) => {
+      let champ = /** @type {HTMLInputElement} */ (el),
+        v = champ.value.trim();
+      if (i >= n && v && !pris.has(v.toLowerCase())) saisies[i] = champ.value;
+      if (champ == document.activeElement) focus = i;
+      if ($(champ).autocomplete("instance")) $(champ).autocomplete("destroy");
+    });
+    let champ = (
         /** @type {String} */ cle,
         /** @type {String} */ nom,
         /** @type {Number|null} */ valeur,
@@ -232,22 +259,25 @@ class MultiFlood {
         `<select class='o_mfoChamp' data-cle='${Utils.echapper(c.pseudo)}' data-champ='arrondi'>${ARRONDIS_MULTI_FLOOD.map(
           ([v, nom]) => `<option value='${v}'${c.arrondi == v ? " selected" : ""}>${nom}</option>`,
         ).join("")}</select>`,
-      lignes = e.cibles.map(
-        (/** @type {any} */ c) => `<tr data-pseudo='${Utils.echapper(c.pseudo)}'>
-          <td class='left'><a href='Membre.php?Pseudo=${encodeURIComponent(c.pseudo)}'>${Utils.echapper(c.pseudo)}</a>${c.mv ? " <span class='red reduce'>(vacances)</span>" : ""}<br/><small title='Trajet'>${c.trajet != null ? MultiFlood.duree(c.trajet) : "trajet ?"}</small></td>
-          <td>${champ(c.pseudo, "tdcSaisi", c.tdcSaisi ?? c.tdcLu)}</td>
-          <td class='o_mfoImpact'></td>
-          <td class='o_mfoOpt'>${champ(c.pseudo, "terrainFinal", c.terrainFinal)}</td>
-          <td class='o_mfoOpt'>${champ(c.pseudo, "priseMax", c.priseMax)}</td>
-          <td class='o_mfoOpt'>${arrondis(c)}</td>
-          <td><span class='o_mfoRetirer cursor' title='Retirer cette cible'>✕</span></td></tr>`,
-      );
-    $("#o_mfoForm").html(`<thead><tr><th class='left'>Joueur</th><th>TdC</th><th>À l'impact</th>
-        <th class='o_mfoOpt'>Terrain final</th><th class='o_mfoOpt'>Prise max</th><th class='o_mfoOpt'>Arrondir</th><th></th></tr></thead>
-      <tbody><tr class='o_mfoMoi' data-pseudo=''><td class='left gras'>${Utils.echapper(monProfil.pseudo)}<br/><small class='normal'>attaquant</small></td>
-        <td>${champ("", "tdcSaisi", e.moi.tdcSaisi ?? Utils.terrain)}</td><td class='reduce'>voir chaque cible</td>
-        <td class='o_mfoOpt'>${champ("", "terrainFinal", e.moi.terrainFinal)}</td><td class='o_mfoOpt'>${champ("", "priseMax", e.moi.priseMax)}</td><td class='o_mfoOpt'></td><td></td></tr>
-        ${lignes.join("")}</tbody>`);
+      colonnes = (/** @type {(c: any) => String} */ contenu) =>
+        [...Array(places).keys()]
+          .map((i) => `<td>${i < n ? contenu(e.cibles[i]) : ""}</td>`)
+          .join(""),
+      pseudos = [...Array(places).keys()]
+        .map(
+          (i) =>
+            `<td><input type='text' class='o_mfoCiblePseudo' data-i='${i}' value='${Utils.echapper(i < n ? e.cibles[i].pseudo : saisies[i] || "")}' placeholder='Pseudo${i + 1}' autocomplete='off'/></td>`,
+        )
+        .join(""),
+      ouvert = $("#o_multiFlood").hasClass("o_mfoOptions");
+    $("#o_mfoForm")
+      .html(`<thead><tr><th>Attaquant</th><th></th><th colspan='${places - 2}'>Cibles</th>
+        <th colspan='2' class='right'><span class='cliquable2 o_mfoBoutonOptions'>Options <span class='o_mfoFleche'>${ouvert ? "▲" : "▼"}</span></span></th></tr></thead>
+      <tbody><tr><td><input type='text' class='o_mfoAttaquant' value='${Utils.echapper(monProfil.pseudo)}' readonly/></td><td>Pseudo</td>${pseudos}</tr>
+        <tr class='o_mfoOpt'><td>${champ("", "tdcSaisi", e.moi.tdcSaisi ?? MultiFlood._monTdcLu())}</td><td>Terrain</td>${colonnes((c) => champ(c.pseudo, "tdcSaisi", c.tdcSaisi ?? c.tdcLu))}</tr>
+        <tr class='o_mfoOpt'><td>${champ("", "terrainFinal", e.moi.terrainFinal)}</td><td>Terrain final</td>${colonnes((c) => champ(c.pseudo, "terrainFinal", c.terrainFinal))}</tr>
+        <tr class='o_mfoOpt'><td>${champ("", "priseMax", e.moi.priseMax)}</td><td>Prise max</td>${colonnes((c) => champ(c.pseudo, "priseMax", c.priseMax))}</tr>
+        <tr class='o_mfoOpt'><td></td><td>Arrondir</td>${colonnes(arrondis)}</tr></tbody>`);
     $("#o_mfoForm input.o_mfoChamp").spinner({ min: 0 });
     // une valeur relue en entier : le champ affiche « 1 804 000 », que parseInt lirait 1
     $("#o_mfoForm .o_mfoChamp").on("change spinstop", (ev) => {
@@ -258,12 +288,54 @@ class MultiFlood {
         cible = cle ? MultiFlood._cible(cle) : e.moi;
       if (!cible) return;
       if (nom == "tdcSaisi") {
-        let lu = cle ? cible.tdcLu : Utils.terrain;
+        let lu = cle ? cible.tdcLu : MultiFlood._monTdcLu();
         cible.tdcSaisi = valeur && valeur != lu ? valeur : null;
         cible.saisiA = Horloge.serveur();
       } else cible[nom] = valeur;
       MultiFlood.rendre();
     });
+    $("#o_mfoForm .o_mfoCiblePseudo").autocomplete({
+      minLength: 1,
+      source: (/** @type {any} */ demande, /** @type {(l: Array<any>) => void} */ reponse) =>
+        MultiFlood._suggestions(String(demande.term || "").trim()).then(reponse),
+      select: (/** @type {any} */ ev, /** @type {any} */ ui) => {
+        $(ev.target).val(ui.item.value);
+        MultiFlood.choisirCible(Number(ev.target.dataset.i), ui.item.value);
+        return false;
+      },
+    });
+    if (focus >= 0) {
+      let el = /** @type {HTMLInputElement|undefined} */ (
+        $("#o_mfoForm .o_mfoCiblePseudo").get(focus)
+      );
+      if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
+  }
+  /**
+   * Pseudo validé dans la case `i` : cible ajoutée, remplacée, ou retirée si
+   * la case est vidée.
+   *
+   * @static
+   * @method choisirCible
+   * @param {Number} i rang de la case
+   * @param {String} pseudo
+   * @return {Promise<void>}
+   */
+  static choisirCible(i, pseudo) {
+    let e = etatMultiFlood,
+      p = String(pseudo || "").trim(),
+      c = e.cibles[i];
+    if (p == "%%" || (c && c.pseudo.toLowerCase() == p.toLowerCase())) return Promise.resolve();
+    if (!p) {
+      if (!c) return Promise.resolve();
+      e.cibles.splice(i, 1);
+      MultiFlood._formulaire();
+      return MultiFlood.completer().then(() => MultiFlood.rendre());
+    }
+    return MultiFlood.ajouter(p, c || null);
   }
   /**
    * Suggestions du champ de pseudo : la recherche du jeu ; %% : les membres de
@@ -312,10 +384,18 @@ class MultiFlood {
   /**
    * @private
    * @static
-   * @return {Number} mon TdC actuel : saisi dans les options, sinon celui de la page
+   * @return {Number} mon TdC actuel : saisi dans les options, sinon le dernier lu
    */
   static _monTdc() {
-    return etatMultiFlood.moi.tdcSaisi ?? Utils.terrain;
+    return etatMultiFlood.moi.tdcSaisi ?? MultiFlood._monTdcLu();
+  }
+  /**
+   * @private
+   * @static
+   * @return {Number} mon TdC lu sur la dernière page de cible lue, sinon celui de la page
+   */
+  static _monTdcLu() {
+    return etatMultiFlood.moi.tdcLu ?? Utils.terrain;
   }
   /**
    * Lit, à l'ouverture de la vue : mon armée et mes attaques en cours (page
@@ -444,53 +524,62 @@ class MultiFlood {
     );
   }
   /**
-   * Ajoute une cible : sa page de membre donne son id, ses coordonnées, son
-   * TdC et le mien au même instant.
+   * Ajoute une cible, ou en remplace une : sa page de membre donne son id, ses
+   * coordonnées, son TdC et le mien au même instant.
    *
    * @static
    * @method ajouter
    * @param {String} pseudo
+   * @param {any} [ancienne] cible remplacée (case dont le pseudo a changé)
    * @return {Promise<void>}
    */
-  static ajouter(pseudo) {
+  static ajouter(pseudo, ancienne = null) {
     let e = etatMultiFlood,
-      p = String(pseudo || "").trim();
+      p = String(pseudo || "").trim(),
+      k = p.toLowerCase(),
+      // pseudo refusé : effacé de sa case, la cible remplacée revient
+      refuser = (/** @type {String} */ texte) => {
+        $.toast({ ...TOAST_WARNING, text: texte });
+        $("#o_mfoForm .o_mfoCiblePseudo")
+          .filter((i, el) => /** @type {HTMLInputElement} */ (el).value.trim().toLowerCase() == k)
+          .val("");
+        MultiFlood._formulaire();
+        return Promise.resolve();
+      };
     if (!p) return Promise.resolve();
-    if (p.toLowerCase() == String(monProfil.pseudo).toLowerCase()) {
-      $.toast({ ...TOAST_WARNING, text: "Tu ne peux pas t'attaquer toi-même." });
-      return Promise.resolve();
-    }
-    if (
-      MultiFlood._cible(p) ||
-      e.cibles.some((/** @type {any} */ c) => c.pseudo.toLowerCase() == p.toLowerCase())
-    ) {
-      $.toast({ ...TOAST_WARNING, text: `${p} est déjà dans la liste.` });
-      return Promise.resolve();
-    }
+    if (k == String(monProfil.pseudo).toLowerCase())
+      return refuser("Tu ne peux pas t'attaquer toi-même.");
+    if (e.cibles.some((/** @type {any} */ c) => c != ancienne && c.pseudo.toLowerCase() == k))
+      return refuser(`${p} est déjà dans la liste.`);
+    if (e.enLecture[k]) return e.enLecture[k];
     let joueur = new Joueur({ pseudo: p });
     MultiFlood._etat(`Lecture de la page de ${p}…`);
-    return Promise.resolve(joueur.getProfil())
+    e.enLecture[k] = Promise.resolve(joueur.getProfil())
       .then((html) => {
         let texte = String(html);
         if (!joueur.chargerProfil(texte) || !(joueur.terrain > 0) || !(Number(joueur.id) > 0))
           throw new Error(`page de ${p} illisible`);
         let moi = parseInt(Utils.parseHtml(texte).find("#quantite_tdc").text()),
-          connu = joueur.x >= 0 && joueur.y >= 0 && !(joueur.x == 0 && joueur.y == 0);
-        e.cibles.push({
-          pseudo: joueur.pseudo || p,
-          id: Number(joueur.id),
-          mv: !!joueur.mv,
-          tdcLu: joueur.terrain,
-          moiLu: moi > 0 ? moi : Utils.terrain,
-          lu: Horloge.serveur(),
-          trajet: connu ? monProfil.getTempsParcours2(joueur) : null,
-          tdcSaisi: null,
-          saisiA: null,
-          terrainFinal: null,
-          priseMax: null,
-          arrondi: 4,
-          choix: {},
-        });
+          connu = joueur.x >= 0 && joueur.y >= 0 && !(joueur.x == 0 && joueur.y == 0),
+          nouvelle = {
+            pseudo: joueur.pseudo || p,
+            id: Number(joueur.id),
+            mv: !!joueur.mv,
+            tdcLu: joueur.terrain,
+            moiLu: moi > 0 ? moi : MultiFlood._monTdcLu(),
+            lu: Horloge.serveur(),
+            trajet: connu ? monProfil.getTempsParcours2(joueur) : null,
+            tdcSaisi: null,
+            saisiA: null,
+            terrainFinal: null,
+            priseMax: null,
+            arrondi: 4,
+            choix: {},
+          },
+          rang = ancienne ? e.cibles.indexOf(ancienne) : -1;
+        if (moi > 0) e.moi.tdcLu = moi;
+        if (rang >= 0) e.cibles[rang] = nouvelle;
+        else e.cibles.push(nouvelle);
         MultiFlood._formulaire();
         return MultiFlood.completer();
       })
@@ -501,27 +590,58 @@ class MultiFlood {
           ...TOAST_ERROR,
           text: `${p} n'a pas pu être ajouté : ${String((err && err.message) || "page illisible")}.`,
         });
+        // une case changée reprend la cible gardée ; une case vide garde le pseudo tapé
+        MultiFlood._formulaire();
+      })
+      .then(() => {
+        delete e.enLecture[k];
       });
+    return e.enLecture[k];
   }
   /**
    * TdC de moi et d'une cible à l'impact d'une attaque lancée maintenant,
-   * d'après les partages, depuis les TdC lus sur sa page (ou saisis).
+   * d'après les partages, depuis les TdC lus sur sa page (ou saisis) ; case
+   * « TdC à l'impact » décochée : les TdC actuels, comme la page du Compte+.
    *
    * @static
    * @method impact
    * @param {any} c cible
-   * @return {{minute: any, cle: String, moi: Number, cible: Number, partages: Boolean}}
+   * @return {{minute: any, cle: String, moi: Number, cible: Number, partages: Boolean, actuels: Boolean, moiAvant: Number, cibleAvant: Number}}
+   *   moiAvant, cibleAvant : TdC d'où part le calcul (lus ou saisis)
    */
   static impact(c) {
     let e = etatMultiFlood,
-      moi = e.moi.tdcSaisi ?? c.moiLu,
       cible = c.tdcSaisi ?? c.tdcLu,
+      minute = c.trajet != null ? Utils.roundMinute(c.trajet, Horloge.clic()) : null,
+      cle = minute ? minute.format("YYYY-MM-DD HH:mm") : "";
+    if (!MultiFlood.avecImpact()) {
+      let moi = MultiFlood._monTdc();
+      return {
+        minute,
+        cle,
+        moi,
+        cible,
+        partages: false,
+        actuels: true,
+        moiAvant: moi,
+        cibleAvant: cible,
+      };
+    }
+    let moi = e.moi.tdcSaisi ?? c.moiLu,
       depuis = [c.lu, c.saisiA, e.moi.tdcSaisi != null ? e.moi.saisiA : null]
         .filter(Boolean)
         .sort((a, b) => b.valueOf() - a.valueOf())[0],
-      minute = c.trajet != null ? Utils.roundMinute(c.trajet, Horloge.clic()) : null,
-      cle = minute ? minute.format("YYYY-MM-DD HH:mm") : "";
-    if (!minute || !e.partages) return { minute, cle, moi, cible, partages: false };
+      sans = {
+        minute,
+        cle,
+        moi,
+        cible,
+        partages: false,
+        actuels: false,
+        moiAvant: moi,
+        cibleAvant: cible,
+      };
+    if (!minute || !e.partages) return sans;
     let sim = PartageChasses.simuler(
         e.partages.d,
         PartageChasses.tdcConnus(e.partages.tdc, { [monProfil.pseudo]: moi, [c.pseudo]: cible }),
@@ -529,8 +649,7 @@ class MultiFlood {
       ),
       r = PageAttaquer.tdcImpact(sim, monProfil.pseudo, c.pseudo, cle);
     return {
-      minute,
-      cle,
+      ...sans,
       moi: r.moi.tdc ?? moi,
       cible: r.cible.tdc ?? cible,
       partages: true,
@@ -567,17 +686,6 @@ class MultiFlood {
         choix: c.choix,
       })),
     );
-    entrees.forEach((/** @type {any} */ { c, impact }) => {
-      let ecart = impact.cible - (c.tdcSaisi ?? c.tdcLu);
-      $("#o_mfoForm tr")
-        .filter((i, tr) => tr.dataset.pseudo == c.pseudo)
-        .find(".o_mfoImpact")
-        .html(
-          impact.minute
-            ? `${numeral(impact.cible).format()} <small>${ecart ? `(${numeral(ecart).format("+0,0")})` : ""}</small><br/><small>${impact.minute.format("DD/MM HH[h]mm")}</small>`
-            : "?",
-        );
-    });
     MultiFlood._afficherResultats();
     MultiFlood._afficherRecap();
     e.gardees.afficher(e.armee);
@@ -783,25 +891,35 @@ class MultiFlood {
       });
   }
   /**
+   * Un tableau par cible, comme la page du Compte+ ; TdC à l'impact : une
+   * ligne sous le titre dit d'où partent les chiffres.
+   *
    * @private
    * @static
    */
   static _afficherResultats() {
     let e = etatMultiFlood,
+      ecart = (/** @type {Number} */ v) => (v ? ` (${numeral(v).format("+0,0")})` : ""),
       html = e.resultats.map((/** @type {any} */ r) => {
         let c = r.cible,
+          im = r.impact,
           pseudo = Utils.echapper(c.pseudo),
-          tete = `<tr class='ligne_paire'><th class='left'>${pseudo} <span class='normal'>(${c.trajet != null ? MultiFlood.duree(c.trajet) : "?"})</span></th><th>Mon Terrain</th><th>Terrain de ${pseudo}</th><th>Prise</th></tr>`,
-          impact = r.impact.minute
-            ? `<tr><td colspan='4' class='left reduce'>Impact le ${r.impact.minute.format("DD/MM [à] HH[h]mm")}${r.impact.partages ? "" : " (TdC actuels : partages illisibles)"}</td></tr>`
-            : `<tr><td colspan='4' class='left reduce'>Trajet inconnu : TdC actuels</td></tr>`,
+          calcule = im.partages && im.minute,
+          aLImpact = calcule ? " à l'impact" : "",
+          tete = `<tr class='ligne_paire'><th class='left'>${pseudo} <span class='normal'>(${c.trajet != null ? MultiFlood.duree(c.trajet) : "?"})${c.mv ? " en vacances" : ""}</span></th><th>Mon Terrain</th><th>Terrain de ${pseudo}</th><th>Prise</th></tr>`,
+          // partages illisibles : la ligne d'état le dit déjà, une fois
+          note = calcule
+            ? `<tr><td colspan='4' class='left reduce o_mfoNote'>À l'impact le ${im.minute.format("DD/MM [à] HH[h]mm")}, avant ce multi-flood : toi ${numeral(im.moi).format()}${ecart(im.moi - im.moiAvant)}, ${pseudo} ${numeral(im.cible).format()}${ecart(im.cible - im.cibleAvant)}</td></tr>`
+            : !im.actuels && !im.minute
+              ? `<tr><td colspan='4' class='left reduce o_mfoNote'>Trajet inconnu : TdC actuels</td></tr>`
+              : "",
           message = (/** @type {String} */ texte) =>
             `<tr><td colspan='4' class='left'>${texte}</td></tr>`,
           corps =
             r.hors == "haut"
-              ? message("Le terrain de la cible est trop haut à l'impact")
+              ? message(`Le terrain de la cible est trop haut${aLImpact}`)
               : r.hors == "bas"
-                ? message("Le terrain de la cible est trop bas à l'impact")
+                ? message(`Le terrain de la cible est trop bas${aLImpact}`)
                 : r.hors == "inconnu"
                   ? message("TdC inconnu")
                   : !r.attaques.length
@@ -817,7 +935,7 @@ class MultiFlood {
                         )
                         .join(""),
           resultat = `<tr class='gras ligne_paire'><td>Résultat</td><td>${numeral(r.moiFin).format()}</td><td>${numeral(r.cibleFin).format()}</td><td>${numeral(r.total).format()}</td></tr>`;
-        return `<div class='o_mfoTableau'><table class='o_mfoCible' data-pseudo='${pseudo}' cellspacing='0'>${tete}${impact}${corps}${resultat}</table></div>`;
+        return `<div class='o_mfoTableau'><table class='o_mfoCible' data-pseudo='${pseudo}' cellspacing='0'>${tete}${note}${corps}${resultat}</table></div>`;
       });
     $("#o_mfoResultats").html(html.join(""));
   }
@@ -882,7 +1000,7 @@ class MultiFlood {
    */
   static _suivre() {
     let e = etatMultiFlood;
-    if (!e || e.lance || !$("#o_multiFlood").is(":visible")) return;
+    if (!e || e.lance || !MultiFlood.avecImpact() || !$("#o_multiFlood").is(":visible")) return;
     let cles = e.cibles.map((/** @type {any} */ c) => MultiFlood.impact(c).cle).join("|");
     if (cles != e.minutes) MultiFlood.rendre();
   }

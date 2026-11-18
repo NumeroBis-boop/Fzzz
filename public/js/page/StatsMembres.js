@@ -39,7 +39,7 @@ const ORDRE_STATS = [
   "puceron",
 ];
 const TITRES_COURTS_STATS = { ouvrieres: "Ov", champignonniere: "Champi" };
-// grands nombres écrits avec deux chiffres au plus : « 2,4m », « 0,2k »
+// grands nombres écrits en quatre caractères au plus : « 2,4m », « 150k »
 const STATS_ABREGEES = ["cdf", "fdfHB", "fdfAB"];
 /** @type {Array<[string, number]>} */
 const UNITES_STATS = [
@@ -179,7 +179,7 @@ class StatsMembres {
         <div class='o_statsMembresReglages'><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
         <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success' disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
         <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
-        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
+        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
       </div>`);
     $("#o_statsMembres input[data-stats-partage]").on("change", (e) => {
       let caseCochee = /** @type {HTMLInputElement} */ (e.currentTarget),
@@ -380,8 +380,10 @@ class StatsMembres {
       : `<td data-cle='${cle}' data-order='${v}' data-valeur='${v}'>${complet}</td>`;
   }
   /**
-   * Nombre écrit avec deux chiffres au plus, dans la plus petite unité où il
-   * tient : 50, « 0,2k » (200), « 15k », « 2,4m », « 0,2m » (150 000).
+   * Nombre écrit en quatre caractères au plus (mainteneur, 18/11/2026) : dès
+   * 1 000, en k, m, g ou t, tronqué (999 999 → « 999k », pas « 1m ») avec
+   * une décimale sous 10 de l'unité (« 1,5k », « 2,4m », « 150k ») ; sous
+   * 1 000, le nombre entier.
    *
    * @static
    * @method abreger
@@ -389,16 +391,11 @@ class StatsMembres {
    * @return {String}
    */
   static abreger(v) {
-    let texte = "";
-    for (let [lettre, unite] of UNITES_STATS) {
-      // dixièmes de l'unité sous 10 unités, unités entières au-dessus ; le
-      // calcul en dixièmes entiers arrondit 0,25 comme 2,5
-      let x =
-        unite > 1 && v < 10 * unite ? Math.round(v / (unite / 10)) / 10 : Math.round(v / unite);
-      texte = Utils.decimal(x, 1, true) + lettre;
-      if (x < 100) break;
-    }
-    return texte;
+    let n = Math.max(0, Math.round(v)),
+      [lettre, unite] = UNITES_STATS[0];
+    for (let u of UNITES_STATS) if (n >= u[1]) [lettre, unite] = u;
+    let x = unite > 1 && n < 10 * unite ? Math.floor(n / (unite / 10)) / 10 : Math.floor(n / unite);
+    return Utils.decimal(x, 1, true) + lettre;
   }
   /**
    * Mise en couleur, par colonne, des valeurs partagées : vert très clair pour

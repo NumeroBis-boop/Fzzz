@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.132.0",
+    notes: [
+      "Multi-flood opti : même forme que la page Flood TdC du Compte+ (attaquant, une case « Pseudo » par cible, options repliées, un tableau par cible). Une case vide de plus apparaît pour ajouter une cible ; vider une case la retire.",
+      "Case « Calculer avec le TdC de chacun à l'impact » : cochée, une ligne sous chaque cible dit d'où partent les chiffres ; décochée, les TdC actuels, comme le Compte+.",
+      "Stats membres : CdF et FdF en 4 caractères au plus, tronqués (150k, 999k, 2,4m).",
+    ],
+  },
+  {
     version: "1.131.0",
     notes: [
       "Stats membres : colonnes dans un nouvel ordre (TdP, Ov, CdF, FdF HB, FdF AB, VA, VC, Champi, Puceron), toutes centrées, et ta ligne mise en valeur ; CdF et FdF sont abrégés en k, m, g, t (2,4m), la valeur exacte au survol.",

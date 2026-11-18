@@ -4,9 +4,10 @@ import { creerPage } from "./harnais";
 /**
  * « Multi-flood opti » (menu Fourmilière, 18/11/2026, demande du mainteneur) :
  * le Flood TdC du Compte+ (page simulateurFlood.php) pour tous les joueurs,
- * avec le TdC de chacun à l'impact et autant de cibles que voulu. Les deux
- * premiers cas reprennent les captures de la page du jeu envoyées par le
- * mainteneur (TdC et pseudos du jeu de la capture, armée inventée).
+ * avec le TdC de chacun à l'impact et autant de cibles que voulu, dans la
+ * forme de la page du jeu (1.132.0). Les cas « capture » reprennent les
+ * captures de la page du jeu envoyées par le mainteneur (TdC et pseudos du
+ * jeu de la capture, armée inventée ou déduite de la capture).
  */
 const page = creerPage(
   [
@@ -154,6 +155,38 @@ describe("plan sur plusieurs cibles", () => {
     expect(r[2].attaques.every((a: any) => !a.coche)).toBe(true);
   });
 
+  test("capture 3 (18/11) : avec les TdC actuels, les attaques et les « Résultat » de la page du jeu", () => {
+    // 5 attaques sur 9 libres (55 %), 57 946 fourmis pour 89 % de l'armée : 65 000 JSN
+    const r = plan({ armee: 65000, attaquesDispo: 9 }, [
+      C("Staffie", 19020, 62427),
+      C("Grim", 14820, 87897),
+      C("Cocop", 13740, 75253),
+    ]);
+    const lignes = (x: any) =>
+      x.attaques.map((a: any) => [a.prise, a.pct, a.moi, a.cible, a.coche]);
+    expect(r.map((x) => x.pseudo)).toEqual(["Cocop", "Grim", "Staffie"]);
+    expect(lignes(r[0])).toEqual([
+      [15050, 20, 73254, 75253, true],
+      [10700, 18, 88304, 60203, true],
+      [9900, 20, 99004, 49503, true],
+    ]);
+    expect([r[0].moiFin, r[0].cibleFin, r[0].total]).toEqual([108904, 39603, 35650]);
+    // l'attaque 3 ne tient plus dans l'armée : décochée, comme sur la page du jeu
+    expect(lignes(r[1])).toEqual([
+      [17579, 20, 108904, 87897, true],
+      [4717, 7, 126483, 70318, true],
+      [13120, 20, 131200, 65601, false],
+    ]);
+    // « Résultat » de Grim : toutes ses attaques calculées, comme la page du jeu
+    expect([r[1].moiFin, r[1].cibleFin, r[1].total]).toEqual([144320, 52481, 35416]);
+    // Staffie trop bas ; la cible suivante part des seules attaques cochées (le jeu : 144 320)
+    expect([r[2].hors, r[2].t0, r[2].total]).toEqual(["bas", 131200, 0]);
+    const cochees = r.flatMap((x) => x.attaques.filter((a: any) => a.coche));
+    expect([cochees.length, cochees.reduce((t: number, a: any) => t + a.prise, 0)]).toEqual([
+      5, 57946,
+    ]);
+  });
+
   test("créneaux d'attaque : pas plus que les libres", () => {
     const r = plan({ armee: 1e9, attaquesDispo: 2 }, [C("Cocop", 100, 75253)]);
     expect(r[0].attaques.map((a: any) => a.coche)).toEqual([true, true, false]);
@@ -223,6 +256,7 @@ describe("vue de la page Ennemies", () => {
         "/Ressources.php": "<div></div>",
         "/Membre.php?Pseudo=Cocop": ${JSON.stringify(membre("Cocop", 41, 20, 75253))},
         "/Membre.php?Pseudo=Grim": ${JSON.stringify(membre("Grim", 42, 30, 171672))},
+        "/Membre.php?Pseudo=Staffie": ${JSON.stringify(membre("Staffie", 43, 40, 62427))},
         "/ennemie.php?Attaquer=41": ${JSON.stringify(ATTAQUE("Cocop"))},
         "/ennemie.php?Attaquer=42": ${JSON.stringify(ATTAQUE("Grim"))},
       };
@@ -270,17 +304,19 @@ describe("vue de la page Ennemies", () => {
     await ouvrir();
     await ajouter("Grim");
     await ajouter("Cocop");
-    expect(lire(`$("#o_mfoForm tbody tr").map((i, tr) => tr.dataset.pseudo).get()`)).toEqual([
-      "",
+    expect(lire(`$("#o_mfoForm .o_mfoCiblePseudo").map((i, el) => el.value).get()`)).toEqual([
       "Grim",
       "Cocop",
+      "",
     ]);
     expect(lire(`$(".o_mfoCible").map((i, t) => t.dataset.pseudo).get()`)).toEqual([
       "Cocop",
       "Grim",
     ]);
+    // partages illisibles : TdC actuels, dits une fois dans la ligne d'état
+    expect(lire(`$(".o_mfoNote").length`)).toBe(0);
     expect(
-      lire(`$(".o_mfoCible:first tr").eq(2).find("td").map((i, td) => $(td).text().trim()).get()`),
+      lire(`$(".o_mfoCible:first tr").eq(1).find("td").map((i, td) => $(td).text().trim()).get()`),
     ).toEqual(["Attaque 1 (20 %)", "73 254", "75 253", "15 050"]);
     expect(lire(`$(".o_mfoCoche:checked").length`)).toBe(3);
     expect(lire<string>(`$("#o_mfoRecap").text()`)).toBe(
@@ -339,7 +375,7 @@ describe("vue de la page Ennemies", () => {
     expect(lire<string>(`$("#o_mfoEtat").text()`)).toContain("recharge la page");
   });
 
-  test("TdC à l'impact lu dans les partages : colonne « À l'impact » et attaques calculées dessus", async () => {
+  test("TdC à l'impact lu dans les partages : ligne sous le titre et attaques calculées dessus ; case décochée : TdC actuels", async () => {
     lire(`(() => {
       window.chargerAvant = PartageChasses.charger;
       window.impactAvant = PageAttaquer.tdcImpact;
@@ -352,18 +388,87 @@ describe("vue de la page Ennemies", () => {
       );
       await lire(`etatMultiFlood.lecture`);
       await lire(`MultiFlood.ajouter("Cocop")`);
-      expect(lire<string>(`$("#o_mfoForm tr[data-pseudo='Cocop'] .o_mfoImpact").text()`)).toContain(
-        "70 000",
-      );
-      expect(
+      const ligne = (i: number) =>
         lire(
-          `$(".o_mfoCible:first tr").eq(2).find("td").map((i, td) => $(td).text().trim()).get()`,
-        ),
-      ).toEqual(["Attaque 1 (20 %)", "80 000", "70 000", "14 000"]);
-      expect(lire<string>(`$(".o_mfoCible:first tr").eq(1).text()`)).toContain("Impact le 18/11 à");
+          `$(".o_mfoCible:first tr").eq(${i}).find("td").map((i, td) => $(td).text().trim()).get()`,
+        );
+      expect(ligne(2)).toEqual(["Attaque 1 (20 %)", "80 000", "70 000", "14 000"]);
+      const note = lire<string>(`$(".o_mfoCible:first .o_mfoNote").text()`);
+      expect(note).toContain("À l'impact le 18/11 à");
+      expect(note).toContain("avant ce multi-flood : toi 80 000 (+6 746), Cocop 70 000 (-5 253)");
+      // décochée : les TdC actuels, sans ligne d'impact, comme la page du jeu ; choix gardé
+      lire(`$("#o_mfoImpact").prop("checked", false).trigger("change")`);
+      expect(lire(`localStorage.getItem("fzzz_multiFloodImpact")`)).toBe("0");
+      expect(lire(`$(".o_mfoNote").length`)).toBe(0);
+      expect(ligne(1)).toEqual(["Attaque 1 (20 %)", "73 254", "75 253", "15 050"]);
+      lire(`$("#o_mfoImpact").prop("checked", true).trigger("change")`);
+      expect(ligne(2)).toEqual(["Attaque 1 (20 %)", "80 000", "70 000", "14 000"]);
     } finally {
       lire(`PartageChasses.charger = chargerAvant; PageAttaquer.tdcImpact = impactAvant;`);
     }
+  });
+
+  test("forme de la page du jeu : attaquant, cases « Pseudo », options repliées (Terrain, Terrain final, Prise max, Arrondir, unités gardées)", async () => {
+    await ouvrir();
+    expect(lire(`$("#o_mfoForm thead th").map((i, th) => $(th).text().trim()).get()`)).toEqual([
+      "Attaquant",
+      "",
+      "Cibles",
+      "Options ▼",
+    ]);
+    expect(
+      lire(
+        `$("#o_mfoForm tbody tr:first td").map((i, td) => $(td).find("input").attr("placeholder") || $(td).text()).get()`,
+      ),
+    ).toEqual(["", "Pseudo", "Pseudo1", "Pseudo2", "Pseudo3"]);
+    expect(lire(`[$(".o_mfoAttaquant").val(), $(".o_mfoAttaquant").prop("readOnly")]`)).toEqual([
+      "Moi",
+      true,
+    ]);
+    expect(
+      lire(`$("#o_mfoForm tr.o_mfoOpt").map((i, tr) => $(tr).children().eq(1).text()).get()`),
+    ).toEqual(["Terrain", "Terrain final", "Prise max", "Arrondir"]);
+    expect(lire(`$("#o_mfoGardees").closest(".o_mfoOpt").length`)).toBe(1);
+    expect(lire(`$("#o_multiFlood").hasClass("o_mfoOptions")`)).toBe(false);
+    lire(`$(".o_mfoBoutonOptions").trigger("click")`);
+    expect(lire(`[$("#o_multiFlood").hasClass("o_mfoOptions"), $(".o_mfoFleche").text()]`)).toEqual(
+      [true, "▲"],
+    );
+    expect(lire(`$("#o_mfoLancer").text()`)).toBe("Lancer ces attaques");
+  });
+
+  test("cases « Pseudo » : Entrée ajoute la cible, une case de plus quand toutes sont prises ; vidée, la cible part ; changée, elle est remplacée", async () => {
+    await ouvrir();
+    const taper = async (i: number, pseudo: string) => {
+      lire(`(() => {
+        const champ = $("#o_mfoForm .o_mfoCiblePseudo").eq(${i});
+        champ.val(${JSON.stringify(pseudo)});
+        champ.trigger($.Event("keydown", { key: "Enter" }));
+      })()`);
+      await lire(`etatMultiFlood.enLecture[${JSON.stringify(pseudo.toLowerCase())}]`);
+    };
+    const cases = () =>
+      lire<string[]>(`$("#o_mfoForm .o_mfoCiblePseudo").map((i, el) => el.value).get()`);
+    await taper(0, "Cocop");
+    await taper(1, "Grim");
+    expect(cases()).toEqual(["Cocop", "Grim", ""]);
+    await taper(2, "Staffie");
+    expect(cases()).toEqual(["Cocop", "Grim", "Staffie", ""]);
+    expect(lire(`$(".o_mfoCible").map((i, t) => t.dataset.pseudo).get()`)).toEqual([
+      "Cocop",
+      "Grim",
+      "Staffie",
+    ]);
+    // déjà dans la liste : case vidée
+    await taper(3, "grim");
+    expect(cases()).toEqual(["Cocop", "Grim", "Staffie", ""]);
+    // vidée : la cible part
+    lire(`$("#o_mfoForm .o_mfoCiblePseudo").eq(1).val("").trigger("change")`);
+    expect(cases()).toEqual(["Cocop", "Staffie", ""]);
+    // changée : remplacée à sa place
+    await taper(0, "Grim");
+    expect(cases()).toEqual(["Grim", "Staffie", ""]);
+    expect(lire(`etatMultiFlood.cibles.map((c) => c.pseudo)`)).toEqual(["Grim", "Staffie"]);
   });
 
   test("cible plus attaquable au lancement : ses attaques ne partent pas, les autres oui", async () => {

@@ -16,7 +16,6 @@ const page = creerPage(
    var monProfil = { pseudo: "Moi", niveauConstruction: [-1, 10, 12] };
    var ATTAQUES = [];
    var AttaqueLancee = { charger: () => ATTAQUES };
-   var TITRE_STATS_MEMBRES = "Stats membres";
    var COLONIES = [], APPELS = [], NIVEAUX = {}, JOURNAL = [];
    var ExportJoueurs = {
      colonies: (p) => (APPELS.push("export " + p),

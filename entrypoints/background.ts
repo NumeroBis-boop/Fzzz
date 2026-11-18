@@ -88,22 +88,23 @@ async function verifierMiseAJour(): Promise<ResultatMaj> {
   }
 }
 
-/** Site de suivi des convois de la OUAF (http uniquement). */
-const OUAF = "http://ouafchaine.fr";
-const OUAF_ORIGINE = "http://ouafchaine.fr/*";
+/** Origine d'un site de suivi des convois : http(s), nom d'hôte, port éventuel. */
+const ORIGINE_SITE = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
 
 interface RequeteOuaf {
   type: "fzzz_ouaf";
+  site: string;
   methode: string;
   chemin: string;
   corps?: unknown;
 }
 
 /**
- * Requête au site de suivi des convois, pour le script de contenu de la page
- * Convois (une page https ne peut pas appeler un site http). Limitée à l'API
- * du site, et seulement si le joueur a accordé l'accès à ouafchaine.fr. La
- * session du site est gardée par son cookie, comme dans un onglet.
+ * Requête au site de suivi des convois de l'alliance (donné par ses réglages,
+ * accepté par le joueur), pour le script de contenu de la page Convois (une
+ * page https ne peut pas appeler un site http). Limitée à l'API du site, et
+ * seulement si le joueur a accordé l'accès à ce site. La session du site est
+ * gardée par son cookie, comme dans un onglet.
  */
 async function requeteOuaf(m: RequeteOuaf): Promise<{
   ok?: boolean;
@@ -111,12 +112,16 @@ async function requeteOuaf(m: RequeteOuaf): Promise<{
   donnees?: unknown;
   erreur?: "permission" | "requete" | "reseau";
 }> {
-  if (!/^\/api\/[a-z/-]+$/.test(m.chemin) || !["GET", "POST", "PUT"].includes(m.methode))
+  if (
+    !ORIGINE_SITE.test(String(m.site || "")) ||
+    !/^\/api\/[a-z/-]+$/.test(m.chemin) ||
+    !["GET", "POST", "PUT"].includes(m.methode)
+  )
     return { erreur: "requete" };
-  if (!(await browser.permissions.contains({ origins: [OUAF_ORIGINE] })))
+  if (!(await browser.permissions.contains({ origins: [m.site + "/*"] })))
     return { erreur: "permission" };
   try {
-    const r = await fetch(OUAF + m.chemin, {
+    const r = await fetch(m.site + m.chemin, {
       method: m.methode,
       credentials: "include",
       headers: m.corps === undefined ? {} : { "Content-Type": "application/json" },

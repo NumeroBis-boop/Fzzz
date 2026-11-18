@@ -1,25 +1,20 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { creerPage, type Page } from "./harnais";
 
 /**
- * Extension sur les serveurs s1 à s5 (choix du mainteneur, 17/11/2026) : ce
- * qui est propre à la OUAF reste sur le s5 (site de suivi des convois, liste
- * des chasseurs, droits du mainteneur), et le stockage de l'extension, commun
- * à tous les serveurs au contraire du localStorage du jeu, est rangé par
- * serveur. Joueurs inventés, sauf les listes du mainteneur.
+ * Extension sur les serveurs s1 à s5 (17/11/2026), pour toute alliance
+ * (18/11/2026) : rien de l'alliance n'est écrit dans le code, ses réglages
+ * sont lus dans son forum (tests/reglages-alliance.test.ts). Le stockage de
+ * l'extension, commun à tous les serveurs au contraire du localStorage du jeu,
+ * est rangé par serveur. Joueurs et sites inventés.
  */
 const S1 = "https://s1.fourmizzz.fr/commerce.php";
 const S5 = "https://s5.fourmizzz.fr/commerce.php";
-
-const SCRIPTS_JOUEUR = [
-  "js/lib/jquery-ui_1.12.1.js",
-  "js/class/Utils.js",
-  "js/class/Parametre.js",
-  "js/class/Joueur.js",
-];
-const CONSTANTES = `var METHODE_FLOOD = ["Standard", "Optimisée", "Uniforme", "Dégressive"],
-   AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {}, TOAST_INFO = {};
- var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"], NOM_UNITES = ["Ouvrières", "Jeunes Soldates Naines"];`;
+const SITE = "http://convois.example.org";
+const AUTRE_SITE = "https://autre.example.org";
+const RACINE = join(import.meta.dir, "..");
 
 // stockage de l'extension (ou du gestionnaire de scripts) : le même pour les
 // pages de tous les serveurs
@@ -40,31 +35,11 @@ function avecStockage(page: Page, chrome: ReturnType<typeof stockageCommun>) {
   (page.window as any).chrome = { storage: chrome.storage };
   return page;
 }
-
-describe("droits propres à la OUAF : sur le s5 seulement", () => {
-  test("journal et boutons du mainteneur : son compte du s5, pas un homonyme ailleurs", () => {
-    const s5 = creerPage(["js/class/Utils.js"], "", S5),
-      s1 = creerPage(["js/class/Utils.js"], "", S1);
-    expect(s5.lire(`Journal.pourCeJoueur("DoggyBag")`)).toBe(true);
-    expect(s5.lire(`Journal.pourCeJoueur("Bidule")`)).toBe(false);
-    expect(s1.lire(`Journal.pourCeJoueur("DoggyBag")`)).toBe(false);
-    // le compte du mainteneur est sur le serveur de la OUAF
-    expect(s5.lire(`JOURNAL_SERVEUR == SERVEUR_OUAF`)).toBe(true);
-  });
-
-  test("chasseurs par défaut : ceux de la OUAF, pas un homonyme d'un autre serveur", () => {
-    const role = (url: string) =>
-      creerPage(SCRIPTS_JOUEUR, CONSTANTES, url).lire<number>(`(() => {
-        localStorage.setItem("fzzz_methodeDegressive", "1");
-        return parseInt(new Joueur({ pseudo: "Grim" }).getParametre().parametre.role.valeur);
-      })()`);
-    expect(role(S5)).toBe(3);
-    expect(role(S1)).toBe(0);
-    expect(creerPage(SCRIPTS_JOUEUR, CONSTANTES, S1).lire(`Joueur.chasseurParDefaut("Grim")`)).toBe(
-      false,
-    );
-  });
-});
+// réglages de l'alliance déjà lus sur cette page (localStorage du jeu, propre au serveur)
+const reglagesLus = (page: Page, reglages: Record<string, unknown>) =>
+  page.lire(
+    `localStorage.setItem("fzzz_reglagesAlliance", ${JSON.stringify(JSON.stringify({ lu: 0, section: true, sujet: true, reglages }))})`,
+  );
 
 describe("stockage commun à tous les serveurs", () => {
   test("clés : celles d'avant sur le s5, une par serveur ailleurs", () => {
@@ -97,51 +72,173 @@ describe("stockage commun à tous les serveurs", () => {
   });
 });
 
-describe("suivi des convois de la OUAF : sur le s5 seulement", () => {
-  test("mot de passe du site : jamais lu sur un autre serveur", async () => {
+describe("site de suivi des convois : celui des réglages, accepté par le joueur", () => {
+  const SCRIPTS = ["js/class/Utils.js", "js/class/OuafSuivi.js"];
+
+  test("sans site dans les réglages : aucun site, rien n'est demandé au site", async () => {
+    const p = avecStockage(creerPage(SCRIPTS, "", S1), stockageCommun());
+    expect(p.lire(`OuafSuivi.site()`)).toBeNull();
+    expect(
+      await p.lire(`OuafSuivi.requete("GET", "/api/mes").then(() => "ok", (e) => e.name)`),
+    ).toBe("site");
+  });
+
+  test("mot de passe envoyé seulement au site accepté ; accord et mot de passe propres au serveur", async () => {
     const commun = stockageCommun(),
-      scripts = ["js/class/Utils.js", "js/class/OuafSuivi.js"];
-    commun.valeurs.fzzz_ouafCode = "code-invente";
-    expect(
-      await avecStockage(creerPage(scripts, "", S5), commun).lire(`OuafSuivi.lireCode()`),
-    ).toBe("code-invente");
-    expect(
-      await avecStockage(creerPage(scripts, "", S1), commun).lire(`OuafSuivi.lireCode()`),
-    ).toBe("");
+      s5 = avecStockage(creerPage(SCRIPTS, "", S5), commun),
+      s1 = avecStockage(creerPage(SCRIPTS, "", S1), commun);
+    reglagesLus(s5, { siteConvois: SITE + "/" });
+    reglagesLus(s1, { siteConvois: SITE });
+    expect(s5.lire(`OuafSuivi.site()`)).toEqual({
+      url: SITE + "/",
+      origine: SITE,
+      hote: "convois.example.org",
+    });
+    await s5.lire(`OuafSuivi.enregistrerCode("code-invente")`);
+    // pas encore accepté : le mot de passe reste, mais n'est pas donné pour un envoi
+    expect(await s5.lire(`OuafSuivi.lireCode()`)).toBe("");
+    expect(await s5.lire(`OuafSuivi.codeEnregistre()`)).toBe("code-invente");
+    await s5.lire(`OuafSuivi.accepterSite()`);
+    expect(await s5.lire(`OuafSuivi.lireCode()`)).toBe("code-invente");
+    // l'autre serveur : ni l'accord ni le mot de passe du s5
+    expect(await s1.lire(`OuafSuivi.siteAccepte()`)).toBe(false);
+    expect(await s1.lire(`OuafSuivi.codeEnregistre()`)).toBe("");
+    expect(Object.keys(commun.valeurs).sort()).toEqual([
+      "fzzz_ouafCode",
+      "fzzz_siteConvoisAccepte",
+    ]);
   });
 
-  test("page Convois : ni état de suivi ni Récapitulatif hors du s5", () => {
-    const ouvrir = (url: string) => {
-      const p = creerPage(
-        ["js/class/Utils.js", "js/class/OuafSuivi.js", "js/page/CommerceFzzz.js"],
-        "var TOAST_INFO = {}; var Horloge = { maintenant: () => 0 };",
-        url,
-      );
-      p.lire(`window.lus = [];
-        OuafSuivi.convoisJeu = () => (lus.push("convois"), []);
-        OuafSuivi.lireCode = () => (lus.push("code"), Promise.resolve(""));
-        CommerceFzzz.suiviOuaf();`);
-      return p;
-    };
-    const s1 = ouvrir(S1);
-    s1.lire(`CommerceFzzz.membresSuivis()`);
-    expect(s1.lire(`lus`)).toEqual([]);
-    expect(s1.lire(`$("#o_convoisMembres, .o_ouafLigne").length`)).toBe(0);
-    // sur le s5, le suivi lit les convois de la page
-    expect(ouvrir(S5).lire(`lus`)).toEqual(["convois"]);
+  test("réglages changés pour un autre site : plus accepté ; l'accepter efface le mot de passe", async () => {
+    const commun = stockageCommun(),
+      p = avecStockage(creerPage(SCRIPTS, "", S5), commun);
+    reglagesLus(p, { siteConvois: SITE });
+    await p.lire(`OuafSuivi.accepterSite().then(() => OuafSuivi.enregistrerCode("code-invente"))`);
+    reglagesLus(p, { siteConvois: AUTRE_SITE });
+    expect(await p.lire(`OuafSuivi.siteAccepte()`)).toBe(false);
+    expect(await p.lire(`OuafSuivi.lireCode()`)).toBe("");
+    await p.lire(`OuafSuivi.accepterSite()`);
+    expect(await p.lire(`OuafSuivi.siteAccepte()`)).toBe(true);
+    expect(await p.lire(`OuafSuivi.codeEnregistre()`)).toBe("");
+    // revenu au même site : rien n'est effacé
+    await p.lire(`OuafSuivi.enregistrerCode("nouveau")`);
+    await p.lire(`OuafSuivi.accepterSite()`);
+    expect(await p.lire(`OuafSuivi.codeEnregistre()`)).toBe("nouveau");
   });
 
-  test("Préférences → Convois : une phrase au lieu du suivi hors du s5", () => {
+  test("requête : vers l'origine du site accepté, jamais vers un site non accepté", async () => {
+    const commun = stockageCommun(),
+      p = avecStockage(creerPage(SCRIPTS, "", S5), commun);
+    p.lire(
+      `window.ENVOIS = []; chrome.runtime = { sendMessage: (m) => { ENVOIS.push(m); return Promise.resolve({ ok: true, statut: 200, donnees: {} }); } }`,
+    );
+    reglagesLus(p, { siteConvois: SITE + "/suivi/" });
+    expect(
+      await p.lire(`OuafSuivi.requete("GET", "/api/mes").then(() => "ok", (e) => e.name)`),
+    ).toBe("site");
+    await p.lire(`OuafSuivi.accepterSite()`);
+    expect(await p.lire(`OuafSuivi.requete("GET", "/api/mes").then(() => "ok")`)).toBe("ok");
+    expect(p.lire(`ENVOIS`)).toEqual([
+      { type: "fzzz_ouaf", site: SITE, methode: "GET", chemin: "/api/mes", corps: undefined },
+    ]);
+  });
+
+  const page = (url: string, reglages: Record<string, unknown> | null, accepte = "") => {
     const p = creerPage(
-      ["js/class/Utils.js", "js/boite/Boite.js", "js/boite/Parametres.js"],
+      ["js/class/Utils.js", "js/class/OuafSuivi.js", "js/page/CommerceFzzz.js"],
+      "var TOAST_INFO = {}; var Horloge = { maintenant: () => 0 };",
+      url,
+    );
+    const commun = stockageCommun();
+    if (accepte)
+      commun.valeurs[url == S5 ? "fzzz_siteConvoisAccepte" : "fzzz_siteConvoisAccepte_s1"] =
+        accepte;
+    avecStockage(p, commun);
+    if (reglages) reglagesLus(p, reglages);
+    p.lire(`(() => {
+      window.lus = [];
+      document.body.innerHTML = '<div id="centre"><h3>Convois en cours:</h3><p>Aucun convoi</p></div>';
+      OuafSuivi.convoisJeu = () => (lus.push("convois"), []);
+      CommerceFzzz.membresSuivis = () => lus.push("récapitulatif");
+      ReglagesAlliance.charger = () => (lus.push("forum"), Promise.resolve(ReglagesAlliance.garde() || { section: true, sujet: false, reglages: ReglagesAlliance.vides() }));
+    })()`);
+    return p;
+  };
+  const attendre = () => new Promise((r) => setTimeout(r, 0));
+
+  test("page Convois : rien sans site ; site pas accepté : la demande d'accord, sans suivi ; accepté : le suivi", async () => {
+    const sans = page(S1, {});
+    await sans.lire(`CommerceFzzz.suivi()`);
+    expect(sans.lire(`lus`)).toEqual([]);
+    expect(sans.lire(`$(".o_convoisSite, .o_ouafLigne, #o_convoisMembres").length`)).toBe(0);
+    // réglages jamais lus dans ce navigateur : lus d'abord
+    const jamais = page(S1, null);
+    await jamais.lire(`CommerceFzzz.suivi()`);
+    expect(jamais.lire(`lus`)).toEqual(["forum"]);
+
+    const propose = page(S1, { siteConvois: SITE });
+    await propose.lire(`CommerceFzzz.suivi()`);
+    expect(propose.lire(`lus`)).toEqual([]);
+    expect(propose.lire<string>(`$(".o_convoisSite").text()`)).toContain(
+      "ses réglages donnent le site convois.example.org",
+    );
+    propose.lire(`$(".o_convoisSite button").trigger("click")`);
+    await attendre();
+    await attendre();
+    expect(propose.lire(`lus`)).toEqual(["convois", "récapitulatif"]);
+    expect(propose.lire(`$(".o_convoisSite").length`)).toBe(0);
+
+    const accepte = page(S5, { siteConvois: SITE }, SITE);
+    await accepte.lire(`CommerceFzzz.suivi()`);
+    expect(accepte.lire(`lus`)).toEqual(["convois", "récapitulatif"]);
+  });
+
+  test("Préférences → Convois : sans site, une phrase qui renvoie aux réglages de l'alliance", () => {
+    const p = creerPage(
+      ["js/class/Utils.js", "js/class/OuafSuivi.js", "js/boite/Boite.js", "js/boite/Parametres.js"],
       "",
       S1,
     );
     p.lire(`document.body.innerHTML = '<div id="o_tabsParametreConvois"></div>';
       BoiteParametre.prototype.ongletConvois.call(BoiteParametre.prototype)`);
     expect(p.lire<string>(`$("#o_tabsParametreConvois").text()`)).toBe(
-      "Le suivi des convois de la OUAF (site de suivi, Récapitulatif de la page Convois, convoi avant la récolte) ne fonctionne que sur le serveur s5.",
+      "Aucun site de suivi des convois dans les réglages de ton alliance : un chef l'écrit sur la ligne « Site de suivi des convois » du sujet « Réglages de l'extension » (onglet Partage de données, section « Fonctionnement sur les autres serveurs »).",
     );
     expect(p.lire(`$("#o_ouafCode").length`)).toBe(0);
+  });
+});
+
+describe("aucune information de l'alliance dans le code publié", () => {
+  // fichiers injectés dans le jeu ou qui construisent le script publié
+  const fichiers = (dossier: string): string[] =>
+    readdirSync(join(RACINE, dossier), { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory()
+        ? e.name == "lib"
+          ? []
+          : fichiers(join(dossier, e.name))
+        : /\.(js|ts|html|css)$/.test(e.name)
+          ? [join(dossier, e.name)]
+          : [],
+    );
+  const PUBLIES = [
+    ...fichiers("public"),
+    ...fichiers("userscript"),
+    ...fichiers("entrypoints"),
+    "scripts/userscript.ts",
+    "wxt.config.ts",
+  ];
+
+  test("ni le site de suivi d'une alliance, ni l'adresse d'un script Google, ni une liste de joueurs", () => {
+    const trouves = PUBLIES.flatMap((f) => {
+      const texte = readFileSync(join(RACINE, f), "utf8");
+      return [
+        /ouafchaine/i,
+        /macros\/s\/AKfy[\w-]{8,}/,
+        /CHASSEURS_PAR_DEFAUT|JOURNAL_JOUEURS|SERVEUR_OUAF/,
+      ]
+        .filter((motif) => motif.test(texte))
+        .map((motif) => `${f} : ${motif}`);
+    });
+    expect(trouves).toEqual([]);
   });
 });

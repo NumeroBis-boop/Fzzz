@@ -6,9 +6,9 @@
 
 // adresse du script Google (Apps Script) d'un fichier : elle permet d'y écrire,
 // donc jamais dans le code (public). Celle de l'alliance et la liste des joueurs
-// qui l'utilisent sans rien régler sont postées à la main dans le premier message
-// du sujet TITRE_EXPORT_SHEET du forum caché (copie gardée ici, pour ce joueur,
-// si le forum ne répond pas) ; un autre joueur donne celle de son propre fichier
+// qui l'utilisent sans rien régler sont dans le sujet des réglages de l'alliance
+// (ReglagesAlliance ; copie gardée ici, pour ce joueur, si le forum ne répond
+// pas) ; un autre joueur donne celle de son propre fichier
 const CLE_EXPORT_SHEET_ALLIANCE = "fzzz_exportSheetAlliance";
 const CLE_EXPORT_SHEET = "fzzz_exportSheet";
 // jours de la semaine (0 : dimanche, comme moment().day()), en français ou en anglais
@@ -76,8 +76,6 @@ const MOIS_EN_LETTRES = {
   december: 11,
   dec: 11,
 };
-// titre de la liste, dans ce message : « Joueurs autorisés à partager des RC : »
-const LISTE_EXPORT_ALLIANCE = /joueurs\s+autoris[ée]s?[^:\n]*(?::|\n|$)/i;
 const ADRESSE_EXPORT_SHEET =
   /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/\s]+|macros)\/s\/[\w-]+\/exec$/;
 // lignes envoyées par requête au script
@@ -968,43 +966,6 @@ class ExportRapports {
     } catch (e) {}
   }
   /**
-   * Réglage de l'alliance, dans le premier message du sujet TITRE_EXPORT_SHEET
-   * (réponse de callGetTopic) : l'adresse du script, n'importe où dans le
-   * message, et les pseudos écrits après « Joueurs autorisés … : », séparés par
-   * des virgules, des espaces ou des retours à la ligne, jusqu'à la fin du
-   * message ou la prochaine ligne qui contient « : ».
-   *
-   * @static
-   * @method lireReglage
-   * @param {any} data réponse xajax
-   * @return {{adresse: String, joueurs: Array<String>}}
-   */
-  static lireReglage(data) {
-    let $div = Utils.parseHtml(PartageChasses._html(data)),
-      $premier = $div.find(".messageForum").first(),
-      $message = $premier.length ? $premier : $div,
-      // le forum peut changer l'adresse en lien (texte raccourci) : href lus aussi
-      liens = $message
-        .find("a[href]")
-        .get()
-        .map((/** @type {Element} */ a) => a.getAttribute("href"));
-    $message.find("br").replaceWith("\n");
-    let texte = $message.text(),
-      url = /https:\/\/script\.google\.com\/[^\s"'<>]+?\/exec\b/.exec([texte, ...liens].join(" ")),
-      titre = LISTE_EXPORT_ALLIANCE.exec(texte),
-      joueurs = /** @type {Array<String>} */ ([]);
-    if (titre) {
-      let [reste, ...suite] = texte.slice(titre.index + titre[0].length).split("\n"),
-        fin = suite.findIndex((l) => l.includes(":"));
-      joueurs = [reste, ...(fin == -1 ? suite : suite.slice(0, fin))]
-        .join(" ")
-        .split(/[\s,;]+/)
-        .map((p) => PartageChasses.nettoyer(p).replace(/\.+$/, ""))
-        .filter((p) => p && !/[:/]/.test(p));
-    }
-    return { adresse: url && ExportRapports.adresseValide(url[0]) ? url[0] : "", joueurs };
-  }
-  /**
    * @static
    * @method autorise
    * @param {Array<String>} joueurs pseudos de la liste du forum
@@ -1063,16 +1024,13 @@ class ExportRapports {
    * @private
    * @static
    * @param {Object} [options]
-   * @return {Promise<{adresse: String, joueurs: Array<String>}>} rien si le sujet n'existe pas ; rejetée si le forum ne se lit pas
+   * @return {Promise<{adresse: String, joueurs: Array<String>}>} lignes « Google Sheet des RC » et « Joueurs autorisés à partager des RC » du sujet des réglages, vides sans elles ; rejetée si le forum ne se lit pas ou si la section cachée est introuvable (la dernière lecture faite pour ce joueur sert alors)
    */
   static _reglageForum(options = {}) {
-    return PartageChasses.sujets(true, options).then((sujets) =>
-      sujets.exportSheet
-        ? PartageChasses._xajax("callGetTopic", sujets.exportSheet, options).then((data) =>
-            ExportRapports.lireReglage(data),
-          )
-        : { adresse: "", joueurs: [] },
-    );
+    return ReglagesAlliance.charger(options, "sujet").then((r) => {
+      if (!r.section) throw new Error("section cachée introuvable");
+      return { adresse: r.reglages.feuilleRc, joueurs: r.reglages.autorisesRc };
+    });
   }
   /**
    * Adresse où exporter : celle de l'alliance pour un joueur de la liste du
@@ -1253,10 +1211,10 @@ class ExportRapports {
    */
   static sansAdresse(alliance, illisible) {
     return alliance
-      ? `l'adresse du Google Sheet de l'alliance n'est pas encore postée dans le forum caché (sujet « ${TITRE_EXPORT_SHEET} »)`
+      ? `l'adresse du Google Sheet de l'alliance manque dans le sujet « ${TITRE_REGLAGES} » du forum caché (ligne « ${REGLAGES_ALLIANCE.feuilleRc.nom} »)`
       : illisible
-        ? `le forum de l'alliance n'a pas pu être lu (liste des joueurs autorisés à partager des RC, sujet « ${TITRE_EXPORT_SHEET} »). Réessaie dans un instant`
-        : `ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC (forum caché, sujet « ${TITRE_EXPORT_SHEET} ») et aucune adresse de Google Sheet n'est renseignée dans Préférences → Partage de données`;
+        ? `le forum de l'alliance n'a pas pu être lu (sujet « ${TITRE_REGLAGES} »). Réessaie dans un instant`
+        : `ton pseudo n'est pas dans la ligne « ${REGLAGES_ALLIANCE.autorisesRc.nom} » du sujet « ${TITRE_REGLAGES} » (forum caché) et aucune adresse de Google Sheet n'est renseignée dans Préférences → Partage de données`;
   }
   /**
    * Statistiques du joueur sur une période, calculées par le script du fichier

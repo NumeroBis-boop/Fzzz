@@ -77,7 +77,7 @@ describe("Compte+ : vue radar mémorisée", () => {
     expect(afficher({ vue: "R", surveilles: true })).toEqual({
       tableau: "none",
       radar: "",
-      titre: "Synthèse OUAF",
+      titre: "Synthèse",
     });
   });
 
@@ -86,7 +86,7 @@ describe("Compte+ : vue radar mémorisée", () => {
       expect(afficher({ vue, surveilles: true })).toEqual({
         tableau: "",
         radar: "none",
-        titre: "Synthèse OUAF",
+        titre: "Synthèse",
       });
   });
 });
@@ -96,7 +96,7 @@ describe("hors Compte+ : encart recréé par l'extension", () => {
     expect(afficher({ comptePlus: false, vue: "R" })).toEqual({
       tableau: "",
       radar: null,
-      titre: "Synthèse OUAF",
+      titre: "Synthèse",
     });
   });
 

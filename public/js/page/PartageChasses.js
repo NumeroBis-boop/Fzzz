@@ -23,16 +23,9 @@ const TYPES_AVEC_HISTORIQUE = ["Chasses"];
 // « Supprimer les sujets de floods inutiles » : nouvelles suppressions tant que
 // la liste relue en montre d'autres (sa longueur maximale n'est pas connue)
 const SUPPRESSION_TOURS_MAX = 5;
-// sujet où la personne qui gère le Google Sheet de l'alliance poste, à la main,
-// l'adresse du script qui reçoit les rapports exportés et la liste des joueurs
-// qui l'utilisent (ExportRapports.lireReglage)
-const TITRE_EXPORT_SHEET = "Export Google Sheet";
 // sujets où l'alliance tient à la main ses listes de GIF et de smileys pour le chat (ChatGif)
 const TITRE_GIF_ALLIANCE = "GIF de l'alliance";
 const TITRE_SMILEYS_ALLIANCE = "Smileys de l'alliance";
-// sujet où est postée, à la main, l'adresse du script du fichier qui reçoit le
-// relevé quotidien des statistiques des membres (SuiviMembres)
-const TITRE_STATS_MEMBRES = "Stats membres";
 
 // numéros des attaques déjà publiées dans la réponse du joueur (sujet commun des floods)
 const CLE_FLOODS_PARTAGES = "fzzz_floodsPartages";
@@ -195,8 +188,8 @@ class PartageChasses {
     });
   }
   /**
-   * @private
    * @static
+   * @method _version
    * @return {String} version du script ; "" tant que content.js n'est pas chargé
    */
   static _version() {
@@ -377,9 +370,8 @@ class PartageChasses {
       // sujets.liste : anciens sujets « Floods | … » / « Chasses | … » des joueurs
       // pas encore à jour {type, pseudo, id}, supprimés par « Ranger le forum » ;
       // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
-      // sujets.exportSheet : sujet de l'adresse du Google Sheet ;
+      // sujets.reglages : sujet des réglages de l'alliance (ReglagesAlliance) ;
       // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance ;
-      // sujets.statsMembres : sujet de l'adresse du fichier des statistiques des membres
       // sujets.communs : sujets communs par type {type, id, dernier}
       let sujets = { liste: [], historiques: [], communs: {} },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
@@ -429,16 +421,10 @@ class PartageChasses {
           )
             sujets.communs[commun] = { type: commun, id: idSujet, dernier };
           // créé deux fois (deux enregistrements au même instant) : le plus ancien fait foi
-          if (
-            titre == TITRE_EXPORT_SHEET &&
-            idSujet &&
-            (!sujets.exportSheet || Number(idSujet) < Number(sujets.exportSheet))
-          )
-            sujets.exportSheet = idSujet;
           for (let [cle, titreListe] of [
+            ["reglages", TITRE_REGLAGES],
             ["gifAlliance", TITRE_GIF_ALLIANCE],
             ["smileysAlliance", TITRE_SMILEYS_ALLIANCE],
-            ["statsMembres", TITRE_STATS_MEMBRES],
           ])
             if (
               normaliser(titre) == normaliser(titreListe) &&

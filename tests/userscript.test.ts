@@ -179,22 +179,54 @@ describe("couche GM (userscript/shim.js)", () => {
     expect(await chrome.storage.local.get("a")).toEqual({});
   });
 
-  test("messages : mise à jour par l'adresse du script, API OUAF seulement", async () => {
+  test("messages : mise à jour par l'adresse du script, API du site de suivi seulement", async () => {
     const chrome = charger();
+    const SITE = "http://convois.example.org";
     expect(await chrome.runtime.sendMessage({ type: "fzzz_majVerifier" })).toEqual({
       statut: "userscript",
       url: "https://raw.test/fzzz.user.js",
     });
+    for (const m of [
+      { site: SITE, methode: "DELETE", chemin: "/api/mes" },
+      { site: SITE, methode: "GET", chemin: "/admin" },
+      // site des réglages de l'alliance : une origine http(s) seulement
+      { methode: "GET", chemin: "/api/mes" },
+      { site: "javascript:alert(1)", methode: "GET", chemin: "/api/mes" },
+      { site: SITE + "/chemin", methode: "GET", chemin: "/api/mes" },
+      { site: "http://convois.example.org@evil.example", methode: "GET", chemin: "/api/mes" },
+    ])
+      expect(await chrome.runtime.sendMessage({ type: "fzzz_ouaf", ...m })).toEqual({
+        erreur: "requete",
+      });
+  });
+
+  test("requête au site de suivi : envoyée à l'origine donnée, chemin de l'API ajouté", async () => {
+    const valeurs = new Map<string, unknown>(),
+      envoyees: any[] = [];
+    const contexte = vm.createContext({
+      location: { hostname: "s5.fourmizzz.fr" },
+      GM_info: { script: { version: "9.9.9", resources: [] } },
+      GM_getValue: (c: string) => valeurs.get(c),
+      GM_setValue: (c: string, v: unknown) => valeurs.set(c, v),
+      GM_deleteValue: (c: string) => valeurs.delete(c),
+      GM_listValues: () => [...valeurs.keys()],
+      GM_xmlhttpRequest: (d: any) => {
+        envoyees.push([d.method, d.url, d.data]);
+        d.onload({ status: 200, responseText: '{"connecte":true}' });
+      },
+    });
+    vm.runInContext(readFileSync(join(RACINE, "userscript/shim.js"), "utf8"), contexte);
+    const chrome = vm.runInContext("chrome", contexte);
     expect(
       await chrome.runtime.sendMessage({
         type: "fzzz_ouaf",
-        methode: "DELETE",
+        site: "https://convois.example.org:8443",
+        methode: "POST",
         chemin: "/api/mes",
+        corps: { a: 1 },
       }),
-    ).toEqual({ erreur: "requete" });
-    expect(
-      await chrome.runtime.sendMessage({ type: "fzzz_ouaf", methode: "GET", chemin: "/admin" }),
-    ).toEqual({ erreur: "requete" });
+    ).toEqual({ ok: true, statut: 200, donnees: { connecte: true } });
+    expect(envoyees).toEqual([["POST", "https://convois.example.org:8443/api/mes", '{"a":1}']]);
   });
 });
 
@@ -274,7 +306,8 @@ describe("export des RC : script du Google Sheet de l'alliance", () => {
       .split("\n")
       .filter((l) => l.startsWith("// @connect"))
       .map((l) => l.split(/\s+/).at(-1));
-    expect(connect).toEqual(["ouafchaine.fr", "script.google.com", "script.googleusercontent.com"]);
+    // le site de suivi des convois est donné par les réglages de l'alliance : n'importe quel hôte
+    expect(connect).toEqual(["*", "script.google.com", "script.googleusercontent.com"]);
     expect(entete("abc123", "9.9.9", config)).toMatch(/@grant +GM\.xmlHttpRequest\n/);
   });
 

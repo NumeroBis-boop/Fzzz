@@ -38,6 +38,8 @@ function ouvrir() {
     $.toast = (o) => TOASTS.push(o.text);
     window.monProfil = new Joueur({ pseudo: "Moi", x: 10, y: 10, niveauRecherche: [0, 0, 0, 0, 0, 0, 5, 0, 0, 0] });
     OuafSuivi.lireCode = () => Promise.resolve("");
+    // réglages de l'alliance déjà lus : site de suivi des convois inventé
+    localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { siteConvois: "http://convois.invalid" } }));
     PartageChasses.tdcMembres = () => { APPELS.membres++; return Promise.resolve({ Alpha: 1000, XaTaK: 50, Moi: 2000 }); };
     ExportJoueurs.lire = () => Promise.resolve(new Map([["Alpha", { id: 1, x: 12, y: 10, terrain: 1000 }], ["Moi", { id: 2, x: 10, y: 10, terrain: 2000 }]]));
     Joueur.prototype.getProfil = function () { APPELS.profils.push(this.pseudo); return Promise.resolve(${JSON.stringify(PROFIL_XATAK)}); };

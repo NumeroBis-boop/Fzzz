@@ -399,7 +399,10 @@ class Entrepots {
     if (!manquants.length) return Promise.resolve(resultat());
     return SuiviMembres.adresse()
       .then(({ url }) => {
-        if (!url) throw new Error(`pas d'adresse du fichier « ${TITRE_STATS_MEMBRES} »`);
+        if (!url)
+          throw new Error(
+            `pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} »`,
+          );
         return ExportRapports.requete(url, "POST", { niveaux: { joueurs: manquants } });
       })
       .then((/** @type {any} */ donnees) => {

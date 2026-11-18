@@ -108,6 +108,16 @@ function relever(proprietes) {
   return out;
 }
 
+// réglages de l'alliance déjà lus (sujet « Réglages de l'extension » du forum) :
+// site de suivi des convois inventé, pour que la page Convois montre son suivi
+const REGLAGES_SIMULES = JSON.stringify({
+  lu: Date.now(),
+  version: "",
+  section: true,
+  sujet: true,
+  reglages: { siteConvois: "http://convois.invalid/" },
+});
+
 (async () => {
   const releves = {};
   for (const avecExtension of [false, true]) {
@@ -134,10 +144,14 @@ function relever(proprietes) {
         body,
       });
     });
-    await ctx.addInitScript((onglets) => {
-      localStorage.setItem("outiiil_lastSeenVersion", "9.9.9");
-      for (const o of onglets) localStorage.setItem("fzzz_origine_" + o, "1");
-    }, ONGLETS);
+    await ctx.addInitScript(
+      ([onglets, reglages]) => {
+        localStorage.setItem("outiiil_lastSeenVersion", "9.9.9");
+        localStorage.setItem("fzzz_reglagesAlliance", reglages);
+        for (const o of onglets) localStorage.setItem("fzzz_origine_" + o, "1");
+      },
+      [ONGLETS, REGLAGES_SIMULES],
+    );
     for (const p of PAGES) {
       const page = await ctx.newPage();
       await page.goto("http://s5.fourmizzz.fr/" + p);

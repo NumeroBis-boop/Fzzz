@@ -1,13 +1,15 @@
 // @ts-check
 /*
  * OuafSuivi.js
- * Suivi des convois de la OUAF (site de l'alliance, ouafchaine.fr).
+ * Suivi des convois de l'alliance, sur le site donné par la ligne « Site de
+ * suivi des convois » de ses réglages (ReglagesAlliance).
  **********************************************************************/
 
-// site de suivi des convois de l'alliance (pas de https)
-const OUAF_SITE = "http://ouafchaine.fr/";
 // code de connexion, dans le stockage de l'extension (illisible par le jeu)
 const CLE_OUAF_CODE = "fzzz_ouafCode";
+// site accepté par le joueur : le forum peut être modifié par un autre, son
+// code ne part jamais vers un site qu'il n'a pas accepté
+const CLE_SITE_CONVOIS_ACCEPTE = "fzzz_siteConvoisAccepte";
 // numéros des convois vus avec leur lien Annuler : {numéro: {vers, montant, arrivee (ms)}}
 const CLE_OUAF_NUMEROS = "fzzz_ouafNumeros";
 // convois transmis dont le joueur a cliqué « Annuler », à retirer du suivi au
@@ -33,7 +35,7 @@ const OUAF_PAUSE_PANNE = 60000;
 let ouafPanne = 0;
 
 /**
- * Envoi des convois au site de suivi de la OUAF, au clic du joueur.
+ * Envoi des convois au site de suivi de l'alliance, au clic du joueur.
  *
  * Les requêtes passent par le script d'arrière-plan (le site est en http et
  * hors de fourmizzz.fr). Pour un convoi « Vous allez livrer » :
@@ -65,21 +67,100 @@ class OuafSuivi {
       .concat([{ de, vers, montant }]);
   }
   /**
+   * Site de suivi des convois des réglages de l'alliance (dernière lecture).
+   *
    * @static
-   * @method lireCode
-   * @return {Promise<String>} code enregistré, ou ""
+   * @method site
+   * @return {{url: String, origine: String, hote: String}|null}
    */
-  static lireCode() {
-    // gardé dans un stockage commun à tous les serveurs : ailleurs, aucun envoi
-    if (!Utils.surServeurOuaf) return Promise.resolve("");
+  static site() {
+    let url = ReglagesAlliance.reglages().siteConvois;
+    try {
+      let u = new URL(url);
+      return { url, origine: u.origin, hote: u.host };
+    } catch (e) {
+      return null;
+    }
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} cle
+   * @return {Promise<String>} valeur du stockage de l'extension, propre au serveur
+   */
+  static _lire(cle) {
+    let c = Utils.cleServeur(cle);
     try {
       return chrome.storage.local
-        .get(CLE_OUAF_CODE)
-        .then((r) => r[CLE_OUAF_CODE] || "")
+        .get(c)
+        .then((/** @type {any} */ r) => r[c] || "")
         .catch(() => "");
     } catch (e) {
       return Promise.resolve("");
     }
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} cle
+   * @param {String} valeur "" pour effacer
+   * @return {Promise}
+   */
+  static _garder(cle, valeur) {
+    let c = Utils.cleServeur(cle);
+    try {
+      return (
+        valeur ? chrome.storage.local.set({ [c]: valeur }) : chrome.storage.local.remove(c)
+      ).catch(() => {});
+    } catch (e) {
+      return Promise.resolve();
+    }
+  }
+  /**
+   * @static
+   * @method siteAccepte
+   * @return {Promise<Boolean>} site des réglages accepté par le joueur
+   */
+  static siteAccepte() {
+    let s = OuafSuivi.site();
+    return s
+      ? OuafSuivi._lire(CLE_SITE_CONVOIS_ACCEPTE).then((a) => a == s.origine)
+      : Promise.resolve(false);
+  }
+  /**
+   * Le joueur accepte le site des réglages. Un autre site accepté avant : son
+   * mot de passe est effacé, il ne partira pas vers le nouveau.
+   *
+   * @static
+   * @method accepterSite
+   * @return {Promise}
+   */
+  static accepterSite() {
+    let s = OuafSuivi.site();
+    if (!s) return Promise.resolve();
+    return OuafSuivi._lire(CLE_SITE_CONVOIS_ACCEPTE).then((avant) =>
+      (avant && avant != s.origine ? OuafSuivi.enregistrerCode("") : Promise.resolve()).then(() =>
+        OuafSuivi._garder(CLE_SITE_CONVOIS_ACCEPTE, s.origine),
+      ),
+    );
+  }
+  /**
+   * @static
+   * @method lireCode
+   * @return {Promise<String>} code enregistré, ou "" (aussi tant que le site des réglages n'est pas accepté)
+   */
+  static lireCode() {
+    return OuafSuivi.siteAccepte().then((ok) => (ok ? OuafSuivi._lire(CLE_OUAF_CODE) : ""));
+  }
+  /**
+   * Mot de passe enregistré pour ce serveur, sans envoi (affichage des Préférences).
+   *
+   * @static
+   * @method codeEnregistre
+   * @return {Promise<String>}
+   */
+  static codeEnregistre() {
+    return OuafSuivi._lire(CLE_OUAF_CODE);
   }
   /**
    * @static
@@ -88,13 +169,7 @@ class OuafSuivi {
    * @return {Promise}
    */
   static enregistrerCode(code) {
-    try {
-      return code
-        ? chrome.storage.local.set({ [CLE_OUAF_CODE]: code })
-        : chrome.storage.local.remove(CLE_OUAF_CODE);
-    } catch (e) {
-      return Promise.resolve();
-    }
+    return OuafSuivi._garder(CLE_OUAF_CODE, code);
   }
   /**
    * Requête au site, faite par le script d'arrière-plan. Site sans réponse ou
@@ -117,9 +192,26 @@ class OuafSuivi {
     };
     if (Date.now() - ouafPanne < OUAF_PAUSE_PANNE)
       return Promise.reject(panne("site de suivi sans réponse il y a moins d'une minute"));
-    let envoi = Promise.resolve(
-      chrome.runtime.sendMessage({ type: "fzzz_ouaf", methode, chemin, corps }),
-    );
+    let s = OuafSuivi.site();
+    if (!s) {
+      let e = new Error("aucun site de suivi des convois dans les réglages de l'alliance");
+      e.name = "site";
+      return Promise.reject(e);
+    }
+    let envoi = OuafSuivi.siteAccepte().then((ok) => {
+      if (!ok) {
+        let e = new Error(`site de suivi ${s.hote} pas encore accepté`);
+        e.name = "site";
+        throw e;
+      }
+      return chrome.runtime.sendMessage({
+        type: "fzzz_ouaf",
+        site: s.origine,
+        methode,
+        chemin,
+        corps,
+      });
+    });
     if (methode != "PUT")
       envoi = Promise.race([
         envoi,
@@ -128,13 +220,13 @@ class OuafSuivi {
     return envoi.then((r) => {
       if (!r || r.erreur || !r.ok)
         Journal.erreur(
-          "Suivi des convois OUAF",
+          "Suivi des convois",
           `${methode} ${chemin} : ${!r ? "pas de réponse du script d'arrière-plan" : r.erreur || `erreur ${r.statut}`}`,
           r && r.donnees,
         );
       if (!r) throw new Error("le script d'arrière-plan n'a pas répondu");
       if (r.erreur == "permission") {
-        let e = new Error("accès à ouafchaine.fr non autorisé");
+        let e = new Error(`accès à ${s.hote} non autorisé`);
         e.name = "permission";
         throw e;
       }
@@ -583,13 +675,18 @@ class OuafSuivi {
   }
 
   /**
-   * Ouvre la page de l'extension qui demande l'accès à ouafchaine.fr (le
+   * Ouvre la page de l'extension qui demande l'accès au site de suivi (le
    * navigateur ne le permet qu'au clic, depuis une page de l'extension).
    *
    * @static
    * @method demanderAcces
    */
   static demanderAcces() {
-    window.open(chrome.runtime.getURL("ouaf-autorisation.html"), "_blank");
+    let s = OuafSuivi.site();
+    if (s)
+      window.open(
+        chrome.runtime.getURL("ouaf-autorisation.html") + "?site=" + encodeURIComponent(s.origine),
+        "_blank",
+      );
   }
 }

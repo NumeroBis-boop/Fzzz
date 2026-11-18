@@ -157,7 +157,9 @@ export function entete(
       "GM.listValues",
       "GM.xmlHttpRequest",
     ].map((g) => ["@grant", g]),
-    ["@connect", "ouafchaine.fr"],
+    // site de suivi des convois de l'alliance, donné par ses réglages : le
+    // gestionnaire demande au joueur d'autoriser ce site la première fois
+    ["@connect", "*"],
     // export des RC vers le Google Sheet de l'alliance (le script répond par une
     // redirection vers script.googleusercontent.com)
     ["@connect", "script.google.com"],

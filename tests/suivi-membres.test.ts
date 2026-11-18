@@ -37,6 +37,8 @@ const lire = <T = any>(e: string) => page.lire<T>(e);
 const attendre = () => new Promise((r) => setTimeout(r, 0));
 
 const ADRESSE = "https://script.google.com/macros/s/AKfycbInvente123/exec";
+// premier message du sujet des réglages de l'alliance, écrit à la main
+const REGLAGE = `Google Sheet des stats membres : ${ADRESSE}`;
 const ligne = (nom: string, niveau: number) =>
   `<tr class="ligneAmelioration"><td><div class="desciption_amelioration"><h2>${nom}</h2><span class="niveau_amelioration">niveau ${niveau}</span></div></td></tr>`;
 const BATIMENTS: [string, number][] = [
@@ -149,7 +151,7 @@ beforeEach(() => {
       return JEU.pannes[chemin] ? Promise.reject({ status: 500 }) : Promise.resolve(JEU.pages[chemin]);
     };
     // forum simulé : sujets {id, titre, messages} de la section cachée
-    window.FORUM = { section: true, sujets: [{ id: "31", titre: "Stats membres", messages: [${JSON.stringify(ADRESSE)}] }], appels: [], echoue: false };
+    window.FORUM = { section: true, sujets: [{ id: "31", titre: "Réglages de l'extension", messages: [${JSON.stringify(REGLAGE)}] }], appels: [], echoue: false };
     PartageChasses.idSection = null;
     PartageChasses.oublierCache();
     PartageChasses._html = (d) => d;
@@ -302,7 +304,7 @@ describe("annonce avant le premier envoi", () => {
     const annonce = lire<any>(`TOASTS[0]`);
     expect(annonce.hideAfter).toBe(false);
     expect(annonce.text).toContain(
-      "Une fois par jour, l'extension envoie au Google Sheet « Stats membres » de ton alliance tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron et Champignonnière. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change. Le premier envoi se fera à ta prochaine page.",
+      "Une fois par jour, l'extension envoie au Google Sheet des stats membres de ton alliance tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron et Champignonnière. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change. Le premier envoi se fera à ta prochaine page.",
     );
     expect(annonce.text).toContain("Préférences → Partage de données");
     // la page suivante, quelques secondes après
@@ -324,7 +326,7 @@ describe("annonce avant le premier envoi", () => {
     expect([s.donnees.cdf, s.partages.cdf, s.donnees.tdp]).toEqual([undefined, false, 38]);
   });
 
-  test("sans sujet « Stats membres » : ni annonce, ni lecture, ni envoi, et pas de nouvel essai ce jour-là", async () => {
+  test("sans sujet des réglages : ni annonce, ni lecture, ni envoi, et pas de nouvel essai ce jour-là", async () => {
     lire(`FORUM.sujets = [{ id: "4", titre: "GIF de l'alliance", messages: ["x"] }]`);
     expect(await ouvrirPage()).toBe("sans sujet");
     avancer(120);
@@ -332,7 +334,7 @@ describe("annonce avant le premier envoi", () => {
     expect([lire(`TOASTS.length`), lues(), recus(), forum().length]).toEqual([0, [], [], 2]);
     // sujet créé : pris en compte le lendemain
     lire(
-      `FORUM.sujets.push({ id: "31", titre: "stats  Membres", messages: [${JSON.stringify(ADRESSE)}] })`,
+      `FORUM.sujets.push({ id: "31", titre: "réglages de l’Extension", messages: [${JSON.stringify(REGLAGE)}] })`,
     );
     // le lendemain : la liste des sujets gardée une minute est périmée
     lire(`(() => { heure += 24 * 3600000; PartageChasses.oublierCache(); })()`);
@@ -355,7 +357,7 @@ describe("annonce avant le premier envoi", () => {
     expect(await ouvrirPage()).toBe("sans sujet");
     expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
       [
-        "pas de sujet « Stats membres » dans la section cachée du forum : rien n'est relevé aujourd'hui",
+        "pas de sujet « Réglages de l'extension » dans la section cachée du forum : rien n'est relevé aujourd'hui",
         undefined,
       ],
     ]);
@@ -364,17 +366,29 @@ describe("annonce avant le premier envoi", () => {
     expect([forum(), lues(), recus(), lire(`TOASTS.length`)]).toEqual([[], [], [], 0]);
   });
 
-  test("sujet présent mais sans adresse lisible : un échec, repris une heure plus tard quand l'adresse y est", async () => {
-    lire(`FORUM.sujets[0].messages = ["bientôt"]`);
+  test("sujet sans la ligne du fichier : rien ce jour-là, et le journal le dit", async () => {
+    lire(`FORUM.sujets[0].messages = ["Chasseurs : Alpha, Bravo"]`);
+    expect(await ouvrirPage()).toBe("sans sujet");
+    expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
+      [
+        "pas de ligne « Google Sheet des stats membres » dans le sujet « Réglages de l'extension » : rien n'est relevé aujourd'hui",
+        undefined,
+      ],
+    ]);
+    expect([lues(), recus(), lire(`TOASTS.length`)]).toEqual([[], [], 0]);
+  });
+
+  test("ligne présente mais sans adresse lisible : un échec, repris une heure plus tard quand l'adresse y est", async () => {
+    lire(`FORUM.sujets[0].messages = ["Google Sheet des stats membres : bientôt"]`);
     expect(await ouvrirPage()).toBe("échec");
     expect(lire<(string | undefined)[][]>(`NOTES`)).toEqual([
       [
         "relevé du 2026-11-12 non envoyé",
-        "pas d'adresse de script lisible dans le sujet « Stats membres »",
+        "pas d'adresse de script lisible à la ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension »",
       ],
     ]);
     expect([lues(), recus(), lire(`TOASTS.length`), etat().fait]).toEqual([[], [], 0, false]);
-    lire(`FORUM.sujets[0].messages = [${JSON.stringify(ADRESSE)}]`);
+    lire(`FORUM.sujets[0].messages = [${JSON.stringify(REGLAGE)}]`);
     avancer(20);
     expect(await ouvrirPage()).toBe("attente");
     // une heure après : les lectures gardées une minute sont périmées
@@ -398,7 +412,7 @@ describe("annonce avant le premier envoi", () => {
 
   test("liste des sujets gardée par une autre version du script (mise à jour dans la minute) : relue, le sujet est trouvé", async () => {
     annonceVue();
-    // gardée il y a 5 s par une version qui ne retenait pas le sujet « Stats membres »
+    // gardée il y a 5 s par une version qui ne retenait pas le sujet des réglages
     const garder = (plus: object) =>
       lire(
         `localStorage.setItem("fzzz_cacheForum", JSON.stringify({ sujets: { t: Date.now() - 5000, v: { liste: [], historiques: [] }, ...${JSON.stringify(plus)} } }))`,
@@ -409,15 +423,23 @@ describe("annonce avant le premier envoi", () => {
     // la liste que cette version vient de lire et de garder : réutilisée dans la minute
     await lire(`PartageChasses.sujets(true)`);
     expect(forum()).toHaveLength(3);
+    // réglages lus il y a moins d'une minute par cette version : servent tels quels
     lire(`(() => { localStorage.removeItem("fzzz_suiviMembres"); FORUM.appels = []; })()`);
+    annonceVue();
+    expect(await ouvrirPage()).toBe("envoyé");
+    expect(forum()).toEqual([]);
+    // sans eux, la liste des sujets gardée par une autre version est relue
+    const oublier = () =>
+      lire(
+        `(() => { ["fzzz_suiviMembres", "fzzz_reglagesAlliance"].forEach((c) => localStorage.removeItem(c)); FORUM.appels = []; NOTES = []; })()`,
+      );
+    oublier();
     annonceVue();
     garder({ version: "1.101.0" });
     expect(await ouvrirPage()).toBe("envoyé");
     expect(forum()).toEqual(["callGetForum 7", "callGetTopic 31"]);
     // gardée par cette version : réutilisée, le forum n'est pas relu
-    lire(
-      `(() => { localStorage.removeItem("fzzz_suiviMembres"); FORUM.appels = []; NOTES = []; })()`,
-    );
+    oublier();
     annonceVue();
     garder({ version: "1.104.0" });
     expect(await ouvrirPage()).toBe("sans sujet");
@@ -1059,8 +1081,9 @@ describe("Préférences → Partage de données", () => {
     for (const dit of [
       "Une fois par jour, à la première page que tu ouvres",
       "Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau.",
-      "Google Sheet « Stats membres » de ton alliance, avec ton pseudo et la version de l'extension",
-      "sans ce sujet, rien n'est relevé ni envoyé",
+      "Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension",
+      "ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension »",
+      "sans elle, rien n'est relevé ni envoyé",
       "le fichier indique seulement que tu ne la partages pas",
       "Aucun envoi depuis ce navigateur pour l'instant.",
     ])
@@ -1191,6 +1214,7 @@ describe("Préférences → Partage de données", () => {
     );
     preferences.lire(`(() => {
       $("body").append("<span id='pseudo'>DoggyBag</span>");
+      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["doggybag"] } }));
       $("#o_tabsParametrePartage").empty();
       boite.ongletPartage();
     })()`);
@@ -1243,6 +1267,7 @@ describe("Préférences → Partage de données", () => {
     expect(preferences.lire(`$(".o_partageSupprimerFloods").length`)).toBe(0);
     preferences.lire(`(() => {
       $("body").append("<span id='pseudo'>DoggyBag</span>");
+      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["doggybag"] } }));
       $("#o_tabsParametrePartage").empty();
       boite.ongletPartage();
     })()`);

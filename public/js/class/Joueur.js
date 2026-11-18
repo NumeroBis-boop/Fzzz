@@ -14,20 +14,34 @@ const METHODE_FLOOD_DEGRESSIVE = 3;
 // rôle du joueur dans l'alliance (Préférences → Général)
 const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
 const ROLE_CHASSEUR = 3;
-// chasseurs de l'alliance (liste du mainteneur) : rôle Chasseur par défaut,
-// posé une fois par navigateur
-const CHASSEURS_PAR_DEFAUT = [
-  "DoggyBag",
-  "Grim",
-  "Harkonnen",
-  "Staffie",
-  "Madakai",
-  "LabraDrungor",
-  "Cocop",
-  "Daek",
-  "Vegas",
-];
+const ROLE_GRENIER = 2;
+// rôle Chasseur posé une fois par navigateur (liste « Chasseurs » des réglages de l'alliance)
 const CLE_ROLE_CHASSEUR_DEFAUT = "fzzz_roleChasseurDefaut";
+// réglages des greniers (liste « Greniers » des réglages de l'alliance), posés
+// une fois par navigateur : tout coché sauf ces affichages (règle du mainteneur,
+// 18/11/2026) ; une case déjà réglée par le joueur garde son choix
+const CLE_PROFIL_GRENIER = "fzzz_profilGrenier";
+const GRENIER_DECOCHES = [
+  // Messagerie : « Liste des messages », « Couleurs des titres », « Rapports »
+  "messagerieRanger",
+  "messagerieCompacte",
+  "messagerieNonLus",
+  "messagerieCouleurs",
+  "messagerieCopie",
+  "messagerieAnalyse",
+  "messagerieExport",
+  // colonnes de la vue « Floods et chasses en cours »
+  "membresFloodsRang",
+  "membresFloodsProchain",
+  "membresFloodsVariation",
+  "membresFloodsTrajet",
+  "membresFloodsRetour",
+  "membresFloodsEtat",
+  // « Lanceur de chasses »
+  "lanceurChasse",
+];
+// réglages à case du joueur, cochés pour un grenier
+const GRENIER_PARAMETRES_COCHES = ["floodImpactAuto", "replacerArmeeAuto", "convoisAvantRecolte"];
 /** Trajet le plus long, en secondes, en Vitesse d'attaque 0 (distance infinie). */
 const TRAJET_MAX = 637200;
 /** Distance où un trajet atteint 1 − 1/e (63 %) de TRAJET_MAX. */
@@ -639,6 +653,23 @@ class Joueur {
         }
         localStorage.setItem(CLE_ROLE_CHASSEUR_DEFAUT, "1");
       }
+      // grenier de la liste : rôle Grenier (depuis « Aucun ») et réglages des
+      // greniers, une fois par navigateur
+      if (!localStorage.getItem(CLE_PROFIL_GRENIER) && Joueur.grenierParDefaut(this.pseudo)) {
+        if (!parseInt(this._parametre["role"].valeur))
+          this._parametre["role"].valeur = ROLE_GRENIER;
+        for (let cle of GRENIER_PARAMETRES_COCHES) this._parametre[cle].valeur = true;
+        localStorage.setItem("outiiil_parametre", JSON.stringify(this._parametre));
+        for (let cle in AFFICHAGES_REGLABLES) {
+          let coche = !GRENIER_DECOCHES.includes(cle);
+          if (
+            localStorage.getItem("fzzz_affichage_" + cle) == null &&
+            coche != (AFFICHAGES_REGLABLES[cle] !== false)
+          )
+            localStorage.setItem("fzzz_affichage_" + cle, coche ? "1" : "0");
+        }
+        localStorage.setItem(CLE_PROFIL_GRENIER, "1");
+      }
     } catch (e) {
       /* stockage indisponible : rien n'est enregistré non plus */
     }
@@ -648,14 +679,19 @@ class Joueur {
    * @static
    * @method chasseurParDefaut
    * @param {String} pseudo
-   * @return {Boolean} joueur de CHASSEURS_PAR_DEFAUT, casse ignorée, sur le
-   *   serveur de la OUAF (un homonyme d'un autre serveur n'en est pas)
+   * @return {Boolean} joueur de la liste « Chasseurs » des réglages de l'alliance, casse ignorée
    */
   static chasseurParDefaut(pseudo) {
-    let p = String(pseudo || "")
-      .trim()
-      .toLowerCase();
-    return !!p && Utils.surServeurOuaf && CHASSEURS_PAR_DEFAUT.some((j) => j.toLowerCase() == p);
+    return ReglagesAlliance.contient("chasseurs", pseudo);
+  }
+  /**
+   * @static
+   * @method grenierParDefaut
+   * @param {String} pseudo
+   * @return {Boolean} joueur de la liste « Greniers » des réglages de l'alliance, casse ignorée
+   */
+  static grenierParDefaut(pseudo) {
+    return ReglagesAlliance.contient("greniers", pseudo);
   }
   /**
    *

@@ -21,10 +21,10 @@ let intervalleComptesARebours = null;
 const NOM_EXTENSION =
   (typeof FZZZ_NOM_EXTENSION == "string" && FZZZ_NOM_EXTENSION) || "Extension OUAF";
 // titre de l'encadré de synthèse recréé hors Compte+ (et de son bascule radar)
-const TITRE_SYNTHESE = "Synthèse OUAF";
-// serveur de la OUAF : le seul du site de suivi des convois et de la liste des
-// chasseurs par défaut (l'extension marche sur les serveurs s1 à s5)
-const SERVEUR_OUAF = "s5";
+const TITRE_SYNTHESE = "Synthèse";
+// seul serveur des versions 1.42 à 1.125 : ses clés du stockage de l'extension
+// sont restées sans suffixe (Utils.cleServeur)
+const SERVEUR_CLES_SANS_SUFFIXE = "s5";
 
 // Fzzz : champs jQuery UI « spinner » : nombres affichés et relus à la
 // française, quelle que soit la langue du navigateur. Le widget délègue à
@@ -244,7 +244,7 @@ const COULEURS_MESSAGES = {
   autre: { libelle: "Autres messages", classe: "o_titreAutre", defaut: "#ffffff" },
 };
 
-// affichages de la page Convois ; seul le suivi OUAF se règle (Préférences → Convois)
+// affichages de la page Convois ; seul le suivi des convois se règle (Préférences → Convois)
 const AFFICHAGES_CONVOIS = {
   convoisInfoEtable: "Ligne « Niveau d'étable, 1 ouvrière peut transporter… »",
   convoisArrondir: "Liens « arrondir… » des quantités de nourriture et de matériaux",
@@ -253,9 +253,9 @@ const AFFICHAGES_CONVOIS = {
   convoisMembres:
     "Bloc « Récapitulatif » sous les convois en cours (convoi à faire, temps de trajet, horaire de retour)",
   convoisSuiviLignes:
-    "Suivi OUAF devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
+    "Suivi des convois devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
   convoisColonnes:
-    "Convois en cours en deux colonnes : le suivi OUAF à gauche, le texte replié à droite (« Annuler » jamais près d'un bouton d'envoi)",
+    "Convois en cours en deux colonnes : le suivi des convois à gauche, le texte replié à droite (« Annuler » jamais près d'un bouton d'envoi)",
 };
 
 // Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix
@@ -373,18 +373,10 @@ class Utils {
     return location.hostname.split(".")[0].toUpperCase();
   }
   /**
-   * @static
-   * @method surServeurOuaf
-   * @return {Boolean} page du serveur de la OUAF (SERVEUR_OUAF)
-   */
-  static get surServeurOuaf() {
-    return location.hostname.split(".")[0].toLowerCase() == SERVEUR_OUAF;
-  }
-  /**
    * Clé du stockage de l'extension ou du gestionnaire de scripts, commun à tous
-   * les serveurs, au contraire du localStorage du jeu : celle d'avant sur le
-   * serveur de la OUAF, une par serveur ailleurs (un même pseudo sur deux
-   * serveurs n'en mélange pas les données).
+   * les serveurs, au contraire du localStorage du jeu : une par serveur (un même
+   * pseudo sur deux serveurs n'en mélange pas les données), celle d'avant sur le
+   * serveur des versions qui ne marchaient que sur lui.
    *
    * @static
    * @method cleServeur
@@ -392,7 +384,8 @@ class Utils {
    * @return {String}
    */
   static cleServeur(cle) {
-    return Utils.surServeurOuaf ? cle : `${cle}_${location.hostname.split(".")[0].toLowerCase()}`;
+    let serveur = location.hostname.split(".")[0].toLowerCase();
+    return serveur == SERVEUR_CLES_SANS_SUFFIXE ? cle : `${cle}_${serveur}`;
   }
   /**
    * AntLeaks ne référence que le serveur s4 : ailleurs, ses liens mèneraient

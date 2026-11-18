@@ -44,10 +44,22 @@ const profil = (role: number) =>
   })()`);
 const aRappeler = () => page.lire<boolean>(`RappelExport.aRappeler()`);
 
-describe("rôle Chasseur par défaut pour les chasseurs de l'alliance (liste du mainteneur)", () => {
-  // réglages enregistrés par ce navigateur (tous ensemble), puis page ouverte par ce pseudo
-  const ouvrir = (pseudo: string, enregistres: Record<string, unknown> | null = null) =>
+describe("rôle Chasseur par défaut pour les joueurs de la ligne « Chasseurs » des réglages de l'alliance", () => {
+  // réglages de l'alliance déjà lus dans le forum (lecture gardée) et réglages
+  // enregistrés par ce navigateur (tous ensemble), puis page ouverte par ce pseudo
+  const REGLAGES = JSON.stringify({
+    lu: 0,
+    section: true,
+    sujet: true,
+    reglages: { chasseurs: ["Alpha", "Bravo", "Charlie"] },
+  });
+  const ouvrir = (
+    pseudo: string,
+    enregistres: Record<string, unknown> | null = null,
+    reglages = REGLAGES,
+  ) =>
     page.lire<number>(`(() => {
+      ${reglages ? `localStorage.setItem("fzzz_reglagesAlliance", ${JSON.stringify(reglages)});` : ""}
       localStorage.setItem("fzzz_reserveEnPlus", "1");
       localStorage.setItem("fzzz_methodeDegressive", "1");
       ${enregistres ? `localStorage.setItem("outiiil_parametre", ${JSON.stringify(JSON.stringify(enregistres))});` : ""}
@@ -57,56 +69,52 @@ describe("rôle Chasseur par défaut pour les chasseurs de l'alliance (liste du 
   const enregistre = () =>
     page.lire<any>(`JSON.parse(localStorage.getItem("outiiil_parametre") || "null")`);
 
-  test("les neuf joueurs de la liste, casse ignorée ; les autres restent sans rôle", () => {
-    expect(page.lire(`CHASSEURS_PAR_DEFAUT`)).toEqual([
-      "DoggyBag",
-      "Grim",
-      "Harkonnen",
-      "Staffie",
-      "Madakai",
-      "LabraDrungor",
-      "Cocop",
-      "Daek",
-      "Vegas",
-    ]);
-    for (const pseudo of ["DoggyBag", "grim", "HARKONNEN", " Vegas "]) {
+  test("les joueurs de la liste, casse ignorée ; les autres restent sans rôle", () => {
+    for (const pseudo of ["Alpha", "bravo", "CHARLIE", " Alpha "]) {
       page.lire(`localStorage.clear()`);
       expect(ouvrir(pseudo)).toBe(3);
     }
-    for (const pseudo of ["Canaille", "Doggy", "DoggyBag2", ""]) {
+    for (const pseudo of ["Delta", "Alph", "Alpha2", ""]) {
       page.lire(`localStorage.clear()`);
       expect(ouvrir(pseudo)).toBe(0);
       expect(page.lire(`localStorage.getItem("fzzz_roleChasseurDefaut")`)).toBeNull();
     }
   });
 
+  test("réglages pas encore lus dans ce navigateur : rien, puis Chasseur une fois lus", () => {
+    page.lire(`localStorage.clear()`);
+    expect(ouvrir("Alpha", null, "")).toBe(0);
+    expect(page.lire(`localStorage.getItem("fzzz_roleChasseurDefaut")`)).toBeNull();
+    expect(ouvrir("Alpha")).toBe(3);
+  });
+
   test("« Aucun » enregistré sans avoir été choisi : passé en Chasseur, enregistré, une seule fois", () => {
     page.lire(`localStorage.clear()`);
-    expect(ouvrir("Staffie", { role: 0, methodeFlood: 2 })).toBe(3);
+    expect(ouvrir("Bravo", { role: 0, methodeFlood: 2 })).toBe(3);
     expect(enregistre()).toMatchObject({ role: 3, methodeFlood: 2 });
     // page suivante : le rôle enregistré est gardé
-    expect(ouvrir("Staffie")).toBe(3);
+    expect(ouvrir("Bravo")).toBe(3);
     // le joueur choisit ensuite « Aucun » : son choix reste
-    expect(ouvrir("Staffie", { role: 0 })).toBe(0);
-    expect(ouvrir("Staffie")).toBe(0);
+    expect(ouvrir("Bravo", { role: 0 })).toBe(0);
+    expect(ouvrir("Bravo")).toBe(0);
   });
 
   test("Passeur ou Grenier déjà choisi : pas touché, ni plus tard", () => {
     for (const role of [1, 2]) {
       page.lire(`localStorage.clear()`);
-      expect(ouvrir("Madakai", { role })).toBe(role);
+      expect(ouvrir("Charlie", { role })).toBe(role);
       expect(page.lire(`localStorage.getItem("fzzz_roleChasseurDefaut")`)).toBe("1");
-      expect(ouvrir("Madakai", { role: 0 })).toBe(0);
+      expect(ouvrir("Charlie", { role: 0 })).toBe(0);
     }
   });
 
   test("devenu Chasseur par défaut : le rappel d'export le concerne", () => {
     regler("2026-11-11 22:30");
     page.lire(`localStorage.clear()`);
-    ouvrir("Cocop");
+    ouvrir("Alpha");
     expect(aRappeler()).toBe(true);
     page.lire(`localStorage.clear()`);
-    ouvrir("Canaille");
+    ouvrir("Delta");
     expect(aRappeler()).toBe(false);
   });
 });

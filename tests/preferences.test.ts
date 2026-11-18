@@ -28,8 +28,15 @@ const page = creerPage(
     "js/boite/Parametres.js",
   ],
   `var METHODE_FLOOD = ["Standard", "Optimisée", "Uniforme", "Dégressive"], AFFECTATION_RESSOURCE = [], RATIO_RECOLTE = {};
-   var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"], VERSION = "1.111.0", OUAF_SITE = "http://ouaf.invalid/";
-   var OuafSuivi = { lireCode: () => Promise.resolve(""), enregistrerCode: () => Promise.resolve() };
+   var NOM_UNITE = ["Ouvrière", "Jeune Soldate Naine"], VERSION = "1.111.0";
+   // site de suivi des convois donné par les réglages de l'alliance, accepté par le joueur
+   var OuafSuivi = {
+     site: () => ({ url: "http://convois.invalid/", origine: "http://convois.invalid", hote: "convois.invalid" }),
+     siteAccepte: () => Promise.resolve(true),
+     accepterSite: () => Promise.resolve(),
+     codeEnregistre: () => Promise.resolve(""),
+     enregistrerCode: () => Promise.resolve(),
+   };
    var heure = moment("2026-11-14 10:00", "YYYY-MM-DD HH:mm").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };`,
 );

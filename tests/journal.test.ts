@@ -54,18 +54,26 @@ describe("entrées du journal", () => {
   });
 });
 
-describe("réservé au mainteneur", () => {
-  test("DoggyBag seulement, casse ignorée ; pseudo lu sur la page par défaut", () => {
+describe("réservé aux joueurs de la ligne « Journal » des réglages de l'alliance", () => {
+  test("pseudos de la dernière lecture gardée, casse ignorée ; pseudo lu sur la page par défaut", () => {
     const pour = (p: string) => lire<boolean>(`Journal.pourCeJoueur(${JSON.stringify(p)})`);
-    expect(pour("DoggyBag")).toBe(true);
-    expect(pour("doggybag ")).toBe(true);
-    expect(pour("Canaille")).toBe(false);
-    expect(pour("Doggy")).toBe(false);
+    // réglages pas encore lus dans ce navigateur : personne
+    expect(pour("Alpha")).toBe(false);
+    lire(
+      `localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["Alpha", "Bravo"] } }))`,
+    );
+    expect(pour("Alpha")).toBe(true);
+    expect(pour("bravo ")).toBe(true);
+    expect(pour("Charlie")).toBe(false);
+    expect(pour("Alph")).toBe(false);
     expect(pour("")).toBe(false);
-    lire(`document.body.innerHTML = '<span id="pseudo">Missyl</span>'`);
+    lire(`document.body.innerHTML = '<span id="pseudo">Charlie</span>'`);
     expect(lire(`Journal.pourCeJoueur()`)).toBe(false);
-    lire(`document.body.innerHTML = '<span id="pseudo">DoggyBag</span>'`);
+    lire(`document.body.innerHTML = '<span id="pseudo">Alpha</span>'`);
     expect(lire(`Journal.pourCeJoueur()`)).toBe(true);
+    // lecture gardée illisible : personne
+    lire(`localStorage.setItem("fzzz_reglagesAlliance", "{")`);
+    expect(pour("Alpha")).toBe(false);
   });
 
   test("journal non installé (autre joueur) : rien n'est noté", () => {

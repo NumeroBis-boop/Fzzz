@@ -90,8 +90,10 @@ describe("page Convois : état d'après le forum seul", () => {
       window.requetes = [];
       window.notes = [];
       window.toasts = [];
+      // réglages de l'alliance déjà lus : site de suivi des convois inventé
+      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { siteConvois: "http://convois.invalid" } }));
       window.chrome = {
-        storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x" }) } },
+        storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x", fzzz_siteConvoisAccepte: "http://convois.invalid" }) } },
         runtime: {
           sendMessage: (m) => {
             requetes.push(m.methode + " " + m.chemin);
@@ -173,8 +175,10 @@ describe("deux clics « Envoyer au suivi » rapprochés", () => {
         reponse = (donnees) => new Promise((r) => setTimeout(() => r({ ok: true, donnees }), 5)),
         mes = () => ({ pseudo: "Moi", membres: ["Kwhwwymwn"], lignes: [{ de: "Moi", vers: "Kwhwwymwn", demande: 466945, envoye: etat.envoye }] });
       window.etatSite = etat;
+      // réglages de l'alliance déjà lus : site de suivi des convois inventé
+      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { siteConvois: "http://convois.invalid" } }));
       window.chrome = {
-        storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x" }) } },
+        storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x", fzzz_siteConvoisAccepte: "http://convois.invalid" }) } },
         runtime: {
           sendMessage: (m) => {
             if (m.chemin == "/api/session") return reponse({ connecte: true, pseudo: "Moi" });

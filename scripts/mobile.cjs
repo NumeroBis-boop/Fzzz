@@ -68,6 +68,16 @@ function depassements(limite) {
     });
 }
 
+// réglages de l'alliance déjà lus (sujet « Réglages de l'extension » du forum) :
+// site de suivi des convois inventé, pour que la page Convois montre son suivi
+const REGLAGES_SIMULES = JSON.stringify({
+  lu: Date.now(),
+  version: "",
+  section: true,
+  sujet: true,
+  reglages: { siteConvois: "http://convois.invalid/" },
+});
+
 (async () => {
   const largeurs = {};
   let total = 0;
@@ -105,11 +115,20 @@ function depassements(limite) {
           body,
         });
       });
-      await ctx.addInitScript(() => localStorage.setItem("outiiil_lastSeenVersion", "9.9.9"));
+      await ctx.addInitScript((reglages) => {
+        localStorage.setItem("outiiil_lastSeenVersion", "9.9.9");
+        localStorage.setItem("fzzz_reglagesAlliance", reglages);
+      }, REGLAGES_SIMULES);
       for (const p of PAGES) {
         const page = await ctx.newPage();
         await page.goto("http://s5.fourmizzz.fr/" + p);
         await page.waitForTimeout(3000);
+        // site de suivi pas encore accepté : le clic du joueur affiche le suivi et le Récapitulatif
+        const accepter = await page.$(".o_convoisSite button");
+        if (accepter) {
+          await accepter.click();
+          await page.waitForTimeout(1500);
+        }
         if (avecExtension && !(await page.$("#o_boiteExtension"))) {
           console.error(`${p} (${nom}) : l'extension ne s'est pas chargée`);
           process.exit(2);

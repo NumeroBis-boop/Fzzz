@@ -39,9 +39,9 @@ export default defineConfig({
         update_url: "https://github.com/NumeroBis-boop/Fzzz/releases/latest/download/updates.json",
         data_collection_permissions: {
           required: ["none"],
-          // suivi des convois OUAF (optionnel, au clic) : code de connexion et
-          // convois envoyés transmis à ouafchaine.fr ; RC exportés au clic vers
-          // le Google Sheet de l'alliance
+          // suivi des convois (optionnel, au clic) : code de connexion et
+          // convois envoyés transmis au site de suivi de l'alliance ; RC
+          // exportés au clic vers le Google Sheet de l'alliance
           optional: ["authenticationInfo", "websiteContent"],
         },
       },
@@ -68,10 +68,11 @@ export default defineConfig({
       "*://s4.fourmizzz.fr/*",
       "*://s5.fourmizzz.fr/*",
     ],
-    // site de suivi des convois de la OUAF : accès demandé au premier envoi
-    // (page ouaf-autorisation.html), pas à l'installation
+    // site de suivi des convois de l'alliance (ses réglages) : accès demandé
+    // pour ce site au premier envoi (page ouaf-autorisation.html), pas à l'installation
     optional_host_permissions: [
-      "http://ouafchaine.fr/*",
+      "http://*/*",
+      "https://*/*",
       // export des RC vers le Google Sheet de l'alliance (script Apps Script)
       "https://script.google.com/*",
       "https://script.googleusercontent.com/*",
@@ -175,6 +176,7 @@ export default defineConfig({
           "js/data/couts.js",
           "js/data/menuRapide.js",
           "js/class/Utils.js",
+          "js/class/ReglagesAlliance.js",
           "js/class/ExportJoueurs.js",
           "js/class/ExportRapports.js",
           "js/class/Classeur.js",

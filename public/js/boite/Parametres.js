@@ -787,7 +787,7 @@ class BoiteParametre extends Boite {
     let $zone = $("#o_exportSheetReglage").addClass("o_sectionParam").html(`
         <p class='o_titreParam'>Adresse de ton Google Sheet</p>
         <p id='o_exportSheetEtat' class='left small'></p>
-        <p class='left small'><em>Pour exporter tes rapports (boutons « Exporter mes chasses » et « Exporter mes RC »), renseigne l'adresse du script de ton propre Google Sheet. Elle reste dans ton navigateur. Les joueurs de la liste du forum caché (sujet « ${TITRE_EXPORT_SHEET} ») n'ont rien à régler.</em></p>
+        <p class='left small'><em>Pour exporter tes rapports (boutons « Exporter mes chasses » et « Exporter mes RC »), renseigne l'adresse du script de ton propre Google Sheet. Elle reste dans ton navigateur. Les joueurs de la ligne « ${REGLAGES_ALLIANCE.autorisesRc.nom} » du sujet « ${TITRE_REGLAGES} » (forum caché) n'ont rien à régler.</em></p>
         <p class='left small o_reglage'><label for='o_exportSheet'>Adresse du script :</label>
           <input type='password' id='o_exportSheet' autocomplete='new-password' spellcheck='false' placeholder='https://script.google.com/macros/s/…/exec' style='width:16em; max-width:100%'/>
           <button type='button' id='o_exportSheetVoir' class='o_button' title="Afficher l'adresse enregistrée">👁 Afficher</button>
@@ -859,8 +859,8 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
-   * Convois : suivi OUAF de la page Convois, convoi avant la récolte, et mot
-   * de passe du site de suivi des convois de la OUAF (seul endroit où il se
+   * Convois : suivi de la page Convois, convoi avant la récolte, et mot de
+   * passe du site de suivi des convois de l'alliance (seul endroit où il se
    * renseigne). Il est gardé dans le stockage de l'extension, que le jeu ne
    * peut pas lire, et n'est placé dans le champ que si le joueur clique
    * « Afficher ».
@@ -868,17 +868,18 @@ class BoiteParametre extends Boite {
    * @method ongletConvois
    */
   ongletConvois() {
-    if (!Utils.surServeurOuaf) {
+    let site = OuafSuivi.site();
+    if (!site) {
       $("#o_tabsParametreConvois").append(
-        `<p class='left'>Le suivi des convois de la OUAF (site de suivi, Récapitulatif de la page Convois, convoi avant la récolte) ne fonctionne que sur le serveur ${SERVEUR_OUAF}.</p>`,
+        `<p class='left'>Aucun site de suivi des convois dans les réglages de ton alliance : un chef l'écrit sur la ligne « ${REGLAGES_ALLIANCE.siteConvois.nom} » du sujet « ${TITRE_REGLAGES} » (${this.lienOnglet("Partage", "onglet Partage de données")}, section « Fonctionnement sur les autres serveurs »).</p>`,
       );
       return this;
     }
     $("#o_tabsParametreConvois").append(`<form autocomplete='off'>
         ${this.section(
-          `Suivi des convois de la OUAF ${this.etiquette("Grenier")}`,
+          `Suivi des convois de l'alliance ${this.etiquette("Grenier")}`,
           `${this.cases("Convois")}
-            <p class='left small'>Site : <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></p>
+            <p class='left small'>Site (réglages de l'alliance) : <a href='${Utils.echapper(site.url)}' target='_blank' rel='noopener'>${Utils.echapper(site.hote)}</a> <span id='o_siteConvoisEtat'></span></p>
             <p class='left small o_reglage'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
               <input type='password' id='o_ouafCode' autocomplete='new-password' spellcheck='false' style='width:12em'/>
               <button type='button' id='o_ouafCodeVoir' class='o_button' title='Afficher le mot de passe enregistré'>👁 Afficher</button>
@@ -887,9 +888,9 @@ class BoiteParametre extends Boite {
             <p id='o_ouafCodeEtat' class='left small'></p>
             ${this.aide(
               "Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension.",
-              "Il n'est envoyé qu'au site de suivi : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif et le lien « Ouvrir le site de suivi OUAF ».",
+              "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif et le lien « Ouvrir le site de suivi des convois ». Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
             )}
-            <p class='left small red'><em>Attention : le site de suivi n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau. Risque connu et accepté.</em></p>`,
+            ${/^http:/i.test(site.url) ? "<p class='left small red'><em>Attention : ce site n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau.</em></p>" : ""}`,
         )}
         ${this.section(
           `Convoi avant la récolte ${this.etiquette("Grenier")}`,
@@ -915,7 +916,22 @@ class BoiteParametre extends Boite {
           .text("👁 Afficher")
           .attr("title", "Afficher le mot de passe enregistré");
       };
-    OuafSuivi.lireCode().then(etat);
+    let accord = () =>
+      OuafSuivi.siteAccepte().then((ok) =>
+        $("#o_siteConvoisEtat").html(
+          ok
+            ? "<span class='green'>(accepté)</span>"
+            : "<button type='button' id='o_siteConvoisAccepter' class='o_button f_info'>Accepter ce site</button>",
+        ),
+      );
+    accord();
+    $("#o_tabsParametreConvois").on("click", "#o_siteConvoisAccepter", () =>
+      OuafSuivi.accepterSite()
+        .then(accord)
+        .then(() => OuafSuivi.codeEnregistre())
+        .then(etat),
+    );
+    OuafSuivi.codeEnregistre().then(etat);
     $("#o_ouafCodeEnregistrer").on("click", () => {
       let code = String($("#o_ouafCode").val() || "").trim();
       if (!code) return;
@@ -933,13 +949,48 @@ class BoiteParametre extends Boite {
     );
     $("#o_ouafCodeVoir").on("click", () => {
       if ($("#o_ouafCode").attr("type") == "text") return masquer();
-      OuafSuivi.lireCode().then((code) => {
+      OuafSuivi.codeEnregistre().then((code) => {
         if (!code) return etat("");
         $("#o_ouafCode").attr("type", "text").val(code);
         $("#o_ouafCodeVoir").text("🙈 Masquer").attr("title", "Masquer le mot de passe");
       });
     });
     return this;
+  }
+  /**
+   * Préférences → Partage de données : ce qu'une alliance règle dans son forum
+   * pour que l'extension marche chez elle, sur n'importe quel serveur.
+   *
+   * @static
+   * @method autresServeurs
+   * @return {String}
+   */
+  static autresServeurs() {
+    let lignes = {
+      siteConvois: "adresse du site de suivi des convois de l'alliance (page Convois)",
+      feuilleRc:
+        "adresse du script du Google Sheet qui reçoit les RC (https://script.google.com/macros/s/…/exec)",
+      autorisesRc:
+        "pseudos des joueurs qui exportent leurs RC vers ce Google Sheet sans rien régler, séparés par des virgules",
+      feuilleStats: "adresse du script du Google Sheet du relevé quotidien des stats membres",
+      chasseurs: "pseudos des chasseurs : rôle Chasseur par défaut",
+      greniers: "pseudos des greniers : rôle Grenier et réglages des greniers par défaut",
+      journal:
+        "pseudos de ceux qui ont le journal de l'extension et les boutons qui rangent le forum",
+    };
+    return (
+      BoiteParametre.prototype.aide(
+        `L'extension marche sur les serveurs s1 à s5. Ce qui est propre à une alliance (adresses de ses sites et de ses fichiers, listes de joueurs) ne s'écrit jamais dans l'extension : un chef le note dans le forum de l'alliance, section cachée « ${FORUM_SECTIONS_CHASSES[0]} » (à créer, visible des grades concernés).`,
+        `<b>Sujet « ${TITRE_REGLAGES} »</b> : dans son premier message, une ligne par réglage, « Nom : valeur » (casse et accents sans importance) ; une liste peut continuer sur les lignes suivantes, jusqu'à une ligne vide. Personne n'y répond. Une ligne absente coupe ce qu'elle règle. Ce message dit où partent les données des joueurs : ne le rends pas modifiable par tous les membres (chaque joueur accepte lui-même le site de suivi des convois).<ul>${Object.entries(
+          lignes,
+        )
+          .map(([cle, texte]) => `<li>« ${REGLAGES_ALLIANCE[cle].nom} : … » : ${texte}</li>`)
+          .join(
+            "",
+          )}</ul><b>Sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} »</b> : créés à la main ; l'extension de chaque joueur y écrit sa réponse avec ses floods et ses chasses en cours. <b>Sujets « ${TITRE_GIF_ALLIANCE} » et « ${TITRE_SMILEYS_ALLIANCE} »</b> : les images de leur premier message, pour les chats, la messagerie et le forum. L'extension écrit elle-même les sujets « Convois | pseudo » (suivi des convois) et « Historique Chasses N | pseudo ». Chaque joueur règle ici son propre Google Sheet s'il n'est pas dans la liste des RC, et dans l'onglet Convois le mot de passe du site de suivi. Les réglages sont relus au plus une fois par heure, et quand une fonction en a besoin.`,
+      ) +
+      "<p id='o_reglagesEtat' class='left small'></p><p class='left o_reglage'><button type='button' class='o_button f_info o_reglagesRelire'>Relire les réglages</button></p>"
+    );
   }
   /**
    * Alliance : page Membres de l'alliance, chats et forum.
@@ -981,8 +1032,8 @@ class BoiteParametre extends Boite {
         ${this.section(
           "Statistiques des membres",
           this.aide(
-            `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance, avec ton pseudo et la version de l'extension.`,
-            `Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (sujet « ${TITRE_STATS_MEMBRES} ») : sans ce sujet, rien n'est relevé ni envoyé.`,
+            `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension.`,
+            `Elle le refait à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons, si tu partages ce niveau. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé.`,
           ) +
             DONNEES_PARTAGEES.map(
               (d) =>
@@ -1033,6 +1084,7 @@ class BoiteParametre extends Boite {
               )
             : ""
         }
+        ${this.section("Fonctionnement sur les autres serveurs", BoiteParametre.autresServeurs())}
       </form>`),
       etat = (message = "") =>
         $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
@@ -1040,6 +1092,18 @@ class BoiteParametre extends Boite {
     this.reglageExport().majEtiquettes();
     etat();
     etatChasses();
+    let etatReglages = () => $onglet.find("#o_reglagesEtat").text(ReglagesAlliance.resume());
+    etatReglages();
+    $onglet.find(".o_reglagesRelire").on("click", (e) => {
+      let $b = $(e.currentTarget).prop("disabled", true);
+      ReglagesAlliance.charger({}, "tout")
+        .then(etatReglages, () =>
+          $onglet
+            .find("#o_reglagesEtat")
+            .text("Le forum de l'alliance n'a pas pu être lu : réessaie dans un instant."),
+        )
+        .then(() => $b.prop("disabled", false));
+    });
     $onglet.find("#o_partageChasses").on("change", (e) => {
       ExportAuto.choisir(e.currentTarget.checked);
       etatChasses();

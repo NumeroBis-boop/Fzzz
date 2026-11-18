@@ -32,6 +32,8 @@ function ouvrir(suivi = true, colonnes = true) {
     localStorage.clear();
     if (!${suivi}) localStorage.setItem("fzzz_affichage_convoisSuiviLignes", "0");
     if (!${colonnes}) localStorage.setItem("fzzz_affichage_convoisColonnes", "0");
+    // réglages de l'alliance déjà lus : site de suivi des convois inventé
+    localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { siteConvois: "http://convois.invalid" } }));
     window.chrome = {
       storage: { local: { get: () => Promise.resolve({}) } },
       runtime: { sendMessage: () => Promise.resolve({ ok: true, donnees: {} }) },

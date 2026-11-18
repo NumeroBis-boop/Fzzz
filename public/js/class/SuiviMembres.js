@@ -54,8 +54,8 @@ const SUIVI_ECART_FIN = 30 * 1000;
  * Une fois par jour, à la première page que le joueur ouvre, ses informations
  * cochées sont relevées (pages Construction, Laboratoire et Reine, lues une
  * fois chacune) et envoyées au script du fichier de l'alliance, dont l'adresse
- * est dans le premier message du sujet caché TITRE_STATS_MEMBRES : sans ce
- * sujet, rien n'est lu ni envoyé. Une information décochée n'est ni relevée ni
+ * est dans le sujet des réglages de l'alliance (ReglagesAlliance) : sans elle,
+ * rien n'est lu ni envoyé. Une information décochée n'est ni relevée ni
  * envoyée ; le fichier reçoit seulement le fait qu'elle n'est pas partagée.
  * Le relevé du jour est refait à la première page ouverte après un changement
  * de niveau de SUIVI_NIVEAUX_SUIVIS (observer).
@@ -144,29 +144,24 @@ class SuiviMembres {
     } catch (e) {}
   }
   /**
-   * Adresse du script du fichier de l'alliance, postée à la main dans le
-   * premier message du sujet caché TITRE_STATS_MEMBRES.
+   * Adresse du script du fichier de l'alliance : ligne « Google Sheet des stats
+   * membres » du sujet des réglages de l'alliance.
    *
    * @static
    * @method adresse
    * @return {Promise<{url: String, manque: String}>} sans adresse, ce qui manque :
-   *   "section" (cachée absente ou invisible pour le grade), "sujet" ou
-   *   "adresse" (sujet présent, adresse illisible) ; rejetée si le forum ne se lit pas
+   *   "section" (cachée absente ou invisible pour le grade), "sujet", "ligne" ou
+   *   "adresse" (ligne présente, adresse illisible) ; rejetée si le forum ne se lit pas
    */
   static adresse() {
-    return PartageChasses.sujets(true).then(
-      (sujets) =>
-        sujets.statsMembres
-          ? PartageChasses._xajax("callGetTopic", sujets.statsMembres).then((data) => {
-              let url = ExportRapports.lireReglage(data).adresse;
-              return { url, manque: url ? "" : "adresse" };
-            })
-          : { url: "", manque: "sujet" },
-      (e) => {
-        // section inexistante ou cachée au grade du joueur : pas une panne
-        if (e && e.message == "absente") return { url: "", manque: "section" };
-        throw e;
-      },
+    return ReglagesAlliance.charger().then((r) =>
+      !r.section
+        ? { url: "", manque: "section" }
+        : !r.sujet
+          ? { url: "", manque: "sujet" }
+          : r.reglages.feuilleStats
+            ? { url: r.reglages.feuilleStats, manque: "" }
+            : { url: "", manque: r.reglages.lignes.includes("feuilleStats") ? "adresse" : "ligne" },
     );
   }
   /**
@@ -481,18 +476,20 @@ class SuiviMembres {
       };
     return SuiviMembres.adresse()
       .then(({ url, manque }) => {
-        // sujet présent, adresse illisible (message en cours d'écriture, lecture
+        // ligne présente, adresse illisible (message en cours d'écriture, lecture
         // ratée) : un échec, repris plus tard comme les autres
         if (manque == "adresse")
           throw new Error(
-            `pas d'adresse de script lisible dans le sujet « ${TITRE_STATS_MEMBRES} »`,
+            `pas d'adresse de script lisible à la ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} »`,
           );
         if (!url) {
           Journal.info(
             JOURNAL_SUIVI,
             manque == "section"
               ? "section cachée du forum introuvable ou invisible pour ton grade : rien n'est relevé aujourd'hui"
-              : `pas de sujet « ${TITRE_STATS_MEMBRES} » dans la section cachée du forum : rien n'est relevé aujourd'hui`,
+              : manque == "sujet"
+                ? `pas de sujet « ${TITRE_REGLAGES} » dans la section cachée du forum : rien n'est relevé aujourd'hui`
+                : `pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} » : rien n'est relevé aujourd'hui`,
           );
           return fin("sans sujet", { fait: true, raison: "sans sujet", version: VERSION });
         }
@@ -554,7 +551,7 @@ class SuiviMembres {
     $.toast({
       ...TOAST_INFO,
       heading: "Partage de données",
-      text: `Une fois par jour, l'extension envoie au Google Sheet « ${TITRE_STATS_MEMBRES} » de ton alliance ${titres ? `tes statistiques : ${titres}` : "le fait que tu ne partages aucune statistique"}.${suivis ? " Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change." : ""} Le premier envoi se fera à ta prochaine page. Tu choisis ce que tu partages dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
+      text: `Une fois par jour, l'extension envoie au Google Sheet des stats membres de ton alliance ${titres ? `tes statistiques : ${titres}` : "le fait que tu ne partages aucune statistique"}.${suivis ? " Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change." : ""} Le premier envoi se fera à ta prochaine page. Tu choisis ce que tu partages dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
       hideAfter: false,
       allowToastClose: true,
     });
@@ -596,7 +593,7 @@ class SuiviMembres {
       );
     else if (e.jour == SuiviMembres.jour() && e.raison == "sans sujet")
       phrases.push(
-        `Aujourd'hui, rien n'a été envoyé : pas de sujet « ${TITRE_STATS_MEMBRES} » avec l'adresse du fichier dans le forum caché de ton alliance.`,
+        `Aujourd'hui, rien n'a été envoyé : pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} » du forum caché de ton alliance.`,
       );
     else if (e.jour == SuiviMembres.jour() && !e.fait)
       phrases.push("Le prochain envoi se fera à ta prochaine page.");

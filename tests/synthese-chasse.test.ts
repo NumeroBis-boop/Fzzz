@@ -145,7 +145,9 @@ describe("requête au script (ExportRapports.statistiques)", () => {
     lire(`ExportRapports.cible = () => Promise.resolve({ url: "", alliance: true })`);
     expect(
       await erreurDe(lire(`ExportRapports.statistiques("2026-11-01", "2026-11-07")`)),
-    ).toContain("l'adresse du Google Sheet de l'alliance n'est pas encore postée");
+    ).toContain(
+      "l'adresse du Google Sheet de l'alliance manque dans le sujet « Réglages de l'extension »",
+    );
     expect(envois).toEqual([]);
     lire(`ExportRapports.cible = () => Promise.resolve({ url: "${URL_SCRIPT}", alliance: true })`);
     reponse = { ok: true, statut: 200, donnees: { autre: 1 } };

@@ -1,17 +1,27 @@
 // @ts-check
 /*
  * ouaf-autorisation.js
- * Page de l'extension qui demande l'accès à ouafchaine.fr : le navigateur
- * n'accepte cette demande qu'après un clic dans une page de l'extension.
+ * Page de l'extension qui demande l'accès au site de suivi des convois de
+ * l'alliance (?site=origine) : le navigateur n'accepte cette demande qu'après
+ * un clic dans une page de l'extension.
  **********************************************************************/
 
 (function () {
   const etat = document.getElementById("etat"),
-    demande = { origins: ["http://ouafchaine.fr/*"] };
+    site = new URLSearchParams(location.search).get("site") || "",
+    bouton = /** @type {HTMLButtonElement} */ (document.getElementById("autoriser")),
+    demande = { origins: [site + "/*"] };
+  if (!/^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(site)) {
+    etat.textContent =
+      "Adresse du site de suivi invalide : rouvre cette page depuis la page Convois.";
+    bouton.disabled = true;
+    return;
+  }
+  document.getElementById("site").textContent = site.replace(/^https?:\/\//, "");
   // Firefox : déclaration des données transmises (code de connexion, convois)
   if (navigator.userAgent.includes("Firefox"))
     demande.data_collection = ["authenticationInfo", "websiteContent"];
-  document.getElementById("autoriser").addEventListener("click", () => {
+  bouton.addEventListener("click", () => {
     chrome.permissions.request(demande).then(
       (ok) => {
         etat.textContent = ok

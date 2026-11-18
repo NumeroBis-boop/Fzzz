@@ -30,8 +30,7 @@ class PageCommerce {
     if (Utils.affichage("convoisArrondir")) this.arrondir();
     // option c+
     if (!Utils.comptePlus) this.plus();
-    CommerceFzzz.suiviOuaf();
-    CommerceFzzz.membresSuivis();
+    CommerceFzzz.suivi();
     // annulation d'un convoi, lancement : même position à l'écran après rechargement
     Utils.garderPosition("fzzz_positionCommerce");
     return this;

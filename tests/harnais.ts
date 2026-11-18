@@ -20,6 +20,9 @@ const BIBLIOTHEQUES = [
 
 // journal de l'extension : les modules y notent leurs erreurs
 const JOURNAL = "js/class/Journal.js";
+// réglages de l'alliance (sujet du forum), lus par beaucoup de modules ; rien
+// n'y est exécuté au chargement, il peut donc précéder Utils.js
+const REGLAGES = "js/class/ReglagesAlliance.js";
 
 export interface Page {
   window: Window;
@@ -51,8 +54,8 @@ export function creerPage(
   for (const f of BIBLIOTHEQUES) executer(readFileSync(join(PUBLIC, f), "utf8"));
   executer(`moment.locale("fr"); numeral.locale("fr");`);
   if (avant) executer(avant);
-  // chargé en premier des scripts de l'extension, comme dans le manifeste
-  for (const f of fichiers.includes(JOURNAL) ? fichiers : [JOURNAL, ...fichiers])
+  // chargés en premier des scripts de l'extension sauf s'ils sont dans la liste
+  for (const f of [...[JOURNAL, REGLAGES].filter((t) => !fichiers.includes(t)), ...fichiers])
     executer(readFileSync(join(PUBLIC, f), "utf8"));
   return { window, lire: (expression) => executer(expression) };
 }

@@ -14,12 +14,7 @@ const JOURNAL_REPETITION = 60000;
 const NIVEAUX_JOURNAL = { erreur: "ERREUR", alerte: "ALERTE", succes: "OK", info: "INFO" };
 // en-têtes génériques des notifications (TOAST_*) : la source devient « Notification »
 const TITRES_NOTIFICATION = ["Erreur", "Succès", "Attention", "Information"];
-// journal et boutons qui suppriment des sujets du forum, réservés au mainteneur
-// (règle du mainteneur), sur le serveur de son compte : pour les autres joueurs
-// et un homonyme d'un autre serveur, rien n'est noté ni affiché ; casse ignorée
-const JOURNAL_JOUEURS = ["DoggyBag"];
-const JOURNAL_SERVEUR = "s5";
-// installé (joueur de JOURNAL_JOUEURS) : sinon les notes sont ignorées
+// installé (joueur de la ligne « Journal » des réglages) : sinon les notes sont ignorées
 let journalInstalle = false;
 
 /**
@@ -242,7 +237,9 @@ class Journal {
     return Journal.masquer(lignes.join("\n"));
   }
   /**
-   * Le joueur de la page a-t-il le journal ?
+   * Le joueur de la page a-t-il le journal (et les boutons qui rangent le
+   * forum) ? Les joueurs de la ligne « Journal » du sujet des réglages de
+   * l'alliance, d'après sa dernière lecture ; casse ignorée.
    *
    * @static
    * @method pourCeJoueur
@@ -253,11 +250,7 @@ class Journal {
     let p = String(pseudo || "")
       .trim()
       .toLowerCase();
-    return (
-      !!p &&
-      location.hostname.split(".")[0].toLowerCase() == JOURNAL_SERVEUR &&
-      JOURNAL_JOUEURS.some((j) => j.toLowerCase() == p)
-    );
+    return !!p && ReglagesAlliance.contient("journal", p);
   }
   /**
    * Active le journal et y note les notifications affichées, les erreurs

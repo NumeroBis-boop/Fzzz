@@ -25,8 +25,10 @@ const site = (reponse: string) =>
     window.requetes = [];
     window.toasts = [];
     $.toast = (o) => toasts.push(o.text);
+    // réglages de l'alliance déjà lus : site de suivi des convois inventé
+    localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { siteConvois: "http://convois.invalid" } }));
     window.chrome = {
-      storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x" }) } },
+      storage: { local: { get: () => Promise.resolve({ fzzz_ouafCode: "x", fzzz_siteConvoisAccepte: "http://convois.invalid" }) } },
       runtime: { sendMessage: (m) => { requetes.push(m.methode + " " + m.chemin); return (${reponse})(m); } },
     };
   })()`);

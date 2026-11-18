@@ -38,7 +38,7 @@ const lire = <T = any>(e: string) => page.lire<T>(e);
 const fenetre = page.window as any;
 const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbAuto_1/exec";
 const reglage = (adresse = URL_SCRIPT, joueurs = "Canaille, DoggyBag, Grim") =>
-  `Adresse du script qui reçoit les rapports exportés par l'extension :\n${adresse}\n\nJoueurs autorisés à partager des RC :\n${joueurs}`;
+  `Google Sheet des RC : ${adresse}\nJoueurs autorisés à partager des RC :\n${joueurs}`;
 
 const chasse = (n: number) =>
   `Troupes en attaque : ${n} 000 Jeunes Soldates Naines.<br/>Troupes en défense : ${n} Petites araignées.<br/><br/>Vous infligez 9 000 (+ 9 000) dégâts et tuez ${n} ennemies.<br/>L’ennemie inflige 30 (+ 0) dégâts à vos fourmis et en tue ${n}.<br/><br/>Vos chasseuses ont conquis 1 000 cm², les carcasses des prédateurs vous rapportent 500 de nourriture`;
@@ -165,7 +165,7 @@ function preparer(
     ExportRapports.enCours = false;
     ${annonce ? `localStorage.setItem("fzzz_exportAuto", JSON.stringify({ doggybag: { annonce: true } }));` : ""}
   })()`);
-  forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
+  forum([{ id: "1", titre: "Réglages de l'extension", messages: [reglage()] }]);
   if (chasse) lancerChasse();
 }
 /** Clic sur « Envoyer » ou « Envoyer + partager » du lanceur de chasses (LanceurChasse). */
@@ -429,7 +429,9 @@ describe("export automatique des chasses : à la page qui suit le lancement", ()
 
   test("joueur hors de la liste avec son propre fichier : annonce et export vers ce fichier", async () => {
     preparer(CHASSES, { annonce: false });
-    forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage(URL_SCRIPT, "Canaille")] }]);
+    forum([
+      { id: "1", titre: "Réglages de l'extension", messages: [reglage(URL_SCRIPT, "Canaille")] },
+    ]);
     lire(`GARDE.fzzz_exportSheet = ${JSON.stringify(URL_SCRIPT)}`);
     expect(await ouvrir()).toBe("annonce");
     expect(toasts()[0]!.text).toContain("exportés automatiquement vers ton Google Sheet :");
@@ -627,11 +629,15 @@ describe("échecs : nouvel essai à une page ouverte plus tard, jamais à chaque
 
   test("aucun fichier où exporter (hors liste, sans adresse) : pas d'annonce, un seul essai par jour", async () => {
     preparer(CHASSES, { annonce: false });
-    forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage(URL_SCRIPT, "Canaille")] }]);
+    forum([
+      { id: "1", titre: "Réglages de l'extension", messages: [reglage(URL_SCRIPT, "Canaille")] },
+    ]);
     expect(await ouvrir()).toBe("sans fichier");
     expect(toasts()).toEqual([]);
     expect(requetesAuJeu()).toEqual([]);
-    expect(etat().raison).toContain("ton pseudo n'est pas dans la liste des joueurs autorisés");
+    expect(etat().raison).toContain(
+      "ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des RC »",
+    );
     lire(`FORUM.appels = []`);
     expect(await ouvrir("/Reine.php", "2026-11-12 12:00")).toBe("attente");
     expect(lire(`FORUM.appels`)).toEqual([]);

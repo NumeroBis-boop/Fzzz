@@ -24,9 +24,9 @@ const page = creerPage(
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const fenetre = page.window as any;
 const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbRobuste_1/exec";
-// premier message du sujet « Export Google Sheet », écrit à la main dans le forum
+// premier message du sujet « Réglages de l'extension », écrit à la main dans le forum
 const reglage = (adresse = URL_SCRIPT, joueurs = "Kwhwwymwn, Canaille, DoggyBag, Grim") =>
-  `Adresse du script qui reçoit les rapports exportés par l'extension :\n${adresse}\n\nJoueurs autorisés à partager des RC :\n${joueurs}`;
+  `Google Sheet des RC : ${adresse}\nJoueurs autorisés à partager des RC :\n${joueurs}`;
 
 // rapports inventés au format du jeu
 const chasse = (n: number) =>
@@ -91,7 +91,7 @@ function messagerie(conversations: Record<number, { titre: string; html: string 
       runtime: { sendMessage: (m) => Promise.resolve(__envoyer(m)) },
     };
   })()`);
-  forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
+  forum([{ id: "1", titre: "Réglages de l'extension", messages: [reglage()] }]);
 }
 
 /** Forum caché simulé : sujets {id, titre, messages}, appels xajax notés. */
@@ -382,7 +382,9 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
     messagerie(CHASSES);
     lire(`monProfil.pseudo = "Inconnu"`);
     await exporter("chasse");
-    expect(dernierMessage()).toContain("ton pseudo n'est pas dans la liste des joueurs autorisés");
+    expect(dernierMessage()).toContain(
+      "ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des RC »",
+    );
     expect(lire(`LECTURES`)).toEqual([]);
     await lire(`ExportRapports.enregistrerAdresse("${PERSO}")`);
     await exporter("chasse");
@@ -401,11 +403,13 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
     // retiré de la liste : plus d'export vers le fichier de l'alliance
     message("Kwhwwymwn, Canaille");
     await exporter("chasse");
-    expect(dernierMessage()).toContain("ton pseudo n'est pas dans la liste");
+    expect(dernierMessage()).toContain(
+      "ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des RC »",
+    );
     expect(lots).toBe(0);
     // ajouté (casse différente, sur la ligne du titre) : export sans rien régler
     lire(
-      `FORUM.sujets[0].messages[0] = ${JSON.stringify(`${URL_SCRIPT}\nJoueurs autorisés : Kwhwwymwn DOGGYBAG`)};`,
+      `FORUM.sujets[0].messages[0] = ${JSON.stringify(`Google Sheet des RC : ${URL_SCRIPT}\nJoueurs autorisés à partager des RC : Kwhwwymwn DOGGYBAG`)};`,
     );
     await exporter("chasse");
     expect(fichier.cles("BDD chasse")).toHaveLength(4);
@@ -425,15 +429,15 @@ describe("export : RC des deux camps et joueurs hors liste", () => {
     lire(`monProfil.pseudo = "DoggyBag"; FORUM.echoue = null;`);
   });
 
-  test("sujet « Export Google Sheet » créé deux fois : le plus ancien fait foi", async () => {
+  test("sujet « Réglages de l'extension » créé deux fois : le plus ancien fait foi", async () => {
     messagerie(CHASSES);
     forum([
       {
         id: "9",
-        titre: "Export Google Sheet",
+        titre: "Réglages de l'extension",
         messages: [reglage("https://script.google.com/macros/s/AKfyRecent/exec", "Inconnu")],
       },
-      { id: "4", titre: "Export Google Sheet", messages: [reglage()] },
+      { id: "4", titre: "Réglages de l'extension", messages: [reglage()] },
     ]);
     expect(await lire(`ExportRapports.cible()`)).toEqual({ url: URL_SCRIPT, alliance: true });
   });

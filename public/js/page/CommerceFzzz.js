@@ -9,7 +9,7 @@ const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
 // (envoi d'un convoi = rechargement), oublié au chargement d'une autre page
 const CLE_TRI_CONVOIS = "fzzz_triConvoisMembres";
 const OUAF_PANNE =
-  "Le site de suivi OUAF ne répond pas : « Convoi à faire » et « 📤 Envoyer au suivi » sont indisponibles pour l'instant. Réessaie plus tard.";
+  "Le site de suivi des convois ne répond pas : « Convoi à faire » et « 📤 Envoyer au suivi » sont indisponibles pour l'instant. Réessaie plus tard.";
 // le jeu produit 48 récoltes par jour (production du jour = récolte × 48)
 const RECOLTE_PERIODE = 30 * 60000;
 // B (règle du mainteneur) : les ouvrières d'un convoi ne comptent que s'il
@@ -30,7 +30,7 @@ const RECOLTE_VALIDITE_LECTURE = 60000;
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
- * devant chacun son état sur le site de suivi de la OUAF. Rien n'est envoyé
+ * devant chacun son état sur le site de suivi de l'alliance. Rien n'est envoyé
  * au jeu. `texte` et `copier` servent aussi aux autres pages.
  *
  * @class CommerceFzzz
@@ -131,6 +131,57 @@ class CommerceFzzz {
     if (deborde > 0) $bloc.css("marginLeft", `${Math.max(0, gauche - deborde / 2)}px`);
   }
   /**
+   * Suivi des convois de l'alliance sur la page Convois : rien sans site de
+   * suivi dans ses réglages ; le site accepté par le joueur, l'état de chaque
+   * convoi et le Récapitulatif ; sinon la demande d'accord.
+   *
+   * @static
+   * @method suivi
+   * @return {Promise<void>|undefined}
+   */
+  static suivi() {
+    let lancer = () => {
+      let site = OuafSuivi.site();
+      if (!site) return;
+      return OuafSuivi.siteAccepte().then((ok) => {
+        if (!ok) return CommerceFzzz.proposerSite(site);
+        CommerceFzzz.suiviOuaf();
+        CommerceFzzz.membresSuivis();
+      });
+    };
+    // jamais lus dans ce navigateur : les réglages sont lus d'abord
+    return ReglagesAlliance.garde() ? lancer() : ReglagesAlliance.charger().then(lancer, () => {});
+  }
+  /**
+   * Site de suivi des réglages pas encore accepté : rien n'y part (ni convoi
+   * ni mot de passe) avant l'accord du joueur, le forum pouvant être modifié
+   * par un autre membre.
+   *
+   * @static
+   * @method proposerSite
+   * @param {{url: String, origine: String, hote: String}} site
+   */
+  static proposerSite(site) {
+    if ($("#centre .o_convoisSite").length) return;
+    let $titre = $("#centre > h3")
+      .filter((i, e) => $(e).text().includes("Convois en cours"))
+      .first();
+    if (!$titre.length) return;
+    $(
+      `<p class='o_convoisSite'>Suivi des convois de l'alliance : ses réglages donnent le site <b>${Utils.echapper(site.hote)}</b>. Tes convois et le mot de passe du site n'y partent qu'avec ton accord. <button type='button' class='o_button f_info'>Accepter ce site</button></p>`,
+    )
+      .insertAfter($titre)
+      .find("button")
+      .on("click", (e) => {
+        $(e.currentTarget).prop("disabled", true);
+        OuafSuivi.accepterSite().then(() => {
+          $("#centre .o_convoisSite").remove();
+          CommerceFzzz.suiviOuaf();
+          CommerceFzzz.membresSuivis();
+        });
+      });
+  }
+  /**
    * Devant chaque convoi envoyé, son état d'après le sujet « Convois » du forum
    * de l'alliance, seule référence : « ✅ Enregistré » s'il y est noté, sinon
    * un bouton « 📤 Envoyer au suivi », qui le transmet au site de suivi puis le
@@ -143,7 +194,7 @@ class CommerceFzzz {
    * @method suiviOuaf
    */
   static suiviOuaf() {
-    if (!Utils.surServeurOuaf || !Utils.affichage("convoisSuiviLignes") || $(".o_ouafLigne").length)
+    if (!OuafSuivi.site() || !Utils.affichage("convoisSuiviLignes") || $(".o_ouafLigne").length)
       return;
     let convois = OuafSuivi.convoisJeu();
     CommerceFzzz.reporterAnnulations(convois);
@@ -243,17 +294,19 @@ class CommerceFzzz {
       echec = (e) => {
         if (e.name == "permission") {
           toast(
-            `${NOM_EXTENSION} n'a pas encore accès à ouafchaine.fr. <button type='button' id='o_ouafAcces' class='o_button f_info'>Autoriser l'accès</button> puis relance l'envoi.`,
+            `${NOM_EXTENSION} n'a pas encore accès à ${Utils.echapper((OuafSuivi.site() || { hote: "ce site" }).hote)}. <button type='button' id='o_ouafAcces' class='o_button f_info'>Autoriser l'accès</button> puis relance l'envoi.`,
             TOAST_WARNING,
           );
           $(document)
             .off("click.ouafAcces")
             .on("click.ouafAcces", "#o_ouafAcces", () => OuafSuivi.demanderAcces());
         } else if (e.name == "code") CommerceFzzz.ouvrirParametresOuaf();
+        else if (e.name == "site") toast(Utils.echapper(e.message), TOAST_WARNING);
         else if (e.name == "reseau") {
+          let site = OuafSuivi.site() || { url: "", hote: "" };
           CommerceFzzz.signalerSuiviOuaf(OUAF_PANNE);
           toast(
-            `Le site de suivi OUAF ne répond pas : rien n'a été envoyé, réessaie plus tard. Si <a href='${OUAF_SITE}' target='_blank' rel='noopener'>${OUAF_SITE.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a> s'ouvre normalement dans un onglet, c'est ton navigateur qui le bloque (Firefox, mode « HTTPS uniquement » : choisis « Continuer vers le site HTTP »).`,
+            `Le site de suivi des convois ne répond pas : rien n'a été envoyé, réessaie plus tard. Si <a href='${Utils.echapper(site.url)}' target='_blank' rel='noopener'>${Utils.echapper(site.hote)}</a> s'ouvre normalement dans un onglet, c'est ton navigateur qui le bloque (Firefox, mode « HTTPS uniquement » : choisis « Continuer vers le site HTTP »).`,
             TOAST_ERROR,
           );
         } else
@@ -936,7 +989,7 @@ class CommerceFzzz {
   /**
    * Bloc « Récapitulatif » sous les convois en cours : pour chaque membre
    * suivi, temps de trajet (avec la Vitesse d'attaque), heure de retour d'un
-   * convoi lancé maintenant, et reste à livrer d'après le site de suivi OUAF
+   * convoi lancé maintenant, et reste à livrer d'après le site de suivi de l'alliance
    * (lu une fois à l'ouverture, si le mot de passe est enregistré). Les
    * positions viennent du cache de la Carte de l'alliance, relu au clic sur
    * « Actualiser les positions » (PageAlliance.actualiserPositions).
@@ -945,12 +998,8 @@ class CommerceFzzz {
    * @method membresSuivis
    */
   static membresSuivis() {
-    // fait pour le site de suivi de la OUAF (« Convoi à faire ») : sur son serveur
-    if (
-      !Utils.surServeurOuaf ||
-      !Utils.affichage("convoisMembres") ||
-      $("#o_convoisMembres").length
-    )
+    // fait pour le site de suivi de l'alliance (« Convoi à faire »)
+    if (!OuafSuivi.site() || !Utils.affichage("convoisMembres") || $("#o_convoisMembres").length)
       return;
     let cache = Utils.lireStockage(`outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`),
       connus = {};
@@ -1013,7 +1062,7 @@ class CommerceFzzz {
             <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a><a href='#' class='o_convoisPositions' title='Relit les positions des membres de l&#39;alliance, comme « Charger / Actualiser » de la Carte (un nouveau membre, une fourmilière déplacée)'>Actualiser les positions</a></td></tr></tfoot>
           </table>
           ${Object.keys(connus).length ? "" : "<p class='small o_convoisPositionsInconnues'>Positions des membres inconnues : « Actualiser les positions » en bas de ce tableau.</p>"}
-          <p class='o_convoisLienOuaf'><a href='${OUAF_SITE}' target='_blank' rel='noopener' title='Ouvre le site de suivi, connecté avec le mot de passe enregistré (Préférences → Convois)'>Ouvrir le site de suivi OUAF</a></p>
+          <p class='o_convoisLienOuaf'><a href='${Utils.echapper(OuafSuivi.site().url)}' target='_blank' rel='noopener' title='Ouvre le site de suivi, connecté avec le mot de passe enregistré (Préférences → Convois)'>Ouvrir le site de suivi des convois</a></p>
         </div>`),
       // tri par colonne : croissant, décroissant, puis ordre d'ajout (col null)
       tri = (() => {
@@ -1131,8 +1180,8 @@ class CommerceFzzz {
         ouvrir = () => {
           if (onglet) {
             onglet.opener = null;
-            onglet.location.href = OUAF_SITE;
-          } else window.open(OUAF_SITE, "_blank", "noopener");
+            onglet.location.href = OuafSuivi.site().url;
+          } else window.open(OuafSuivi.site().url, "_blank", "noopener");
         };
       OuafSuivi._connecter().then(ouvrir, (err) => {
         ouvrir();
@@ -1210,10 +1259,10 @@ class CommerceFzzz {
             etat: "erreur",
             erreur:
               e.name == "permission"
-                ? "Accès à ouafchaine.fr non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
+                ? "Accès au site de suivi non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
                 : e.name == "reseau"
                   ? OUAF_PANNE
-                  : "Site de suivi OUAF : " + e.message,
+                  : "Site de suivi des convois : " + e.message,
           });
           afficher();
           CommerceFzzz.signalerSuiviOuaf(ouaf.erreur);

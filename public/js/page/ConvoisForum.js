@@ -1,7 +1,7 @@
 // @ts-check
 /*
  * ConvoisForum.js
- * Convois envoyés au site de suivi OUAF, notés dans le forum d'alliance.
+ * Convois envoyés au site de suivi de l'alliance, notés dans son forum.
  **********************************************************************/
 
 // écritures du sujet, l'une après l'autre (deux envois rapprochés)

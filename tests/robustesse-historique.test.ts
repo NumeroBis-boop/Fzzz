@@ -25,9 +25,9 @@ const page = creerPage(
 const lire = <T = any>(e: string) => page.lire<T>(e);
 const fenetre = page.window as any;
 const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbRobuste_1/exec";
-// premier message du sujet « Export Google Sheet », écrit à la main dans le forum
+// premier message du sujet « Réglages de l'extension », écrit à la main dans le forum
 const reglage = (adresse = URL_SCRIPT, joueurs = "Kwhwwymwn, Canaille, DoggyBag, Grim") =>
-  `Adresse du script qui reçoit les rapports exportés par l'extension :\n${adresse}\n\nJoueurs autorisés à partager des RC :\n${joueurs}`;
+  `Google Sheet des RC : ${adresse}\nJoueurs autorisés à partager des RC :\n${joueurs}`;
 
 // rapports inventés au format du jeu
 const chasse = (n: number) =>
@@ -92,7 +92,7 @@ function messagerie(conversations: Record<number, { titre: string; html: string 
       runtime: { sendMessage: (m) => Promise.resolve(__envoyer(m)) },
     };
   })()`);
-  forum([{ id: "1", titre: "Export Google Sheet", messages: [reglage()] }]);
+  forum([{ id: "1", titre: "Réglages de l'extension", messages: [reglage()] }]);
 }
 
 /** Forum caché simulé : sujets {id, titre, messages: [premier message], reponses}, appels xajax notés. */

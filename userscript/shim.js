@@ -10,8 +10,9 @@
  *  - storage.local : GM_getValue / GM_setValue (partagé entre les onglets),
  *    ou GM.getValue / GM.setValue asynchrones quand le gestionnaire n'a que
  *    ceux-là (Userscripts sur Safari iOS) ;
- *  - runtime.sendMessage : site de suivi OUAF par GM_xmlhttpRequest (@connect
- *    ouafchaine.fr, accès demandé par le gestionnaire au premier envoi), et
+ *  - runtime.sendMessage : site de suivi des convois de l'alliance (ses
+ *    réglages) par GM_xmlhttpRequest (@connect *, accès demandé par le
+ *    gestionnaire au premier envoi), et
  *    script du Google Sheet de l'alliance (export des RC, @connect
  *    script.google.com) ;
  *  - horloge serveur : lecture passive de l'en-tête Date des requêtes déjà
@@ -50,7 +51,8 @@ var FZZZ_NOM_EXTENSION = (function () {
 
 // `var` : masque le `window.chrome` de la page dans la portée du script
 var chrome = (function () {
-  const OUAF = "http://ouafchaine.fr";
+  // origine d'un site de suivi des convois : http(s), nom d'hôte, port éventuel
+  const ORIGINE_SITE = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
   const ADRESSE_SHEET =
     /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/\s]+|macros)\/s\/[\w-]+\/exec$/;
   const MAX_ECHANTILLONS = 30;
@@ -139,14 +141,18 @@ var chrome = (function () {
     },
   };
 
-  /** Requête au site de suivi OUAF, mêmes limites que l'extension (API seulement). */
+  /** Requête au site de suivi des convois, mêmes limites que l'extension (API seulement). */
   function requeteOuaf(m) {
-    if (!/^\/api\/[a-z/-]+$/.test(m.chemin) || !["GET", "POST", "PUT"].includes(m.methode))
+    if (
+      !ORIGINE_SITE.test(String(m.site || "")) ||
+      !/^\/api\/[a-z/-]+$/.test(m.chemin) ||
+      !["GET", "POST", "PUT"].includes(m.methode)
+    )
       return Promise.resolve({ erreur: "requete" });
     return new Promise((resoudre) => {
       GM_xmlhttpRequest({
         method: m.methode,
-        url: OUAF + m.chemin,
+        url: m.site + m.chemin,
         headers: m.corps === undefined ? {} : { "Content-Type": "application/json" },
         data: m.corps === undefined ? undefined : JSON.stringify(m.corps),
         timeout: 20000,
@@ -281,8 +287,8 @@ var chrome = (function () {
       local,
       onChanged: { addListener: (f) => ecouteurs.push(f) },
     },
-    // l'accès à ouafchaine.fr et à script.google.com est géré par le
-    // gestionnaire de scripts (@connect)
+    // l'accès au site de suivi des convois et à script.google.com est géré
+    // par le gestionnaire de scripts (@connect)
     permissions: {
       contains: () => Promise.resolve(true),
       request: () => Promise.resolve(true),

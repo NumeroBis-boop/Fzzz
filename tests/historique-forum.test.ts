@@ -116,9 +116,9 @@ describe("suivi : réponses des joueurs dans les sujets communs, premier message
     sujet("1", "Floods | DoggyBag", A_VENIR);
     sujet("2", "Historique Floods 1 | DoggyBag", PASSE);
     sujet("3", "Historique Convois 2 | DoggyBag", "x");
-    sujet("4", "Export Google Sheet", "https://script.google.com/macros/s/x/exec");
+    sujet("4", "Réglages de l'extension", "Journal : Alpha");
     const s = await lire<Promise<any>>(`PartageChasses.sujets()`);
-    expect(s.exportSheet).toBe("4");
+    expect(s.reglages).toBe("4");
     // ancien sujet de suivi des floods : plus lu, les floods sont dans le sujet commun
     expect(s["Floods | doggybag"]).toBeUndefined();
     expect(s.historiques).toEqual([{ type: "Floods", page: 1, pseudo: "DoggyBag", id: "2" }]);

@@ -20,7 +20,10 @@ const page = creerPage(
   ],
   // joueur de la liste du forum caché (LISTE)
   `var monProfil = { pseudo: "DoggyBag", parametre: {} };
-   var Horloge = { serveur: () => moment("2026-11-09 10:00", "YYYY-MM-DD HH:mm") };
+   var Horloge = {
+     serveur: () => moment("2026-11-09 10:00", "YYYY-MM-DD HH:mm"),
+     maintenant: () => moment("2026-11-09 10:00", "YYYY-MM-DD HH:mm").valueOf(),
+   };
    var TOAST_INFO = {}, TOAST_ERROR = {}, TOAST_SUCCESS = {}, TOAST_WARNING = {};`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
@@ -449,55 +452,12 @@ describe("lecture d'une conversation", () => {
   });
 });
 
-// premier message du sujet « Export Google Sheet », tel que le forum le sert
-const LISTE = "Joueurs autorisés à partager des RC :<br/>Kwhwwymwn, Boursouf, DoggyBag, Daek";
+// premier message du sujet « Réglages de l'extension », tel que le forum le sert
+const LISTE = "Joueurs autorisés à partager des RC : Kwhwwymwn, Boursouf, DoggyBag, Daek";
 const reglage = (adresse = URL_SCRIPT, liste = LISTE) =>
-  `<div class="messageForum">Adresse du script qui reçoit les rapports exportés par l'extension :<br/>${adresse}<br/><br/>${liste}</div>`;
-const lireReglage = (html: string) =>
-  lire<{ adresse: string; joueurs: string[] }>(
-    `ExportRapports.lireReglage(${JSON.stringify(html)})`,
-  );
+  `<div class="messageForum">Google Sheet des RC : ${adresse}<br/>${liste}</div>`;
 
-describe("réglage de l'alliance : adresse et liste des joueurs dans le message du forum caché", () => {
-  // réponse xajax déjà réduite à son HTML, comme dans preparer()
-  beforeEach(() => lire(`PartageChasses._html = (d) => d`));
-
-  test("adresse et pseudos lus dans le premier message seulement", () => {
-    const r = lireReglage(
-      reglage() + `<div class="messageForum">réponse : Joueurs autorisés : Intrus</div>`,
-    );
-    expect(r.adresse).toBe(URL_SCRIPT);
-    expect(r.joueurs).toEqual(["Kwhwwymwn", "Boursouf", "DoggyBag", "Daek"]);
-  });
-
-  test("pseudos séparés par des virgules, des espaces ou des retours à la ligne, sur la ligne du titre ou après", () => {
-    const joueurs = (liste: string) => lireReglage(reglage(URL_SCRIPT, liste)).joueurs;
-    expect(joueurs("Joueurs autorisés à partager des RC : Bull Callisto  Sirius")).toEqual([
-      "Bull",
-      "Callisto",
-      "Sirius",
-    ]);
-    expect(joueurs("joueurs autorises :<br/>Bull ;Callisto,<br/>Sirius.")).toEqual([
-      "Bull",
-      "Callisto",
-      "Sirius",
-    ]);
-    // sans « : » après le titre, la liste commence à la ligne suivante
-    expect(joueurs("Joueurs autorisés à partager des RC<br/>Bull, Callisto")).toEqual([
-      "Bull",
-      "Callisto",
-    ]);
-    expect(joueurs("Pas de liste ici")).toEqual([]);
-  });
-
-  test("la liste s'arrête à la ligne suivante qui contient « : » ; liens et balises ignorés", () => {
-    const r = lireReglage(
-      `<div class="messageForum">Joueurs autorisés à partager des RC :<br/>Bull, <b>Callisto</b><br/>Adresse du script :<br/><a href="${URL_SCRIPT}">https://script.google.com/macros/s/AKfy...</a></div>`,
-    );
-    expect(r.joueurs).toEqual(["Bull", "Callisto"]);
-    expect(r.adresse).toBe(URL_SCRIPT);
-  });
-
+describe("liste des joueurs autorisés (lecture du message : tests/reglages-alliance.test.ts)", () => {
   test("casse ignorée, pseudo partiel refusé", () => {
     const autorise = (p: string) =>
       lire<boolean>(`ExportRapports.autorise(["DoggyBag", "Grim"], ${JSON.stringify(p)})`);
@@ -507,16 +467,14 @@ describe("réglage de l'alliance : adresse et liste des joueurs dans le message 
     expect(autorise("DoggyBag2")).toBe(false);
     expect(autorise("")).toBe(false);
   });
-
-  test("adresse autre qu'un script Google : ignorée", () => {
-    expect(lireReglage(reglage("https://evil.example/macros/s/AKfy/exec")).adresse).toBe("");
-  });
 });
 
 // forum caché simulé (sujet de l'adresse) et stockage de l'extension
 function preparer(forum: { sujet?: string | null; message?: string; echoue?: boolean }) {
   lire(`(() => {
     window.GARDE = {}; window.ECRITURES = []; window.LECTURES_FORUM = 0;
+    // réglages de l'alliance lus par un test précédent (gardés une minute)
+    localStorage.removeItem("fzzz_reglagesAlliance");
     window.chrome = {
       storage: { local: {
         get: (k) => Promise.resolve(k in GARDE ? { [k]: GARDE[k] } : {}),
@@ -530,7 +488,7 @@ function preparer(forum: { sujet?: string | null; message?: string; echoue?: boo
     PartageChasses.sujets = () => { LECTURES_FORUM++; return ${
       forum.echoue
         ? `Promise.reject(new Error("forum"))`
-        : `Promise.resolve(${JSON.stringify(forum.sujet ? { exportSheet: forum.sujet } : {})})`
+        : `Promise.resolve(${JSON.stringify(forum.sujet ? { reglages: forum.sujet } : {})})`
     }; };
     PartageChasses._xajax = (f, args) => {
       if (f == "callGetTopic") return Promise.resolve(${JSON.stringify(forum.message || "")});
@@ -569,7 +527,10 @@ describe("adresse du script : celle de l'alliance pour un joueur de la liste, si
   });
 
   test("joueur hors liste (ou retiré) : son adresse seulement, rien gardé de l'alliance", async () => {
-    preparer({ sujet: "9", message: reglage(URL_SCRIPT, "Joueurs autorisés : Kwhwwymwn, Daek") });
+    preparer({
+      sujet: "9",
+      message: reglage(URL_SCRIPT, "Joueurs autorisés à partager des RC : Kwhwwymwn, Daek"),
+    });
     lire(
       `GARDE.fzzz_exportSheet = "${PERSO}"; GARDE.fzzz_exportSheetAlliance = JSON.stringify({ pseudo: "doggybag", adresse: "${URL_SCRIPT}" });`,
     );
@@ -835,7 +796,9 @@ describe("export complet depuis la messagerie", () => {
     preparer({ sujet: "9", message: reglage("") });
     await lire(`ExportRapports.exporter("chasse")`);
     expect(lire(`POSTS`)).toEqual([]);
-    expect(lire<string[]>(`TOASTS`).at(-1)).toContain("pas encore postée dans le forum caché");
+    expect(lire<string[]>(`TOASTS`).at(-1)).toContain(
+      "l'adresse du Google Sheet de l'alliance manque dans le sujet « Réglages de l'extension » du forum caché (ligne « Google Sheet des RC »)",
+    );
   });
 
   test("forum illisible sans lecture gardée : le message le dit (pas « hors liste »)", async () => {
@@ -846,12 +809,15 @@ describe("export complet depuis la messagerie", () => {
   });
 
   test("joueur hors liste sans adresse à lui : message qui cite la liste, aucune lecture", async () => {
-    preparer({ sujet: "9", message: reglage(URL_SCRIPT, "Joueurs autorisés : Daek") });
+    preparer({
+      sujet: "9",
+      message: reglage(URL_SCRIPT, "Joueurs autorisés à partager des RC : Daek"),
+    });
     await lire(`ExportRapports.exporter("chasse")`);
     expect(lire(`POSTS`)).toEqual([]);
     expect(lire(`ENVOIS`)).toEqual([]);
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain(
-      "ton pseudo n'est pas dans la liste des joueurs autorisés à partager des RC",
+      "ton pseudo n'est pas dans la ligne « Joueurs autorisés à partager des RC » du sujet « Réglages de l'extension »",
     );
   });
 

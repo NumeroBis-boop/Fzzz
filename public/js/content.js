@@ -868,8 +868,9 @@ const DATEPICKER_OPTION = {
         }
         // relevé du jour pour le fichier de l'alliance, après les lectures de la
         // page ; puis l'export des chasses dû, si le joueur vient de lancer une
-        // chasse (rôle Chasseur), l'un après l'autre : la liste des sujets du
-        // forum n'est lue qu'une fois pour les deux
+        // chasse (rôle Chasseur), puis les réglages de l'alliance (au plus une
+        // fois par heure), l'un après l'autre : la liste des sujets du forum
+        // n'est lue qu'une fois pour tous
         let releve = Promise.resolve("");
         try {
           releve = SuiviMembres.lancer();
@@ -879,7 +880,9 @@ const DATEPICKER_OPTION = {
         releve
           .catch(() => {})
           .then(() => ExportAuto.lancer())
-          .catch((e) => console.error("Fzzz : export automatique des chasses", e));
+          .catch((e) => console.error("Fzzz : export automatique des chasses", e))
+          .then(() => ReglagesAlliance.actualiser())
+          .catch((e) => console.error("Fzzz : réglages de l'alliance", e));
         Utils.noterChargement(debutExtension);
       });
   }

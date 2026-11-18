@@ -4,8 +4,8 @@
  * Version publiée du script utilisateur, lue sur son adresse de mise à jour.
  **********************************************************************/
 
-// au plus une lecture par heure (adresse sur GitHub, jamais le jeu)
-const DELAI_VERIFICATION_MAJ = 3600000;
+// au plus une lecture par 24 h (règle du mainteneur, 18/11/2026), sur GitHub, jamais le jeu
+const DELAI_VERIFICATION_MAJ = 24 * 3600000;
 const CLE_VERIFICATION_MAJ = "fzzz_majVerification";
 
 /**
@@ -43,7 +43,7 @@ class MiseAJour {
     return 0;
   }
   /**
-   * Version publiée à `adresse`, lue au plus une fois par heure, sinon celle
+   * Version publiée à `adresse`, lue au plus une fois par 24 h, sinon celle
    * lue la dernière fois ; null quand GitHub n'a pas répondu.
    *
    * @static

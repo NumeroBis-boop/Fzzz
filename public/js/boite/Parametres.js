@@ -612,11 +612,13 @@ class BoiteParametre extends Boite {
       ${liste([
         "départ : le stock de l'encart ; capacité de l'entrepôt : 500 + 1 200 × 2<sup>niveau</sup> (niveau lu sur la page Construction ; sinon d'après le « rempli à N % » de l'encart) ;",
         "un entrepôt en construction (vu dans l'encart Compte+ du jeu ou sur la page Construction) prend un niveau à la fin de sa construction : sa capacité devient 2 × capacité − 500 ; il reste compté après, jusqu'à ce que la page Construction donne son nouveau niveau ;",
-        "rentre : la récolte du terrain couvert par tes ouvrières, ajoutée à chaque récolte du jeu, toutes les 30 min (1 par ouvrière au travail, heure lue sur la page Ressources) ; la champignonnière, en continu ; les convois qui arrivent, vus sur la page Convois ;",
-        "sort : la consommation de l'armée, en continu, et ce que pille ton seigneur si tu es vassal (lu sur la page Ressources) ;",
+        "à chaque récolte du jeu, toutes les 30 min (heure lue sur la page Ressources), le 48<sup>e</sup> de la production du jour : la récolte du terrain couvert par tes ouvrières (1 par ouvrière au travail) et ta champignonnière, moins la consommation de ton armée ; sans heure de récolte connue, la production est étalée sur la journée ;",
+        "si tu es vassal, la part de ton seigneur est prise à chaque récolte sur le terrain et la champignonnière, au pourcentage que donne la page Ressources (« X vous pille … ») ;",
+        "les convois qui arrivent, à leur arrivée, vus sur la page Convois ;",
         "pas compté : le terrain que rapporteront tes chasses et tes floods en cours, ce que tu pilles sur tes colonies (montré dans l'info-bulle), la nourriture rapportée par les chasses, les floods reçus, ce que coûteront les pontes, constructions et recherches que tu lanceras ;",
         "« Famine dans … » quand la nourriture tombe à zéro avant que l'entrepôt soit plein ; en rouge à moins de 8 h.",
       ])}
+      <p><b>Ressources d'une construction ou d'une recherche</b> (pages Construction et Laboratoire, au survol du coût) : le même calcul, jusqu'au coût plutôt que jusqu'à la capacité ; la page Convois y est relue à l'ouverture de la page ; un coût plus grand que l'entrepôt n'est jamais atteint.</p>
       <p><b>Bilan de la récolte</b> (page Ressources, sous le bloc « Récoltes »), par jour :</p>
       ${liste([
         "récolte du terrain + champignonnière − consommation de l'armée − pillage subi + pillage de tes colonies ;",

@@ -159,45 +159,81 @@ describe("formules", () => {
 
 describe("calcul pas à pas", () => {
   const simuler = (e: object) =>
-    lire<{ plein: number | null; famine: number | null }>(
-      `Entrepots.simuler(Object.assign({ stock: 0, capacite: 1000, continu: 0, recolte: 0, prochaine: null, gains: [], convois: [], maintenant: heure }, ${JSON.stringify(e)}))`,
+    lire<{ atteint: number | null; famine: number | null }>(
+      `Entrepots.simuler(Object.assign({ stock: 0, capacite: 1000, parJour: 0, prochaine: null, convois: [], maintenant: heure }, ${JSON.stringify(e)}))`,
     );
 
-  test("récolte du terrain toutes les 30 min, à l'heure de la récolte du jeu", () => {
+  test("production d'une récolte toutes les 30 min, à l'heure de la récolte du jeu", () => {
     // 48 000 par jour : 1 000 à chaque récolte ; récoltes à +10 min, +40 min, +70 min
-    expect(simuler({ capacite: 2500, recolte: 48000, prochaine: HEURE + 10 * MIN }).plein).toBe(
+    expect(simuler({ capacite: 2500, parJour: 48000, prochaine: HEURE + 10 * MIN }).atteint).toBe(
       HEURE + 70 * MIN,
     );
     // heure de récolte gardée d'une page ouverte plus tôt : la suivante s'en déduit
-    expect(simuler({ capacite: 2500, recolte: 48000, prochaine: HEURE - 20 * MIN }).plein).toBe(
+    expect(simuler({ capacite: 2500, parJour: 48000, prochaine: HEURE - 20 * MIN }).atteint).toBe(
       HEURE + 70 * MIN,
     );
-    // sans heure de récolte connue : récolte étalée sur la journée
-    expect(simuler({ capacite: 1000, recolte: 48000 }).plein).toBe(HEURE + 30 * MIN);
+    // sans heure de récolte connue : production étalée sur la journée
+    expect(simuler({ capacite: 1000, parJour: 48000 }).atteint).toBe(HEURE + 30 * MIN);
   });
 
-  test("champignonnière et armée en continu, entre les récoltes", () => {
-    expect(simuler({ capacite: 1000, continu: 1000 }).plein).toBe(HEURE + 24 * H);
-    // 100 par heure de champignonnière et 1 000 à chaque récolte : 1 050 à la première
-    expect(
-      simuler({ capacite: 1040, continu: 2400, recolte: 48000, prochaine: HEURE + 30 * MIN }).plein,
-    ).toBe(HEURE + 30 * MIN);
-    // puis la champignonnière remplit le reste entre deux récoltes : 50 en 30 min
-    expect(
-      simuler({ capacite: 1100, continu: 2400, recolte: 48000, prochaine: HEURE + 30 * MIN }).plein,
-    ).toBe(HEURE + 60 * MIN);
+  test("champignonnière et armée avec le terrain, à chaque récolte (règle du mainteneur, 18/11/2026)", () => {
+    // terrain 48 000, champignonnière 2 400, armée −4 800 par jour : 950 à chaque récolte
+    const parJour = 48000 + 2400 - 4800;
+    // rien entre deux récoltes : 950 tout juste à la première, 951 à la deuxième
+    expect(simuler({ capacite: 950, parJour, prochaine: HEURE + 30 * MIN }).atteint).toBe(
+      HEURE + 30 * MIN,
+    );
+    expect(simuler({ capacite: 951, parJour, prochaine: HEURE + 30 * MIN }).atteint).toBe(
+      HEURE + 60 * MIN,
+    );
   });
 
   test("famine : la nourriture tombe à zéro ; déjà plein ; plus d'un an", () => {
-    expect(simuler({ stock: 100, continu: -2400 })).toEqual({ plein: null, famine: HEURE + H });
-    expect(simuler({ stock: 1000 }).plein).toBe(HEURE);
-    expect(simuler({ continu: 2 })).toEqual({ plein: null, famine: null });
+    // −2 400 par jour, −50 à chaque récolte : 50 à +30 min, 0 à +60 min
+    expect(simuler({ stock: 100, parJour: -2400, prochaine: HEURE + 30 * MIN })).toEqual({
+      atteint: null,
+      famine: HEURE + 60 * MIN,
+    });
+    // sans heure de récolte : étalée
+    expect(simuler({ stock: 100, parJour: -2400 })).toEqual({ atteint: null, famine: HEURE + H });
+    expect(simuler({ stock: 1000 }).atteint).toBe(HEURE);
+    expect(simuler({ parJour: 2 })).toEqual({ atteint: null, famine: null });
+    // 2 par jour, à chaque récolte : 1 000 dans 500 jours
+    expect(simuler({ parJour: 2, prochaine: HEURE + MIN })).toEqual({
+      atteint: null,
+      famine: null,
+    });
   });
 
   test("convoi qui arrive : ajouté à son arrivée", () => {
-    expect(simuler({ convois: [{ t: HEURE + 3 * H, q: 1000 }] }).plein).toBe(HEURE + 3 * H);
+    expect(simuler({ convois: [{ t: HEURE + 3 * H, q: 1000 }] }).atteint).toBe(HEURE + 3 * H);
     // un convoi déjà arrivé ne compte pas
-    expect(simuler({ convois: [{ t: HEURE - H, q: 1000 }] }).plein).toBeNull();
+    expect(simuler({ convois: [{ t: HEURE - H, q: 1000 }] }).atteint).toBeNull();
+  });
+
+  test("stock à atteindre (coût d'une construction) : sous la capacité, au-dessus, après un agrandissement", () => {
+    const base = { capacite: 5000, parJour: 48000, prochaine: HEURE + 10 * MIN };
+    // 3 000 : la 3e récolte
+    expect(simuler({ ...base, objectif: 3000 }).atteint).toBe(HEURE + 70 * MIN);
+    expect(simuler({ ...base, stock: 3000, objectif: 3000 }).atteint).toBe(HEURE);
+    // plus que l'entrepôt ne contient : jamais, sans calcul
+    expect(simuler({ ...base, objectif: 6000 })).toEqual({ atteint: null, famine: null });
+    // agrandi à 9 500 dans 10 h : plein à 5 000 avant, 6 000 à la 1re récolte d'après
+    expect(
+      simuler({ ...base, objectif: 6000, agrandissement: { t: HEURE + 10 * H, capacite: 9500 } })
+        .atteint,
+    ).toBe(HEURE + 10 * H + 10 * MIN);
+    // nourriture qui baisse : atteinte seulement par un convoi
+    expect(
+      simuler({
+        stock: 900,
+        capacite: 2000,
+        parJour: -480,
+        prochaine: HEURE + 10 * MIN,
+        objectif: 1500,
+        convois: [{ t: HEURE + 2 * H, q: 700 }],
+      }).atteint,
+    ).toBe(HEURE + 2 * H);
   });
 
   test("convois de la page Convois : ceux qui arrivent chez le joueur, pas encore arrivés", () => {
@@ -257,6 +293,11 @@ describe("encart « S5 Pseudo » : lignes sous la nourriture et les matériaux",
     // matériaux : 19 095 à chaque récolte, 77 récoltes, la 1re à 10h10 : le 18/11 à 00h10
     expect(lire<string>(`Entrepots.ligneInfobulle(1)`)).toContain(
       "Entrepôt plein le 18/11 à 00h10",
+    );
+    // nourriture : champignonnière et armée à chaque récolte, 553 439 ÷ 48 = 11 529,98 ;
+    // 1 031 760 qui manquent, 90 récoltes : le 18/11 à 06h40
+    expect(lire<string>(`Entrepots.ligneInfobulle(0)`)).toContain(
+      "Entrepôt plein le 18/11 à 06h40",
     );
   });
 
@@ -404,9 +445,9 @@ describe("entrepôt en construction : un niveau de plus à la fin de la construc
 
   test("calcul pas à pas : la capacité change à la fin de la construction", () => {
     const simuler = (agrandissement: object) =>
-      lire<{ plein: number | null }>(
-        `Entrepots.simuler({ stock: 0, capacite: 1000, continu: 1000, recolte: 0, prochaine: null, convois: [], maintenant: heure, agrandissement: ${JSON.stringify(agrandissement)} })`,
-      ).plein;
+      lire<{ atteint: number | null }>(
+        `Entrepots.simuler({ stock: 0, capacite: 1000, parJour: 1000, prochaine: null, convois: [], maintenant: heure, agrandissement: ${JSON.stringify(agrandissement)} })`,
+      ).atteint;
     // 500 en stock à la fin de la construction, 2 000 de capacité ensuite
     expect(simuler({ t: HEURE + 12 * H, capacite: 2000 })).toBe(HEURE + 48 * H);
     // plein avant la fin de la construction : plein quand même

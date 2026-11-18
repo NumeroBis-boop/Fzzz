@@ -3681,3 +3681,17 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   max-width: 700px;
   margin: 0 auto;
 }
+
+/* Construction et Laboratoire : heure où les ressources suffiront, au survol du coût */
+.o_delaiRessources {
+  cursor: help;
+}
+/* les événements souris d'un toucher passent à la cellule : sinon elle est « quittée » et la bulle se ferme ;
+   largeur : les 500 px du jeu (.warning-tooltip, !important), moins sur un téléphone */
+.ui-tooltip.o_delaiInfobulle {
+  max-width: min(92vw, 500px) !important;
+  pointer-events: none;
+}
+.o_delaiInfobulle .o_delaiNote {
+  font-size: 0.9em;
+}

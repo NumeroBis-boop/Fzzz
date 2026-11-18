@@ -9,6 +9,14 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.137.0",
+    notes: [
+      "Construction et Laboratoire : au survol (ou au toucher) du coût d'un bâtiment ou d'une recherche, ce qui manque en nourriture et en matériaux et l'heure où chacun sera en stock, puis l'heure où tout est réuni. La page Convois est relue à l'ouverture de la page pour compter les convois qui arrivent.",
+      "Entrepôts : la champignonnière et la consommation de l'armée comptent à chaque récolte du jeu, toutes les 30 min, avec le terrain (et non plus en continu).",
+      "L'annonce d'une nouvelle version dans la boîte « Extension OUAF » est vérifiée une fois par 24 h au plus (une fois par heure avant).",
+    ],
+  },
+  {
     version: "1.136.0",
     notes: [
       "Stats membres : deux lignes de cases, « Partagé avec les chefs » et « Partagé avec les autres » (dans la vue Stats membres et dans Préférences → Partage de données).",

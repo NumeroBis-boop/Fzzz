@@ -30,6 +30,13 @@ class PageConstruction {
       monProfil.niveauConstruction = niveau;
       monProfil.sauvegarder();
     }
+    // heure où les ressources suffiront, au survol des coûts (page Convois relue) ;
+    // une erreur n'empêche pas le reste de la page
+    try {
+      DelaiRessources.installer();
+    } catch (e) {
+      console.error("Fzzz : ressources manquantes", e);
+    }
     // Rentabilité du niveau suivant de l'étable à pucerons
     this.rentabiliteEtable();
     // Sauvegarde construction AVANT le remplacement (saveConstruction lit le strong)

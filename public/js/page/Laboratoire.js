@@ -41,6 +41,14 @@ class PageLaboratoire {
       monProfil.niveauRecherche = niveau;
       monProfil.sauvegarder();
     }
+    // heure où les ressources suffiront, au survol des coûts : la page Convois
+    // passe avant les lectures de ce module (page Reine, armée) ; une erreur
+    // n'empêche pas le reste de la page
+    try {
+      DelaiRessources.installer();
+    } catch (e) {
+      console.error("Fzzz : ressources manquantes", e);
+    }
     // Armée complète (page Reine : garnison et troupes parties comprises),
     // à défaut garnison d'Armee.php plus les troupes parties d'ici
     Promise.all([

@@ -49,9 +49,9 @@ const NOMS_ENTREPOTS = [/entrep[oô]t de nourriture/i, /entrep[oô]t de mat[eé]
 
 /**
  * Remplissage des entrepôts. Sous la nourriture et les matériaux de l'encart
- * « S5 Pseudo », le temps avant qu'ils soient pleins (ou la famine) : récolte
- * du terrain exploité à chaque récolte du jeu, champignonnière et armée,
- * pillage subi (page Ressources), convois qui arrivent (page Convois) et
+ * « S5 Pseudo », le temps avant qu'ils soient pleins (ou la famine) : à chaque
+ * récolte du jeu, terrain exploité, champignonnière et armée, pillage subi
+ * déduit (page Ressources), convois qui arrivent (page Convois) et
  * entrepôt agrandi à la fin de sa construction (chantier). Ni le
  * terrain des chasses et floods en cours, ni le pillage reçu en seigneur n'y
  * sont comptés (règles du mainteneur) : l'info-bulle montre ce dernier. Sur la page Ressources, un bilan sous
@@ -451,8 +451,26 @@ class Entrepots {
     } catch (e) {}
   }
   /**
-   * Convois qui arrivent chez le joueur, lus sur la page Convois (« Vous allez
-   * recevoir … »).
+   * Convois qui arrivent chez le joueur, gardés à sa dernière visite de la page
+   * Convois (« Vous allez recevoir … », Commerce.js).
+   *
+   * @static
+   * @method convoisGardes
+   * @return {Array<{de: String, t: Number, q: Array<Number>}>} par heure d'arrivée
+   */
+  static convoisGardes() {
+    let liste = Utils.lireStockage("outiiil_evolution").convoi;
+    return (Array.isArray(liste) ? liste : [])
+      .filter((c) => c.sens === false)
+      .map((c) => ({
+        de: String(c.cible || ""),
+        t: moment(c.exp).valueOf(),
+        q: [Number(c.nou) || 0, Number(c.mat) || 0],
+      }))
+      .sort((a, b) => a.t - b.t);
+  }
+  /**
+   * Convois gardés qui ne sont pas encore arrivés.
    *
    * @static
    * @method convois
@@ -460,72 +478,110 @@ class Entrepots {
    * @return {Array<Array<{t: Number, q: Number}>>} [nourriture, matériaux]
    */
   static convois(maintenant) {
-    let liste = Utils.lireStockage("outiiil_evolution").convoi;
-    /** @type {Array<Array<{t: Number, q: Number}>>} */
-    let parType = [[], []];
-    (Array.isArray(liste) ? liste : []).forEach((c) => {
-      let t = moment(c.exp).valueOf();
-      if (c.sens !== false || !(t > maintenant)) return;
-      [Number(c.nou) || 0, Number(c.mat) || 0].forEach((q, i) => {
-        if (q > 0) parType[i].push({ t, q });
-      });
-    });
-    return parType;
+    return Entrepots.parType(Entrepots.convoisGardes().filter((c) => c.t > maintenant));
   }
   /**
-   * Stock pas à pas jusqu'à JOURS_REMPLISSAGE_MAX jours : la récolte du
-   * terrain arrive à chaque récolte du jeu, la champignonnière, l'armée et le
-   * reste en continu, les convois à leur arrivée.
+   * Convois qui arrivent chez le joueur d'après une page Convois : « Vous allez
+   * recevoir A et B de X dans … ».
+   *
+   * @static
+   * @method lireConvois
+   * @param {any} $racine page Convois (jQuery)
+   * @param {Number} instant heure de la page (ms, horloge du serveur)
+   * @return {Array<{de: String, t: Number, q: Array<Number>}>} par heure
+   *   d'arrivée ; q : [nourriture, matériaux]
+   */
+  static lireConvois($racine, instant) {
+    /** @type {Array<{de: String, t: Number, q: Array<Number>}>} */
+    let liste = [];
+    $racine
+      .find("#centre > strong")
+      .each((/** @type {Number} */ k, /** @type {HTMLElement} */ elt) => {
+        let m = (elt.textContent || "")
+          .replace(/\s+/g, " ")
+          .match(/Vous allez recevoir ([\d ]+?) et ([\d ]+?) de\b.*?\bdans ((?:\d+ ?[jhms] ?)+)/i);
+        if (m)
+          liste.push({
+            de: $(elt).find("a").first().text().trim(),
+            t: instant + Utils.timeToInt(m[3].trim()) * 1000,
+            q: [Entrepots.nombre(m[1]), Entrepots.nombre(m[2])],
+          });
+      });
+    return liste.sort((a, b) => a.t - b.t);
+  }
+  /**
+   * @static
+   * @method parType
+   * @param {Array<{t: Number, q: Array<Number>}>} liste (lireConvois)
+   * @return {Array<Array<{t: Number, q: Number}>>} [nourriture, matériaux]
+   */
+  static parType(liste) {
+    return [0, 1].map((i) => liste.filter((c) => c.q[i] > 0).map((c) => ({ t: c.t, q: c.q[i] })));
+  }
+  /**
+   * Stock pas à pas jusqu'à JOURS_REMPLISSAGE_MAX jours : à chaque récolte du
+   * jeu, toutes les 30 min, le 48e de la production nette du jour (terrain,
+   * champignonnière et consommation de l'armée arrivent ensemble, règle du
+   * mainteneur, 18/11/2026) ; les convois à leur arrivée ; la capacité agrandie
+   * à la fin d'une construction de l'entrepôt. Sans heure de récolte connue, la
+   * production est étalée sur la journée.
    *
    * @static
    * @method simuler
-   * @param {{stock: Number, capacite: Number, continu: Number, recolte: Number, prochaine: Number|null, convois: Array<{t: Number, q: Number}>, maintenant: Number, agrandissement?: {t: Number, capacite: Number}|null}} e
-   *   continu et recolte par jour ; prochaine : heure d'une récolte (sans elle,
-   *   la récolte est étalée sur la journée) ; agrandissement : capacité à la fin
-   *   d'une construction de l'entrepôt
-   * @return {{plein: Number|null, famine: Number|null}} ms ; plein : maintenant
-   *   s'il l'est déjà, null au-delà de JOURS_REMPLISSAGE_MAX jours
+   * @param {{stock: Number, capacite: Number, parJour: Number, prochaine: Number|null, convois: Array<{t: Number, q: Number}>, maintenant: Number, agrandissement?: {t: Number, capacite: Number}|null, objectif?: Number|null}} e
+   *   parJour : production nette du jour, pillage subi déduit ; prochaine : heure
+   *   d'une récolte ; agrandissement : capacité à la fin d'une construction de
+   *   l'entrepôt ; objectif : stock cherché, la capacité sinon (plein)
+   * @return {{atteint: Number|null, famine: Number|null}} ms ; atteint :
+   *   maintenant si c'est déjà le cas, null au-delà de JOURS_REMPLISSAGE_MAX
+   *   jours ou au-dessus de la capacité ; famine : la nourriture à zéro
    */
   static simuler({
     stock,
     capacite,
-    continu,
-    recolte,
+    parJour,
     prochaine,
     convois,
     maintenant,
     agrandissement = null,
+    objectif = null,
   }) {
-    if (stock >= capacite) return { plein: maintenant, famine: null };
     let limite = maintenant + JOURS_REMPLISSAGE_MAX * MS_JOUR,
-      parPaquets = prochaine != null,
+      palier =
+        agrandissement && agrandissement.t > maintenant && agrandissement.t <= limite
+          ? agrandissement
+          : null,
+      // plein : la capacité, agrandie à la fin d'une construction
+      cible = () => (objectif == null ? capacite : objectif),
+      s = Math.min(stock, capacite);
+    if (s >= cible()) return { atteint: maintenant, famine: null };
+    if (cible() > Math.max(capacite, palier ? palier.capacite : 0))
+      return { atteint: null, famine: null };
+    let parRecolte = prochaine != null ? parJour / RECOLTES_PAR_JOUR : 0,
+      v = prochaine != null ? 0 : parJour,
       t = maintenant,
-      s = stock,
-      v = parPaquets ? continu : continu + recolte,
-      h = parPaquets ? recolte : 0,
-      suivante = parPaquets ? /** @type {Number} */ (prochaine) : Infinity,
+      suivante = prochaine != null ? prochaine : Infinity,
       /** @type {Number|null} */
       famine = null,
       evenements = convois
         .filter((x) => x.t > maintenant && x.t <= limite)
         .sort((a, b) => a.t - b.t),
-      k = 0,
-      palier =
-        agrandissement && agrandissement.t > maintenant && agrandissement.t <= limite
-          ? agrandissement
-          : null;
+      k = 0;
     while (suivante < t) suivante += MS_RECOLTE;
     while (t < limite) {
       let fin = Math.min(
-          suivante,
-          k < evenements.length ? evenements[k].t : Infinity,
-          palier ? palier.t : Infinity,
-          limite,
-        ),
-        apres = s + (v * (fin - t)) / MS_JOUR;
-      if (v > 0 && apres >= capacite) return { plein: t + ((capacite - s) / v) * MS_JOUR, famine };
-      if (v < 0 && famine == null && apres <= 0) famine = t + (s / -v) * MS_JOUR;
-      s = Math.max(0, apres);
+        suivante,
+        k < evenements.length ? evenements[k].t : Infinity,
+        palier ? palier.t : Infinity,
+        limite,
+      );
+      if (v) {
+        let apres = s + (v * (fin - t)) / MS_JOUR;
+        if (v > 0 && apres >= cible() && cible() <= capacite)
+          return { atteint: t + ((cible() - s) / v) * MS_JOUR, famine };
+        if (v < 0 && famine == null && apres <= 0) famine = t + (s / -v) * MS_JOUR;
+        s = Math.min(capacite, Math.max(0, apres));
+      }
       t = fin;
       if (t >= limite) break;
       if (palier && palier.t === t) {
@@ -534,12 +590,23 @@ class Entrepots {
       }
       for (; k < evenements.length && evenements[k].t === t; k++) s += evenements[k].q;
       if (suivante === t) {
-        s += h / RECOLTES_PAR_JOUR;
+        s += parRecolte;
         suivante += MS_RECOLTE;
+        if (parRecolte < 0 && famine == null && s <= 0) famine = t;
       }
-      if (s >= capacite) return { plein: t, famine };
+      s = Math.min(capacite, Math.max(0, s));
+      if (s >= cible()) return { atteint: t, famine };
+      // plus rien ne fait monter le stock (et la famine, s'il y en a une, est datée)
+      if (
+        parRecolte <= 0 &&
+        v <= 0 &&
+        k >= evenements.length &&
+        !palier &&
+        (famine != null || (parRecolte == 0 && v == 0))
+      )
+        break;
     }
-    return { plein: null, famine };
+    return { atteint: null, famine };
   }
   /**
    * Capacité d'un entrepôt : formule du jeu par niveau (Construction), sinon
@@ -683,21 +750,26 @@ class Entrepots {
     return i >= 0 && fin > maintenant ? { i, fin, niveau: connu(i) } : null;
   }
   /**
-   * Prévision des deux entrepôts d'après la page ouverte et la dernière
-   * lecture de la page Ressources.
+   * Ce que le calcul sait de la page ouverte et de la dernière lecture de la
+   * page Ressources : production nette du jour de chaque ressource (pillage
+   * subi déduit, sauf si le total de l'info-bulle le compte déjà), prochaine
+   * récolte, stock, capacité, agrandissement en cours et convois attendus.
+   *
+   * Convois : ceux de la page Convois relue sur cette page (Entrepots.convoisLus),
+   * sinon ceux de la dernière visite de la page Convois.
    *
    * @static
-   * @method prevision
-   * @return {{maintenant: Number, entrepots: Array<{stock: Number, capacite: Number|null, debit: Number, convois: Number, instant: Number|null, famine: Number|null, agrandissement: {t: Number, capacite: Number}|null}>, pillage: Boolean, lecture: any}|null}
+   * @method etat
+   * @param {Number} maintenant
+   * @return {{maintenant: Number, parJour: Array<Number>, prochaine: Number|null, pillage: Boolean, taux: Number, lecture: any, entrepots: Array<{stock: Number, capacite: Number|null, agrandissement: {t: Number, capacite: Number}|null, convois: Array<{t: Number, q: Number}>}>}|null}
    *   null : production inconnue
    */
-  static prevision() {
+  static etat(maintenant) {
     let info = Entrepots.lireInfobulle(),
       lecture = Entrepots.lecture(),
       production = info || (lecture && lecture.production);
     if (!production) return null;
-    let maintenant = Horloge.maintenant(),
-      sansPillage = [
+    let sansPillage = [
         production.terrain[0] + production.champignon[0] + production.armee[0],
         production.terrain[1],
       ],
@@ -706,19 +778,26 @@ class Entrepots {
         !!info &&
         [0, 1].some((i) => Math.abs(info.total[i] - sansPillage[i]) > ECART_TOTAL_RECOLTE),
       taux = (lecture && lecture.taux) || 0,
-      garde = compte ? 1 : 1 - taux,
-      recolte = [production.terrain[0] * garde, production.terrain[1] * garde],
-      continu = compte
-        ? [info.total[0] - production.terrain[0], info.total[1] - production.terrain[1]]
-        : [production.champignon[0] * garde + production.armee[0], 0],
-      convois = Entrepots.convois(maintenant),
+      // la part du seigneur est prise sur le terrain et la champignonnière, pas sur l'armée
+      garde = 1 - taux,
+      parJour = compte
+        ? [info.total[0], info.total[1]]
+        : [
+            (production.terrain[0] + production.champignon[0]) * garde + production.armee[0],
+            production.terrain[1] * garde,
+          ],
+      attendus = Entrepots.convoisLus
+        ? Entrepots.parType(Entrepots.convoisLus.filter((c) => c.t > maintenant))
+        : Entrepots.convois(maintenant),
       stocks = [Utils.nourriture, Utils.materiaux],
-      prochaine = (lecture && lecture.recolte) || null,
       chantier = Entrepots.chantier(maintenant);
     return {
-      maintenant: maintenant,
+      maintenant,
+      parJour,
+      prochaine: (lecture && lecture.recolte) || null,
       pillage: compte || taux > 0,
-      lecture: lecture,
+      taux: compte ? 0 : taux,
+      lecture,
       entrepots: [0, 1].map((i) => {
         let stock = stocks[i] || 0,
           ch = chantier && chantier.i == i ? chantier : null,
@@ -726,30 +805,53 @@ class Entrepots {
           base = Entrepots.capacite(i, stock),
           // construction finie que le niveau connu, celui d'avant, ne compte pas encore
           retard = finie && (monProfil.niveauConstruction || [])[i + 1] === ch.niveau,
-          capacite = base != null && retard ? Entrepots.capaciteSuivante(base) : base,
-          agrandissement =
+          capacite = base != null && retard ? Entrepots.capaciteSuivante(base) : base;
+        return {
+          stock,
+          capacite,
+          agrandissement:
             ch && !finie && capacite != null
               ? { t: ch.fin, capacite: Entrepots.capaciteSuivante(capacite) }
               : null,
-          r = Entrepots.simuler({
-            stock,
-            capacite: capacite == null ? Infinity : capacite,
-            continu: continu[i],
-            recolte: recolte[i],
-            prochaine,
-            convois: convois[i],
-            maintenant,
-            agrandissement,
-          });
+          convois: attendus[i],
+        };
+      }),
+    };
+  }
+  /**
+   * Prévision des deux entrepôts : heure où chacun sera plein, famine.
+   *
+   * @static
+   * @method prevision
+   * @return {{maintenant: Number, entrepots: Array<{stock: Number, capacite: Number|null, debit: Number, convois: Number, instant: Number|null, famine: Number|null, agrandissement: {t: Number, capacite: Number}|null}>, pillage: Boolean, lecture: any}|null}
+   *   null : production inconnue
+   */
+  static prevision() {
+    let e = Entrepots.etat(Horloge.maintenant());
+    if (!e) return null;
+    return {
+      maintenant: e.maintenant,
+      pillage: e.pillage,
+      lecture: e.lecture,
+      entrepots: e.entrepots.map((x, i) => {
+        let r = Entrepots.simuler({
+          stock: x.stock,
+          capacite: x.capacite == null ? Infinity : x.capacite,
+          parJour: e.parJour[i],
+          prochaine: e.prochaine,
+          convois: x.convois,
+          maintenant: e.maintenant,
+          agrandissement: x.agrandissement,
+        });
         return {
-          stock: stock,
-          capacite: capacite,
-          debit: continu[i] + recolte[i],
-          convois: convois[i].reduce((n, c) => n + c.q, 0),
-          instant: r.plein,
+          stock: x.stock,
+          capacite: x.capacite,
+          debit: e.parJour[i],
+          convois: x.convois.reduce((n, c) => n + c.q, 0),
+          instant: r.atteint,
           // seule la nourriture se mange
           famine: i == 0 ? r.famine : null,
-          agrandissement: agrandissement,
+          agrandissement: x.agrandissement,
         };
       }),
     };
@@ -900,5 +1002,7 @@ class Entrepots {
 }
 /** dernière prévision affichée (ligneInfobulle, majLignes) */
 Entrepots.derniere = /** @type {any} */ (null);
+/** convois de la page Convois relue sur la page ouverte (DelaiRessources), null sinon */
+Entrepots.convoisLus = /** @type {Array<{de: String, t: Number, q: Array<Number>}>|null} */ (null);
 /** @type {any} */
 Entrepots._minuterie = null;

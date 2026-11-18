@@ -47,17 +47,23 @@ describe("nouvelle version publiée du script utilisateur", () => {
     expect(page.lire<number>(`MiseAJour.comparer("1.85.1", "1.85.1")`)).toBe(0);
   });
 
-  test("plus récente : signalée ; une seule lecture par heure", async () => {
+  test("plus récente : signalée ; une seule lecture par 24 h", async () => {
     remettre("1.85.2");
     expect(await verifier(FINALE, "1.85.1")).toBe("1.85.2");
     expect(await verifier(FINALE, "1.85.1")).toBe("1.85.2");
     expect(lectures()).toBe(1);
-    // une heure plus tard : nouvelle lecture
-    page.lire(`(() => {
-      let lu = JSON.parse(localStorage.getItem("fzzz_majVerification"));
-      lu.t -= 3600001;
-      localStorage.setItem("fzzz_majVerification", JSON.stringify(lu));
-    })()`);
+    let reculer = (ms: number) =>
+      page.lire(`(() => {
+        let lu = JSON.parse(localStorage.getItem("fzzz_majVerification"));
+        lu.t -= ${ms};
+        localStorage.setItem("fzzz_majVerification", JSON.stringify(lu));
+      })()`);
+    // une heure plus tard : pas de nouvelle lecture (une par heure jusqu'en 1.136)
+    reculer(3600001);
+    await verifier(FINALE, "1.85.1");
+    expect(lectures()).toBe(1);
+    // 24 h après la lecture : nouvelle lecture
+    reculer(23 * 3600000);
     await verifier(FINALE, "1.85.1");
     expect(lectures()).toBe(2);
   });
@@ -76,7 +82,7 @@ describe("nouvelle version publiée du script utilisateur", () => {
     expect(lectures()).toBe(2);
   });
 
-  test("GitHub injoignable : rien, et pas de nouvel essai avant une heure", async () => {
+  test("GitHub injoignable : rien, et pas de nouvel essai avant 24 h", async () => {
     remettre("1.85.2");
     page.lire(`enPanne = true`);
     expect(await verifier(FINALE, "1.85.1")).toBeNull();

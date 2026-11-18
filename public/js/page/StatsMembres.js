@@ -39,7 +39,7 @@ const ORDRE_STATS = [
   "puceron",
 ];
 const TITRES_COURTS_STATS = { ouvrieres: "Ov", champignonniere: "Champi" };
-// grands nombres écrits en quatre caractères au plus : « 2,4m », « 150k »
+// grands nombres écrits avec trois chiffres, tronqués : « 3,67m », « 150k »
 const STATS_ABREGEES = ["cdf", "fdfHB", "fdfAB"];
 /** @type {Array<[string, number]>} */
 const UNITES_STATS = [
@@ -380,10 +380,10 @@ class StatsMembres {
       : `<td data-cle='${cle}' data-order='${v}' data-valeur='${v}'>${complet}</td>`;
   }
   /**
-   * Nombre écrit en quatre caractères au plus (mainteneur, 18/11/2026) : dès
-   * 1 000, en k, m, g ou t, tronqué (999 999 → « 999k », pas « 1m ») avec
-   * une décimale sous 10 de l'unité (« 1,5k », « 2,4m », « 150k ») ; sous
-   * 1 000, le nombre entier.
+   * Nombre écrit avec trois chiffres, tronqué (mainteneur, 18/11/2026 :
+   * 3 678 837 → « 3,67m », 150 000 → « 150k », 999 999 → « 999k », jamais
+   * arrondi au-dessus) : dès 1 000, en k, m, g ou t, les zéros de fin de la
+   * partie décimale retirés (« 2,4m », « 15k ») ; sous 1 000, le nombre entier.
    *
    * @static
    * @method abreger
@@ -394,8 +394,10 @@ class StatsMembres {
     let n = Math.max(0, Math.round(v)),
       [lettre, unite] = UNITES_STATS[0];
     for (let u of UNITES_STATS) if (n >= u[1]) [lettre, unite] = u;
-    let x = unite > 1 && n < 10 * unite ? Math.floor(n / (unite / 10)) / 10 : Math.floor(n / unite);
-    return Utils.decimal(x, 1, true) + lettre;
+    if (unite == 1) return Utils.decimal(n);
+    let decimales = n < 10 * unite ? 2 : n < 100 * unite ? 1 : 0,
+      dixiemes = Math.pow(10, decimales);
+    return Utils.decimal(Math.floor(n / (unite / dixiemes)) / dixiemes, decimales, true) + lettre;
   }
   /**
    * Mise en couleur, par colonne, des valeurs partagées : vert très clair pour

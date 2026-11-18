@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.132.1",
+    notes: ["Stats membres : CdF et FdF avec 3 chiffres, tronqués (3,67m ; 12,3k ; 150k)."],
+  },
+  {
     version: "1.132.0",
     notes: [
       "Multi-flood opti : même forme que la page Flood TdC du Compte+ (attaquant, une case « Pseudo » par cible, options repliées, un tableau par cible). Une case vide de plus apparaît pour ajouter une cible ; vider une case la retire.",

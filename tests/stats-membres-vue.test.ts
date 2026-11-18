@@ -213,7 +213,7 @@ describe("tableau du dernier relevé de chaque joueur", () => {
     expect(cellules()).toEqual([
       ["Alpha", "18/11 08h03", "30", "350 000", "1k", "50k", "1", "5", "1", "1", "1", "2 345 678"],
       ["Bravo", "17/11 22h10", "40", "—", "—", "150k", "1", "9", "1", "1", "1", "987 654"],
-      ["Char<lie>", "16/11", "35", "", "", "1,2m", "", "", "", "", "", ""],
+      ["Char<lie>", "16/11", "35", "", "", "1,23m", "", "", "", "", "", ""],
     ]);
     // information non partagée : case rouge (classe), dite par la légende
     expect(
@@ -255,10 +255,12 @@ describe("tableau du dernier relevé de chaque joueur", () => {
   });
 });
 
-describe("nombres abrégés : k, m, g, t, quatre caractères au plus", () => {
-  test("dès 1 000 dans la plus grande unité, une décimale sous 10, tronqué (999 999 → 999k)", () => {
+describe("nombres abrégés : k, m, g, t, trois chiffres, tronqués", () => {
+  test("dès 1 000 dans la plus grande unité, trois chiffres tronqués (3 678 837 → 3,67m, 999 999 → 999k)", () => {
     const abreger = (v: number) => lire<string>(`StatsMembres.abreger(${v})`);
-    expect([0, 7, 50, 99, 100, 200, 949, 999, 1000, 1050, 1500, 9999, 15000].map(abreger)).toEqual([
+    expect(
+      [0, 7, 50, 99, 100, 200, 949, 999, 1000, 1050, 1234, 1500, 9999, 12345, 15000].map(abreger),
+    ).toEqual([
       "0",
       "7",
       "50",
@@ -268,33 +270,50 @@ describe("nombres abrégés : k, m, g, t, quatre caractères au plus", () => {
       "949",
       "999",
       "1k",
-      "1k",
+      "1,05k",
+      "1,23k",
       "1,5k",
-      "9,9k",
+      "9,99k",
+      "12,3k",
       "15k",
     ]);
     expect(
       [
-        99600, 150000, 250000, 999999, 1999999, 2400000, 1234567, 25000000, 3e9, 45e8, 4.5e12,
-        77e12,
+        99600, 150000, 250000, 999999, 1999999, 2400000, 3678837, 4860000, 25000000, 3e9, 45e8,
+        4.5e12, 77e12,
       ].map(abreger),
     ).toEqual([
-      "99k",
+      "99,6k",
       "150k",
       "250k",
       "999k",
-      "1,9m",
+      "1,99m",
       "2,4m",
-      "1,2m",
+      "3,67m",
+      "4,86m",
       "25m",
       "3g",
       "4,5g",
       "4,5t",
       "77t",
     ]);
-    // jamais plus de quatre caractères dans l'usage du jeu
-    const valeurs = [0, 1, 999, 1000, 9999, 10000, 123456, 999999, 1e6, 987654321, 5e11, 999e12];
-    expect(valeurs.map(abreger).filter((t) => t.length > 4)).toEqual([]);
+    // jamais plus de trois chiffres
+    const valeurs = [
+      0,
+      1,
+      999,
+      1000,
+      1001,
+      9999,
+      10001,
+      123456,
+      999999,
+      1e6 + 1,
+      987654321,
+      5e11 + 7,
+      999e12,
+    ];
+    expect(valeurs.map(abreger).filter((t) => t.replace(/\D/g, "").length > 3)).toEqual([]);
   });
 });
 

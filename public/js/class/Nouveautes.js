@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.137.1",
+    notes: [
+      "Construction et Laboratoire : info-bulle des coûts plus courte. « Matériaux suffisants dans 6j21h (Le 25/11 à 07h33) », « Pommes suffisantes dans … », la plus tardive en premier et en gras ; dessous, seulement pour ce qui manque, ce qui est compté (production du TdC, convois, pillage, champignonnière, armée), en vert ou en rouge.",
+    ],
+  },
+  {
     version: "1.137.0",
     notes: [
       "Construction et Laboratoire : au survol (ou au toucher) du coût d'un bâtiment ou d'une recherche, ce qui manque en nourriture et en matériaux et l'heure où chacun sera en stock, puis l'heure où tout est réuni. La page Convois est relue à l'ouverture de la page pour compter les convois qui arrivent.",

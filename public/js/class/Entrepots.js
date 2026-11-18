@@ -761,8 +761,10 @@ class Entrepots {
    * @static
    * @method etat
    * @param {Number} maintenant
-   * @return {{maintenant: Number, parJour: Array<Number>, prochaine: Number|null, pillage: Boolean, taux: Number, lecture: any, entrepots: Array<{stock: Number, capacite: Number|null, agrandissement: {t: Number, capacite: Number}|null, convois: Array<{t: Number, q: Number}>}>}|null}
-   *   null : production inconnue
+   * @return {{maintenant: Number, parJour: Array<Number>, production: {terrain: Array<Number>, champignon: Array<Number>, armee: Array<Number>}, autres: Array<Number>, libelleAutres: String, prochaine: Number|null, pillage: Boolean, lecture: any, entrepots: Array<{stock: Number, capacite: Number|null, agrandissement: {t: Number, capacite: Number}|null, convois: Array<{t: Number, q: Number}>}>}|null}
+   *   parJour = terrain + champignonnière + armée + autres, [nourriture,
+   *   matériaux] ; autres : pillage subi (négatif), ou les autres lignes du
+   *   total du jeu quand il le compte déjà ; null : production inconnue
    */
   static etat(maintenant) {
     let info = Entrepots.lireInfobulle(),
@@ -794,9 +796,23 @@ class Entrepots {
     return {
       maintenant,
       parJour,
+      production: {
+        terrain: production.terrain,
+        champignon: production.champignon,
+        armee: production.armee,
+      },
+      autres: compte
+        ? [info.autres[0], info.autres[1]]
+        : [
+            -taux * (production.terrain[0] + production.champignon[0]),
+            -taux * production.terrain[1],
+          ],
+      libelleAutres:
+        !compte || (lecture && lecture.pille && lecture.pille[0] + lecture.pille[1] > 0)
+          ? "Pillage"
+          : "Autres",
       prochaine: (lecture && lecture.recolte) || null,
       pillage: compte || taux > 0,
-      taux: compte ? 0 : taux,
       lecture,
       entrepots: [0, 1].map((i) => {
         let stock = stocks[i] || 0,

@@ -87,6 +87,24 @@ const ouvrir = async (html: string) => {
   lire(`(() => { document.body.innerHTML = ${JSON.stringify(html)}; })()`);
   await lire(`DelaiRessources.installer()`);
 };
+/** Lignes de l'info-bulle d'une ligne de la page (rang), espaces réduits. */
+const lignes = (rang: number) =>
+  lire<string[]>(`(() => {
+    let d = $("<div>").html(DelaiRessources._contenu.call($(".o_delaiRessources")[${rang}]));
+    d.find("br").replaceWith("\\n");
+    d.find("div").before("\\n").after("\\n");
+    return d.text().split("\\n").map((l) => l.replace(/\\s+/g, " ").trim()).filter(Boolean);
+  })()`);
+/** Lignes en gras. */
+const gras = (rang: number) =>
+  lire<string[]>(
+    `$("<div>").html(DelaiRessources._contenu.call($(".o_delaiRessources")[${rang}])).find("b").map((i, b) => $(b).text()).get()`,
+  );
+/** Valeurs colorées : [texte, classe]. */
+const couleurs = (rang: number) =>
+  lire<string[][]>(
+    `$("<div>").html(DelaiRessources._contenu.call($(".o_delaiRessources")[${rang}])).find(".o_delaiPlus, .o_delaiMoins").map((i, e) => [[$(e).text(), e.className]]).get()`,
+  );
 /** Texte de l'info-bulle d'une ligne (rang dans la page), espaces réduits. */
 const bulle = (rang: number) =>
   lire<string>(
@@ -136,28 +154,52 @@ describe("heure où les ressources suffisent", () => {
     let r = lire(`DelaiRessources.calculer([0, 9830400], Entrepots.etat(heure))[1]`);
     expect(r.manque).toBe(6331937);
     expect(r.atteint).toBe(HEURE + 227000 + 331 * 30 * MIN);
-    expect(bulle(0)).toContain(
-      "Matériaux : il en manque 6 331 937, suffisants le 25/11 à 07h33 (dans 6 j 21 h)",
-    );
-    // un seul type de ressource : pas de ligne de titre en double
-    expect(bulle(0)).not.toContain("Ressources suffisantes");
+    expect(lignes(0)).toEqual([
+      "Matériaux suffisants dans 6j21h (Le 25/11 à 07h33)",
+      "Production TdC : +916 560 bois/jour",
+    ]);
+    expect(gras(0)).toEqual(["Matériaux suffisants dans 6j21h (Le 25/11 à 07h33)"]);
+    expect(couleurs(0)).toEqual([["+916 560 bois/jour", "o_delaiPlus"]]);
   });
 
-  test("recherche : nourriture et matériaux séparés, puis l'heure où les deux suffisent", async () => {
+  test("recherche : une ligne par ressource ; seul ce qui compte pour les pommes qui manquent est détaillé", async () => {
     noterRecolte({ recolte: HEURE + 227000 });
     await ouvrir(
       encart([220554, 3498463]) +
         INFOBULLE +
         tableau(recherche("Vitesse de chasse", "12 800", "1 024 000", "640 000")),
     );
-    // nourriture : champignonnière et armée à chaque récolte, 553 439 ÷ 48 = 11 529,98 ;
-    // 803 446 qui manquent : 70 récoltes, la dernière le 19/11 à 20h33
-    expect(bulle(0)).toContain(
-      "Nourriture : il en manque 803 446, suffisante le 19/11 à 20h33 (dans 1 j 10 h)",
+    // pommes : champignonnière et armée à chaque récolte, 553 439 ÷ 48 = 11 529,98 ;
+    // 803 446 qui manquent : 70 récoltes, la dernière le 19/11 à 20h33 ; le bois est déjà là
+    expect(lignes(0)).toEqual([
+      "Pommes suffisantes dans 1j10h (Le 19/11 à 20h33)",
+      "Matériaux suffisants",
+      "Champi : +595 612 pommes/jour",
+      "Armée : −42 173 pommes/jour",
+    ]);
+    expect(gras(0)).toEqual(["Pommes suffisantes dans 1j10h (Le 19/11 à 20h33)"]);
+    expect(couleurs(0)).toEqual([
+      ["+595 612 pommes/jour", "o_delaiPlus"],
+      ["−42 173 pommes/jour", "o_delaiMoins"],
+    ]);
+  });
+
+  test("les deux manquent : la plus restrictive (la plus tardive) en premier et en gras", async () => {
+    noterRecolte({ recolte: HEURE + 227000 });
+    await ouvrir(
+      encart([220554, 3498463]) +
+        INFOBULLE +
+        tableau(recherche("Bouclier", "20 480", "300 000", "5 000 000")),
     );
-    expect(bulle(0)).toContain("Matériaux : suffisants (3 498 463 en stock)");
-    expect(bulle(0)).toContain("Ressources suffisantes le 19/11 à 20h33 (dans 1 j 10 h)");
-    expect(bulle(0)).not.toContain("uvri");
+    // bois : 1 501 537 qui manquent, 79 récoltes ; pommes : 79 446, 7 récoltes
+    expect(lignes(0)).toEqual([
+      "Matériaux suffisants dans 1j15h (Le 20/11 à 01h03)",
+      "Pommes suffisantes dans 3h04 (Le 18/11 à 13h03)",
+      "Production TdC : +916 560 bois/jour",
+      "Champi : +595 612 pommes/jour",
+      "Armée : −42 173 pommes/jour",
+    ]);
+    expect(gras(0)).toEqual(["Matériaux suffisants dans 1j15h (Le 20/11 à 01h03)"]);
   });
 
   test("vassal : la part du seigneur est prise à chaque récolte sur le terrain et la champignonnière", async () => {
@@ -170,27 +212,31 @@ describe("heure où les ressources suffisent", () => {
     let r = lire(`DelaiRessources.calculer([1024000, 0], Entrepots.etat(heure))[0]`);
     // (595 612 × 0,7 − 42 173) ÷ 48 = 7 807,4 par récolte : 103 récoltes
     expect(r.atteint).toBe(HEURE + 227000 + 102 * 30 * MIN);
-    expect(bulle(0)).toContain("pillage subi déduit (30 %)");
+    expect(lignes(0)).toEqual([
+      "Pommes suffisantes dans 2j3h (Le 20/11 à 13h03)",
+      "Matériaux suffisants",
+      "Pillage : −178 684 pommes/jour",
+      "Champi : +595 612 pommes/jour",
+      "Armée : −42 173 pommes/jour",
+    ]);
   });
 
-  test("plus que ne contient l'entrepôt : jamais, même avec la production", async () => {
+  test("plus que ne contient l'entrepôt : jamais, sans détail", async () => {
     await ouvrir(
       encart([220554, 3498463]) +
         INFOBULLE +
         tableau(recherche("Poison", "250 000", "40 000 000", "15 000 000")),
     );
-    expect(bulle(0)).toContain(
-      "Nourriture : il en faut 40 000 000, plus que ne contient ton entrepôt (1 229 300) : jamais suffisante",
-    );
-    expect(bulle(0)).toContain(
-      "Matériaux : il en faut 15 000 000, plus que ne contient ton entrepôt (9 830 900)",
-    );
-    expect(bulle(0)).toContain("Ressources jamais suffisantes");
+    expect(lignes(0)).toEqual([
+      "Pommes jamais suffisantes : entrepôt trop petit (1 229 300)",
+      "Matériaux jamais suffisants : entrepôt trop petit (9 830 900)",
+    ]);
   });
 
-  test("déjà en stock : suffisantes", async () => {
+  test("déjà en stock : suffisants, rien d'autre", async () => {
     await ouvrir(encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Dôme", "28 000")));
-    expect(bulle(0)).toContain("Matériaux : suffisants (3 498 463 en stock)");
+    expect(lignes(0)).toEqual(["Matériaux suffisants"]);
+    expect(gras(0)).toEqual([]);
   });
 
   test("production qui baisse sans convoi : jamais", async () => {
@@ -202,22 +248,24 @@ describe("heure où les ressources suffisent", () => {
         infobulle(["-42 173", "+0"], ["0", "0"], "0", "-42 173") +
         tableau(recherche("Armes", "40 960", "300 000", "102 400")),
     );
-    expect(bulle(0)).toContain("jamais suffisante avec la production actuelle (-42 173 par jour)");
-    expect(bulle(0)).toContain("Aucun convoi attendu.");
+    expect(lignes(0)).toEqual([
+      "Pommes jamais suffisantes avec la production actuelle",
+      "Matériaux suffisants",
+      "Armée : −42 173 pommes/jour",
+      "Heure des récoltes inconnue : ouvre la page Ressources.",
+    ]);
   });
 
   test("heure des récoltes inconnue : production étalée, et l'info-bulle le dit", async () => {
     await ouvrir(
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
     );
-    expect(bulle(0)).toContain(
-      "étalée sur la journée : heure des récoltes inconnue, ouvre la page Ressources",
-    );
+    expect(lignes(0)).toContain("Heure des récoltes inconnue : ouvre la page Ressources.");
   });
 });
 
 describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
-  test("une lecture de la page Convois ; le convoi qui arrive est compté et listé, pas celui qui part", async () => {
+  test("une lecture de la page Convois ; le convoi qui arrive est compté, pas celui qui part", async () => {
     noterRecolte({ recolte: HEURE + 227000 });
     lire(`REPONSE = () => $.Deferred().resolve(${JSON.stringify(PAGE_CONVOIS)}).promise()`);
     await ouvrir(
@@ -231,11 +279,26 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
     expect(lire(`DelaiRessources.calculer([0, 9830400], Entrepots.etat(heure))[1].atteint`)).toBe(
       HEURE + 227000 + 279 * 30 * MIN,
     );
-    expect(bulle(0)).toContain(
-      "Convois attendus, comptés à leur arrivée : Alpha 1 000 000 le 18/11 à 12h00",
+    // un bâtiment ne coûte pas de pommes : seule la part en bois du convoi est montrée
+    expect(lignes(0)).toEqual([
+      "Matériaux suffisants dans 5j19h (Le 24/11 à 05h33)",
+      "Production TdC : +916 560 bois/jour",
+      "Convoi : +1 000 000 bois",
+    ]);
+  });
+
+  test("convoi qui arrive après que la ressource suffit : pas compté", async () => {
+    noterRecolte({ recolte: HEURE + 227000 });
+    lire(
+      `REPONSE = () => $.Deferred().resolve(${JSON.stringify(PAGE_CONVOIS.replace("2H 00m 00s", "9J 0H 00m 00s"))}).promise()`,
     );
-    // un bâtiment ne coûte pas de nourriture : seule la part en matériaux est montrée
-    expect(bulle(0)).not.toContain("50 000");
+    await ouvrir(
+      encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
+    );
+    expect(lignes(0)).toEqual([
+      "Matériaux suffisants dans 6j21h (Le 25/11 à 07h33)",
+      "Production TdC : +916 560 bois/jour",
+    ]);
   });
 
   test("page Convois sans réponse : convois de la dernière visite, et l'info-bulle le dit", async () => {
@@ -244,12 +307,15 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
       { cible: "Charlie", sens: false, nou: "0", mat: "500000", exp: moment(heure + ${3 * H}).toISOString() },
       { cible: "Bravo", sens: true, nou: "0", mat: "90000", exp: moment(heure + ${H}).toISOString() },
     ] }))`);
+    noterRecolte({ recolte: HEURE + 227000 });
     await ouvrir(
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
     );
-    expect(bulle(0)).toContain(
-      "Convois attendus, comptés à leur arrivée (page Convois pas relue, pas de réponse en 5 s : convois de ta dernière visite de la page Convois) : Charlie 500 000 le 18/11 à 13h00",
-    );
+    expect(lignes(0).slice(1)).toEqual([
+      "Production TdC : +916 560 bois/jour",
+      "Convoi : +500 000 bois",
+      "Page Convois pas relue (pas de réponse en 5 s) : convois de ta dernière visite.",
+    ]);
     expect(lire(`JOURNAL`)).toEqual(["page Convois non relue : pas de réponse en 5 s"]);
   });
 
@@ -260,7 +326,9 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
     await ouvrir(
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
     );
-    expect(bulle(0)).toContain("page Convois pas relue, la réponse n'est pas la page Convois");
+    expect(lignes(0)).toContain(
+      "Page Convois pas relue (la réponse n'est pas la page Convois) : convois de ta dernière visite.",
+    );
   });
 
   test("page sans coût (aucune ligne) : aucune requête", async () => {
@@ -296,7 +364,7 @@ describe("toucher (téléphone)", () => {
     const ouvertes = () => lire<number>(`$(".o_delaiRessources[aria-describedby]").length`);
     lire(`$(".o_delaiRessources").eq(0).trigger("click")`);
     expect(ouvertes()).toBe(1);
-    expect(lire(`$(".o_delaiInfobulle").last().text()`)).toContain("Matériaux : il en manque");
+    expect(lire(`$(".o_delaiInfobulle").last().text()`)).toContain("Matériaux suffisants dans");
     expect(lire<number>(`$(".o_delaiRessources").eq(0).find("[title]").length`)).toBe(0);
     // une autre cellule : la première se ferme
     lire(`$(".o_delaiRessources").eq(1).trigger("click")`);

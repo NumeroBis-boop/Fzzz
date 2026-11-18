@@ -3692,6 +3692,19 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   max-width: min(92vw, 500px) !important;
   pointer-events: none;
 }
+.o_delaiInfobulle .o_delaiDetail,
+.o_delaiInfobulle .o_delaiNote {
+  margin-top: 0.3em;
+}
 .o_delaiInfobulle .o_delaiNote {
   font-size: 0.9em;
+}
+/* sur le fond olive de l'info-bulle du jeu (#676b51) : clairs, en gras, pour rester lisibles */
+.o_delaiInfobulle .o_delaiPlus {
+  color: #b5f0a0;
+  font-weight: bold;
+}
+.o_delaiInfobulle .o_delaiMoins {
+  color: #ffab9f;
+  font-weight: bold;
 }

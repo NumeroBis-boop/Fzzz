@@ -82,7 +82,9 @@ class DelaiRessources {
     });
   }
   /**
-   * Contenu de l'info-bulle d'une ligne.
+   * Contenu de l'info-bulle d'une ligne : une ligne par ressource du coût,
+   * la plus restrictive en premier et en gras, puis ce que le calcul compte
+   * pour les ressources qui manquent (format du mainteneur, 18/11/2026).
    *
    * @static
    * @method html
@@ -95,48 +97,88 @@ class DelaiRessources {
       return "Production de ressources inconnue : ouvre la page Ressources pour qu'elle soit lue.";
     let maintenant = Horloge.maintenant(),
       resultats = DelaiRessources.calculer(cout, etat),
-      utiles = /** @type {Array<any>} */ (resultats.filter(Boolean)),
-      quand = (/** @type {Number} */ ms) => moment(ms).format("[le] DD/MM [à] HH[h]mm"),
-      dans = (/** @type {Number} */ ms) =>
-        ms > maintenant ? ` (dans ${Entrepots.duree(ms - maintenant)})` : "",
-      // heure passée depuis l'ouverture de la page, d'où part le calcul (page restée ouverte)
-      passee = (/** @type {Number} */ ms) => ms <= maintenant && ms > etat.maintenant,
-      noms = ["Nourriture", "Matériaux"],
-      accords = ["suffisante", "suffisants"],
-      lignes = [];
-    if (utiles.length > 1) {
-      let dates = utiles.map((r) => r.atteint),
-        fin = dates.every((d) => d != null) ? Math.max(...dates) : null;
-      lignes.push(
-        `<b>${
-          utiles.every((r) => !r.manque)
-            ? "Ressources suffisantes"
-            : fin != null
-              ? `Ressources suffisantes ${quand(fin)}${dans(fin)}${passee(fin) ? ", d'après le calcul : recharge la page" : ""}`
-              : utiles.some((r) => DelaiRessources._jamais(r))
-                ? "Ressources jamais suffisantes"
-                : "Ressources pas suffisantes d'ici un an"
-        }</b>`,
-      );
-    }
-    resultats.forEach((r, i) => {
-      if (!r) return;
-      let etatRessource = !r.manque
-        ? `${accords[i]} (${numeral(r.stock).format()} en stock)`
-        : r.trop
-          ? `il en faut ${numeral(r.cout).format()}, plus que ne contient ton entrepôt (${numeral(r.capacite).format()}) : jamais ${accords[i]}`
-          : r.atteint != null
-            ? `il en manque ${numeral(r.manque).format()}, ${accords[i]} ${quand(r.atteint)}${dans(r.atteint)}${passee(r.atteint) ? ", d'après le calcul : recharge la page" : ""}`
-            : DelaiRessources._jamais(r)
-              ? `il en manque ${numeral(r.manque).format()}, jamais ${accords[i]} avec la production actuelle (${numeral(Math.round(r.parJour)).format()} par jour)`
-              : `il en manque ${numeral(r.manque).format()}, pas ${accords[i]} d'ici un an`;
-      lignes.push(`<b>${noms[i]}</b> : ${etatRessource}`);
-    });
-    lignes.push(DelaiRessources._ligneConvois(resultats, quand, etat.maintenant));
-    lignes.push(
-      `<span class='o_delaiNote'>${DelaiRessources._ligneProduction(etat, resultats, maintenant)}</span>`,
+      ordre = [0, 1]
+        .filter((i) => resultats[i])
+        .sort(
+          (a, b) =>
+            DelaiRessources._rang(/** @type {any} */ (resultats[b])) -
+            DelaiRessources._rang(/** @type {any} */ (resultats[a])),
+        ),
+      lignes = ordre.map((i, k) => {
+        let r = /** @type {any} */ (resultats[i]),
+          titre = DelaiRessources._titre(r, i, maintenant);
+        return k == 0 && r.manque ? `<b>${titre}</b>` : titre;
+      }),
+      detail = DelaiRessources._composantes(resultats, etat).map(
+        (c) =>
+          `${c.nom} : ${c.valeurs
+            .map(
+              (v) => `<span class='${v.n > 0 ? "o_delaiPlus" : "o_delaiMoins"}'>${v.texte}</span>`,
+            )
+            .join(" et ")}`,
+      ),
+      notes = DelaiRessources._notes(resultats, etat);
+    return (
+      lignes.join("<br/>") +
+      (detail.length ? `<div class='o_delaiDetail'>${detail.join("<br/>")}</div>` : "") +
+      (notes.length ? `<div class='o_delaiNote'>${notes.join("<br/>")}</div>` : "")
     );
-    return lignes.join("<br/>");
+  }
+  /**
+   * « 6j21h », « 5h07 », « 12min ».
+   *
+   * @static
+   * @method duree
+   * @param {Number} ms
+   * @return {String}
+   */
+  static duree(ms) {
+    let min = Math.max(1, Math.round(ms / 60000)),
+      j = Math.floor(min / 1440),
+      h = Math.floor((min % 1440) / 60),
+      m = min % 60;
+    return j ? `${j}j${h}h` : h ? `${h}h${String(m).padStart(2, "0")}` : `${m}min`;
+  }
+  /**
+   * Plus grand pour la ressource la plus restrictive : jamais, pas d'ici un
+   * an, l'heure où elle suffit ; 0 si elle suffit déjà.
+   *
+   * @private
+   * @static
+   * @param {any} r résultat d'une ressource (calculer)
+   * @return {Number}
+   */
+  static _rang(r) {
+    if (!r.manque) return 0;
+    // finis, pour que deux rangs égaux se soustraient à 0 dans le tri
+    if (DelaiRessources._jamais(r)) return Number.MAX_VALUE;
+    return r.atteint == null ? Number.MAX_VALUE / 2 : r.atteint;
+  }
+  /**
+   * « Matériaux suffisants dans 6j21h (Le 25/11 à 07h33) ».
+   *
+   * @private
+   * @static
+   * @param {any} r résultat d'une ressource (calculer)
+   * @param {Number} i 0 nourriture, 1 matériaux
+   * @param {Number} maintenant
+   * @return {String} HTML
+   */
+  static _titre(r, i, maintenant) {
+    let nom = ["Pommes", "Matériaux"][i],
+      accord = ["suffisantes", "suffisants"][i];
+    if (!r.manque) return `${nom} ${accord}`;
+    if (r.trop)
+      return `${nom} jamais ${accord} : entrepôt trop petit (${numeral(r.capacite).format()})`;
+    if (r.atteint == null)
+      return DelaiRessources._jamais(r)
+        ? `${nom} jamais ${accord} avec la production actuelle`
+        : `${nom} pas ${accord} d'ici un an`;
+    let date = moment(r.atteint).format("[Le] DD/MM [à] HH[h]mm");
+    // heure passée depuis l'ouverture de la page, d'où part le calcul
+    return r.atteint > maintenant
+      ? `${nom} ${accord} dans ${DelaiRessources.duree(r.atteint - maintenant)} (${date})`
+      : `${nom} ${accord} d'après le calcul (${date}) : recharge la page`;
   }
   /**
    * Jamais suffisante : entrepôt trop petit, ou production qui ne fait pas
@@ -151,62 +193,94 @@ class DelaiRessources {
     return r.manque > 0 && (r.trop || (r.atteint == null && r.parJour <= 0 && !r.convois.length));
   }
   /**
+   * Ce que le calcul compte pour les ressources qui manquent (pas celles déjà
+   * en stock ni un entrepôt trop petit) : production du TdC, convois arrivés
+   * avant que la ressource suffise, pillage, champignonnière et armée par
+   * jour ; les valeurs nulles sont omises.
+   *
    * @private
    * @static
    * @param {Array<any>} resultats (calculer)
-   * @param {function(Number): String} quand
-   * @param {Number} depuis départ du calcul : les convois arrivés après sont comptés
-   * @return {String} HTML
+   * @param {any} etat Entrepots.etat
+   * @return {Array<{nom: String, valeurs: Array<{n: Number, texte: String}>}>}
    */
-  static _ligneConvois(resultats, quand, depuis) {
-    let lecture = DelaiRessources._convois,
-      source =
-        lecture.etat == "lu"
-          ? ""
-          : lecture.etat == "lecture"
-            ? " (page Convois en cours de lecture : convois de ta dernière visite de la page Convois)"
-            : ` (page Convois pas relue, ${Utils.echapper(lecture.raison || "")} : convois de ta dernière visite de la page Convois)`,
-      types = [0, 1].filter((i) => resultats[i]),
-      liste = (Entrepots.convoisLus || Entrepots.convoisGardes())
-        .filter((c) => c.t > depuis && types.some((i) => c.q[i] > 0))
-        .map(
-          (c) =>
-            `${Utils.echapper(c.de || "?")} ${types
-              .filter((i) => c.q[i] > 0)
-              .map((i) => Entrepots.montant(c.q[i], i))
-              .join(" ")} ${quand(c.t)}`,
-        );
-    return liste.length
-      ? `Convois attendus, comptés à leur arrivée${source} : ${liste.join(" ; ")}`
-      : `Aucun convoi attendu${source}.`;
+  static _composantes(resultats, etat) {
+    let manquent = [0, 1].filter(
+        (i) => resultats[i] && resultats[i].manque > 0 && !resultats[i].trop,
+      ),
+      unites = ["pommes", "bois"],
+      valeur = (
+        /** @type {Number} */ n,
+        /** @type {Number} */ i,
+        /** @type {Boolean} */ parJour,
+      ) => ({
+        n: Math.round(n),
+        texte: `${n > 0 ? "+" : "−"}${numeral(Math.abs(Math.round(n))).format()} ${unites[i]}${parJour ? "/jour" : ""}`,
+      }),
+      /** @type {Array<{nom: String, valeurs: Array<{n: Number, texte: String}>}>} */
+      lignes = [],
+      ajouter = (
+        /** @type {String} */ nom,
+        /** @type {Array<{n: Number, texte: String}>} */ valeurs,
+      ) => {
+        let nonNulles = valeurs.filter((v) => v.n != 0);
+        if (nonNulles.length) lignes.push({ nom, valeurs: nonNulles });
+      },
+      // convois comptés : arrivés avant que la ressource suffise
+      comptes = manquent.map((i) =>
+        resultats[i].convois.filter(
+          (/** @type {{t: Number, q: Number}} */ c) =>
+            resultats[i].atteint == null || c.t <= resultats[i].atteint,
+        ),
+      ),
+      p = etat.production;
+    ajouter(
+      "Production TdC",
+      manquent.map((i) => valeur(p.terrain[i], i, true)),
+    );
+    ajouter(
+      Math.max(0, ...comptes.map((l) => l.length)) > 1 ? "Convois" : "Convoi",
+      manquent.map((i, k) =>
+        valeur(
+          comptes[k].reduce((n, /** @type {{q: Number}} */ c) => n + c.q, 0),
+          i,
+          false,
+        ),
+      ),
+    );
+    ajouter(
+      etat.libelleAutres,
+      manquent.map((i) => valeur(etat.autres[i], i, true)),
+    );
+    if (manquent.includes(0)) {
+      ajouter("Champi", [valeur(p.champignon[0], 0, true)]);
+      ajouter("Armée", [valeur(p.armee[0], 0, true)]);
+    }
+    return lignes;
   }
   /**
+   * Ce qui rend le calcul moins sûr, seulement quand une ressource manque :
+   * page Convois pas relue, heure des récoltes inconnue.
+   *
    * @private
    * @static
-   * @param {any} etat Entrepots.etat
    * @param {Array<any>} resultats (calculer)
-   * @param {Number} maintenant
-   * @return {String} HTML
+   * @param {any} etat Entrepots.etat
+   * @return {Array<String>} HTML
    */
-  static _ligneProduction(etat, resultats, maintenant) {
-    let parJour = [0, 1]
-        .filter((i) => resultats[i])
-        .map(
-          (i) =>
-            `${etat.parJour[i] > 0 ? "+" : ""}${numeral(Math.round(etat.parJour[i])).format()} ${i ? "matériaux" : "nourriture"}`,
-        )
-        .join(" et "),
-      pillage =
-        etat.taux > 0
-          ? `, pillage subi déduit (${numeral(etat.taux * 100).format()} %)`
-          : etat.pillage
-            ? ", pillage subi déduit"
-            : "";
+  static _notes(resultats, etat) {
+    if (!resultats.some((r) => r && r.manque > 0 && !r.trop)) return [];
+    let notes = [],
+      lecture = DelaiRessources._convois;
+    if (lecture.etat == "lecture")
+      notes.push("Page Convois en cours de lecture : convois de ta dernière visite.");
+    else if (lecture.etat == "echec")
+      notes.push(
+        `Page Convois pas relue (${Utils.echapper(lecture.raison || "")}) : convois de ta dernière visite.`,
+      );
     if (etat.prochaine == null)
-      return `Production de ${parJour} par jour${pillage}, étalée sur la journée : heure des récoltes inconnue, ouvre la page Ressources pour qu'elle soit lue.`;
-    let prochaine = etat.prochaine;
-    while (prochaine < maintenant) prochaine += MS_RECOLTE;
-    return `Production de ${parJour} par jour${pillage}, comptée à chaque récolte du jeu, toutes les 30 min (la prochaine à ${moment(prochaine).format("HH[h]mm")}).`;
+      notes.push("Heure des récoltes inconnue : ouvre la page Ressources.");
+    return notes;
   }
   /**
    * Lit la page Convois.

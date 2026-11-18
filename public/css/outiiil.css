@@ -3551,19 +3551,22 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   border-collapse: separate;
   border-spacing: 0;
 }
+/* marges et flèches de tri en em : elles rétrécissent avec la police, que
+   StatsMembres.ajusterTaille réduit quand le tableau dépasse du cadre */
 #o_statsMembresTable td,
 #o_statsMembresTable th {
-  padding: 2px 6px;
+  padding: 0.15em 0.4em;
   white-space: nowrap;
   text-align: center;
 }
 /* flèches de tri de DataTables à droite du titre : la même marge à gauche
-   le garde centré sur sa colonne ; leur image, transparente sur ses 5 px de
-   droite, décalée vers le bord pour ne pas toucher un titre court */
+   le garde centré sur sa colonne ; leur image (19 px), transparente sur son
+   quart droit, décalée vers le bord pour ne pas toucher un titre court */
 #o_statsMembresTable thead th {
-  padding-left: 16px;
-  padding-right: 16px;
-  background-position: right -3px center;
+  padding-left: 1em;
+  padding-right: 1em;
+  background-size: 1.2em;
+  background-position: right -0.2em center;
 }
 /* information que le joueur ne partage pas : le rouge des cases du fichier */
 #o_statsMembres .o_statsNonPartage {

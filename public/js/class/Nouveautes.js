@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.132.2",
+    notes: [
+      "Stats membres : la police du tableau rétrécit (jusqu'à 60 %) pour qu'il tienne dans la page ; trop large malgré tout (téléphone), il défile en largeur.",
+    ],
+  },
+  {
     version: "1.132.1",
     notes: ["Stats membres : CdF et FdF avec 3 chiffres, tronqués (3,67m ; 12,3k ; 150k)."],
   },

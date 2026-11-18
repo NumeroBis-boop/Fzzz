@@ -67,6 +67,10 @@ let tdcStatsMembres = null;
 // lecture des TdC montrée dans le tableau
 /** @type {{valeurs: Object<string, number>, heure: number}|null} */
 let tdcTableauStats = null;
+// police du tableau réduite par pas de 5 % tant qu'il dépasse du cadre, pas
+// en dessous (comme « Mes attaques en cours ») : au-delà, il défile en largeur
+const TAILLE_MIN_STATS = 60;
+let ajustementStatsActif = false;
 
 /**
  * @class StatsMembres
@@ -121,8 +125,39 @@ class StatsMembres {
     if (!$("#o_statsMembres").length) StatsMembres._construire();
     $("#alliance, #o_carteAlliance").hide();
     $("#o_statsMembres").show();
+    // tableau mesuré visible : caché, il n'a pas de largeur
+    StatsMembres.ajusterTaille();
     if (!lectureStatsMembres) lectureStatsMembres = StatsMembres.charger();
     return lectureStatsMembres;
+  }
+  /**
+   * Police du tableau réduite, par pas de 5 % jusqu'à TAILLE_MIN_STATS, tant
+   * qu'il dépasse du cadre ; refait quand la fenêtre change de taille.
+   *
+   * @static
+   * @method ajusterTaille
+   */
+  static ajusterTaille() {
+    let $t = $("#o_statsMembresTable"),
+      cadre = $t.closest(".o_statsMembresTableau")[0];
+    if (!cadre) return;
+    let taille = 100;
+    $t.css("font-size", "");
+    // vue cachée : rien à mesurer, la police reste entière jusqu'au prochain affichage
+    if (!cadre.clientWidth) return;
+    while (taille > TAILLE_MIN_STATS && cadre.scrollWidth > cadre.clientWidth) {
+      taille -= 5;
+      $t.css("font-size", taille + "%");
+    }
+    if (!ajustementStatsActif) {
+      ajustementStatsActif = true;
+      /** @type {any} */
+      let attente = null;
+      $(window).on("resize", () => {
+        clearTimeout(attente);
+        attente = setTimeout(() => StatsMembres.ajusterTaille(), 150);
+      });
+    }
   }
   /**
    * @static
@@ -351,6 +386,7 @@ class StatsMembres {
       },
     });
     StatsMembres.colorier(StatsMembres.couleurs());
+    StatsMembres.ajusterTaille();
     $("#o_statsMembresCsv").prop("disabled", false);
   }
   /**

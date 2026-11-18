@@ -246,6 +246,30 @@ describe("tableau du dernier relevé de chaque joueur", () => {
     );
   });
 
+  test("police réduite par pas de 5 % tant que le tableau dépasse du cadre, pas sous 60 % (il défile alors)", async () => {
+    await ouvrir();
+    // pas de mise en page ici : un tableau de 1 000 px à 100 %, proportionnel à sa police
+    const taille = (cadre: number) =>
+      lire<string>(`(() => {
+        const cadre = document.querySelector(".o_statsMembresTableau"),
+          t = document.getElementById("o_statsMembresTable");
+        Object.defineProperty(cadre, "clientWidth", { configurable: true, get: () => ${cadre} });
+        Object.defineProperty(cadre, "scrollWidth", {
+          configurable: true,
+          get: () => Math.max(${cadre}, Math.round((1000 * (parseFloat(t.style.fontSize) || 100)) / 100)),
+        });
+        StatsMembres.ajusterTaille();
+        return t.style.fontSize;
+      })()`);
+    expect([taille(1200), taille(850), taille(700), taille(400), taille(1200)]).toEqual([
+      "",
+      "85%",
+      "70%",
+      "60%",
+      "",
+    ]);
+  });
+
   test("tri par une statistique ou par le TdC : de la plus élevée à la plus faible d'abord", async () => {
     await ouvrir();
     lire(`$("#o_statsMembresTable thead th").eq(5).trigger("click")`);

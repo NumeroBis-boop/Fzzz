@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.135.1",
+    notes: [
+      "Stats membres : l'entrée du menu Alliance et la vue reviennent pour tous (cases « Je partage ») ; seul le tableau est réservé aux chefs.",
+    ],
+  },
+  {
     version: "1.135.0",
     notes: [
       "Stats membres : chaque joueur envoie de nouveau ses stats (la 1.134.0 réservait l'envoi à une liste, par erreur).",

@@ -974,7 +974,7 @@ class BoiteParametre extends Boite {
         "pseudos des joueurs qui exportent leurs RC vers ce Google Sheet sans rien régler, séparés par des virgules",
       feuilleStats: "adresse du script du Google Sheet du relevé quotidien des stats membres",
       chefs:
-        "pseudos des chefs : eux seuls ont l'entrée « Stats membres » du menu Alliance, le dernier relevé de chaque joueur",
+        "pseudos des chefs : eux seuls voient le tableau de la vue « Stats membres » (menu Alliance), le dernier relevé de chaque joueur",
       chasseurs: "pseudos des chasseurs : rôle Chasseur par défaut",
       greniers: "pseudos des greniers : rôle Grenier et réglages des greniers par défaut",
       journal:

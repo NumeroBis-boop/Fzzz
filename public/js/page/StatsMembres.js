@@ -77,8 +77,9 @@ let ajustementStatsActif = false;
  */
 class StatsMembres {
   /**
-   * La vue est réservée aux chefs de l'alliance (règle du mainteneur, 18/11/2026) :
-   * ligne « Chefs » de la dernière lecture des réglages, sans requête.
+   * Le tableau est réservé aux chefs de l'alliance, la vue restant ouverte à
+   * tous (règle du mainteneur, 18/11/2026) : ligne « Chefs » de la dernière
+   * lecture des réglages, sans requête.
    *
    * @static
    * @method autorise
@@ -90,21 +91,21 @@ class StatsMembres {
   /**
    * @static
    * @method reservee
-   * @return {String} ce que voit un chef retiré de la liste depuis la dernière lecture
+   * @return {String} ce que voit, à la place du tableau, un joueur qui n'est pas chef
    */
   static reservee() {
-    return `Vue réservée aux chefs de l'alliance (ligne « ${REGLAGES_ALLIANCE.chefs.nom} » du sujet « ${TITRE_REGLAGES} »).`;
+    return `Le tableau des stats est réservé aux chefs de l'alliance (ligne « ${REGLAGES_ALLIANCE.chefs.nom} » du sujet « ${TITRE_REGLAGES} »).`;
   }
   /**
    * Entrée « Stats membres » du menu Alliance, après « Carte » (sinon après
-   * « Membres ») : elle mène à la vue de la page Membres. Pour les chefs seulement.
+   * « Membres ») : elle mène à la vue de la page Membres.
    *
    * @static
    * @method ajouterMenu
    */
   static ajouterMenu() {
     let $membres = $("#menuAlliance .boutonMembres");
-    if (!$membres.length || $("#o_ongletStatsMembres").length || !StatsMembres.autorise()) return;
+    if (!$membres.length || $("#o_ongletStatsMembres").length) return;
     ($("#o_ongletCarte").length ? $("#o_ongletCarte") : $membres)
       .parent()
       .after(
@@ -115,14 +116,13 @@ class StatsMembres {
    * Page Membres : vue montrée au clic sur l'entrée du menu, sans recharger la
    * page, ou à l'arrivée par son adresse (aussi tapée sur la page déjà
    * ouverte). Rien n'est demandé avant ; les TdC du tableau du jeu sont notés
-   * tout de suite, avant que l'extension ne le modifie. Rien pour un joueur qui
-   * n'est pas chef : son adresse laisse la page du jeu telle quelle.
+   * tout de suite, avant que l'extension ne le modifie.
    *
    * @static
    * @method installer
    */
   static installer() {
-    if (!$("#alliance").length || !StatsMembres.autorise()) return;
+    if (!$("#alliance").length) return;
     StatsMembres.noterTdc(PartageChasses.lireTdcMembres($(document), 3, 5));
     $("#o_ongletStatsMembres").on("click", (e) => {
       e.preventDefault();
@@ -226,15 +226,17 @@ class StatsMembres {
         .join(""),
       titres = donnees
         .map((d) => `<th title='${Utils.echapper(d.libelle)}'>${StatsMembres.titre(d)}</th>`)
-        .join("");
+        .join(""),
+      // tableau, sa couleur, son export et sa légende : pour les chefs (revu après la relecture des réglages)
+      cache = StatsMembres.autorise() ? "" : "style='display:none'";
     $("#alliance")
       .after(`<div id='o_statsMembres' class='boite_amelioration simulateur centre' style='display:none'>
         <h2>Stats membres</h2>
         <div class='o_statsMembresReglages'><span class='gras'>Je partage :</span>${cases}</div>
-        <div class='o_statsMembresReglages'><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
-        <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success' disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
-        <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
-        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
+        <div class='o_statsMembresReglages o_statsChefs' ${cache}><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
+        <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success o_statsChefs' ${cache} disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
+        <div class='o_statsMembresTableau o_statsChefs' ${cache}><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
+        <p class='reduce left o_statsChefs' ${cache}>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
       </div>`);
     $("#o_statsMembres input[data-stats-partage]").on("change", (e) => {
       let caseCochee = /** @type {HTMLInputElement} */ (e.currentTarget),
@@ -261,17 +263,25 @@ class StatsMembres {
    * @return {Promise<void>}
    */
   static charger() {
-    let $etat = $("#o_statsMembresEtat")
+    let chef = StatsMembres.autorise(),
+      $etat = $("#o_statsMembresEtat")
         .removeClass("red")
-        .text("Lecture du Google Sheet « Stats membres »…"),
-      tdc = StatsMembres.tdc();
+        .text(
+          chef
+            ? "Lecture du Google Sheet « Stats membres »…"
+            : "Lecture des réglages de l'alliance…",
+        ),
+      // TdC lus en même temps que les réglages pour un chef d'après la dernière lecture
+      tdc = chef ? StatsMembres.tdc() : null;
     return SuiviMembres.adresse()
       .then(
         ({ url, manque }) => {
           if (manque == "section" || manque == "sujet")
             throw new Error(SuiviMembres.sansAdresse(manque));
-          // réglages relus si la dernière lecture a plus d'une minute : un chef retiré depuis ne lit rien
-          if (!StatsMembres.autorise()) throw new Error(StatsMembres.reservee());
+          // réglages relus si la dernière lecture a plus d'une minute : la ligne « Chefs » fait foi
+          chef = StatsMembres.autorise();
+          $("#o_statsMembres .o_statsChefs").toggle(chef);
+          if (!chef) throw new Error(StatsMembres.reservee());
           if (!url) throw new Error(SuiviMembres.sansAdresse(manque));
           return ExportRapports.requete(url, "POST", { releves: true });
         },
@@ -283,7 +293,7 @@ class StatsMembres {
         if (!donnees || !Array.isArray(donnees.releves))
           throw new Error("réponse inattendue du script du Google Sheet");
         fichierLuStats = Horloge.maintenant();
-        return tdc.then((t) => {
+        return (tdc || StatsMembres.tdc()).then((t) => {
           StatsMembres.remplir(donnees.releves, t);
           StatsMembres._etat();
         });
@@ -291,7 +301,7 @@ class StatsMembres {
       .catch((e) => {
         let message = String((e && e.message) || e);
         if (message == StatsMembres.reservee()) {
-          $etat.addClass("red").text(message);
+          $etat.text(message);
           return;
         }
         // script d'avant cette lecture : la requête lui est inconnue

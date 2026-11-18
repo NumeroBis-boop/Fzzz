@@ -1120,7 +1120,7 @@ describe("Préférences → Partage de données", () => {
       "ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension »",
       "sans elle, rien n'est relevé ni envoyé",
       "Les chefs de l'alliance (ligne « Chefs » de ce sujet) les voient dans la vue « Stats membres » du menu Alliance.",
-      "« Chefs : … » : pseudos des chefs : eux seuls ont l'entrée « Stats membres » du menu Alliance, le dernier relevé de chaque joueur",
+      "« Chefs : … » : pseudos des chefs : eux seuls voient le tableau de la vue « Stats membres » (menu Alliance), le dernier relevé de chaque joueur",
       "le fichier indique seulement que tu ne la partages pas",
       "Aucun envoi depuis ce navigateur pour l'instant.",
     ])

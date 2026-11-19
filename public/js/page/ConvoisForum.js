@@ -17,10 +17,9 @@ let fileConvoisForum = Promise.resolve();
  * convoi a été transmis au site de suivi : c'est ce qui fait « ✅ Enregistré »
  * (le site de suivi ne garde pas le numéro du convoi dans le jeu).
  *
- * Écritures : au clic sur « Envoyer + partager » (le convoi envoyé), sur
- * « 📤 Envoyer au suivi » ou « 📝 Noter dans le forum » (sa répartition), et au
- * chargement de la page Convois qui suit un clic sur « Annuler » d'un convoi
- * noté. Les convois arrivés sont retirés à l'écriture suivante, sans
+ * Écritures : au clic sur « 📤 Envoyer au suivi » ou « 📝 Noter dans le
+ * forum » (sa répartition), et au chargement de la page Convois qui suit un
+ * clic sur « Annuler » d'un convoi noté. Les convois arrivés sont retirés à l'écriture suivante, sans
  * historique. Les sujets « Convois | pseudo » d'avant (premier message) sont
  * encore lus pour l'état « ✅ Enregistré », jamais écrits.
  *
@@ -255,7 +254,7 @@ class ConvoisForum {
   }
   /**
    * Convois transmis au site de suivi : leur ligne, avec leur répartition,
-   * remplace celle du même convoi déjà partagé.
+   * remplace celle du même convoi déjà notée (même numéro).
    *
    * @static
    * @method noter
@@ -268,25 +267,6 @@ class ConvoisForum {
     return ConvoisForum._reecrire((anciens) =>
       anciens.filter((a) => !nouveaux.some((n) => n.id && a.id == n.id)).concat(nouveaux),
     );
-  }
-  /**
-   * Convois envoyés avec « Envoyer + partager » : ajoutés à ma réponse, sans
-   * répartition ; un convoi déjà noté n'est pas récrit.
-   *
-   * @static
-   * @method partager
-   * @param {Array<any>} convois voir OuafSuivi.convoisJeu
-   * @return {Promise<Number>} convois ajoutés ; rejetée si l'écriture a échoué
-   */
-  static partager(convois) {
-    let ajoutes = 0;
-    return ConvoisForum._reecrire((anciens) => {
-      let nouveaux = convois
-        .filter((c) => !c.id || !anciens.some((a) => a.id == c.id))
-        .map((c) => ConvoisForum.entree(c));
-      ajoutes = nouveaux.length;
-      return nouveaux.length ? anciens.concat(nouveaux) : null;
-    }).then(() => ajoutes);
   }
   /**
    * Retire de ma réponse la ligne d'un convoi annulé, une seule : par numéro,

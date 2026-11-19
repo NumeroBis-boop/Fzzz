@@ -44,7 +44,6 @@ class PageCommerce {
     // option c+
     if (!Utils.comptePlus) this.plus();
     CommerceFzzz.suivi();
-    CommerceFzzz.partageConvois();
     // annulation d'un convoi, lancement : même position à l'écran après rechargement
     Utils.garderPosition("fzzz_positionCommerce");
     return this;

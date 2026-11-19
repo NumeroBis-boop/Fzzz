@@ -18,7 +18,7 @@ const page = creerPage(
   `var heure = moment("2026-11-19 14:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };
    var monProfil = { pseudo: "Moi", niveauConstruction: [-1, 10, 13, 0, 0, 0, 0, 0, 0, 0, 0, 4] };
-   var CommerceFzzz = { suivi() {}, partageConvois() {} };
+   var CommerceFzzz = { suivi() {} };
    var JOURNAL = [];`,
   "https://s5.fourmizzz.fr/commerce.php",
 );

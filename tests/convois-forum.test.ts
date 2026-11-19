@@ -145,42 +145,43 @@ describe("lignes d'un convoi", () => {
   });
 });
 
-describe("« Envoyer + partager » : ma réponse du sujet commun", () => {
-  test("premier partage : ma réponse postée avec le convoi, sans répartition ; celles des autres intactes", async () => {
+describe("ma réponse du sujet commun, écrite quand un convoi est transmis au site de suivi", () => {
+  const transmis = (id: number, vers: string, nou: number, mat: number, dans = 2 * H) =>
+    JSON.stringify({ ...convoi(id, vers, nou, mat, dans), prevu: 0, avance: nou + mat });
+
+  test("premier convoi noté : ma réponse postée avec sa répartition ; celles des autres intactes", async () => {
     commun(["Bravo", ["19/11/26 12:00 | Charlie | 1 pommes | 2 bois | #5"]]);
-    expect(
-      await lire(`ConvoisForum.partager([${JSON.stringify(convoi(901, "Alpha", 4, 0))}])`),
-    ).toBe(1);
+    await lire(`ConvoisForum.noter([${transmis(901, "Alpha", 4, 0)}])`);
     expect(appels()).toEqual(["envoiNouveauMessage"]);
-    expect(reponse()).toBe("19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901");
+    expect(reponse()).toBe(
+      "19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901 | prévu 0 | avance 4",
+    );
     expect(reponse("Bravo")).toBe("19/11/26 12:00 | Charlie | 1 pommes | 2 bois | #5");
   });
 
-  test("convoi déjà partagé : rien n'est écrit ; un autre convoi est ajouté à ma réponse", async () => {
-    commun(["Moi", ["19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901"]]);
-    expect(
-      await lire(`ConvoisForum.partager([${JSON.stringify(convoi(901, "Alpha", 4, 0))}])`),
-    ).toBe(0);
-    expect(appels()).toEqual([]);
-    await lire(`ConvoisForum.partager([${JSON.stringify(convoi(902, "Bravo", 0, 9000, 3 * H))}])`);
+  test("un autre convoi est ajouté à ma réponse, le plus récent en premier", async () => {
+    commun(["Moi", ["19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901 | prévu 0 | avance 4"]]);
+    await lire(`ConvoisForum.noter([${transmis(902, "Bravo", 0, 9000, 3 * H)}])`);
     expect(appels()).toEqual(["envoiEditMessage"]);
     expect(reponse()).toBe(
-      "19/11/26 13:00 | Bravo | 0 pommes | 9 000 bois | #902\n19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901",
+      "19/11/26 13:00 | Bravo | 0 pommes | 9 000 bois | #902 | prévu 0 | avance 9 000\n19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901 | prévu 0 | avance 4",
     );
   });
 
   test("convois arrivés : retirés à l'écriture suivante, sans historique", async () => {
-    commun(["Moi", ["19/11/26 08:00 | Alpha | 1 pommes | 1 bois | #800"]]);
-    await lire(`ConvoisForum.partager([${JSON.stringify(convoi(901, "Alpha", 4, 0))}])`);
-    expect(reponse()).toBe("19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901");
+    commun(["Moi", ["19/11/26 08:00 | Alpha | 1 pommes | 1 bois | #800 | prévu 2 | avance 0"]]);
+    await lire(`ConvoisForum.noter([${transmis(901, "Alpha", 4, 0)}])`);
+    expect(reponse()).toBe(
+      "19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901 | prévu 0 | avance 4",
+    );
     expect(lire(`FORUM.sujets.length`)).toBe(1);
   });
 
   test("sujet commun absent : refusé, avec le titre à créer", async () => {
     let erreur = "";
-    await lire<Promise<void>>(
-      `ConvoisForum.partager([${JSON.stringify(convoi(901, "Alpha", 4, 0))}])`,
-    ).catch((e: Error) => (erreur = e.message));
+    await lire<Promise<void>>(`ConvoisForum.noter([${transmis(901, "Alpha", 4, 0)}])`).catch(
+      (e: Error) => (erreur = e.message),
+    );
     expect(erreur).toBe(
       `sujet « ${COMMUN} » absent du forum, à créer par un chef dans la section cachée`,
     );
@@ -190,15 +191,15 @@ describe("« Envoyer + partager » : ma réponse du sujet commun", () => {
     commun();
     lire(`FORUM.refuse = true`);
     let erreur = "";
-    await lire<Promise<void>>(
-      `ConvoisForum.partager([${JSON.stringify(convoi(901, "Alpha", 4, 0))}])`,
-    ).catch((e: Error) => (erreur = e.message));
+    await lire<Promise<void>>(`ConvoisForum.noter([${transmis(901, "Alpha", 4, 0)}])`).catch(
+      (e: Error) => (erreur = e.message),
+    );
     expect(erreur).toBe("écriture refusée par le forum (droits de la section ?)");
   });
 });
 
 describe("site de suivi : « ✅ Enregistré » d'après le forum", () => {
-  test("convoi transmis : sa ligne partagée prend sa répartition, une seule ligne", async () => {
+  test("convoi transmis : sa ligne déjà notée prend sa répartition, une seule ligne", async () => {
     commun(["Moi", ["19/11/26 12:00 | Alpha | 4 pommes | 0 bois | #901"]]);
     await lire(
       `ConvoisForum.noter([${JSON.stringify({ ...convoi(901, "Alpha", 4, 0), prevu: 0, avance: 4 })}])`,

@@ -135,7 +135,7 @@ beforeEach(() => {
     monProfil.pseudo = "DoggyBag";
     history.replaceState(null, "", "/Armee.php");
     document.body.innerHTML = "<span id='tag_alliance'>OUAF</span>";
-    Utils._reine = null; Utils._pageReine = null;
+    Utils._reine = null; Utils._pageReine = null; SuiviMembres._lues = {};
     window.TOASTS = [];
     $.toast = (o) => { TOASTS.push(o); return {}; };
     // ce que le module note au journal, et ses écritures de l'état
@@ -181,7 +181,7 @@ const annonceVue = () =>
 // comme content.js : observer() avant le module de la page, lancer() après
 const ouvrirPage = async (chemin = "/Armee.php") => {
   lire(
-    `(() => { history.replaceState(null, "", ${JSON.stringify(chemin)}); Utils._reine = null; Utils._pageReine = null; SuiviMembres.observer(); })()`,
+    `(() => { history.replaceState(null, "", ${JSON.stringify(chemin)}); Utils._reine = null; Utils._pageReine = null; SuiviMembres._lues = {}; SuiviMembres.observer(); })()`,
   );
   const resultat = await lire<Promise<string>>(`SuiviMembres.lancer()`);
   await attendre();

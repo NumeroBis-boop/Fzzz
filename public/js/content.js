@@ -746,8 +746,15 @@ const DATEPICKER_OPTION = {
           try {
             sessionStorage.removeItem(CLE_TRI_CONVOIS);
           } catch (e) {}
-        // niveau de la Champignonnière ou de l'Étable à pucerons changé : relevé du
-        // jour à refaire ; lu avant que le module de la page ne la modifie
+        // niveau de la Champignonnière ou de l'Étable à pucerons changé : profil du
+        // site de suivi des convois et relevé du jour à refaire ; lu avant que le
+        // module de la page ne la modifie, le profil d'abord (le relevé oublie la
+        // construction suivie une fois finie)
+        try {
+          ProfilConvois.observer();
+        } catch (e) {
+          console.error("Fzzz : profil du site de suivi des convois", e);
+        }
         try {
           SuiviMembres.observer();
         } catch (e) {
@@ -864,6 +871,12 @@ const DATEPICKER_OPTION = {
         } catch (e) {
           console.error("Fzzz : partage de données", e);
         }
+        // profil du site de suivi des convois : après le relevé, dont il reprend
+        // les pages lues (Construction, Reine)
+        releve
+          .catch(() => {})
+          .then(() => ProfilConvois.lancer())
+          .catch((e) => console.error("Fzzz : profil du site de suivi des convois", e));
         releve
           .catch(() => {})
           .then(() => ExportAuto.lancer())

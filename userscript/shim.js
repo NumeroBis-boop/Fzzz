@@ -141,7 +141,11 @@ var chrome = (function () {
     },
   };
 
-  /** Requête au site de suivi des convois, mêmes limites que l'extension (API seulement). */
+  /**
+   * Requête au site de suivi des convois, mêmes limites que l'extension (API
+   * seulement). GM.xmlHttpRequest quand le gestionnaire n'a que lui
+   * (Userscripts sur Safari iOS).
+   */
   function requeteOuaf(m) {
     if (
       !ORIGINE_SITE.test(String(m.site || "")) ||
@@ -149,8 +153,15 @@ var chrome = (function () {
       !["GET", "POST", "PUT"].includes(m.methode)
     )
       return Promise.resolve({ erreur: "requete" });
+    let xhr =
+      typeof GM_xmlhttpRequest == "function"
+        ? GM_xmlhttpRequest
+        : typeof GM != "undefined" && GM && typeof GM.xmlHttpRequest == "function"
+          ? GM.xmlHttpRequest
+          : null;
+    if (!xhr) return Promise.resolve({ erreur: "reseau" });
     return new Promise((resoudre) => {
-      GM_xmlhttpRequest({
+      xhr({
         method: m.methode,
         url: m.site + m.chemin,
         headers: m.corps === undefined ? {} : { "Content-Type": "application/json" },

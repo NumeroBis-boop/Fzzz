@@ -369,6 +369,37 @@ describe("export des RC : script du Google Sheet de l'alliance", () => {
     });
   });
 
+  test("Userscripts (Safari iOS) : site de suivi des convois par GM.xmlHttpRequest", async () => {
+    const requetes: any[] = [];
+    const chrome = charger({
+      GM: {
+        xmlHttpRequest: (d: any) => {
+          requetes.push([d.method, d.url, d.data]);
+          d.onload({ status: 200, responseText: '{"pseudo":"Alpha","champi":20}' });
+        },
+      },
+    });
+    expect(
+      await chrome.runtime.sendMessage({
+        type: "fzzz_ouaf",
+        site: "http://convois.example.org",
+        methode: "PUT",
+        chemin: "/api/profil",
+        corps: { champi: "20" },
+      }),
+    ).toEqual({ ok: true, statut: 200, donnees: { pseudo: "Alpha", champi: 20 } });
+    expect(requetes).toEqual([["PUT", "http://convois.example.org/api/profil", '{"champi":"20"}']]);
+    // aucun des deux : erreur réseau, pas d'exception
+    expect(
+      await charger({}).runtime.sendMessage({
+        type: "fzzz_ouaf",
+        site: "http://convois.example.org",
+        methode: "GET",
+        chemin: "/api/profil",
+      }),
+    ).toEqual({ erreur: "reseau" });
+  });
+
   test("Userscripts (Safari iOS) : GM.xmlHttpRequest ; script injoignable : erreur réseau", async () => {
     const chrome = charger({
       GM: { xmlHttpRequest: (d: any) => d.onerror() },

@@ -388,22 +388,31 @@ class SuiviMembres {
     return niveaux;
   }
   /**
-   * @private
+   * Niveaux d'une page Construction ou Laboratoire : la page ouverte si c'est
+   * elle, sinon lue dans le jeu une fois par page ouverte (le relevé et le
+   * profil du site de suivi des convois, ProfilConvois, partagent la lecture).
+   *
    * @static
+   * @method niveauxDe
    * @param {String} chemin "/construction.php" ou "/laboratoire.php"
    * @param {{chantier?: any} | null} [vu] reçoit la construction suivie en cours
    *   d'une page Construction lue dans le jeu
-   * @return {Promise<Record<String, Number>>} la page ouverte si c'est elle, sinon lue
+   * @return {Promise<Record<String, Number>>}
    */
-  static _niveauxDe(chemin, vu = null) {
+  static niveauxDe(chemin, vu = null) {
     if (location.pathname.toLowerCase() == chemin)
       return Promise.resolve(SuiviMembres.niveaux($(document.body)));
-    return Promise.resolve($.get(location.origin + chemin))
-      .then(Utils.parseHtml)
-      .then(($page) => {
-        if (vu) vu.chantier = SuiviMembres.chantierDe($page, Horloge.maintenant());
-        return SuiviMembres.niveaux($page);
-      });
+    if (!SuiviMembres._lues[chemin])
+      SuiviMembres._lues[chemin] = Promise.resolve($.get(location.origin + chemin))
+        .then(Utils.parseHtml)
+        .then(($page) => ({
+          niveaux: SuiviMembres.niveaux($page),
+          chantier: SuiviMembres.chantierDe($page, Horloge.maintenant()),
+        }));
+    return SuiviMembres._lues[chemin].then((lue) => {
+      if (vu) vu.chantier = lue.chantier;
+      return lue.niveaux;
+    });
   }
   /**
    * @private
@@ -488,37 +497,69 @@ class SuiviMembres {
     );
   }
   /**
+   * Ce que la page ouverte dit des niveaux suivis, sans requête : les niveaux
+   * affichés (page Construction), la construction suivie jusqu'ici, celle que
+   * la page affiche (encart Compte+ du jeu, ou page Construction ; undefined
+   * quand la page ne le dit pas) et si la première est terminée.
+   *
+   * @static
+   * @method constructionVue
+   * @param {Number} instant heure du serveur
+   * @return {{niveaux: Record<String, Number>, avant: any, vue: any, finie: Boolean}}
+   */
+  static constructionVue(instant) {
+    let surConstruction = location.pathname.toLowerCase() == "/construction.php",
+      niveaux = surConstruction ? SuiviMembres.niveaux($(document.body)) : {},
+      avant = SuiviMembres.etat().chantier,
+      vue = SuiviMembres.chantierEncart(instant);
+    if (vue === undefined && surConstruction)
+      vue = SuiviMembres.chantierDe($(document.body), instant);
+    return { niveaux, avant, vue, finie: SuiviMembres._finie(avant, vue, instant) };
+  }
+  /**
+   * Niveaux suivis changés depuis un envoi : sur la page Construction, niveau
+   * affiché différent de celui envoyé ; ailleurs, construction suivie
+   * terminée après l'envoi.
+   *
+   * @static
+   * @method niveauxChanges
+   * @param {ReturnType<typeof SuiviMembres.constructionVue>} vu
+   * @param {Record<String, Number>} envoyes niveaux envoyés, par clé de SUIVI_NIVEAUX_SUIVIS
+   * @param {Number} [depuis] heure de l'envoi
+   * @return {Array<String>} clés de SUIVI_NIVEAUX_SUIVIS
+   */
+  static niveauxChanges(vu, envoyes, depuis) {
+    return Object.keys(SUIVI_NIVEAUX_SUIVIS).filter((c) => {
+      let affiche = vu.niveaux[SUIVI_NIVEAUX_SUIVIS[c]];
+      if (affiche != null && envoyes[c] != null) return affiche != envoyes[c];
+      return vu.finie && vu.avant.cle == c && !(depuis != null && depuis >= vu.avant.fin);
+    });
+  }
+  /**
    * Niveau de la Champignonnière ou de l'Étable à pucerons changé depuis le
    * relevé du jour : ce relevé est marqué à refaire, et lancer() le refait sur
-   * cette page. Le changement se voit sans requête : sur la page Construction,
-   * au niveau affiché, différent du dernier envoyé ; ailleurs, à la fin d'une
-   * construction suivie (encart Compte+ du jeu, page Construction ouverte ou
-   * lue par un relevé). À appeler à l'ouverture de chaque page, avant que son
-   * module ne la modifie ; rien n'est lu dans le jeu ni envoyé ici.
+   * cette page. Le changement se voit sans requête (constructionVue) : sur la
+   * page Construction, au niveau affiché, différent du dernier envoyé ;
+   * ailleurs, à la fin d'une construction suivie (encart Compte+ du jeu, page
+   * Construction ouverte ou lue par un relevé). À appeler à l'ouverture de
+   * chaque page, avant que son module ne la modifie et après
+   * ProfilConvois.observer(), qui lit la construction suivie avant qu'elle ne
+   * soit oubliée ici ; rien n'est lu dans le jeu ni envoyé ici.
    *
    * @static
    * @method observer
    */
   static observer() {
     if (!SuiviMembres._pseudo() || !Utils.alliance) return;
-    let instant = Horloge.maintenant(),
-      etat = SuiviMembres.etat(),
-      surConstruction = location.pathname.toLowerCase() == "/construction.php",
-      niveaux = surConstruction ? SuiviMembres.niveaux($(document.body)) : {},
-      envoyes = (etat.envoi && etat.envoi.niveaux) || {},
-      avant = etat.chantier,
-      vue = SuiviMembres.chantierEncart(instant);
-    if (vue === undefined && surConstruction)
-      vue = SuiviMembres.chantierDe($(document.body), instant);
-    let finie = SuiviMembres._finie(avant, vue, instant),
-      chantier = vue !== undefined ? vue : finie ? null : avant,
-      changes = Object.keys(SUIVI_NIVEAUX_SUIVIS).filter((c) => {
-        if (!SuiviMembres.partage(c)) return false;
-        let affiche = niveaux[SUIVI_NIVEAUX_SUIVIS[c]];
-        if (affiche != null && envoyes[c] != null) return affiche != envoyes[c];
-        // niveau non affiché : construction finie après le dernier envoi
-        return finie && avant.cle == c && !(etat.envoi && etat.envoi.instant >= avant.fin);
-      }),
+    let etat = SuiviMembres.etat(),
+      vu = SuiviMembres.constructionVue(Horloge.maintenant()),
+      avant = vu.avant,
+      chantier = vu.vue !== undefined ? vu.vue : vu.finie ? null : avant,
+      changes = SuiviMembres.niveauxChanges(
+        vu,
+        (etat.envoi && etat.envoi.niveaux) || {},
+        etat.envoi && etat.envoi.instant,
+      ).filter((c) => SuiviMembres.partage(c)),
       refaire = changes.length > 0 && etat.jour == SuiviMembres.jour() && etat.fait && !etat.raison;
     if (!refaire && JSON.stringify(chantier || null) == JSON.stringify(avant || null)) return;
     if (refaire)
@@ -555,13 +596,13 @@ class SuiviMembres {
   }
   /**
    * Nombre total d'ouvrières de la page Reine (celles parties en convoi
-   * comprises), page déjà lue pour l'armée.
+   * comprises), page lue une fois par page ouverte (Utils.lireReine).
    *
-   * @private
    * @static
+   * @method ouvrieres
    * @return {Promise<Number>}
    */
-  static _ouvrieres() {
+  static ouvrieres() {
     return Utils.lireReine().then((/** @type {any} */ reine) => {
       if (!reine.reine) throw new Error(`page Reine illisible (${reine.raison})`);
       return reine.ouvrieres;
@@ -580,10 +621,10 @@ class SuiviMembres {
   static relever(partages, vu = null) {
     let utile = (/** @type {Array<String>} */ cles) => cles.some((c) => partages[c]);
     return Promise.all([
-      utile(SUIVI_CONSTRUCTION) ? SuiviMembres._niveauxDe("/construction.php", vu) : null,
-      utile(SUIVI_LABORATOIRE) ? SuiviMembres._niveauxDe("/laboratoire.php") : null,
+      utile(SUIVI_CONSTRUCTION) ? SuiviMembres.niveauxDe("/construction.php", vu) : null,
+      utile(SUIVI_LABORATOIRE) ? SuiviMembres.niveauxDe("/laboratoire.php") : null,
       utile(SUIVI_ARMEE) ? SuiviMembres._armee() : null,
-      utile(SUIVI_REINE) ? SuiviMembres._ouvrieres() : null,
+      utile(SUIVI_REINE) ? SuiviMembres.ouvrieres() : null,
     ]).then(([construction, recherche, unites, ouvrieres]) => {
       let niveau = (/** @type {any} */ niveaux, /** @type {String} */ nom) => {
           if (!niveaux || niveaux[nom] == null) throw new Error(`niveau introuvable : ${nom}`);
@@ -648,6 +689,8 @@ class SuiviMembres {
    */
   static lancer(maintenant = false) {
     if (!SuiviMembres._pseudo() || !Utils.alliance) return Promise.resolve("sans alliance");
+    // bouton « Envoyer maintenant » : les pages lues à l'ouverture de cette page ont pu changer
+    if (maintenant) SuiviMembres._lues = {};
     let jour = SuiviMembres.jour(),
       instant = Horloge.maintenant(),
       etat = SuiviMembres.etat();
@@ -832,3 +875,6 @@ class SuiviMembres {
             : `pas d'adresse de script lisible à la ligne « ${ligne} » du sujet « ${TITRE_REGLAGES} »`;
   }
 }
+// pages Construction et Laboratoire lues dans le jeu depuis l'ouverture de la page
+SuiviMembres._lues =
+  /** @type {Record<String, Promise<{niveaux: Record<String, Number>, chantier: any}>>} */ ({});

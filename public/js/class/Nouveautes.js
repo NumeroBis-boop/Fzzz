@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.138.0",
+    notes: [
+      "Site de suivi des convois : plus besoin de remplir « Mon profil ». L'extension y écrit tes niveaux d'Étable à pucerons et de Champignonnière et ton nombre total d'ouvrières (convois compris), une fois par jour et dès que l'un de ces deux niveaux change. La case « Je ne souhaite pas recevoir de convois » n'est pas touchée.",
+      "Il faut avoir accepté le site et enregistré son mot de passe dans Préférences → Convois, sur chaque navigateur ; sinon l'extension te prévient, une fois par jour. La dernière mise à jour est indiquée dans cet onglet.",
+    ],
+  },
+  {
     version: "1.137.2",
     notes: [
       "Multi-flood opti : la ligne sous le nom de chaque cible donne les TdC d'où partent ses attaques, avec les attaques cochées sur les cibles plus proches, et d'où vient l'écart (chasses et floods en cours, ce multi-flood).",

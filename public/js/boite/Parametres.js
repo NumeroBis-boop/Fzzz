@@ -888,9 +888,10 @@ class BoiteParametre extends Boite {
               <button type='button' id='o_ouafCodeEnregistrer' class='o_button f_success'>Enregistrer</button>
               <button type='button' id='o_ouafCodeEffacer' class='o_button f_error'>Effacer</button></p>
             <p id='o_ouafCodeEtat' class='left small'></p>
+            <p id='o_profilSiteEtat' class='left small'></p>
             ${this.aide(
               "Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension.",
-              "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif et le lien « Ouvrir le site de suivi des convois ». Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
+              "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif, le lien « Ouvrir le site de suivi des convois » et la mise à jour de ton profil sur le site (niveaux de l'Étable à pucerons et de la Champignonnière, nombre total d'ouvrières, convois compris), une fois par jour et quand l'un de ces deux niveaux change. Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
             )}
             ${/^http:/i.test(site.url) ? "<p class='left small red'><em>Attention : ce site n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau.</em></p>" : ""}`,
         )}
@@ -919,17 +920,24 @@ class BoiteParametre extends Boite {
           .attr("title", "Afficher le mot de passe enregistré");
       };
     let accord = () =>
-      OuafSuivi.siteAccepte().then((ok) =>
-        $("#o_siteConvoisEtat").html(
-          ok
-            ? "<span class='green'>(accepté)</span>"
-            : "<button type='button' id='o_siteConvoisAccepter' class='o_button f_info'>Accepter ce site</button>",
+        OuafSuivi.siteAccepte().then((ok) =>
+          $("#o_siteConvoisEtat").html(
+            ok
+              ? "<span class='green'>(accepté)</span>"
+              : "<button type='button' id='o_siteConvoisAccepter' class='o_button f_info'>Accepter ce site</button>",
+          ),
         ),
-      );
+      profil = () =>
+        Promise.all([OuafSuivi.siteAccepte(), OuafSuivi.codeEnregistre()]).then(([ok, code]) =>
+          $("#o_profilSiteEtat").text(ProfilConvois.resume(ok, code)),
+        );
     accord();
+    profil();
     $("#o_tabsParametreConvois").on("click", "#o_siteConvoisAccepter", () =>
       OuafSuivi.accepterSite()
+        .then(() => ProfilConvois.reprendre())
         .then(accord)
+        .then(profil)
         .then(() => OuafSuivi.codeEnregistre())
         .then(etat),
     );
@@ -941,12 +949,15 @@ class BoiteParametre extends Boite {
         masquer();
         $("#o_ouafCode").removeClass("o_champSignale");
         etat(code);
+        ProfilConvois.reprendre();
+        profil();
       });
     });
     $("#o_ouafCodeEffacer").on("click", () =>
       OuafSuivi.enregistrerCode("").then(() => {
         masquer();
         etat("");
+        profil();
       }),
     );
     $("#o_ouafCodeVoir").on("click", () => {

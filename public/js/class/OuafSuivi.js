@@ -271,7 +271,11 @@ class OuafSuivi {
         throw e;
       }
       return OuafSuivi.requete("POST", "/api/session", { mot_de_passe: code }).then((s) => {
-        if (!s.connecte) throw new Error("mot de passe refusé par le site de suivi");
+        if (!s.connecte) {
+          let e = new Error("mot de passe refusé par le site de suivi");
+          e.name = "refuse";
+          throw e;
+        }
         return s;
       });
     });

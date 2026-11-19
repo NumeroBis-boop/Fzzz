@@ -22,6 +22,7 @@ const page = creerPage(
     "js/page/PartageChasses.js",
     "js/class/RappelExport.js",
     "js/class/SuiviMembres.js",
+    "js/class/ProfilConvois.js",
     "js/class/ExportRapports.js",
     "js/class/ExportAuto.js",
     "js/boite/Boite.js",

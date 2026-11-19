@@ -77,7 +77,8 @@ const SUIVI_ECART_FIN = 30 * 1000;
 /**
  * Une fois par jour, à la première page que le joueur ouvre, ses informations
  * cochées sont relevées (pages Construction, Laboratoire et Reine, lues une
- * fois chacune) et envoyées au script du fichier de l'alliance, dont l'adresse
+ * fois chacune ; sans Compte+, Convois, Armée et Ressources au lieu des champs
+ * de la page Reine) et envoyées au script du fichier de l'alliance, dont l'adresse
  * est dans le sujet des réglages de l'alliance (ReglagesAlliance) : sans elle,
  * rien n'est lu ni envoyé. Une information décochée n'est ni relevée ni
  * envoyée ; le fichier reçoit seulement le fait qu'elle n'est pas partagée.
@@ -596,7 +597,8 @@ class SuiviMembres {
     });
   }
   /**
-   * Armée complète (garnison et troupes parties), d'après la page Reine.
+   * Armée complète (garnison et troupes parties), d'après la page Reine ;
+   * sans Compte+, reconstituée (_armeeSansComptePlus).
    *
    * @private
    * @static
@@ -604,6 +606,7 @@ class SuiviMembres {
    */
   static _armee() {
     return Utils.lireReine().then((/** @type {any} */ reine) => {
+      if (!reine.reine && reine.sansComptePlus) return SuiviMembres._armeeSansComptePlus();
       if (!reine.reine) throw new Error(`page Reine illisible (${reine.raison})`);
       let unites = Utils.armeeReine(reine.brut, null);
       if (unites) return unites;
@@ -617,7 +620,8 @@ class SuiviMembres {
   }
   /**
    * Nombre total d'ouvrières de la page Reine (celles parties en convoi
-   * comprises), page lue une fois par page ouverte (Utils.lireReine).
+   * comprises), page lue une fois par page ouverte (Utils.lireReine) ; sans
+   * Compte+, reconstitué (_ouvrieresSansComptePlus).
    *
    * @static
    * @method ouvrieres
@@ -625,8 +629,92 @@ class SuiviMembres {
    */
   static ouvrieres() {
     return Utils.lireReine().then((/** @type {any} */ reine) => {
-      if (!reine.reine) throw new Error(`page Reine illisible (${reine.raison})`);
-      return reine.ouvrieres;
+      if (reine.reine) return reine.ouvrieres;
+      if (reine.sansComptePlus) return SuiviMembres._ouvrieresSansComptePlus();
+      throw new Error(`page Reine illisible (${reine.raison})`);
+    });
+  }
+  /**
+   * @private
+   * @static
+   * @param {String} chemin page du jeu
+   * @return {Promise<String>} son HTML, lu une fois par page ouverte
+   */
+  static _html(chemin) {
+    let cle = "html " + chemin;
+    if (!SuiviMembres._lues[cle])
+      SuiviMembres._lues[cle] = Promise.resolve($.get(location.origin + chemin));
+    return SuiviMembres._lues[cle];
+  }
+  /**
+   * Sans Compte+, aucune page ne donne le total des ouvrières : celles de
+   * l'en-tête de la page Convois (présentes) et celles de ses convois en cours,
+   * (nourriture + matériaux) ÷ ce que porte une ouvrière, arrondi au-dessus
+   * comme pour « Convoi avant la récolte ».
+   *
+   * @private
+   * @static
+   * @return {Promise<Number>}
+   */
+  static _ouvrieresSansComptePlus() {
+    return Promise.all([
+      SuiviMembres.niveauxDe("/construction.php"),
+      SuiviMembres._html("/commerce.php"),
+    ]).then(([niveaux, html]) => {
+      let $page = Utils.parseHtml(html),
+        presentes = parseInt($page.find("#nb_ouvrieres").text().replace(/\D/g, "")),
+        etable = niveaux[SUIVI_NIVEAUX_SUIVIS.puceron];
+      if (!$page.find("#centre").length || isNaN(presentes))
+        throw new Error("page Convois illisible (ouvrières sans Compte+)");
+      if (etable == null) throw new Error(`niveau introuvable : ${SUIVI_NIVEAUX_SUIVIS.puceron}`);
+      let parOuvriere = Utils.parOuvriere(etable);
+      return CommerceFzzz.montantsEnvoyes($page).reduce(
+        (total, montant) => total + Math.ceil(montant / parOuvriere),
+        presentes,
+      );
+    });
+  }
+  /**
+   * Sans Compte+, aucune page ne donne les troupes parties : garnison de la
+   * page Armée et troupes parties en chasse ou en attaque connues de ce
+   * navigateur (TroupesDehors, mémorisées à l'envoi). Une chasse ou une attaque
+   * en cours dont elles sont inconnues (lancée ailleurs) fait échouer le
+   * relevé, refait plus tard comme pour une page illisible : jamais d'armée
+   * comptée en moins.
+   *
+   * @private
+   * @static
+   * @return {Promise<Array<Number>>} nombres par unité, ordre d'Armee.unite
+   */
+  static _armeeSansComptePlus() {
+    return Promise.all([
+      SuiviMembres._html("/Armee.php"),
+      SuiviMembres._html("/Ressources.php"),
+    ]).then(([htmlArmee, htmlRessources]) => {
+      if (!/Troupes en Garnison/i.test(htmlArmee))
+        throw new Error("page Armée illisible (armée sans Compte+)");
+      let $ressources = Utils.parseHtml(htmlRessources);
+      if (!$ressources.find("#quantite_tdc").length)
+        throw new Error("page Ressources illisible (armée sans Compte+)");
+      // un renfort (sans cible) n'est pas une troupe du joueur
+      let attaques = AttaqueLancee.extraireLignes(Utils.parseHtml(htmlArmee)).filter(
+        (/** @type {any} */ l) => l.cible,
+      );
+      TroupesDehors.synchroniserAttaques(attaques);
+      let liste = TroupesDehors.synchroniserChasses($ressources),
+        connue = (/** @type {String} */ type, /** @type {Number} */ id) =>
+          liste.some((t) => t.type == type && t.id == id),
+        inconnues =
+          attaques.filter((/** @type {any} */ l) => !connue("attaque", l.id)).length +
+          TroupesDehors.lignesChasses($ressources).filter((l) => !connue("chasse", l.id)).length;
+      if (inconnues)
+        throw new Error(
+          `${inconnues} chasse(s) ou attaque(s) en cours aux troupes inconnues sans Compte+ (lancées depuis un autre navigateur) : armée incomplète`,
+        );
+      let dehors = TroupesDehors.total();
+      return new Armee()
+        .chargeData(htmlArmee)
+        .unite.map((/** @type {Number} */ n, /** @type {Number} */ i) => n + dehors[i]);
     });
   }
   /**
@@ -896,6 +984,6 @@ class SuiviMembres {
             : `pas d'adresse de script lisible à la ligne « ${ligne} » du sujet « ${TITRE_REGLAGES} »`;
   }
 }
-// pages Construction et Laboratoire lues dans le jeu depuis l'ouverture de la page
-SuiviMembres._lues =
-  /** @type {Record<String, Promise<{niveaux: Record<String, Number>, chantier: any}>>} */ ({});
+// pages lues dans le jeu depuis l'ouverture de la page, une fois chacune :
+// niveaux de Construction et Laboratoire, HTML des pages lues sans Compte+
+SuiviMembres._lues = /** @type {Record<String, Promise<any>>} */ ({});

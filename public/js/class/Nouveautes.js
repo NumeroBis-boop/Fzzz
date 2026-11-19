@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.143.1",
+    notes: [
+      "Stats membres : le relevé quotidien fonctionne maintenant sans Compte+. Les ouvrières parties en convoi et les troupes parties en chasse ou en attaque depuis ce navigateur sont comptées.",
+    ],
+  },
+  {
     version: "1.143.0",
     notes: [
       "Page Convois : les marques d'un joueur qui ne veut pas de convois (ligne barrée, ligne en rouge, colonne « Statut des stocks ») se cumulent maintenant au choix, dans Préférences → Convois.",

@@ -27,6 +27,8 @@ const RECOLTE_DELAI_ENVOI = 5 * 60000;
 const RECOLTES_EXAMINEES_MAX = 48 * 14;
 // pages Ressources et Armée relues au plus une fois par minute (clics successifs)
 const RECOLTE_VALIDITE_LECTURE = 60000;
+// convoi en cours du joueur : quantités de nourriture et de matériaux
+const LIGNE_CONVOI_ENVOYE = /Vous allez livrer\s+([\d\s  ]+)\D+?et\s+([\d\s  ]+)\D+?à\s/i;
 // Récapitulatif : info-bulle d'un destinataire qui ne veut pas de convois
 const TITRE_SANS_RECEPTION =
   "Ne veut pas de convois : case « Je ne souhaite pas recevoir de convois » cochée sur le site de suivi";
@@ -48,15 +50,35 @@ class CommerceFzzz {
    *
    * @static
    * @method lignes
+   * @param {jQuery} [$racine] page Convois ouverte (par défaut) ou lue
    */
-  static lignes() {
-    let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours"));
+  static lignes($racine = $(document)) {
+    let $titre = $racine
+      .find("#centre > h3")
+      .filter((i, e) => $(e).text().includes("Convois en cours"));
     if (!$titre.length) return $();
     let $section = $titre.first().nextUntil("h3");
     return $section
       .filter("strong")
       .filter((i, e) => /^\s*-/.test($(e).text()) && $(e).text().includes("dans"))
       .add($section.filter(".o_convois").find(".o_convoiTexte > strong:first-child"));
+  }
+  /**
+   * Quantités (nourriture + matériaux) des convois en cours du joueur, sur la
+   * page Convois ouverte ou lue.
+   *
+   * @static
+   * @method montantsEnvoyes
+   * @param {jQuery} [$racine] page Convois
+   * @return {Array<Number>}
+   */
+  static montantsEnvoyes($racine = $(document)) {
+    let nombre = (t) => parseInt(String(t).replace(/\D/g, "")) || 0;
+    return CommerceFzzz.lignes($racine)
+      .get()
+      .map((elt) => CommerceFzzz.texte(elt).match(LIGNE_CONVOI_ENVOYE))
+      .filter(Boolean)
+      .map((m) => nombre(m[1]) + nombre(m[2]));
   }
   /**
    * Convois en cours en deux colonnes : le « - » du jeu et l'état de suivi à
@@ -793,7 +815,7 @@ class CommerceFzzz {
       .get()
       .map((elt) => {
         let texte = CommerceFzzz.texte(elt),
-          m = texte.match(/Vous allez livrer\s+([\d\s  ]+)\D+?et\s+([\d\s  ]+)\D+?à\s/i),
+          m = texte.match(LIGNE_CONVOI_ENVOYE),
           compte = texte.match(/\bdans\s+(.+?)(?:\s+-|$)/i),
           arrivee = compte ? maintenant + Utils.timeToInt(compte[1]) * 1000 : null,
           retour = CommerceFzzz.texteRetour(elt),

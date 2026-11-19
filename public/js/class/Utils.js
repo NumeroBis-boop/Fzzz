@@ -447,10 +447,11 @@ class Utils {
    *
    * @static
    * @method parOuvriere
+   * @param {Number|null} [niveau] niveau de l'Étable, celui de la page Construction par défaut
    * @return {Number}
    */
-  static parOuvriere() {
-    return 10 + (Utils.niveauEtable() || 0) / 2;
+  static parOuvriere(niveau = Utils.niveauEtable()) {
+    return 10 + (niveau || 0) / 2;
   }
   /**
    * Renvoie le terrain du joueur en cm².
@@ -890,38 +891,44 @@ class Utils {
    * Une seule lecture par chargement de page, partagée (Laboratoire :
    * rentabilité Armes et Étable), ou directement dans la page Reine.
    *
+   * La page Reine d'un joueur sans Compte+ n'a pas ces champs (relevé refusé
+   * le 19/11/2026 : « nombre d'ouvrières absent de la page ») : sansComptePlus
+   * est vrai quand la page lue est bien une page du jeu qui ne les a pas.
+   *
    * @static
    * @method lireReine
-   * @return {Promise} {ouvrieres, brut, reine, raison}
+   * @return {Promise} {ouvrieres, brut, reine, raison, sansComptePlus}
    */
   static lireReine() {
     if (Utils._reine) return Utils._reine;
-    let defaut = (raison) => ({ ouvrieres: null, brut: null, reine: false, raison: raison }),
-      analyser = ($page) => Utils.analyserReine($page);
+    let defaut = (raison, sansComptePlus = false) => ({
+        ouvrieres: null,
+        brut: null,
+        reine: false,
+        raison: raison,
+        sansComptePlus: sansComptePlus,
+      }),
+      analyser = ($page) => {
+        try {
+          return Utils.analyserReine($page);
+        } catch (e) {
+          // l'en-tête du jeu (TdC) distingue une page sans ces champs d'une page
+          // de connexion
+          return defaut(e.message, $page.find("#quantite_tdc").length > 0);
+        }
+      };
     if (/^\/Reine\.php/i.test(location.pathname)) {
-      try {
-        Utils._reine = Promise.resolve(analyser($(document.body)));
-      } catch (e) {
-        Utils._reine = Promise.resolve(defaut(e.message));
-      }
+      Utils._reine = Promise.resolve(analyser($(document.body)));
       return Utils._reine;
     }
-    Utils._reine = Utils.pageReine().then(
-      ($page) => {
-        try {
-          return analyser($page);
-        } catch (e) {
-          return defaut(e.message);
-        }
-      },
-      (jqXHR) =>
-        defaut(
-          jqXHR && jqXHR.status == 503
-            ? "le jeu traitait une autre action"
-            : jqXHR && jqXHR.statusText == "timeout"
-              ? "pas de réponse du jeu"
-              : `erreur ${(jqXHR && jqXHR.status) || "réseau"}`,
-        ),
+    Utils._reine = Utils.pageReine().then(analyser, (jqXHR) =>
+      defaut(
+        jqXHR && jqXHR.status == 503
+          ? "le jeu traitait une autre action"
+          : jqXHR && jqXHR.statusText == "timeout"
+            ? "pas de réponse du jeu"
+            : `erreur ${(jqXHR && jqXHR.status) || "réseau"}`,
+      ),
     );
     return Utils._reine;
   }

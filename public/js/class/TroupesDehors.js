@@ -103,13 +103,12 @@ class TroupesDehors {
     TroupesDehors.sauvegarder(liste);
   }
   /**
-   * Met les chasses en phase avec celles que liste Ressources.php (toutes les
-   * chasses en cours) : liaison des envois récents aux ids les plus élevés,
-   * purge des chasses finies ou annulées et des envois sans ligne (refusés).
+   * Chasses en cours que liste Ressources.php, par id croissant.
    *
    * @param {jQuery} racine document (ou fragment) de Ressources.php
+   * @return {Array<{id: Number, retour: Number}>} retour en ms
    */
-  static synchroniserChasses(racine = $(document)) {
+  static lignesChasses(racine = $(document)) {
     let lignes = [];
     racine.find("#boite_tdc span[id^='chasse_']").each((i, elt) => {
       // compte à rebours du jeu : reste(secondes, "chasse_<id>") dans le script voisin
@@ -120,8 +119,18 @@ class TroupesDehors {
           retour: Horloge.maintenant() + secondes * 1000,
         });
     });
-    lignes.sort((a, b) => a.id - b.id);
-    let liste = TroupesDehors.charger(),
+    return lignes.sort((a, b) => a.id - b.id);
+  }
+  /**
+   * Met les chasses en phase avec celles que liste Ressources.php (toutes les
+   * chasses en cours) : liaison des envois récents aux ids les plus élevés,
+   * purge des chasses finies ou annulées et des envois sans ligne (refusés).
+   *
+   * @param {jQuery} racine document (ou fragment) de Ressources.php
+   */
+  static synchroniserChasses(racine = $(document)) {
+    let lignes = TroupesDehors.lignesChasses(racine),
+      liste = TroupesDehors.charger(),
       chasses = liste.filter((t) => t.type == "chasse"),
       idsLies = chasses.filter((t) => t.id).map((t) => t.id),
       envois = chasses.filter((t) => !t.id).sort((a, b) => a.lancee - b.lancee),

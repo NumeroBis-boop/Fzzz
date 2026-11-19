@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.139.2",
+    notes: [
+      "Multi-flood opti : la ligne sous le nom de chaque cible est plus courte (« toi 134 964 (+61 648 chasse, +13 504 MF) » ; MF : les attaques cochées de ce multi-flood) et passe à la ligne au lieu de faire dépasser le tableau.",
+    ],
+  },
+  {
     version: "1.139.1",
     notes: [
       "Portée : une cible qui a exactement le triple de ton TdC compte maintenant comme à portée partout (vue Membres, « à portée le … », Lanceur de Flood, TdC à l'impact), comme sur la page Flood TdC du Compte+ et dans le Multi-flood.",

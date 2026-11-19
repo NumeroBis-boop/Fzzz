@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { creerPage } from "./harnais";
 
 /**
@@ -127,13 +129,23 @@ describe("capture du 19/11 : chaque cible à son TdC à l'impact", () => {
     expect(notes()).toEqual([
       // la chasse d'Alpha (08h11) arrive après l'impact : pas comptée
       "À l'impact le 19/11 à 04h21 : toi 59 812, Alpha 62 583",
-      "À l'impact le 19/11 à 04h38 : toi 89 755 (+29 943 de ce multi-flood), Bravo 55 418",
-      "À l'impact le 19/11 à 05h38 : toi 106 460 (+46 648 de ce multi-flood), Charlie 45 002",
-      "À l'impact le 19/11 à 09h07 : toi 168 108 (+61 648 des chasses et floods en cours, +46 648 de ce multi-flood), Delta 114 637 (+49 004 des chasses et floods en cours)",
+      "À l'impact le 19/11 à 04h38 : toi 89 755 (+29 943 MF), Bravo 55 418",
+      "À l'impact le 19/11 à 05h38 : toi 106 460 (+46 648 MF), Charlie 45 002",
+      "À l'impact le 19/11 à 09h07 : toi 168 108 (+61 648 chasse, +46 648 MF), Delta 114 637 (+49 004 chasse)",
     ]);
     expect(lire<string>(`$("#o_mfoRecap").text()`)).toContain(
       "Ce flood demande 7 attaques et 85 885 fourmis",
     );
+  });
+
+  test("ligne courte (signalé par le mainteneur le 19/11 : elle dépassait du tableau) : abréviations expliquées en info-bulle, et elle passe à la ligne", () => {
+    ouvrir(PARTAGES);
+    expect(lire<string>(`$(".o_mfoNote").last().attr("title")`)).toBe(
+      "chasse, flood : chasses et floods en cours ; MF : attaques cochées de ce multi-flood sur les cibles plus proches",
+    );
+    // la règle « nowrap » des cellules du tableau est plus précise que « .o_mfoNote » seule
+    const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8");
+    expect(css).toMatch(/#o_multiFlood \.o_mfoCible td\.o_mfoNote \{[^}]*white-space: normal;/);
   });
 
   test("un flood déjà lancé que ce multi-flood fait sortir de portée ne prend rien (l'ancien calcul le comptait)", () => {
@@ -145,10 +157,10 @@ describe("capture du 19/11 : chaque cible à son TdC à l'impact", () => {
     // 59 812 + 46 648 + 61 648, et non de 176 108 (prises ajoutées après coup)
     expect(lignes("Delta")[0]).toEqual(["Attaque 1 (18 %)", "168 108", "114 637", "20 388"]);
     expect(notes()[2]).toBe(
-      "À l'impact le 19/11 à 05h38 : toi 106 460 (+8 000 des chasses et floods en cours, +38 648 de ce multi-flood), Charlie 45 002",
+      "À l'impact le 19/11 à 05h38 : toi 106 460 (+8 000 flood, +38 648 MF), Charlie 45 002",
     );
     expect(notes()[3]).toBe(
-      "À l'impact le 19/11 à 09h07 : toi 168 108 (+69 648 des chasses et floods en cours, +38 648 de ce multi-flood), Delta 114 637 (+49 004 des chasses et floods en cours)",
+      "À l'impact le 19/11 à 09h07 : toi 168 108 (+61 648 chasse, +8 000 flood, +38 648 MF), Delta 114 637 (+49 004 chasse)",
     );
     // les partages lus ne sont pas touchés par la simulation
     expect(lire(`etatMultiFlood.partages.d.floods`)).toEqual(avecFlood.floods);

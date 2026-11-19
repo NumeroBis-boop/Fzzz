@@ -3665,11 +3665,12 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 #o_multiFlood:not(.o_mfoOptions) .o_mfoOpt {
   display: none;
 }
-/* d'où partent les chiffres du tableau (TdC à l'impact) */
 #o_mfoAvertissement:empty {
   display: none;
 }
-#o_multiFlood .o_mfoNote {
+/* d'où partent les chiffres du tableau (TdC à l'impact) : passe à la ligne au
+   lieu d'élargir le tableau, malgré le nowrap des autres cellules */
+#o_multiFlood .o_mfoCible td.o_mfoNote {
   white-space: normal;
   font-style: italic;
 }

@@ -35,7 +35,7 @@ const page = creerPage(
    var PageRessource = { lireChasses: () => [], grouperChasses: (c) => c, aPartager: () => [] };
    var PartageChasses = { charger: () => Promise.reject(new Error("sans sujet commun")),
      completer: (d) => Promise.resolve({ d, tdc: {} }), tdcMembres: () => Promise.resolve({}),
-     entreesFloods: () => [], avecMesMouvements: (d) => d, simuler: () => ({ evenements: [], depart: {} }), tdcConnus: (a, b) => ({ ...a, ...b }) };
+     entreesFloods: () => [], avecMesMouvements: (d) => d, simuler: () => ({ evenements: [], depart: {} }), chronologie: () => [], tdcConnus: (a, b) => ({ ...a, ...b }) };
    var PageAttaquer = { tdcImpact: () => ({ moi: { tdc: null }, cible: { tdc: null } }) };`,
   "https://s5.fourmizzz.fr/ennemie.php",
 );
@@ -434,9 +434,7 @@ describe("vue de la page Ennemies", () => {
       expect(ligne(2)).toEqual(["Attaque 1 (20 %)", "80 000", "70 000", "14 000"]);
       const note = lire<string>(`$(".o_mfoCible:first .o_mfoNote").text()`);
       expect(note).toContain("À l'impact le 18/11 à");
-      expect(note).toContain(
-        ": toi 80 000 (+6 746 des chasses et floods en cours), Cocop 70 000 (-5 253 des chasses et floods en cours)",
-      );
+      expect(note).toContain(": toi 80 000 (+6 746 flood), Cocop 70 000 (-5 253 flood)");
       // décochée : les TdC actuels, sans ligne d'impact, comme la page du jeu ; choix gardé
       lire(`$("#o_mfoImpact").prop("checked", false).trigger("change")`);
       expect(lire(`localStorage.getItem("fzzz_multiFloodImpact")`)).toBe("0");

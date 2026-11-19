@@ -59,13 +59,24 @@ async function afficher(
     PartageChasses.afficherProfil(${JSON.stringify(pseudo)}, ${terrain}, a && { secondes: a.secondes, depart: Horloge.clic() });
   })()`);
   await new Promise((r) => setTimeout(r, 20));
-  return page.lire<{ lignes: string[]; surlignee: number; note: string; titre: string }>(`(() => {
-    let $t = $("#o_chassesPartagees .o_partageSynthese table tr");
+  return page.lire<{
+    lignes: string[];
+    surlignee: number;
+    note: string;
+    titre: string;
+    synchro: string[] | null;
+    noteSynchro: string;
+  }>(`(() => {
+    let $t = $("#o_chassesPartagees .o_partageSynthese table tr"),
+      $notes = $("#o_chassesPartagees .o_partageSynthese .o_note");
     return {
       titre: $("#o_chassesPartagees .o_partageSynthese .o_partageTitre").text(),
       lignes: $t.map((i, l) => $(l).children().first().text()).get(),
       surlignee: $t.index($t.filter(".o_ligneArrivee")),
-      note: $("#o_chassesPartagees .o_partageSynthese .o_note").text(),
+      note: $notes.not(":contains('Synchro')").text(),
+      // dernière colonne quand c'est « Synchro »
+      synchro: $t.first().children().last().text() == "Synchro" ? $t.map((i, l) => $(l).children().last().text()).get() : null,
+      noteSynchro: $notes.filter(":contains('Synchro')").text(),
     };
   })()`);
 }
@@ -173,6 +184,32 @@ describe("page d'un membre : TdC à l'arrivée d'une attaque lancée à l'ouvert
     expect((await afficher({ secondes: 10800 })).surlignee).toBe(4);
     // arrivée à 11h30:00 pile : la chasse de 11h30 est comptée
     expect((await afficher({ secondes: 5380 })).surlignee).toBe(3);
+  });
+
+  test("colonne « Synchro » : lancement pour arriver au début de la minute du retour de chasse", async () => {
+    // 1 h 15 de trajet : chasse de 11h30 (minute du RC), lancer à 10h15:00 pour y arriver à 11h30:00
+    const r = await afficher({ secondes: 4500 });
+    expect(r.synchro).toEqual(["Synchro", "", "", "10h15m00s", ""]);
+    expect(espaces(r.noteSynchro)).toBe(
+      "Synchro : lancer à cette seconde pour arriver au début de la minute du retour de chasse, donc après la chasse.",
+    );
+    // trajet à la seconde ; un lancement déjà passé (page ouverte à 10h00:20) ; un autre jour
+    expect((await afficher({ secondes: 4537 })).synchro?.[3]).toBe("10h14m23s");
+    expect((await afficher({ secondes: 5380 })).synchro?.[3]).toBe("10h00m20s");
+    expect((await afficher({ secondes: 7200 })).synchro?.[3]).toBe("passée");
+    expect(
+      page.lire(
+        `PartageChasses.celluleSynchro({ flood: false, date: "2026-11-10 02:10" }, { secondes: 600, maintenant: Horloge.clic() })`,
+      ),
+    ).toBe("<td class='o_synchroChasse'>10/11 02h00m00s</td>");
+    // trajet inconnu : « ? » ; son propre profil ou aucune chasse : pas de colonne
+    const inconnu = await afficher({ secondes: null });
+    expect(inconnu.synchro).toEqual(["Synchro", "", "", "?", ""]);
+    expect(espaces(inconnu.noteSynchro)).toContain("(temps de trajet inconnu : ?)");
+    expect((await afficher(null)).synchro).toBeNull();
+    expect(
+      (await afficher({ secondes: 4500 }, 200000, { ...PARTAGES, chasses: {} })).synchro,
+    ).toBeNull();
   });
 
   test("son propre profil : rien de surligné ; trajet inconnu : une note", async () => {

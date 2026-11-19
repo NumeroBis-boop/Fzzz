@@ -2682,6 +2682,20 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_a
 #o_allInfobulle .o_allInfoCible {
   font-style: italic;
 }
+/* seconde de lancement d'une synchro sur un retour de chasse */
+.o_synchroChasse {
+  white-space: nowrap;
+}
+.o_synchroPassee {
+  font-style: italic;
+  color: var(--fzzz-secondaire);
+}
+/* écran tactile : le tableau de l'infobulle, plus large que l'écran, défile au doigt */
+@media (hover: none) {
+  #o_allInfobulle {
+    pointer-events: auto;
+  }
+}
 /* « à portée le … » après le pseudo (page Membres, page d'un membre) */
 .o_portee {
   font-weight: normal;

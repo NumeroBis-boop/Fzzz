@@ -2055,22 +2055,84 @@ class PartageChasses {
    * @param {Array} vars chronologie()
    * @param {Number|null} surlignee indice dans vars, -1 : « Actuellement », null : aucune
    * @param {String} classeEntete classe de la ligne d'en-tête
+   * @param {{secondes: Number|null, maintenant: Object}|null} [synchro] trajet vers le joueur et heure de référence de la colonne « Synchro » (null : sans elle)
    * @return {String} HTML des lignes
    */
-  static lignesEvolution(terrain, vars, surlignee, classeEntete) {
+  static lignesEvolution(terrain, vars, surlignee, classeEntete, synchro = null) {
     let tdc = terrain,
+      avecSynchro = PartageChasses.avecSynchro(vars, synchro),
       classe = (/** @type {Number} */ j) => (j === surlignee ? " class='o_ligneArrivee'" : ""),
       lignes = [
-        `<tr class='${classeEntete}'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Lanceur → cible</td></tr>`,
-        `<tr${classe(-1)}><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td></tr>`,
+        `<tr class='${classeEntete}'><td></td><td>TdC</td><td>Variation</td><td>Unités</td><td>Lanceur → cible</td>${avecSynchro ? "<td>Synchro</td>" : ""}</tr>`,
+        `<tr${classe(-1)}><td>Actuellement</td><td>${numeral(tdc).format()} cm²</td><td></td><td></td><td></td>${avecSynchro ? "<td></td>" : ""}</tr>`,
       ];
     vars.forEach((v, j) => {
       tdc += v.delta;
       lignes.push(
-        `<tr${classe(j)}><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td></tr>`,
+        `<tr${classe(j)}><td>${moment(v.date, "YYYY-MM-DD HH:mm").format("DD/MM HH[h]mm")}</td><td>${numeral(tdc).format()} cm²</td><td class='o_partageVariation'>${PartageChasses.libellePrise(v, "")}</td><td class='o_partageVariation'>${v.flood && v.unites != null ? numeral(v.unites).format() : ""}</td><td class='o_allInfoCible'>${PartageChasses.sens(v)}</td>${avecSynchro ? PartageChasses.celluleSynchro(v, synchro) : ""}</tr>`,
       );
     });
     return lignes.join("");
+  }
+  /**
+   * Colonne « Synchro » du tableau de l'évolution : pour un autre joueur que
+   * moi, quand une de ses chasses est partagée.
+   *
+   * @static
+   * @method avecSynchro
+   * @param {Array} vars chronologie()
+   * @param {{secondes: Number|null, maintenant: Object}|null} synchro trajet vers lui et heure de référence (null : moi)
+   * @return {Boolean}
+   */
+  static avecSynchro(vars, synchro) {
+    return !!synchro && vars.some((v) => !v.flood);
+  }
+  /**
+   * Seconde de lancement d'une attaque qui arrive au début de la minute du RC
+   * d'une chasse : cette minute est la minute d'arrivée affichée par le jeu
+   * + 1 (PageRessource.lireChasses), l'attaque arrive donc après la chasse,
+   * quelle que soit sa seconde d'arrivée.
+   *
+   * @static
+   * @method lancementSynchro
+   * @param {String} date minute du RC de la chasse, « AAAA-MM-JJ HH:mm »
+   * @param {Number|null} secondes mon temps de trajet vers le chasseur (null : inconnu)
+   * @return {Object|null} moment du lancement, null si le trajet est inconnu
+   */
+  static lancementSynchro(date, secondes) {
+    if (secondes == null) return null;
+    return moment(date, "YYYY-MM-DD HH:mm").subtract(secondes, "s");
+  }
+  /**
+   * @private
+   * @static
+   * @param {Object} v ligne de chronologie
+   * @param {{secondes: Number|null, maintenant: Object}} synchro
+   * @return {String} HTML de la cellule
+   */
+  static celluleSynchro(v, synchro) {
+    if (v.flood) return "<td></td>";
+    let lancement = PartageChasses.lancementSynchro(v.date, synchro.secondes);
+    if (!lancement) return "<td class='o_synchroChasse'>?</td>";
+    if (lancement.isBefore(synchro.maintenant))
+      return "<td class='o_synchroChasse o_synchroPassee'>passée</td>";
+    let format = lancement.isSame(synchro.maintenant, "day")
+      ? "HH[h]mm[m]ss[s]"
+      : "DD/MM HH[h]mm[m]ss[s]";
+    return `<td class='o_synchroChasse'>${lancement.format(format)}</td>`;
+  }
+  /**
+   * Note sous le tableau quand il a la colonne « Synchro ».
+   *
+   * @static
+   * @method noteSynchro
+   * @param {Array} vars chronologie()
+   * @param {{secondes: Number|null, maintenant: Object}|null} synchro
+   * @return {String} HTML
+   */
+  static noteSynchro(vars, synchro) {
+    if (!PartageChasses.avecSynchro(vars, synchro)) return "";
+    return `<div class='o_note'>Synchro : lancer à cette seconde pour arriver au début de la minute du retour de chasse, donc après la chasse${synchro.secondes == null ? " (temps de trajet inconnu : ?)" : ""}.</div>`;
   }
   /**
    * Quand `pseudo` est à ma portée (je peux le flooder : Utils.aPortee de son
@@ -2211,16 +2273,18 @@ class PartageChasses {
           contenu = `<p class='centre'>TdC de ${Utils.echapper(pseudo)} illisible sur la page : évolution impossible.</p>`;
         else if (vars.length) {
           let arrivee = attaque
-            ? PartageChasses.arriveeAttaque(vars, attaque.secondes, attaque.depart)
-            : null;
+              ? PartageChasses.arriveeAttaque(vars, attaque.secondes, attaque.depart)
+              : null,
+            synchro = attaque ? { secondes: attaque.secondes, maintenant: attaque.depart } : null;
           contenu =
             `<div class='o_partageSynthese'>` +
             `<h3 class='o_partageTitre'>Évolution du TdC de ${Utils.echapper(pseudo)}${attaque ? PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, Utils.terrain)) : ""}</h3>
-              <table class='centre' cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "o_partageEntete")}</table>` +
+              <table class='centre' cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "o_partageEntete", synchro)}</table>` +
             PartageChasses.noteArrivee(
               arrivee,
               attaque ? "TdC à l'arrivée d'une attaque : temps de trajet inconnu." : "",
             ) +
+            PartageChasses.noteSynchro(vars, synchro) +
             "</div>";
         }
         $("#o_chassesPartagees").remove();

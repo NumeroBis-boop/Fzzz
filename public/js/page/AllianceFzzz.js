@@ -452,7 +452,9 @@ class AllianceFzzz {
         prochaine = somme(prochains),
         // on ne s'attaque pas soi-même
         moi = pseudo.toLowerCase() == String(monProfil.pseudo).toLowerCase(),
-        arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, tempsTrajet(pseudo), ouverture),
+        trajet = moi ? null : tempsTrajet(pseudo),
+        arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, trajet, ouverture),
+        synchro = moi ? null : { secondes: trajet, maintenant: ouverture },
         date = (v, cle) =>
           cellule(r, colonne(cle))
             .attr(
@@ -483,13 +485,14 @@ class AllianceFzzz {
       // infobulle : TdC après chaque variation, comme la synthèse de la page membre
       let html = `<div class='gras'>${Utils.echapper(pseudo)}${PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, monTerrain))}</div>${
         vars.length
-          ? `<table cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "gras")}</table>` +
+          ? `<table cellspacing='0'>${PartageChasses.lignesEvolution(terrain, vars, arrivee ? arrivee.ligne : null, "gras", synchro)}</table>` +
             PartageChasses.noteArrivee(
               arrivee,
               moi
                 ? ""
                 : "TdC à l'arrivée d'une attaque : temps de trajet inconnu (vue « Temps de trajet »).",
-            )
+            ) +
+            PartageChasses.noteSynchro(vars, synchro)
           : "<em>Aucune variation partagée en cours.</em>"
       }`;
       // souris : au survol ; écran tactile (pas de survol) : au toucher de la ligne

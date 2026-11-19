@@ -145,7 +145,7 @@ function infobulle(pseudo: string) {
     return {
       lignes: $tr.map((i, l) => $(l).children().first().text()).get(),
       surlignee: $tr.index($i.find("tr.o_ligneArrivee")),
-      note: $i.find(".o_note").text(),
+      note: $i.find(".o_note").not(":contains('Synchro')").text(),
       texte: $i.text(),
       entete: $i.children().first().text(),
     };
@@ -317,6 +317,30 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
         return $("#o_allInfobulle > div").first().find(".o_porteeHeure").text();
       })()`),
     ).toBe("09/11 à 10h30");
+  });
+
+  test("info-bulle : colonne « Synchro » sur les lignes de chasse", async () => {
+    await ouvrir();
+    const synchro = (p: string) =>
+      page.lire<string[] | null>(`(() => {
+        let api = $("#tabMembresAlliance").DataTable(),
+          r = api.rows()[0].find((r) => $(api.cell(r, 3).node()).text().trim() == ${JSON.stringify(p)});
+        $(api.row(r).node()).trigger("mouseenter");
+        let $tr = $("#o_allInfobulle tr");
+        return $tr.first().children().last().text() == "Synchro" ? $tr.map((i, l) => $(l).children().last().text()).get() : null;
+      })()`);
+    // 10 min de trajet : chasse de 15h00 (minute du RC), lancer à 14h50:00
+    expect(synchro("Delta")).toEqual(["Synchro", "", "14h50m00s"]);
+    // 29 min 40 s : chasses de 10h30 et 10h31, page ouverte à 10h00:20
+    expect(synchro("Epsilon")).toEqual(["Synchro", "", "10h00m20s", "10h01m20s"]);
+    // trajet inconnu : « ? » sur la chasse, rien sur son flood
+    expect(synchro("Beta")).toEqual(["Synchro", "", "?", ""]);
+    expect(espaces(infobulle("Beta").texte)).toContain(
+      "Synchro : lancer à cette seconde pour arriver au début de la minute du retour de chasse, donc après la chasse (temps de trajet inconnu : ?).",
+    );
+    // pas de chasse, ou ma propre ligne : pas de colonne
+    expect(synchro("Alpha")).toBeNull();
+    expect(synchro("Moi")).toBeNull();
   });
 
   test("info-bulle : rien de surligné pour soi, ni sans temps de trajet", async () => {

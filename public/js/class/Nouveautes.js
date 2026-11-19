@@ -9,6 +9,13 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.140.0",
+    notes: [
+      "Page Membres (info-bulle de la vue « Floods et chasses en cours ») et page d'un membre : nouvelle colonne « Synchro » sur les lignes « Chasse », la seconde où lancer une attaque pour qu'elle arrive au début de la minute du retour de chasse, donc après la chasse.",
+      "Sur téléphone, le tableau de cette info-bulle défile au doigt : ses dernières colonnes étaient hors de l'écran.",
+    ],
+  },
+  {
     version: "1.139.3",
     notes: [
       "Multi-flood opti : les floods lancés avec « Lancer + partager » sur une cible dont le pseudo avait été tapé sans ses majuscules (« grim » pour Grim) n'étaient pas partagés ; ils le sont, et la cible s'écrit maintenant comme dans le jeu. L'onglet Multi-flood de la boîte Combat avait le même problème.",

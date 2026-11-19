@@ -161,3 +161,88 @@ describe("envoi refusé par le jeu entre deux floods réussis", () => {
     expect(page.lire(`AttaqueLancee.synchroniser([], false).map((a) => a.id)`)).toEqual([null]);
   });
 });
+
+describe("pseudo tapé sans sa casse : la liste du jeu fait foi (19/11/2026)", () => {
+  const vieillir = () =>
+    page.lire(
+      `localStorage.setItem("outiiil_attaquesLancees", JSON.stringify(AttaqueLancee.charger().map((a) => ({ ...a, lancee: a.lancee - 10000 }))))`,
+    );
+  const etat = () =>
+    page.lire<[number | null, string, number][]>(
+      `AttaqueLancee.charger().map((a) => [a.id, a.cible, a.terrainCible])`,
+    );
+
+  test("envoi AJAX : capture liée à la ligne du jeu et écrite comme elle", () => {
+    page.lire(`localStorage.clear()`);
+    page.lire(
+      `AttaqueLancee.enregistrer("canaille", "Terrain de chasse", { JSN: 5000 }, { html: ${JSON.stringify(
+        reponse([{ id: 901, cible: "Canaille", s: 4000 }]),
+      )}, terrain: 100000 })`,
+    );
+    // l'envoi suivant, tapé autrement, repart du TdC estimé après le premier
+    page.lire(
+      `AttaqueLancee.enregistrer("CANAILLE", "Terrain de chasse", { JSN: 5000 }, { html: ${JSON.stringify(
+        reponse([
+          { id: 901, cible: "Canaille", s: 3999 },
+          { id: 902, cible: "Canaille", s: 4001 },
+        ]),
+      )}, terrain: 100000 })`,
+    );
+    expect(etat()).toEqual([
+      [901, "Canaille", 95000],
+      [902, "Canaille", 90000],
+    ]);
+  });
+
+  test("envoi du formulaire : capture liée sur la page suivante, pas jetée comme refusée", () => {
+    page.lire(`localStorage.clear()`);
+    page.lire(
+      `AttaqueLancee.enregistrer("canaille", "Terrain de chasse", { JSN: 5000 }, { terrain: 100000, partager: true })`,
+    );
+    vieillir();
+    page.lire(
+      `AttaqueLancee.synchroniser(AttaqueLancee.extraireLignes(Utils.parseHtml(${JSON.stringify(
+        reponse([{ id: 903, cible: "Canaille", s: 4000 }]),
+      )})))`,
+    );
+    expect(etat()).toEqual([[903, "Canaille", 95000]]);
+    expect(page.lire(`AttaqueLancee.charger()[0].partager`)).toBe(true);
+  });
+
+  test("partage : le pseudo de la ligne du jeu, pas celui de la capture", () => {
+    expect(
+      page.lire(
+        `AttaqueLancee.pourPartage({ ligne: { id: 904, cible: "Canaille", lieuNatif: null, arrivee: moment(0) }, capture: { id: 904, cible: "canaille", unite: { JSN: 1 }, arrivee: 5 } }).cible`,
+      ),
+    ).toBe("Canaille");
+  });
+
+  test("toute comparaison de cible d'AttaqueLancee passe par memeCible", async () => {
+    const source = await Bun.file("public/js/class/AttaqueLancee.js").text();
+    const directes = source
+      .split("\n")
+      .filter((l) => /\.(cible|pseudo)\s*[!=]==?|[!=]==?\s*[\w.]*\.cible\b/.test(l));
+    expect(directes).toEqual([]);
+  });
+});
+
+describe("attaque « + partager » jamais liée", () => {
+  test("jetée comme envoi refusé : notée au journal avec sa cible", () => {
+    page.lire(`localStorage.clear(); window.NOTES = []; Journal.info = (...a) => NOTES.push(a);`);
+    page.lire(
+      `AttaqueLancee.enregistrer("Canaille", "Terrain de chasse", { JSN: 5000 }, { terrain: 100000, partager: true })`,
+    );
+    page.lire(
+      `localStorage.setItem("outiiil_attaquesLancees", JSON.stringify(AttaqueLancee.charger().map((a) => ({ ...a, lancee: a.lancee - 10000 }))))`,
+    );
+    page.lire(
+      `AttaqueLancee.synchroniser(AttaqueLancee.extraireLignes(Utils.parseHtml(${JSON.stringify(
+        reponse([{ id: 905, cible: "Spike", s: 4000 }]),
+      )})))`,
+    );
+    expect(page.lire(`AttaqueLancee.charger().length`)).toBe(0);
+    expect(page.lire(`NOTES.map(([source, , detail]) => [source, detail])`)).toEqual([
+      ["Partage des floods", "Canaille"],
+    ]);
+  });
+});

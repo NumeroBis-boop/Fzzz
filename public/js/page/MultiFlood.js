@@ -566,10 +566,16 @@ class MultiFlood {
         let texte = String(html);
         if (!joueur.chargerProfil(texte) || !(joueur.terrain > 0) || !(Number(joueur.id) > 0))
           throw new Error(`page de ${p} illisible`);
-        let moi = parseInt(Utils.parseHtml(texte).find("#quantite_tdc").text()),
+        let $page = Utils.parseHtml(texte),
+          moi = parseInt($page.find("#quantite_tdc").text()),
+          // pseudo écrit comme le jeu quand il a été tapé autrement (« grim » pour
+          // Grim) : le forum et la liste des attaques du jeu l'écrivent ainsi
+          ecrit = (
+            $page.find("center > h2").first().text() || $page.find("h2").first().text()
+          ).trim(),
           connu = joueur.x >= 0 && joueur.y >= 0 && !(joueur.x == 0 && joueur.y == 0),
           nouvelle = {
-            pseudo: joueur.pseudo || p,
+            pseudo: ecrit.toLowerCase() == k ? ecrit : p,
             id: Number(joueur.id),
             mv: !!joueur.mv,
             tdcLu: joueur.terrain,
@@ -1391,7 +1397,7 @@ class MultiFlood {
         repartition.forEach((n, j) => {
           if (n) unite[NOM_UNITE[j + 1]] = n;
         });
-        AttaqueLancee.enregistrer(c.pseudo, "Terrain de chasse", unite, {
+        AttaqueLancee.enregistrer(pseudoCible, "Terrain de chasse", unite, {
           html,
           terrain: c.tdcSaisi ?? c.tdcLu,
           partager,

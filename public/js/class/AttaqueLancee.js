@@ -97,7 +97,7 @@ class AttaqueLancee {
         terrainConnu: options.terrain > 0 ? options.terrain : null,
       },
       precedente = liste
-        .filter((a) => a.cible == cible && a.terrainCible != null)
+        .filter((a) => AttaqueLancee.memeCible(a.cible, cible) && a.terrainCible != null)
         .sort((a, b) => a.lancee - b.lancee)
         .pop();
     capture.terrainDepart = precedente
@@ -109,9 +109,10 @@ class AttaqueLancee {
     if (options.partager) capture.partager = true;
     if (options.html) {
       let ligne = AttaqueLancee.extraireLignes(Utils.parseHtml(options.html))
-        .filter((l) => l.cible == cible)
+        .filter((l) => AttaqueLancee.memeCible(l.cible, cible))
         .pop();
       if (ligne) {
+        capture.cible = ligne.cible;
         capture.id = ligne.id;
         capture.arrivee = ligne.arrivee.valueOf();
         AttaqueLancee.noterDehors(capture);
@@ -223,6 +224,29 @@ class AttaqueLancee {
     return Date.now();
   }
   /**
+   * Une capture peut garder le pseudo tapé (multi-flood, boîte Combat), qui ne
+   * diffère alors de celui de la liste du jeu que par la casse (« grim » pour
+   * Grim) : la liste du jeu fait foi.
+   *
+   * @static
+   * @method memeCible
+   * @param {String|null} a
+   * @param {String|null} b
+   * @return {Boolean}
+   */
+  static memeCible(a, b) {
+    return a != null && b != null && AttaqueLancee.cleCible(a) == AttaqueLancee.cleCible(b);
+  }
+  /**
+   * @static
+   * @method cleCible
+   * @param {String|null} pseudo
+   * @return {String}
+   */
+  static cleCible(pseudo) {
+    return String(pseudo ?? "").toLowerCase();
+  }
+  /**
    * Lie les captures encore orphelines aux lignes affichées : pour une cible
    * donnée, les N captures les plus récentes correspondent aux N lignes aux
    * ids les plus élevés qui ne sont pas déjà liées.
@@ -234,22 +258,27 @@ class AttaqueLancee {
   static lier(liste, lignes) {
     let modifie = false,
       idsLies = liste.filter((a) => a.id).map((a) => a.id);
-    new Set(liste.filter((a) => !a.id).map((a) => a.cible)).forEach((cible) => {
-      let captures = liste
-          .filter((a) => !a.id && a.cible == cible)
-          .sort((a, b) => a.lancee - b.lancee),
-        candidates = lignes.filter((l) => l.cible == cible && idsLies.indexOf(l.id) == -1),
-        nb = Math.min(captures.length, candidates.length);
-      // aucune ligne libre (envoi refusé…) : slice(-0) renverrait toutes les captures
-      if (!nb) return;
-      captures.slice(-nb).forEach((capture, i) => {
-        let ligne = candidates[candidates.length - nb + i];
-        capture.id = ligne.id;
-        capture.arrivee = ligne.arrivee.valueOf();
-        AttaqueLancee.noterDehors(capture);
-        modifie = true;
-      });
-    });
+    new Set(liste.filter((a) => !a.id).map((a) => AttaqueLancee.cleCible(a.cible))).forEach(
+      (cle) => {
+        let captures = liste
+            .filter((a) => !a.id && AttaqueLancee.cleCible(a.cible) == cle)
+            .sort((a, b) => a.lancee - b.lancee),
+          candidates = lignes.filter(
+            (l) => AttaqueLancee.memeCible(l.cible, cle) && idsLies.indexOf(l.id) == -1,
+          ),
+          nb = Math.min(captures.length, candidates.length);
+        // aucune ligne libre (envoi refusé…) : slice(-0) renverrait toutes les captures
+        if (!nb) return;
+        captures.slice(-nb).forEach((capture, i) => {
+          let ligne = candidates[candidates.length - nb + i];
+          capture.cible = ligne.cible;
+          capture.id = ligne.id;
+          capture.arrivee = ligne.arrivee.valueOf();
+          AttaqueLancee.noterDehors(capture);
+          modifie = true;
+        });
+      },
+    );
     return modifie;
   }
   /**
@@ -290,10 +319,10 @@ class AttaqueLancee {
    */
   static recalculerTerrains(liste) {
     let modifie = false;
-    new Set(liste.map((a) => a.cible)).forEach((cible) => {
+    new Set(liste.map((a) => AttaqueLancee.cleCible(a.cible))).forEach((cle) => {
       let base = null;
       liste
-        .filter((a) => a.cible == cible)
+        .filter((a) => AttaqueLancee.cleCible(a.cible) == cle)
         .sort((a, b) => a.lancee - b.lancee)
         .forEach((a) => {
           if (base === null) base = a.terrainDepart;
@@ -326,13 +355,23 @@ class AttaqueLancee {
       refusees = retirer
         ? liste.filter((a) => !a.id && a.lancee < Horloge.maintenant() - MARGE_REFUS * 1000)
         : [];
+    let partagesPerdus = refusees.filter((a) => a.partager);
+    if (partagesPerdus.length)
+      Journal.info(
+        "Partage des floods",
+        `${partagesPerdus.length} attaque(s) « + partager » sans ligne dans la liste du jeu, non partagée(s) : envoi refusé ?`,
+        partagesPerdus.map((a) => a.cible).join(", "),
+      );
     // Elle rend le terrain qu'elle aurait pris aux attaques lancées après elle.
     [...annulees, ...refusees].forEach((annulee) => {
       let prise = annulee.terrainDepart - annulee.terrainCible;
       if (prise > 0)
         liste
           .filter(
-            (a) => a.cible == annulee.cible && a.lancee > annulee.lancee && a.terrainDepart != null,
+            (a) =>
+              AttaqueLancee.memeCible(a.cible, annulee.cible) &&
+              a.lancee > annulee.lancee &&
+              a.terrainDepart != null,
           )
           .forEach((a) => (a.terrainDepart += prise));
       modifie = true;
@@ -1282,7 +1321,7 @@ class AttaqueLancee {
         .sort((a, b) => a.ligne.arrivee - b.ligne.arrivee)
         .forEach((a) => {
           let l = a.ligne,
-            j = joueurs.find((x) => x && x.pseudo == l.cible),
+            j = joueurs.find((x) => x && AttaqueLancee.memeCible(x.pseudo, l.cible)),
             capture = {
               id: l.id,
               cible: l.cible,
@@ -1297,7 +1336,10 @@ class AttaqueLancee {
             },
             precedente = liste
               .filter(
-                (x) => x.cible == l.cible && x.terrainCible != null && x.arrivee < capture.arrivee,
+                (x) =>
+                  AttaqueLancee.memeCible(x.cible, l.cible) &&
+                  x.terrainCible != null &&
+                  x.arrivee < capture.arrivee,
               )
               .sort((x, y) => x.arrivee - y.arrivee)
               .pop();
@@ -1330,8 +1372,14 @@ class AttaqueLancee {
         arrivee: l.arrivee ? l.arrivee.valueOf() : null,
         unite: { total: parseInt(String(AttaqueLancee.quantite(a)).replace(/\D/g, "")) || 0 },
       };
+    // la ligne du jeu fait foi pour l'écriture du pseudo (capture faite avec le pseudo tapé)
     return a.capture
-      ? { ...natif, ...a.capture, arrivee: a.capture.arrivee || natif.arrivee }
+      ? {
+          ...natif,
+          ...a.capture,
+          cible: natif.cible || a.capture.cible,
+          arrivee: a.capture.arrivee || natif.arrivee,
+        }
       : natif;
   }
   /**

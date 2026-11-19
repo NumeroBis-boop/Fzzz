@@ -401,6 +401,20 @@ describe("vue de la page Ennemies", () => {
     ]);
   });
 
+  test("attaques enregistrées sous le pseudo du formulaire d'attaque du jeu, même tapé autrement", async () => {
+    await ouvrir();
+    // page du membre sans titre lisible : la cible garde le pseudo tapé
+    lire(`(() => {
+      const get = $.get, page = ${JSON.stringify(membre("Cocop", 41, 20, 75253).replace("<h2>Cocop</h2>", ""))};
+      $.get = (url) => String(url).endsWith("/Membre.php?Pseudo=cocop") ? $.Deferred().resolve(page).promise() : get(url);
+      $.ajax = (o) => $.get(o.url);
+    })()`);
+    await ajouter("cocop");
+    expect(lire(`etatMultiFlood.cibles.map((c) => c.pseudo)`)).toEqual(["cocop"]);
+    await lire(`MultiFlood.lancer(true)`);
+    expect(lire(`[...new Set(ENREGISTRES.map(([c]) => c))]`)).toEqual(["Cocop"]);
+  });
+
   test("le jeu ne répond pas : arrêt sans nouvel essai, les boutons restent bloqués", async () => {
     await ouvrir();
     await ajouter("Cocop");

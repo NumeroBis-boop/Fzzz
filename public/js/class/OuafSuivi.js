@@ -285,7 +285,8 @@ class OuafSuivi {
    *
    * @static
    * @method convoisJeu
-   * @return {Array} [{elt, id, vers, montant, arrivee (ms)}]
+   * @return {Array} [{elt, id, vers, nou, mat, montant, arrivee (ms)}] ; montant :
+   *   nourriture et matériaux ensemble, comme le site de suivi les compte
    */
   static convoisJeu() {
     let convois = CommerceFzzz.lignes()
@@ -298,7 +299,8 @@ class OuafSuivi {
         if (!m) return null;
         let nombre = (t) => parseInt(String(t).replace(/\D/g, "")) || 0,
           vers = $(elt).find("a[href*='Pseudo=']").first().text().trim() || m[3].trim(),
-          montant = nombre(m[1]) + nombre(m[2]),
+          nou = nombre(m[1]),
+          mat = nombre(m[2]),
           arrivee = Horloge.serveur().valueOf() + Utils.timeToInt(m[4]) * 1000,
           annuler = OuafSuivi._lienAnnuler(elt);
         return {
@@ -306,7 +308,9 @@ class OuafSuivi {
           // numéro du convoi dans le jeu (lien Annuler), noté dans le forum
           id: annuler ? parseInt(annuler) : null,
           vers,
-          montant,
+          nou,
+          mat,
+          montant: nou + mat,
           arrivee,
         };
       })

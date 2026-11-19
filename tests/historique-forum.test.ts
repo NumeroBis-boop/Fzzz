@@ -93,8 +93,8 @@ const NOUVEAU = {
 const partager = () =>
   lire<Promise<number>>(`PartageChasses._partager("Floods", [${JSON.stringify(NOUVEAU)}])`);
 
-describe("suivi : réponses des joueurs dans les sujets communs, premier message pour les convois", () => {
-  test("sujet commun : la réponse de chaque joueur est lue ; sujet des convois : jamais ses réponses", async () => {
+describe("suivi : réponses des joueurs dans les sujets communs, premier message des anciens sujets de convois", () => {
+  test("sujet commun : la réponse de chaque joueur est lue ; ancien sujet des convois : jamais ses réponses", async () => {
     commun("Floods", [A_VENIR], "29/10/26 14:00 | Bravo | 9 unités | 9 cm² | #99");
     commun("Chasses", null);
     const r = await lire<Promise<any>>(`PartageChasses.charger()`);
@@ -108,7 +108,14 @@ describe("suivi : réponses des joueurs dans les sujets communs, premier message
       "29/10/26 12:00 | Bravo | 1 000 | #5",
       "29/10/26 13:00 | Bravo | 9 | #9",
     );
-    const c = await lire<Promise<any[]>>(`ConvoisForum._contenu("2")`);
+    // sujet commun des convois : ma réponse seulement, jamais son premier message
+    sujet(
+      "3",
+      "BDD générale convoi - NE RIEN ÉCRIRE",
+      "29/10/26 12:00 | Bravo | 1 pommes | 1 bois | #8 | prévu 1 | avance 1",
+      "29/10/26 12:00 | Bravo | 2 pommes | 2 bois | #10 | prévu 2 | avance 2",
+    );
+    const c = await lire<Promise<any[]>>(`ConvoisForum.notes()`);
     expect(c.map((x) => x.id)).toEqual([5]);
   });
 
@@ -196,31 +203,45 @@ describe("chasses annulées, convois arrivés retirés", () => {
     expect(maReponse("Chasses")).toBe("Aucune chasse en cours.");
   });
 
-  test("convois : l'annulé et l'arrivé retirés du sujet, sans historique", async () => {
-    sujet(
-      "1",
-      "Convois | DoggyBag",
-      "29/10/26 12:00 | Bravo | 2 000 | #6\n29/10/26 09:00 | Bravo | 1 000 | #5 | prévu 600 | avance 400",
+  /** Sujet commun des convois avec ma réponse (ses lignes). */
+  const convois = (lignes: string[]) =>
+    lire(
+      `FORUM.sujets.push(${JSON.stringify({
+        id: "12",
+        titre: "BDD générale convoi - NE RIEN ÉCRIRE",
+        messages: [""],
+        reponses: [{ id: 701, auteur: "DoggyBag", texte: lignes.join("\n") }],
+      })})`,
     );
+  const maReponseConvois = () =>
+    lire<string>(
+      `FORUM.sujets.find((s) => s.id == "12").reponses.find((r) => r.auteur == "DoggyBag").texte`,
+    );
+
+  test("convois : l'annulé et l'arrivé retirés de ma réponse, sans historique", async () => {
+    convois([
+      "29/10/26 12:00 | Bravo | 0 pommes | 2 000 bois | #6",
+      "29/10/26 09:00 | Bravo | 0 pommes | 1 000 bois | #5 | prévu 600 | avance 400",
+    ]);
     await lire(
       `ConvoisForum.retirer({ id: 6, vers: "Bravo", montant: 2000, arrivee: moment("2026-10-29 12:00", "YYYY-MM-DD HH:mm").valueOf() })`,
     );
-    expect(message("Convois | DoggyBag")).toBe("");
-    expect(lire(`FORUM.sujets.map((s) => s.titre)`)).toEqual(["Convois | DoggyBag"]);
+    expect(maReponseConvois()).toBe("Aucun convoi en cours.");
+    expect(lire(`FORUM.sujets.map((s) => s.titre)`)).toEqual([
+      "BDD générale convoi - NE RIEN ÉCRIRE",
+    ]);
   });
 
-  test("convoi noté : les arrivés sortent du suivi ; un ancien historique des convois n'est ni lu ni modifié", async () => {
-    sujet("1", "Convois | DoggyBag", "29/10/26 09:00 | Bravo | 1 000 | #5");
+  test("convoi noté : les arrivés sortent de ma réponse ; un ancien historique des convois n'est ni lu ni modifié", async () => {
+    convois(["29/10/26 09:00 | Bravo | 0 pommes | 1 000 bois | #5"]);
     sujet("2", "Historique Convois 1 | DoggyBag", "28/10/26 09:00 | Bravo | 500 | #4");
     await lire(
-      `ConvoisForum.noter([{ id: 7, vers: "Bravo", montant: 3000, arrivee: moment("2026-10-29 15:00", "YYYY-MM-DD HH:mm").valueOf() }])`,
+      `ConvoisForum.noter([{ id: 7, vers: "Bravo", nou: 0, mat: 3000, montant: 3000, prevu: 3000, avance: 0, arrivee: moment("2026-10-29 15:00", "YYYY-MM-DD HH:mm").valueOf() }])`,
     );
-    expect(message("Convois | DoggyBag")).toBe("29/10/26 15:00 | Bravo | 3 000 | #7");
+    expect(maReponseConvois()).toBe(
+      "29/10/26 15:00 | Bravo | 0 pommes | 3 000 bois | #7 | prévu 3 000 | avance 0",
+    );
     expect(message("Historique Convois 1 | DoggyBag")).toBe("28/10/26 09:00 | Bravo | 500 | #4");
-    expect(lire(`FORUM.appels`)).toEqual([
-      "callGetForum",
-      "callGetTopic",
-      "envoiEditTopic Convois | DoggyBag",
-    ]);
+    expect(lire(`FORUM.appels`)).toEqual(["callGetForum", "callGetTopic", "envoiEditMessage"]);
   });
 });

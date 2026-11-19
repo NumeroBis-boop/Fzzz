@@ -47,12 +47,16 @@ const DUREE_CACHE_FORUM = 60000;
 const CLE_SUJETS_GARDES = "fzzz_sujetsGardes";
 const DUREE_SUJETS_GARDES = 24 * 3600 * 1000;
 // sujets communs à l'alliance, un par type, créés à la main : une réponse par
-// joueur, ses floods ou ses chasses en cours, postée puis modifiée par son
-// extension ; l'affichage lit un sujet au lieu d'un par joueur
+// joueur, ses floods, ses chasses ou ses convois en cours (ConvoisForum),
+// postée puis modifiée par son extension ; l'affichage lit un sujet au lieu
+// d'un par joueur
 const SUJETS_COMMUNS = {
   Floods: "BDD générale flood - NE RIEN ÉCRIRE",
   Chasses: "BDD générale chasse - NE RIEN ÉCRIRE",
+  Convois: "BDD générale convoi - NE RIEN ÉCRIRE",
 };
+// types dont le premier message a eu un ancien format (« Ranger le forum »)
+const TYPES_PARTAGES = ["Floods", "Chasses"];
 // ancien format (1.113), une section par joueur dans le premier message :
 // « --- pseudo · AAAA-MM-JJ HH:mm:ss --- » ; lu seulement par « Ranger le forum »
 const ENTETE_SECTION = /^\s*---\s*(.+?)\s*·\s*(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\s*---\s*$/;
@@ -63,7 +67,11 @@ const COMMUN_MAX_CARACTERES = 40000;
 // entrées à venir gardées dans une réponse (les plus proches)
 const COMMUN_MAX_ENTREES = 100;
 // un message ne peut pas être vide : ma réponse sans entrée à venir
-const MESSAGE_VIDE = { Floods: "Aucun flood en cours.", Chasses: "Aucune chasse en cours." };
+const MESSAGE_VIDE = {
+  Floods: "Aucun flood en cours.",
+  Chasses: "Aucune chasse en cours.",
+  Convois: "Aucun convoi en cours.",
+};
 // premier message d'un sujet commun rangé, sans texte d'en-tête écrit à la main
 const PREAMBULE_COMMUN =
   "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.";
@@ -74,7 +82,7 @@ const PREAMBULE_COMMUN =
  * communs (SUJETS_COMMUNS), une réponse par joueur avec ses entrées en cours,
  * une ligne par entrée ; chaque partage modifie la réponse du joueur (fusion
  * sans doublon), que lui seul écrit ; les entrées passées en sont retirées,
- * sans historique. Les convois restent dans « Convois | pseudo » (ConvoisForum).
+ * sans historique. Les convois ont leur sujet commun, écrit par ConvoisForum.
  *
  * Requêtes : au clic sur Partager, au chargement de page qui suit un envoi
  * « + partager » ou l'annulation d'un flood partagé, et la lecture des sujets
@@ -484,7 +492,6 @@ class PartageChasses {
   /**
    * Sujet lu au forum (réponse xajax), sans les lectures gardées.
    *
-   * @private
    * @static
    * @param {String} idSujet
    * @return {Promise<any>}
@@ -774,13 +781,13 @@ class PartageChasses {
     etat("Lecture de la liste des sujets…");
     PartageChasses.oublierCache();
     return PartageChasses.sujets().then((sujets) => {
-      let types = Object.keys(SUJETS_COMMUNS).filter((type) => (sujets.communs || {})[type]),
+      let types = TYPES_PARTAGES.filter((type) => (sujets.communs || {})[type]),
         /** @type {Array<String>} */
         bilans = [];
       if (!types.length)
-        return `Aucun sujet ${Object.values(SUJETS_COMMUNS)
-          .map((titre) => `« ${titre} »`)
-          .join(" ni ")} dans la section.`;
+        return `Aucun sujet ${TYPES_PARTAGES.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(
+          " ni ",
+        )} dans la section.`;
       return types
         .reduce(
           (suite, type) =>

@@ -318,12 +318,13 @@ class DelaiRessources {
   static _notes(resultats, etat) {
     if (!resultats.some((r) => r && r.manque > 0 && !r.trop)) return [];
     let notes = [],
-      lecture = DelaiRessources._convois;
-    if (lecture.etat == "lecture")
-      notes.push("Page Convois en cours de lecture : convois de ta dernière visite.");
+      lecture = DelaiRessources._convois,
+      source = lecture.forum ? "Convois du forum" : "Page Convois",
+      gardes = lecture.forum ? "ceux de la dernière lecture" : "convois de ta dernière visite";
+    if (lecture.etat == "lecture") notes.push(`${source} en cours de lecture : ${gardes}.`);
     else if (lecture.etat == "echec")
       notes.push(
-        `Page Convois pas relue (${Utils.echapper(lecture.raison || "")}) : convois de ta dernière visite.`,
+        `${source} pas ${lecture.forum ? "relus" : "relue"} (${Utils.echapper(lecture.raison || "")}) : ${gardes}.`,
       );
     if (etat.prochaine == null)
       notes.push("Heure des récoltes inconnue : ouvre la page Ressources.");
@@ -402,13 +403,22 @@ class DelaiRessources {
     });
   }
   /**
-   * Lit la page Convois.
+   * Convois qui arrivent : la page Convois avec le Compte+, sinon le sujet
+   * commun des convois du forum (le jeu ne les montre qu'avec le Compte+).
    *
    * @static
    * @method chargerConvois
    * @return {Promise<Array<{de: String, t: Number, q: Array<Number>}>>} convois qui arrivent
    */
   static chargerConvois() {
+    if (!Utils.comptePlus)
+      return Promise.resolve(ConvoisForum.recus()).catch((/** @type {any} */ e) => {
+        throw new Error(
+          e && e.message == "absente"
+            ? `section « ${FORUM_SECTIONS_CHASSES[0]} » introuvable`
+            : (e && e.message) || "forum illisible",
+        );
+      });
     return Promise.resolve($.ajax({ url: "/commerce.php", timeout: MS_LECTURE_CONVOIS })).then(
       (html) => {
         let $page = Utils.parseHtml(String(html));
@@ -440,16 +450,24 @@ class DelaiRessources {
     );
     if (!$cellules.length) return Promise.resolve();
     DelaiRessources._ouverture = Horloge.maintenant();
-    DelaiRessources._convois = { etat: "lecture", raison: "" };
+    DelaiRessources._convois = { etat: "lecture", raison: "", forum: !Utils.comptePlus };
     let lecture = DelaiRessources.chargerConvois().then(
       (liste) => {
-        DelaiRessources._convois = { etat: "lu", raison: "" };
+        DelaiRessources._convois = { ...DelaiRessources._convois, etat: "lu", raison: "" };
         Entrepots.garderConvois(liste, Horloge.maintenant());
         DelaiRessources._rafraichir();
       },
       (e) => {
-        DelaiRessources._convois = { etat: "echec", raison: String((e && e.message) || e) };
-        Journal.info(JOURNAL_DELAI, "page Convois non relue", DelaiRessources._convois.raison);
+        DelaiRessources._convois = {
+          ...DelaiRessources._convois,
+          etat: "echec",
+          raison: String((e && e.message) || e),
+        };
+        Journal.info(
+          JOURNAL_DELAI,
+          DelaiRessources._convois.forum ? "convois du forum non relus" : "page Convois non relue",
+          DelaiRessources._convois.raison,
+        );
         DelaiRessources._rafraichir();
       },
     );
@@ -546,5 +564,5 @@ class DelaiRessources {
 }
 /** heure d'ouverture de la page : stock de la page et départ du calcul */
 DelaiRessources._ouverture = /** @type {Number|null} */ (null);
-/** lecture de la page Convois : lecture, lu ou echec (raison) */
-DelaiRessources._convois = { etat: "lecture", raison: "" };
+/** lecture des convois qui arrivent : lecture, lu ou echec (raison) ; forum : sans Compte+ */
+DelaiRessources._convois = { etat: "lecture", raison: "", forum: false };

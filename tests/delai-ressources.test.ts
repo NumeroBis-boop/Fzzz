@@ -17,7 +17,10 @@ const page = creerPage(
   `var heure = moment("2026-11-18 10:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };
    var monProfil = { pseudo: "Moi", niveauConstruction: [-1, 10, 13] };
-   var APPELS = [], REPONSE = null, JOURNAL = [];`,
+   var APPELS = [], REPONSE = null, JOURNAL = [], RECUS = null;
+   // sans Compte+ : convois qui arrivent lus dans le sujet commun du forum
+   var ConvoisForum = { recus: () => RECUS() };
+   var FORUM_SECTIONS_CHASSES = ["BDD partagée cachée"];`,
   "https://s5.fourmizzz.fr/construction.php",
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
@@ -40,9 +43,11 @@ function infobulle(
 		});</script>`;
 }
 const INFOBULLE = infobulle(["553 439", "+916 560"], ["0", "916 560"], "595 612", "-42 173");
-/** Encart « S5 Pseudo » et données cachées du jeu. */
-function encart(stock: [number, number]) {
-  return `<div id="data" style="display:none"><div id="pseudo">Moi</div><div id="nb_ouvrieres">68031</div><div id="nb_materiaux">${stock[1]}</div><div id="nb_nourriture">${stock[0]}.21851002632</div><div id="quantite_tdc">19095</div></div>
+/** Menu Compte+ du jeu (Utils.comptePlus le reconnaît à son lien « Stat »). */
+const MENU_COMPTE_PLUS = `<ul id="menuComptePlus"><li><a class="boutonStatJoueur" href="statJoueur.php">Stat</a></li></ul>`;
+/** Encart « S5 Pseudo » et données cachées du jeu ; avec le Compte+ par défaut (page Convois relue). */
+function encart(stock: [number, number], comptePlus = true) {
+  return `${comptePlus ? MENU_COMPTE_PLUS : ""}<div id="data" style="display:none"><div id="pseudo">Moi</div><div id="nb_ouvrieres">68031</div><div id="nb_materiaux">${stock[1]}</div><div id="nb_nourriture">${stock[0]}.21851002632</div><div id="quantite_tdc">19095</div></div>
 <div id="boiteInfo" class="boite_info"><table id="tableau_boite_info">
 <tr><td class="lien tooltip_boite_info" title="Votre entrepôt de nourriture est rempli à 18%"><a class="ligne_boite_info" href="Reine.php"><img class="icone_nourriture_boite_info" alt="Nourriture" src="images/icone/icone_pomme.png"/><div class="texte_ligne_boite_info">${stock[0]}</div></a></td></tr>
 <tr><td class="lien tooltip_boite_info" title="Votre entrepôt de matériaux est rempli à 36%"><a class="ligne_boite_info" href="construction.php"><img class="icone_materiaux_boite_info" alt="Materiaux" src="images/icone/icone_bois.png" width="28" /><div class="texte_ligne_boite_info">${stock[1]}</div></a></td></tr>
@@ -119,6 +124,7 @@ beforeEach(() =>
     APPELS = [];
     JOURNAL = [];
     REPONSE = () => $.Deferred().resolve(${JSON.stringify(SANS_CONVOI)}).promise();
+    RECUS = () => Promise.resolve([]);
     Journal.info = (s, m, d) => JOURNAL.push(m + " : " + d);
     Entrepots.convoisLus = null;
     $.ajax = (o) => (APPELS.push(o.url), REPONSE(o));
@@ -514,6 +520,39 @@ describe("cycles de récolte", () => {
     ]);
     // de 10h00m50 à 10h01m10 : une minute de l'horloge
     expect(lire(`DelaiRessources.duree(${HEURE + 50000}, ${HEURE + 70000})`)).toBe("1m");
+  });
+});
+
+describe("sans Compte+ : convois qui arrivent lus dans le forum", () => {
+  test("le sujet commun des convois remplace la page Convois, que le jeu ne montre qu'avec le Compte+", async () => {
+    noterRecolte({ recolte: HEURE + 227000 });
+    lire(
+      `RECUS = () => Promise.resolve([{ de: "Alpha", t: heure + ${2 * H}, q: [50000, 1000000] }])`,
+    );
+    await ouvrir(
+      encart([220554, 3498463], false) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
+    );
+    expect(lire(`APPELS`)).toEqual([]);
+    // même calcul qu'avec la page Convois : 1 000 000 de plus dans 2 h
+    expect(ligneHorloge(0).valeur).toBe("5j 19h 33m");
+    expect(lignes(0)).toContain("1 convoi : +1 000 000 bois");
+    expect(lire(`Entrepots.convoisGardes()`)).toEqual([
+      { de: "Alpha", t: HEURE + 2 * H, q: [50000, 1000000] },
+    ]);
+  });
+
+  test("forum illisible : convois de la dernière lecture, et l'info-bulle le dit", async () => {
+    noterRecolte({ recolte: HEURE + 227000 });
+    lire(`RECUS = () => Promise.reject(new Error("absente"))`);
+    await ouvrir(
+      encart([220554, 3498463], false) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
+    );
+    expect(lignes(0)).toContain(
+      "Convois du forum pas relus (section « BDD partagée cachée » introuvable) : ceux de la dernière lecture.",
+    );
+    expect(lire(`JOURNAL`)).toEqual([
+      "convois du forum non relus : section « BDD partagée cachée » introuvable",
+    ]);
   });
 });
 

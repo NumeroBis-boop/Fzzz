@@ -4,7 +4,8 @@ import { creerPage } from "./harnais";
 /**
  * Convoi transmis puis annulé dans le jeu : sa part est retirée du site de
  * suivi (convoi prévu et avance) et sa ligne du forum, une seule, même quand
- * un convoi identique reste en cours.
+ * un convoi identique reste en cours (le retrait de la ligne elle-même :
+ * convois-forum.test.ts).
  */
 const page = creerPage(
   [
@@ -63,74 +64,6 @@ const site = (envoye: number, avances: number[]) =>
       },
     };
   })()`);
-
-describe("répartition notée dans le forum", () => {
-  test("écrite après le numéro, relue ; une ligne d'avant 1.86 n'en a pas", () => {
-    const ligne = {
-      arrivee: "2099-01-01 10:00",
-      vers: "Kwhwwymwn",
-      montant: 466945,
-      id: 101,
-      prevu: 300000,
-      avance: 166945,
-    };
-    const texte = page.lire<string>(
-      `ConvoisForum.ecrire(${JSON.stringify([ligne])}, "2026-01-01 00:00")`,
-    );
-    expect(texte).toBe(
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #101 | prévu 300 000 | avance 166 945",
-    );
-    expect(
-      page.lire(
-        `ConvoisForum.lire(${JSON.stringify(texte + "\n01/01/99 11:00 | Grim | 1 000 | #102")})`,
-      ),
-    ).toEqual([
-      { ...ligne },
-      { arrivee: "2099-01-01 11:00", vers: "Grim", montant: 1000, id: 102 },
-    ]);
-  });
-});
-
-describe("ligne du forum retirée, une seule", () => {
-  // sujet simulé : ses lignes, et le texte écrit
-  const sujet = (lignes: string[]) =>
-    page.lire(`(() => {
-      window.ecrit = null;
-      ConvoisForum._sujet = () => Promise.resolve({ titre: "Convois | Moi", id: 5 });
-      ConvoisForum._contenu = () => Promise.resolve(ConvoisForum.lire(${JSON.stringify(lignes.join("\n"))}));
-      PartageChasses._xajax = (f, q) => {
-        window.ecrit = decodeURIComponent(q.match(/message=([^&]*)/)[1]).split("\\n");
-        return Promise.resolve();
-      };
-    })()`);
-  const retirer = (c: object) =>
-    page.lire<Promise<boolean>>(`ConvoisForum.retirer(${JSON.stringify(c)})`);
-  const arrivee = Date.parse("2099-01-01T10:00:00");
-
-  test("par numéro : la ligne de ce convoi, pas celle du convoi identique", async () => {
-    sujet([
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #101",
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #102",
-    ]);
-    expect(await retirer({ id: 101, vers: "Kwhwwymwn", montant: 466945, arrivee })).toBe(true);
-    expect(page.lire(`ecrit`)).toEqual(["01/01/99 10:00 | Kwhwwymwn | 466 945 | #102"]);
-  });
-
-  test("numéro inconnu (#0), deux lignes identiques : une seule retirée", async () => {
-    sujet([
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #0",
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #0",
-    ]);
-    expect(await retirer({ id: 101, vers: "Kwhwwymwn", montant: 466945, arrivee })).toBe(true);
-    expect(page.lire(`ecrit`)).toEqual(["01/01/99 10:00 | Kwhwwymwn | 466 945 | #0"]);
-  });
-
-  test("absente du sujet : rien n'est écrit", async () => {
-    sujet(["01/01/99 10:00 | Grim | 1 000 | #7"]);
-    expect(await retirer({ id: 101, vers: "Kwhwwymwn", montant: 466945, arrivee })).toBe(false);
-    expect(page.lire(`ecrit`)).toBeNull();
-  });
-});
 
 describe("part retirée du site de suivi", () => {
   test("convoi prévu et avance : sa part seulement, une seule avance parmi deux identiques", async () => {
@@ -275,8 +208,10 @@ describe("annulation reprise après un échec en cours de route", () => {
   test("forum : ligne déjà retirée par l'essai précédent (#0 identiques), pas une seconde", async () => {
     page.lire(`(() => {
       window.ecrit = null;
-      ConvoisForum._sujet = () => Promise.resolve({ titre: "Convois | Moi", id: 5 });
-      ConvoisForum._contenu = () => Promise.resolve(ConvoisForum.lire("01/01/99 10:00 | Kwhwwymwn | 466 945 | #0"));
+      PartageChasses._html = (d) => d;
+      ConvoisForum._sujets = () => Promise.resolve({ commun: { id: "20" }, ancien: null });
+      // ma réponse du sujet commun : une des deux lignes identiques déjà retirée
+      PartageChasses._lireSujet = () => Promise.resolve('<div class="auteurForum"><a href="Membre.php?Pseudo=Moi">Moi</a></div><div class="messageForum"><div id="editMessage700">01/01/99 10:00 | Kwhwwymwn | 0 pommes | 466 945 bois | #0</div></div>');
       PartageChasses._xajax = () => { window.ecrit = true; return Promise.resolve(); };
     })()`);
     const c = {

@@ -18,7 +18,7 @@ const page = creerPage(
   `var heure = moment("2026-11-19 14:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };
    var monProfil = { pseudo: "Moi", niveauConstruction: [-1, 10, 13, 0, 0, 0, 0, 0, 0, 0, 0, 4] };
-   var CommerceFzzz = { suivi() {} };`,
+   var CommerceFzzz = { suivi() {}, partageConvois() {} };`,
   "https://s5.fourmizzz.fr/commerce.php",
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
@@ -62,6 +62,12 @@ describe("convois qui arrivent, gardés à chaque visite de la page Convois", ()
     expect(lire(`Entrepots.convoisGardes().length`)).toBe(1);
     ouvrir(LIVRER, true);
     expect(lire(`Entrepots.convoisGardes()`)).toEqual([]);
+  });
+
+  test("sans Compte+, page sans convoi qui arrive : ceux lus dans le forum restent", () => {
+    lire(`Entrepots.garderConvois([{ de: "Alpha", t: heure + ${H}, q: [0, 500] }], heure)`);
+    ouvrir(LIVRER, false);
+    expect(lire(`Entrepots.convoisGardes()`)).toEqual([{ de: "Alpha", t: HEURE + H, q: [0, 500] }]);
   });
 
   test("gardés par joueur : un autre compte du même navigateur n'en hérite pas", () => {

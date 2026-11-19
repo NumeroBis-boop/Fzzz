@@ -61,13 +61,20 @@ describe("convois notés dans le forum, ligne par ligne", () => {
   });
 
   test("numéro inconnu écrit « #0 », gardé même en double, relu avec le numéro 0", () => {
-    const ligne = { arrivee: "2099-01-01 10:00", vers: "Kwhwwymwn", montant: 466945, id: 0 };
+    const ligne = {
+      arrivee: "2099-01-01 10:00",
+      vers: "Kwhwwymwn",
+      nou: 0,
+      mat: 466945,
+      montant: 466945,
+      id: 0,
+    };
     const texte = page.lire<string>(
       `ConvoisForum.ecrire(${JSON.stringify([ligne, ligne])}, "2026-01-01 00:00")`,
     );
     expect(texte.split("\n")).toEqual([
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #0",
-      "01/01/99 10:00 | Kwhwwymwn | 466 945 | #0",
+      "01/01/99 10:00 | Kwhwwymwn | 0 pommes | 466 945 bois | #0",
+      "01/01/99 10:00 | Kwhwwymwn | 0 pommes | 466 945 bois | #0",
     ]);
     expect(
       page.lire<{ id: number }[]>(`ConvoisForum.lire(${JSON.stringify(texte)})`).map((n) => n.id),

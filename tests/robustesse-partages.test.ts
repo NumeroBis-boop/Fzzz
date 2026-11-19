@@ -189,20 +189,29 @@ describe("partages du forum : clics répétés, pages rechargées, écriture per
     expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(0);
   });
 
-  test("convois notés deux fois de suite (double clic) : chaque convoi une seule fois dans le suivi, sans historique", async () => {
+  test("convois notés deux fois de suite (double clic) : chaque convoi une seule fois dans ma réponse, sans historique", async () => {
     forum([
       {
         id: "1",
-        titre: "Convois | DoggyBag",
-        messages: ["29/10/26 09:00 | Canaille | 1 000 | #5"],
+        titre: "BDD générale convoi - NE RIEN ÉCRIRE",
+        messages: [""],
+        reponses: [
+          {
+            id: 700,
+            auteur: "DoggyBag",
+            texte: "29/10/26 09:00 | Canaille | 0 pommes | 1 000 bois | #5",
+          },
+        ],
       },
     ]);
-    const convoi = `[{ id: 7, vers: "Canaille", montant: 3000, arrivee: moment("2026-10-29 15:00", "YYYY-MM-DD HH:mm").valueOf() }]`;
+    const convoi = `[{ id: 7, vers: "Canaille", nou: 0, mat: 3000, montant: 3000, prevu: 3000, avance: 0, arrivee: moment("2026-10-29 15:00", "YYYY-MM-DD HH:mm").valueOf() }]`;
     await Promise.all([
       lire(`ConvoisForum.noter(${convoi})`),
       lire(`ConvoisForum.noter(${convoi})`),
     ]);
     expect(sujetsDe("Historique Convois 1 | DoggyBag")).toBe(0);
-    expect(message1("Convois | DoggyBag")).toBe("29/10/26 15:00 | Canaille | 3 000 | #7");
+    expect(maReponse()).toBe(
+      "29/10/26 15:00 | Canaille | 0 pommes | 3 000 bois | #7 | prévu 3 000 | avance 0",
+    );
   });
 });

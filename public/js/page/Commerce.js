@@ -22,12 +22,11 @@ class PageCommerce {
    */
   executer() {
     // convois qui arrivent, pour les entrepôts (encart, Construction,
-    // Laboratoire) : lus avant que le suivi ne déplace les lignes
+    // Laboratoire) : lus avant que le suivi ne déplace les lignes ; sans
+    // Compte+, le jeu ne les montre pas et ceux lus dans le forum restent
     try {
-      Entrepots.garderConvois(
-        Entrepots.lireConvois($(document), Horloge.maintenant()),
-        Horloge.maintenant(),
-      );
+      let recus = Entrepots.lireConvois($(document), Horloge.maintenant());
+      if (Utils.comptePlus || recus.length) Entrepots.garderConvois(recus, Horloge.maintenant());
     } catch (e) {
       console.error(`[${NOM_EXTENSION}] convois qui arrivent non lus`, e);
     }
@@ -41,6 +40,7 @@ class PageCommerce {
     // option c+
     if (!Utils.comptePlus) this.plus();
     CommerceFzzz.suivi();
+    CommerceFzzz.partageConvois();
     // annulation d'un convoi, lancement : même position à l'écran après rechargement
     Utils.garderPosition("fzzz_positionCommerce");
     return this;

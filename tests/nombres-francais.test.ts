@@ -48,7 +48,7 @@ describe("nombres à la française", () => {
       Utils.affichage = (cle) => cle == "convoisInfoEtable";
       Utils.garderPosition = () => {};
       PageCommerce.prototype.plus = () => {};
-      window.CommerceFzzz = { suivi() {}, suiviOuaf() {}, membresSuivis() {} };
+      window.CommerceFzzz = { suivi() {}, suiviOuaf() {}, membresSuivis() {}, partageConvois() {} };
       new PageCommerce({}).executer();
     })()`);
     expect(convois.lire<string>(`$("form table").text()`)).toContain(

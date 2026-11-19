@@ -614,7 +614,7 @@ class BoiteParametre extends Boite {
         "un entrepôt en construction (vu dans l'encart Compte+ du jeu ou sur la page Construction) prend un niveau à la fin de sa construction : sa capacité devient 2 × capacité − 500 ; il reste compté après, jusqu'à ce que la page Construction donne son nouveau niveau ;",
         "à chaque récolte du jeu, toutes les 30 min (heure lue sur la page Ressources), le 48<sup>e</sup> de la production du jour : la récolte du terrain couvert par tes ouvrières (1 par ouvrière au travail) et ta champignonnière, moins la consommation de ton armée ; sans heure de récolte connue, la production est étalée sur la journée ;",
         "si tu es vassal, la part de ton seigneur est prise à chaque récolte sur le terrain et la champignonnière, au pourcentage que donne la page Ressources (« X vous pille … ») ;",
-        "les convois qui arrivent, à leur arrivée, vus à ta dernière visite de la page Convois (le jeu ne les y montre qu'avec le Compte+) ;",
+        "les convois qui arrivent, à leur arrivée : avec le Compte+, ceux de ta dernière visite de la page Convois ; sans, le jeu ne les montre pas : ceux que leurs expéditeurs ont partagés dans le forum de l'alliance avec « Envoyer + partager » (sujet commun des convois), lus à l'ouverture des pages Construction et Laboratoire ;",
         "pas compté : le terrain que rapporteront tes chasses et tes floods en cours, ce que tu pilles sur tes colonies (montré dans l'info-bulle), la nourriture rapportée par les chasses, les floods reçus, ce que coûteront les pontes, constructions et recherches que tu lanceras ;",
         "« Famine dans … » quand la nourriture tombe à zéro avant que l'entrepôt soit plein ; en rouge à moins de 8 h.",
       ])}
@@ -1002,7 +1002,7 @@ class BoiteParametre extends Boite {
           .map(([cle, texte]) => `<li>« ${REGLAGES_ALLIANCE[cle].nom} : … » : ${texte}</li>`)
           .join(
             "",
-          )}</ul><b>Sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} »</b> : créés à la main ; l'extension de chaque joueur y écrit sa réponse avec ses floods et ses chasses en cours. <b>Sujets « ${TITRE_GIF_ALLIANCE} » et « ${TITRE_SMILEYS_ALLIANCE} »</b> : les images de leur premier message, pour les chats, la messagerie et le forum. L'extension écrit elle-même les sujets « Convois | pseudo » (suivi des convois). Chaque joueur règle ici son propre Google Sheet s'il n'est pas dans la liste des RC, et dans l'onglet Convois le mot de passe du site de suivi. Les réglages sont relus au plus une fois par heure, et quand une fonction en a besoin.`,
+          )}</ul><b>Sujets « ${SUJETS_COMMUNS.Floods} », « ${SUJETS_COMMUNS.Chasses} » et « ${SUJETS_COMMUNS.Convois} »</b> : créés à la main ; l'extension de chaque joueur y écrit sa réponse avec ses floods, ses chasses et ses convois en cours (un convoi y est noté par « Envoyer + partager » de la page Convois, ou par son envoi au site de suivi). <b>Sujets « ${TITRE_GIF_ALLIANCE} » et « ${TITRE_SMILEYS_ALLIANCE} »</b> : les images de leur premier message, pour les chats, la messagerie et le forum. Chaque joueur règle ici son propre Google Sheet s'il n'est pas dans la liste des RC, et dans l'onglet Convois le mot de passe du site de suivi. Les réglages sont relus au plus une fois par heure, et quand une fonction en a besoin.`,
       ) +
       "<p id='o_reglagesEtat' class='left small'></p><p class='left o_reglage'><button type='button' class='o_button f_info o_reglagesRelire'>Relire les réglages</button></p>"
     );

@@ -27,6 +27,12 @@ const RECOLTE_DELAI_ENVOI = 5 * 60000;
 const RECOLTES_EXAMINEES_MAX = 48 * 14;
 // pages Ressources et Armée relues au plus une fois par minute (clics successifs)
 const RECOLTE_VALIDITE_LECTURE = 60000;
+// « Envoyer + partager » : ordre gardé jusqu'à la page Convois que le jeu
+// affiche après l'envoi, avec les numéros des convois d'avant
+const CLE_PARTAGE_CONVOI_APRES = "fzzz_partageConvoiApres";
+const DUREE_PARTAGE_CONVOI = 2 * 60000;
+// convois partagés depuis ce navigateur, par joueur : leur « Annuler » est surveillé
+const CLE_CONVOIS_PARTAGES = "fzzz_convoisPartages";
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
@@ -182,8 +188,9 @@ class CommerceFzzz {
       });
   }
   /**
-   * Devant chaque convoi envoyé, son état d'après le sujet « Convois » du forum
-   * de l'alliance, seule référence : « ✅ Enregistré » s'il y est noté, sinon
+   * Devant chaque convoi envoyé, son état d'après le forum de l'alliance (ma
+   * réponse du sujet commun des convois), seule référence : « ✅ Enregistré »
+   * s'il y est noté avec sa répartition, sinon
    * un bouton « 📤 Envoyer au suivi », qui le transmet au site de suivi puis le
    * note dans le sujet. Transmis mais pas noté (écriture du forum en échec) :
    * bouton « 📝 Noter dans le forum », qui ne renvoie rien au site. Le mot de
@@ -197,7 +204,7 @@ class CommerceFzzz {
     if (!OuafSuivi.site() || !Utils.affichage("convoisSuiviLignes") || $(".o_ouafLigne").length)
       return;
     let convois = OuafSuivi.convoisJeu();
-    CommerceFzzz.reporterAnnulations(convois);
+    CommerceFzzz.reporterAnnulations(convois, false);
     if (!convois.length) return;
     let cases = Utils.affichage("convoisColonnes")
         ? CommerceFzzz.colonnes(CommerceFzzz.lignes().get())
@@ -365,7 +372,7 @@ class CommerceFzzz {
         );
       };
     convois.forEach((c) => etatLigne(c, "verif"));
-    // état lu dans le sujet « Convois » du forum seulement, jamais sur le site de suivi
+    // état lu dans le forum seulement, jamais sur le site de suivi
     ConvoisForum.notes().then(
       (notes) => {
         ConvoisForum.trouves(convois, notes).forEach((note, c) => notees.set(c, note));
@@ -388,18 +395,233 @@ class CommerceFzzz {
     );
   }
   /**
-   * Convois transmis dont le joueur a cliqué « Annuler » : au chargement
-   * suivant, celui qui n'est plus en cours avant son arrivée est retiré du site
-   * de suivi (sa part seulement, d'après la répartition notée à l'envoi), puis
-   * sa ligne du forum, une seule : un convoi identique resté en cours n'est
-   * pas touché. En échec, nouvel essai au chargement suivant.
+   * Convois partagés dans le sujet commun du forum, avec ou sans site de
+   * suivi : bouton « Envoyer + partager » à côté du bouton d'envoi du jeu (le
+   * convoi envoyé est partagé à la page Convois qui suit), et un convoi
+   * partagé puis annulé (lien « Annuler » du jeu) retiré de ma réponse au
+   * chargement suivant. Chaque écriture part d'un clic du joueur (choix du
+   * mainteneur, 19/11/2026) : un convoi envoyé avec le bouton du jeu n'est pas
+   * partagé.
+   *
+   * @static
+   * @method partageConvois
+   * @return {Promise}
+   */
+  static partageConvois() {
+    let convois = OuafSuivi.convoisJeu();
+    CommerceFzzz.boutonPartage();
+    CommerceFzzz._surveillerPartages(convois);
+    return CommerceFzzz.reporterAnnulations(convois, true).then(() =>
+      CommerceFzzz._partagerApresEnvoi(convois),
+    );
+  }
+  /**
+   * « Envoyer + partager » à côté du bouton d'envoi du formulaire du jeu : le
+   * clic retient les convois en cours puis envoie le formulaire par le bouton
+   * du jeu, avec ses propres vérifications.
+   *
+   * @static
+   * @method boutonPartage
+   */
+  static boutonPartage() {
+    let $form = $("#pseudo_convoi").closest("form");
+    // sans alliance, pas de forum où partager
+    if (!Utils.alliance || !$form.length || $form.find(".o_convoiPartager").length) return;
+    let $envoi = $form
+      .find("input[type='submit'], input[type='image'], input[type='button'], button")
+      .filter((i, b) =>
+        /lancer|envoyer/i.test(
+          [
+            b.getAttribute("value"),
+            b.getAttribute("alt"),
+            b.getAttribute("title"),
+            b.textContent,
+          ].join(" "),
+        ),
+      )
+      .last();
+    if (!$envoi.length) return;
+    $("<input type='button' class='o_convoiPartager'/>")
+      .val("Envoyer + partager")
+      .addClass($envoi.attr("class") || "")
+      .attr(
+        "title",
+        "Envoie le convoi, puis le note dans le sujet des convois du forum de l'alliance : son destinataire le compte dans ses calculs de ressources.",
+      )
+      .insertAfter($envoi)
+      .on("click", (e) => {
+        e.preventDefault();
+        try {
+          sessionStorage.setItem(
+            CLE_PARTAGE_CONVOI_APRES,
+            JSON.stringify({
+              ids: OuafSuivi.convoisJeu()
+                .map((c) => c.id)
+                .filter(Boolean),
+              vers: String($("#pseudo_convoi").val() || "").trim(),
+              quand: Horloge.maintenant(),
+            }),
+          );
+        } catch (err) {}
+        $envoi[0].click();
+      });
+  }
+  /**
+   * Page Convois affichée après « Envoyer + partager » : le convoi apparu
+   * depuis le clic (vers le joueur choisi) est ajouté à ma réponse.
+   *
+   * @private
+   * @static
+   * @param {Array} convois convois en cours (voir OuafSuivi.convoisJeu)
+   * @return {Promise}
+   */
+  static _partagerApresEnvoi(convois) {
+    let ordre = null,
+      toast = (texte, type) => $.toast({ ...type, text: texte, hideAfter: 10000 });
+    try {
+      ordre = JSON.parse(sessionStorage.getItem(CLE_PARTAGE_CONVOI_APRES) || "null");
+      sessionStorage.removeItem(CLE_PARTAGE_CONVOI_APRES);
+    } catch (e) {}
+    if (!ordre) return Promise.resolve();
+    if (Horloge.maintenant() - ordre.quand > DUREE_PARTAGE_CONVOI) {
+      toast(
+        "« Envoyer + partager » : la page Convois n'est pas revenue à temps après l'envoi, le convoi n'a pas été partagé.",
+        TOAST_WARNING,
+      );
+      return Promise.resolve();
+    }
+    let avant = new Set(ordre.ids || []),
+      vers = String(ordre.vers || "").toLowerCase(),
+      nouveaux = convois.filter(
+        (c) => c.id && !avant.has(c.id) && (!vers || c.vers.toLowerCase() == vers),
+      );
+    if (!nouveaux.length) {
+      toast(
+        "« Envoyer + partager » : aucun nouveau convoi dans « Convois en cours », rien n'a été partagé.",
+        TOAST_WARNING,
+      );
+      return Promise.resolve();
+    }
+    return ConvoisForum.partager(nouveaux).then(
+      () => {
+        CommerceFzzz._retenirPartages(nouveaux);
+        toast(
+          `Convoi vers ${Utils.echapper(nouveaux.map((c) => c.vers).join(", "))} partagé avec ${Utils.alliance ? "la " + Utils.echapper(Utils.alliance) : "l'alliance"} : son destinataire le compte dans ses calculs de ressources.`,
+          TOAST_SUCCESS,
+        );
+      },
+      (e) => {
+        Journal.erreur("Convois", "partage dans le forum impossible", e && e.message);
+        toast(
+          `Convoi envoyé, mais pas partagé dans le forum de l'alliance (${Utils.echapper((e && e.message) || "erreur")}).`,
+          TOAST_ERROR,
+        );
+      },
+    );
+  }
+  /**
+   * @private
+   * @static
+   * @return {Array<any>} mes convois partagés depuis ce navigateur, pas encore arrivés
+   */
+  static _partages() {
+    let tout = Utils.lireStockage(CLE_CONVOIS_PARTAGES),
+      liste = tout[String(monProfil.pseudo || "").toLowerCase()];
+    return (Array.isArray(liste) ? liste : []).filter((c) => c.arrivee > Horloge.maintenant());
+  }
+  /**
+   * @private
+   * @static
+   * @param {Array<any>} liste
+   */
+  static _garderPartages(liste) {
+    let pseudo = String(monProfil.pseudo || "").toLowerCase();
+    if (!pseudo) return;
+    let tout = Utils.lireStockage(CLE_CONVOIS_PARTAGES);
+    tout[pseudo] = liste;
+    try {
+      localStorage.setItem(CLE_CONVOIS_PARTAGES, JSON.stringify(tout));
+    } catch (e) {}
+  }
+  /**
+   * @private
+   * @static
+   * @param {Array<any>} convois partagés (voir OuafSuivi.convoisJeu)
+   */
+  static _retenirPartages(convois) {
+    CommerceFzzz._garderPartages(
+      CommerceFzzz._partages()
+        .filter((p) => !convois.some((c) => c.id == p.id))
+        .concat(
+          convois.map((c) => ({ id: c.id, vers: c.vers, montant: c.montant, arrivee: c.arrivee })),
+        ),
+    );
+  }
+  /**
+   * @private
+   * @static
+   * @param {Number} id
+   */
+  static _oublierPartage(id) {
+    CommerceFzzz._garderPartages(CommerceFzzz._partages().filter((p) => p.id != id));
+  }
+  /**
+   * Clic sur « Annuler » du jeu pour un convoi partagé : retenu, puis retiré
+   * de ma réponse au chargement suivant s'il n'est plus en cours. Un convoi
+   * aussi transmis au site de suivi garde l'annulation du suivi, qui retire
+   * aussi sa ligne.
+   *
+   * @private
+   * @static
+   * @param {Array} convois convois en cours (voir OuafSuivi.convoisJeu)
+   */
+  static _surveillerPartages(convois) {
+    let partages = CommerceFzzz._partages();
+    convois
+      .filter((c) => c.id && partages.some((p) => p.id == c.id))
+      .forEach((c) => {
+        let lien = OuafSuivi.lienAnnuler(c.elt);
+        if (!lien || $(lien).data("o_annulationPartage")) return;
+        $(lien)
+          .data("o_annulationPartage", true)
+          .on("click", () => {
+            let annulations = OuafSuivi.annulations();
+            if (annulations.some((x) => x.id == c.id && x.suivi !== false)) return;
+            OuafSuivi.enregistrerAnnulations(
+              annulations
+                .filter((x) => x.id != c.id)
+                .concat([
+                  {
+                    id: c.id,
+                    vers: c.vers,
+                    montant: c.montant,
+                    arrivee: c.arrivee,
+                    dansForum: true,
+                    siteFait: true,
+                    suivi: false,
+                    quand: Horloge.maintenant(),
+                  },
+                ]),
+            );
+          });
+      });
+  }
+  /**
+   * Convois notés dont le joueur a cliqué « Annuler » : au chargement suivant,
+   * celui qui n'est plus en cours avant son arrivée est retiré du site de
+   * suivi s'il y avait été transmis (sa part seulement, d'après la
+   * répartition notée à l'envoi), puis sa ligne du forum, une seule : un
+   * convoi identique resté en cours n'est pas touché. En échec, nouvel essai
+   * au chargement suivant.
    *
    * @static
    * @method reporterAnnulations
    * @param {Array} convois convois en cours (voir OuafSuivi.convoisJeu)
+   * @param {Boolean} [partages] convois seulement partagés (« Envoyer +
+   *   partager »), sinon ceux transmis au site de suivi
    * @return {Promise}
    */
-  static reporterAnnulations(convois) {
+  static reporterAnnulations(convois, partages = false) {
     let maintenant = Horloge.maintenant(),
       toast = (texte, type) => $.toast({ ...type, text: texte, hideAfter: 12000 }),
       changer = (a, champs) =>
@@ -409,68 +631,78 @@ class CommerceFzzz {
             .filter(Boolean),
         ),
       montant = (n) => numeral(n).format();
-    return OuafSuivi.annulations().reduce(
-      (suite, a) =>
-        suite.then(() => {
-          // toujours en cours (annulation refusée ou abandonnée), ou arrivé
-          if (convois.some((c) => c.id == a.id) || a.arrivee <= maintenant + OUAF_ECART_ARRIVEE)
-            return changer(a);
-          let convoi = `Convoi annulé vers ${Utils.echapper(a.vers)} (${montant(a.montant)})`;
-          if (maintenant - a.quand > OUAF_DUREE_ANNULATION) {
-            changer(a);
-            return toast(
-              `${convoi} : annulation non reportée à temps, retire-le à la main du site de suivi et du forum.`,
-              TOAST_WARNING,
-            );
-          }
-          let progres = (champs) => changer(a, champs),
-            site =
-              a.siteFait || a.prevu == null ? Promise.resolve(null) : OuafSuivi.retirer(a, progres);
-          return site
-            .then((bilan) => {
-              if (bilan) changer(a, { siteFait: true });
-              return (a.dansForum ? ConvoisForum.retirer(a, progres) : Promise.resolve(false)).then(
-                () => bilan,
+    return OuafSuivi.annulations()
+      .filter((a) => (a.suivi === false) == partages)
+      .reduce(
+        (suite, a) =>
+          suite.then(() => {
+            // toujours en cours (annulation refusée ou abandonnée), ou arrivé
+            if (convois.some((c) => c.id == a.id) || a.arrivee <= maintenant + OUAF_ECART_ARRIVEE)
+              return changer(a);
+            let convoi = `Convoi annulé vers ${Utils.echapper(a.vers)} (${montant(a.montant)})`;
+            if (maintenant - a.quand > OUAF_DUREE_ANNULATION) {
+              changer(a);
+              return toast(
+                `${convoi} : annulation non reportée à temps, retire-le à la main du site de suivi et du forum.`,
+                TOAST_WARNING,
               );
-            })
-            .then(
-              (bilan) => {
-                changer(a);
-                let parts = bilan
-                  ? [
-                      bilan.prevu && `${montant(bilan.prevu)} du convoi prévu`,
-                      bilan.avance && `${montant(bilan.avance)} d'avance`,
-                    ].filter(Boolean)
-                  : [];
-                toast(
-                  `${convoi} : ${[
-                    a.prevu == null
-                      ? null
-                      : `retiré du site de suivi${parts.length ? " (" + parts.join(", ") + ")" : ""}`,
-                    a.dansForum ? "retiré du forum" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" et ")}.${
-                    a.prevu == null
-                      ? " Retire-le à la main du site de suivi : sa répartition n'était pas notée."
-                      : bilan && bilan.manque.length
-                        ? " À vérifier sur le site : " +
-                          Utils.echapper(bilan.manque.join(", ")) +
-                          "."
-                        : ""
-                  }`,
-                  a.prevu == null || (bilan && bilan.manque.length) ? TOAST_WARNING : TOAST_SUCCESS,
-                );
-              },
-              (e) =>
-                toast(
-                  `${convoi} : pas encore retiré du suivi (${Utils.echapper(e.message)}). Nouvel essai au prochain chargement de la page Convois.`,
-                  TOAST_WARNING,
-                ),
-            );
-        }),
-      Promise.resolve(),
-    );
+            }
+            let progres = (champs) => changer(a, champs),
+              site =
+                a.siteFait || a.prevu == null
+                  ? Promise.resolve(null)
+                  : OuafSuivi.retirer(a, progres);
+            return site
+              .then((bilan) => {
+                if (bilan) changer(a, { siteFait: true });
+                return (
+                  a.dansForum ? ConvoisForum.retirer(a, progres) : Promise.resolve(false)
+                ).then(() => bilan);
+              })
+              .then(
+                (bilan) => {
+                  changer(a);
+                  if (a.suivi === false) {
+                    CommerceFzzz._oublierPartage(a.id);
+                    return toast(`${convoi} : retiré du forum.`, TOAST_SUCCESS);
+                  }
+                  let parts = bilan
+                    ? [
+                        bilan.prevu && `${montant(bilan.prevu)} du convoi prévu`,
+                        bilan.avance && `${montant(bilan.avance)} d'avance`,
+                      ].filter(Boolean)
+                    : [];
+                  toast(
+                    `${convoi} : ${[
+                      a.prevu == null
+                        ? null
+                        : `retiré du site de suivi${parts.length ? " (" + parts.join(", ") + ")" : ""}`,
+                      a.dansForum ? "retiré du forum" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" et ")}.${
+                      a.prevu == null
+                        ? " Retire-le à la main du site de suivi : sa répartition n'était pas notée."
+                        : bilan && bilan.manque.length
+                          ? " À vérifier sur le site : " +
+                            Utils.echapper(bilan.manque.join(", ")) +
+                            "."
+                          : ""
+                    }`,
+                    a.prevu == null || (bilan && bilan.manque.length)
+                      ? TOAST_WARNING
+                      : TOAST_SUCCESS,
+                  );
+                },
+                (e) =>
+                  toast(
+                    `${convoi} : pas encore retiré du suivi (${Utils.echapper(e.message)}). Nouvel essai au prochain chargement de la page Convois.`,
+                    TOAST_WARNING,
+                  ),
+              );
+          }),
+        Promise.resolve(),
+      );
   }
   /**
    * Problème du site de suivi écrit sur la page (une info-bulle ne se voit pas

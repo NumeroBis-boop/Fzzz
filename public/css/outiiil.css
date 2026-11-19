@@ -3700,6 +3700,10 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   margin: 0 auto;
 }
 
+/* page Convois : « Envoyer + partager », écarté du bouton d'envoi du jeu (toucher sur téléphone) */
+.o_convoiPartager {
+  margin-left: 1em;
+}
 /* Construction et Laboratoire : heure où les ressources suffiront, au survol du coût */
 .o_delaiRessources {
   cursor: help;

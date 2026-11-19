@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.140.1",
+    notes: [
+      "Colonne « Synchro » (info-bulle de la page Membres, page d'un membre) : l'heure de lancement s'affiche aussi sur chaque flood, pour arriver au début de sa minute, donc après lui.",
+    ],
+  },
+  {
     version: "1.140.0",
     notes: [
       "Page Membres (info-bulle de la vue « Floods et chasses en cours ») et page d'un membre : nouvelle colonne « Synchro » sur les lignes « Chasse », la seconde où lancer une attaque pour qu'elle arrive au début de la minute du retour de chasse, donc après la chasse.",

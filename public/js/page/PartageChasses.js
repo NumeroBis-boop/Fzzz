@@ -2076,7 +2076,7 @@ class PartageChasses {
   }
   /**
    * Colonne « Synchro » du tableau de l'évolution : pour un autre joueur que
-   * moi, quand une de ses chasses est partagée.
+   * moi, sur chacune de ses chasses et chacun de ses floods.
    *
    * @static
    * @method avecSynchro
@@ -2085,18 +2085,20 @@ class PartageChasses {
    * @return {Boolean}
    */
   static avecSynchro(vars, synchro) {
-    return !!synchro && vars.some((v) => !v.flood);
+    return !!synchro && vars.length > 0;
   }
   /**
-   * Seconde de lancement d'une attaque qui arrive au début de la minute du RC
-   * d'une chasse : cette minute est la minute d'arrivée affichée par le jeu
-   * + 1 (PageRessource.lireChasses), l'attaque arrive donc après la chasse,
-   * quelle que soit sa seconde d'arrivée.
+   * Seconde de lancement d'une attaque qui arrive au début de la minute
+   * partagée d'un mouvement : pour une chasse, la minute d'arrivée affichée
+   * par le jeu + 1 (PageRessource.lireChasses) ; pour un flood, son arrivée
+   * arrondie à la minute supérieure (Utils.minuteRC). L'attaque arrive donc
+   * après le mouvement, ou dans la même seconde qu'un flood arrivé pile sur
+   * une minute pleine.
    *
    * @static
    * @method lancementSynchro
-   * @param {String} date minute du RC de la chasse, « AAAA-MM-JJ HH:mm »
-   * @param {Number|null} secondes mon temps de trajet vers le chasseur (null : inconnu)
+   * @param {String} date minute partagée du mouvement, « AAAA-MM-JJ HH:mm »
+   * @param {Number|null} secondes mon temps de trajet vers le joueur (null : inconnu)
    * @return {Object|null} moment du lancement, null si le trajet est inconnu
    */
   static lancementSynchro(date, secondes) {
@@ -2111,15 +2113,14 @@ class PartageChasses {
    * @return {String} HTML de la cellule
    */
   static celluleSynchro(v, synchro) {
-    if (v.flood) return "<td></td>";
     let lancement = PartageChasses.lancementSynchro(v.date, synchro.secondes);
-    if (!lancement) return "<td class='o_synchroChasse'>?</td>";
+    if (!lancement) return "<td class='o_synchroLancement'>?</td>";
     if (lancement.isBefore(synchro.maintenant))
-      return "<td class='o_synchroChasse o_synchroPassee'>passée</td>";
+      return "<td class='o_synchroLancement o_synchroPassee'>passée</td>";
     let format = lancement.isSame(synchro.maintenant, "day")
       ? "HH[h]mm[m]ss[s]"
       : "DD/MM HH[h]mm[m]ss[s]";
-    return `<td class='o_synchroChasse'>${lancement.format(format)}</td>`;
+    return `<td class='o_synchroLancement'>${lancement.format(format)}</td>`;
   }
   /**
    * Note sous le tableau quand il a la colonne « Synchro ».
@@ -2132,7 +2133,7 @@ class PartageChasses {
    */
   static noteSynchro(vars, synchro) {
     if (!PartageChasses.avecSynchro(vars, synchro)) return "";
-    return `<div class='o_note'>Synchro : lancer à cette seconde pour arriver au début de la minute du retour de chasse, donc après la chasse${synchro.secondes == null ? " (temps de trajet inconnu : ?)" : ""}.</div>`;
+    return `<div class='o_note'>Synchro : lancer à cette seconde pour arriver au début de la minute du mouvement, donc après lui${synchro.secondes == null ? " (temps de trajet inconnu : ?)" : ""}.</div>`;
   }
   /**
    * Quand `pseudo` est à ma portée (je peux le flooder : Utils.aPortee de son

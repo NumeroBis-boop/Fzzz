@@ -186,30 +186,42 @@ describe("page d'un membre : TdC à l'arrivée d'une attaque lancée à l'ouvert
     expect((await afficher({ secondes: 5380 })).surlignee).toBe(3);
   });
 
-  test("colonne « Synchro » : lancement pour arriver au début de la minute du retour de chasse", async () => {
-    // 1 h 15 de trajet : chasse de 11h30 (minute du RC), lancer à 10h15:00 pour y arriver à 11h30:00
+  test("colonne « Synchro » : lancement pour arriver au début de la minute de chaque chasse et de chaque flood", async () => {
+    // 1 h 15 de trajet, page ouverte à 10h00:20 : flood de 10h30 déjà trop proche,
+    // chasse de 11h30 (minute du RC) à lancer à 10h15:00, flood de 12h00 à 10h45:00
     const r = await afficher({ secondes: 4500 });
-    expect(r.synchro).toEqual(["Synchro", "", "", "10h15m00s", ""]);
+    expect(r.synchro).toEqual(["Synchro", "", "passée", "10h15m00s", "10h45m00s"]);
     expect(espaces(r.noteSynchro)).toBe(
-      "Synchro : lancer à cette seconde pour arriver au début de la minute du retour de chasse, donc après la chasse.",
+      "Synchro : lancer à cette seconde pour arriver au début de la minute du mouvement, donc après lui.",
     );
-    // trajet à la seconde ; un lancement déjà passé (page ouverte à 10h00:20) ; un autre jour
-    expect((await afficher({ secondes: 4537 })).synchro?.[3]).toBe("10h14m23s");
-    expect((await afficher({ secondes: 5380 })).synchro?.[3]).toBe("10h00m20s");
-    expect((await afficher({ secondes: 7200 })).synchro?.[3]).toBe("passée");
-    expect(
-      page.lire(
-        `PartageChasses.celluleSynchro({ flood: false, date: "2026-11-10 02:10" }, { secondes: 600, maintenant: Horloge.clic() })`,
-      ),
-    ).toBe("<td class='o_synchroChasse'>10/11 02h00m00s</td>");
-    // trajet inconnu : « ? » ; son propre profil ou aucune chasse : pas de colonne
+    // trajet à la seconde ; lancement à l'ouverture même, puis déjà passé
+    expect((await afficher({ secondes: 4537 })).synchro).toEqual([
+      "Synchro",
+      "",
+      "passée",
+      "10h14m23s",
+      "10h44m23s",
+    ]);
+    expect((await afficher({ secondes: 5380 })).synchro?.slice(3)).toEqual([
+      "10h00m20s",
+      "10h30m20s",
+    ]);
+    expect((await afficher({ secondes: 7200 })).synchro?.slice(3)).toEqual(["passée", "passée"]);
+    // un autre jour : la date devant l'heure, pour une chasse comme pour un flood
+    for (const flood of [false, true])
+      expect(
+        page.lire(
+          `PartageChasses.celluleSynchro({ flood: ${flood}, date: "2026-11-10 02:10" }, { secondes: 600, maintenant: Horloge.clic() })`,
+        ),
+      ).toBe("<td class='o_synchroLancement'>10/11 02h00m00s</td>");
+    // trajet inconnu : « ? » partout ; floods seuls : la colonne aussi ; son propre profil : pas de colonne
     const inconnu = await afficher({ secondes: null });
-    expect(inconnu.synchro).toEqual(["Synchro", "", "", "?", ""]);
+    expect(inconnu.synchro).toEqual(["Synchro", "", "?", "?", "?"]);
     expect(espaces(inconnu.noteSynchro)).toContain("(temps de trajet inconnu : ?)");
-    expect((await afficher(null)).synchro).toBeNull();
     expect(
       (await afficher({ secondes: 4500 }, 200000, { ...PARTAGES, chasses: {} })).synchro,
-    ).toBeNull();
+    ).toEqual(["Synchro", "", "passée", "10h45m00s"]);
+    expect((await afficher(null)).synchro).toBeNull();
   });
 
   test("son propre profil : rien de surligné ; trajet inconnu : une note", async () => {

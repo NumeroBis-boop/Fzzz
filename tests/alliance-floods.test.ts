@@ -319,7 +319,7 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     ).toBe("09/11 à 10h30");
   });
 
-  test("info-bulle : colonne « Synchro » sur les lignes de chasse", async () => {
+  test("info-bulle : colonne « Synchro » sur chaque chasse et chaque flood", async () => {
     await ouvrir();
     const synchro = (p: string) =>
       page.lire<string[] | null>(`(() => {
@@ -333,13 +333,14 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     expect(synchro("Delta")).toEqual(["Synchro", "", "14h50m00s"]);
     // 29 min 40 s : chasses de 10h30 et 10h31, page ouverte à 10h00:20
     expect(synchro("Epsilon")).toEqual(["Synchro", "", "10h00m20s", "10h01m20s"]);
-    // trajet inconnu : « ? » sur la chasse, rien sur son flood
-    expect(synchro("Beta")).toEqual(["Synchro", "", "?", ""]);
+    // 1 h : flood de 10h30 déjà trop proche, flood de 12h00 à lancer à 11h00:00
+    expect(synchro("Alpha")).toEqual(["Synchro", "", "passée", "11h00m00s"]);
+    // trajet inconnu : « ? » sur sa chasse et sur son flood
+    expect(synchro("Beta")).toEqual(["Synchro", "", "?", "?"]);
     expect(espaces(infobulle("Beta").texte)).toContain(
-      "Synchro : lancer à cette seconde pour arriver au début de la minute du retour de chasse, donc après la chasse (temps de trajet inconnu : ?).",
+      "Synchro : lancer à cette seconde pour arriver au début de la minute du mouvement, donc après lui (temps de trajet inconnu : ?).",
     );
-    // pas de chasse, ou ma propre ligne : pas de colonne
-    expect(synchro("Alpha")).toBeNull();
+    // ma propre ligne : pas de colonne
     expect(synchro("Moi")).toBeNull();
   });
 

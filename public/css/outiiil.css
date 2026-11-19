@@ -2682,8 +2682,8 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_a
 #o_allInfobulle .o_allInfoCible {
   font-style: italic;
 }
-/* seconde de lancement d'une synchro sur un retour de chasse */
-.o_synchroChasse {
+/* seconde de lancement pour arriver après un mouvement partagé (colonne Synchro) */
+.o_synchroLancement {
   white-space: nowrap;
 }
 .o_synchroPassee {

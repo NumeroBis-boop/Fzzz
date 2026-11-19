@@ -146,6 +146,7 @@ class BoiteParametre extends Boite {
       "tdcArriveeMax",
       "ratioPlancher",
       "convoisAvantRecolte",
+      "convoisSansReception",
     ];
   }
   /**
@@ -894,6 +895,14 @@ class BoiteParametre extends Boite {
               "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif, le lien « Ouvrir le site de suivi des convois » et la mise à jour de ton profil sur le site (niveaux de l'Étable à pucerons et de la Champignonnière, nombre total d'ouvrières, convois compris), une fois par jour et quand l'un de ces deux niveaux change. Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
             )}
             ${/^http:/i.test(site.url) ? "<p class='left small red'><em>Attention : ce site n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau.</em></p>" : ""}`,
+        )}
+        ${this.section(
+          `Récapitulatif : joueur qui ne veut pas de convois ${this.etiquette("Grenier")}`,
+          monProfil.parametre["convoisSansReception"].getForm("Le montrer par") +
+            this.aide(
+              "Sur le site de suivi, un joueur peut cocher « Je ne souhaite pas recevoir de convois » (Mon profil) : le Récapitulatif de la page Convois le montre sur sa ligne.",
+              "Ligne barrée, ligne en rouge, ou colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place.",
+            ),
         )}
         ${this.section(
           `Convoi avant la récolte ${this.etiquette("Grenier")}`,

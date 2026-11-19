@@ -441,18 +441,38 @@ class OuafSuivi {
     return restes;
   }
   /**
-   * Lecture de « Mes convois » sur le site : reste à livrer par destinataire
-   * et membres connus du site.
+   * Choix des destinataires de « Mes convois » : chaque ligne du site porte
+   * `sans_reception`, la case « Je ne souhaite pas recevoir de convois » de
+   * son destinataire. Un destinataire sans ligne n'y a pas de choix connu.
+   *
+   * @static
+   * @method sansReception
+   * @param {Array} lignes lignes de « Mes convois » (site)
+   * @return {Map<string, boolean>} pseudo en minuscules → ne veut pas de convois
+   */
+  static sansReception(lignes) {
+    let choix = new Map();
+    (lignes || []).forEach((l) => {
+      if (!l || !l.vers || typeof l.sans_reception != "boolean") return;
+      let cle = String(l.vers).toLowerCase();
+      choix.set(cle, Boolean(choix.get(cle)) || l.sans_reception);
+    });
+    return choix;
+  }
+  /**
+   * Lecture de « Mes convois » sur le site : reste à livrer par destinataire,
+   * membres connus du site et destinataires qui ne veulent pas de convois.
    *
    * @static
    * @method mesConvois
-   * @return {Promise<{restes: Map<string, number>, membres: Array<string>}>}
+   * @return {Promise<{restes: Map<string, number>, membres: Array<string>, sansReception: Map<string, boolean>}>}
    */
   static mesConvois() {
     return OuafSuivi.connecter().then(() =>
       OuafSuivi.requete("GET", "/api/mes").then((mes) => ({
         restes: OuafSuivi.restants(mes.lignes),
         membres: mes.membres || [],
+        sansReception: OuafSuivi.sansReception(mes.lignes),
       })),
     );
   }

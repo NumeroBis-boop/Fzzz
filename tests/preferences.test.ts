@@ -411,8 +411,9 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     expect(
       lire<number>(`$("#o_tabsParametre .o_etiquetteRole[data-role='Chasseur']").length`),
     ).toBe(2);
+    // convois : suivi, Récapitulatif (joueur qui ne veut pas de convois), convoi avant la récolte
     expect(lire<number>(`$("#o_tabsParametre .o_etiquetteRole[data-role='Grenier']").length`)).toBe(
-      2,
+      3,
     );
     lire(`$("#role").val("3").trigger("change")`);
     expect([...new Set(miennes())]).toEqual(["Chasseur"]);

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.142.0",
+    notes: [
+      "Page Convois : dans le Récapitulatif, un joueur qui a coché « Je ne souhaite pas recevoir de convois » sur le site de suivi est signalé (ligne barrée par défaut). Préférences → Convois permet de choisir plutôt une ligne en rouge ou une colonne « Statut des stocks ».",
+    ],
+  },
+  {
     version: "1.141.2",
     notes: [
       "Construction et Laboratoire : le temps avant d'avoir les ressources s'écrit maintenant « dispo dans … », sous le coût comme dans l'info-bulle.",

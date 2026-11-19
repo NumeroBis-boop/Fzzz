@@ -27,6 +27,9 @@ const RECOLTE_DELAI_ENVOI = 5 * 60000;
 const RECOLTES_EXAMINEES_MAX = 48 * 14;
 // pages Ressources et Armée relues au plus une fois par minute (clics successifs)
 const RECOLTE_VALIDITE_LECTURE = 60000;
+// Récapitulatif : info-bulle d'un destinataire qui ne veut pas de convois
+const TITRE_SANS_RECEPTION =
+  "Ne veut pas de convois : case « Je ne souhaite pas recevoir de convois » cochée sur le site de suivi";
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
@@ -1016,7 +1019,9 @@ class CommerceFzzz {
           localStorage.setItem(CLE_CONVOIS_MEMBRES, JSON.stringify(suivis));
         } catch (e) {}
       },
-      ouaf = { restes: null, etat: "attente", membres: [] },
+      ouaf = { restes: null, etat: "attente", membres: [], sansReception: null },
+      marque = parseInt(monProfil.parametre["convoisSansReception"].valeur) || 0,
+      colonneStatut = marque == SANS_RECEPTION_COLONNE,
       deux = (n) => String(n).padStart(2, "0"),
       hms = (s) =>
         `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
@@ -1025,12 +1030,28 @@ class CommerceFzzz {
       // du milieu : sa page, par le lien
       lien = (p) =>
         `<a href='Membre.php?Pseudo=${encodeURIComponent(p)}' class='o_convoisMembreDestinataire' title='Clic : convoi vers ${Utils.echapper(p)} (Ctrl+clic : sa page)'>${Utils.echapper(p)}</a>`,
+      // site pas encore lu, sans mot de passe ou en erreur : même cellule pour toutes ses colonnes
+      provisoire = () =>
+        ouaf.etat == "attente"
+          ? "<span class='small'>…</span>"
+          : ouaf.etat == "code"
+            ? "<span class='small' title='Mot de passe du site de suivi à renseigner dans Préférences → Convois'>—</span>"
+            : ouaf.etat == "erreur"
+              ? `<span class='small' title='${Utils.echapper(ouaf.erreur || "")}'>?</span>`
+              : null,
+      // vrai : ne veut pas de convois ; indéfini : le site ne le dit pas (aucune ligne vers lui)
+      refuse = (p) => (ouaf.sansReception ? ouaf.sansReception.get(p.toLowerCase()) : undefined),
+      statut = (p) => {
+        let r = refuse(p);
+        if (provisoire()) return provisoire();
+        if (r == null)
+          return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi : son choix n&#39;y est pas donné'>—</span>";
+        return r
+          ? `<span class='o_convoisPlein' title='${TITRE_SANS_RECEPTION}'>⚠️ Plein ⚠️</span>`
+          : "<span title='Accepte les convois (site de suivi)'>✅</span>";
+      },
       reste = (p) => {
-        if (ouaf.etat == "attente") return "<span class='small'>…</span>";
-        if (ouaf.etat == "code")
-          return "<span class='small' title='Mot de passe du site de suivi à renseigner dans Préférences → Convois'>—</span>";
-        if (ouaf.etat == "erreur")
-          return `<span class='small' title='${Utils.echapper(ouaf.erreur || "")}'>?</span>`;
+        if (provisoire()) return provisoire();
         let r = ouaf.restes.get(p.toLowerCase());
         if (r == null)
           return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>";
@@ -1046,10 +1067,12 @@ class CommerceFzzz {
       },
       ligne = (p) => {
         if (!p)
-          return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td><td>—</td><td>—</td><td></td></tr>`;
-        let t = trajet(p);
-        return `<tr data-pseudo='${Utils.echapper(p)}'><td>${lien(p)}</td>
+          return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td>${colonneStatut ? "<td>—</td>" : ""}<td>—</td><td>—</td><td></td></tr>`;
+        let t = trajet(p),
+          marquer = !colonneStatut && refuse(p) === true;
+        return `<tr data-pseudo='${Utils.echapper(p)}'${marquer ? ` class='${marque == SANS_RECEPTION_ROUGE ? "o_convoisRouge" : "o_convoisBarree"}' title='${TITRE_SANS_RECEPTION}'` : ""}><td>${lien(p)}</td>
           <td>${reste(p)}</td>
+          ${colonneStatut ? `<td class='o_convoisMembreStatut'>${statut(p)}</td>` : ""}
           <td>${t == null ? "<span class='small' title='Position inconnue : « Actualiser les positions » en bas de ce tableau'>?</span>" : hms(t)}</td>
           <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
           <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;
@@ -1058,9 +1081,9 @@ class CommerceFzzz {
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <div class='o_convoisMembresTitre'><span class='titre'>Récapitulatif</span></div>
           <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
-            <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th><th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
+            <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th>${colonneStatut ? "<th title='⚠️ Plein ⚠️ : ne veut pas de convois (case du site de suivi) ; ✅ : en accepte ; — : le site ne le dit pas'>Statut des stocks</th>" : ""}<th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
-            <tfoot><tr><td colspan='5'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a><a href='#' class='o_convoisPositions' title='Relit les positions des membres de l&#39;alliance, comme « Charger / Actualiser » de la Carte (un nouveau membre, une fourmilière déplacée)'>Actualiser les positions</a></td></tr></tfoot>
+            <tfoot><tr><td colspan='${colonneStatut ? 6 : 5}'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a><a href='#' class='o_convoisPositions' title='Relit les positions des membres de l&#39;alliance, comme « Charger / Actualiser » de la Carte (un nouveau membre, une fourmilière déplacée)'>Actualiser les positions</a></td></tr></tfoot>
           </table>
           ${Object.keys(connus).length ? "" : "<p class='small o_convoisPositionsInconnues'>Positions des membres inconnues : « Actualiser les positions » en bas de ce tableau.</p>"}
           <p class='o_convoisLienOuaf'><a href='${Utils.echapper(OuafSuivi.site().url)}' target='_blank' rel='noopener' title='Ouvre le site de suivi, connecté avec le mot de passe enregistré (Préférences → Convois)'>Ouvrir le site de suivi des convois</a></p>
@@ -1252,7 +1275,12 @@ class CommerceFzzz {
       }
       OuafSuivi.mesConvois().then(
         (r) => {
-          Object.assign(ouaf, { etat: "ok", restes: r.restes, membres: r.membres });
+          Object.assign(ouaf, {
+            etat: "ok",
+            restes: r.restes,
+            membres: r.membres,
+            sansReception: r.sansReception,
+          });
           afficher();
         },
         (e) => {

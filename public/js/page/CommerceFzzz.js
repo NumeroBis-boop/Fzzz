@@ -5,8 +5,8 @@
 
 // pseudos suivis dans le bloc « Récapitulatif », dans l'ordre d'ajout
 const CLE_CONVOIS_MEMBRES = "fzzz_convoisMembres";
-// tri du « Récapitulatif » : gardé tant qu'on reste sur la page Convois
-// (envoi d'un convoi = rechargement), oublié au chargement d'une autre page
+// tri du « Récapitulatif » choisi par le joueur, gardé jusqu'à ce qu'il le
+// change (demande du mainteneur) ; sans tri choisi : ordre d'ajout
 const CLE_TRI_CONVOIS = "fzzz_triConvoisMembres";
 const OUAF_PANNE =
   "Le site de suivi des convois ne répond pas : « Convoi à faire » et « 📤 Envoyer au suivi » sont indisponibles pour l'instant. Réessaie plus tard.";
@@ -1088,13 +1088,17 @@ class CommerceFzzz {
           ${Object.keys(connus).length ? "" : "<p class='small o_convoisPositionsInconnues'>Positions des membres inconnues : « Actualiser les positions » en bas de ce tableau.</p>"}
           <p class='o_convoisLienOuaf'><a href='${Utils.echapper(OuafSuivi.site().url)}' target='_blank' rel='noopener' title='Ouvre le site de suivi, connecté avec le mot de passe enregistré (Préférences → Convois)'>Ouvrir le site de suivi des convois</a></p>
         </div>`),
-      // tri par colonne : croissant, décroissant, puis ordre d'ajout (col null)
+      // tri par colonne : croissant, décroissant, puis ordre d'ajout (col null) ;
+      // un tri gardé sur une colonne que le tableau n'a plus est ignoré
       tri = (() => {
-        try {
-          return { col: null, sens: 1, ...JSON.parse(sessionStorage.getItem(CLE_TRI_CONVOIS)) };
-        } catch (e) {
-          return { col: null, sens: 1 };
-        }
+        let colonnes = $bloc
+            .find("th[data-tri]")
+            .map((i, th) => th.dataset.tri)
+            .get(),
+          garde = Utils.lireStockage(CLE_TRI_CONVOIS, null);
+        return garde && colonnes.includes(garde.col) && (garde.sens == 1 || garde.sens == -1)
+          ? { col: garde.col, sens: garde.sens }
+          : { col: null, sens: 1 };
       })(),
       valeurTri = (p) =>
         tri.col == "joueur"
@@ -1157,9 +1161,10 @@ class CommerceFzzz {
       let col = $(e.currentTarget).closest("th").data("tri");
       if (tri.col != col) Object.assign(tri, { col, sens: 1 });
       else if (tri.sens > 0) tri.sens = -1;
-      else tri.col = null;
+      else Object.assign(tri, { col: null, sens: 1 });
       try {
-        sessionStorage.setItem(CLE_TRI_CONVOIS, JSON.stringify(tri));
+        if (tri.col) localStorage.setItem(CLE_TRI_CONVOIS, JSON.stringify(tri));
+        else localStorage.removeItem(CLE_TRI_CONVOIS);
       } catch (err) {}
       afficher();
     });

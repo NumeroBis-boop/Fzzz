@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.142.1",
+    notes: [
+      "Page Convois : le tri choisi dans le Récapitulatif est gardé, même après avoir quitté la page ou le lendemain. Sans tri choisi, les joueurs restent dans l'ordre où tu les as ajoutés.",
+    ],
+  },
+  {
     version: "1.142.0",
     notes: [
       "Page Convois : dans le Récapitulatif, un joueur qui a coché « Je ne souhaite pas recevoir de convois » sur le site de suivi est signalé (ligne barrée par défaut). Préférences → Convois permet de choisir plutôt une ligne en rouge ou une colonne « Statut des stocks ».",

@@ -742,10 +742,6 @@ const DATEPICKER_OPTION = {
 
         let uri = location.pathname,
           page = null;
-        if (uri != "/commerce.php")
-          try {
-            sessionStorage.removeItem(CLE_TRI_CONVOIS);
-          } catch (e) {}
         // niveau de la Champignonnière ou de l'Étable à pucerons changé : profil du
         // site de suivi des convois et relevé du jour à refaire ; lu avant que le
         // module de la page ne la modifie, le profil d'abord (le relevé oublie la

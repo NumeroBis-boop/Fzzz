@@ -39,6 +39,10 @@ const JOURNAL_ENTREPOTS = "Entrepôts";
 // capacité d'un entrepôt : 500 + 1 200 × 2^niveau, donc 2 × capacité − 500 au niveau suivant
 const ENTREPOT_BASE = 500;
 const ENTREPOT_PAR_NIVEAU = 1200;
+// convois qui arrivent chez le joueur, par joueur : lignes « Vous allez recevoir … »
+// de la page Convois, à chaque lecture ; le jeu ne les montre qu'avec le Compte+
+// (constat du mainteneur, 19/11/2026)
+const CLE_CONVOIS_ENTRANTS = "fzzz_convoisEntrants";
 // entrepôt en construction, par joueur : vu dans l'encart Compte+ du jeu ou sur
 // la page Construction, gardé après sa fin tant que le niveau connu ne le compte pas
 const CLE_CHANTIER_ENTREPOT = "fzzz_chantierEntrepot";
@@ -451,14 +455,47 @@ class Entrepots {
     } catch (e) {}
   }
   /**
-   * Convois qui arrivent chez le joueur, gardés à sa dernière visite de la page
-   * Convois (« Vous allez recevoir … », Commerce.js).
+   * Garde les convois qui arrivent chez le joueur, lus sur la page Convois ou
+   * dans sa relecture (pages Construction et Laboratoire), et redessine les
+   * lignes « Plein dans … » de l'encart avec eux.
+   *
+   * @static
+   * @method garderConvois
+   * @param {Array<{de: String, t: Number, q: Array<Number>}>} liste (lireConvois)
+   * @param {Number} instant heure de la lecture (ms, horloge du serveur)
+   */
+  static garderConvois(liste, instant) {
+    Entrepots.convoisLus = liste;
+    let pseudo = String(monProfil.pseudo || "").toLowerCase();
+    if (pseudo) {
+      let tout = Utils.lireStockage(CLE_CONVOIS_ENTRANTS);
+      tout[pseudo] = { lu: instant, convois: liste.filter((c) => c.t > instant) };
+      try {
+        localStorage.setItem(CLE_CONVOIS_ENTRANTS, JSON.stringify(tout));
+      } catch (e) {}
+    }
+    if ($("#boiteInfo .o_entrepotPlein").length) Entrepots.afficher();
+  }
+  /**
+   * Convois qui arrivent chez le joueur, gardés à la dernière lecture de la
+   * page Convois (garderConvois) ; avant la première, ceux que Commerce.js
+   * gardait sans Compte+.
    *
    * @static
    * @method convoisGardes
    * @return {Array<{de: String, t: Number, q: Array<Number>}>} par heure d'arrivée
    */
   static convoisGardes() {
+    let garde =
+      Utils.lireStockage(CLE_CONVOIS_ENTRANTS)[String(monProfil.pseudo || "").toLowerCase()];
+    if (garde && Array.isArray(garde.convois))
+      return garde.convois
+        .map((/** @type {any} */ c) => ({
+          de: String(c.de || ""),
+          t: Number(c.t),
+          q: [Number(c.q && c.q[0]) || 0, Number(c.q && c.q[1]) || 0],
+        }))
+        .sort((a, b) => a.t - b.t);
     let liste = Utils.lireStockage("outiiil_evolution").convoi;
     return (Array.isArray(liste) ? liste : [])
       .filter((c) => c.sens === false)
@@ -628,6 +665,39 @@ class Entrepots {
           .attr("title") || "",
       pourcent = parseInt((titre.match(/rempli à (\d+)\s*%/) || [])[1]);
     return pourcent > 0 && stock > 0 ? Math.round(stock / (pourcent / 100)) : null;
+  }
+  /**
+   * Plus petit niveau d'entrepôt dont la capacité contient une quantité.
+   *
+   * @static
+   * @method niveauPour
+   * @param {Number} quantite
+   * @return {Number}
+   */
+  static niveauPour(quantite) {
+    let niveau = 0;
+    while (ENTREPOT_BASE + ENTREPOT_PAR_NIVEAU * Math.pow(2, niveau) < quantite) niveau++;
+    return niveau;
+  }
+  /**
+   * Récoltes du jeu de `debut` à `fin` compris, comme simuler les compte : la
+   * première à `prochaine` ou toutes les 30 min après, pas avant `debut`.
+   *
+   * @static
+   * @method recoltes
+   * @param {Number} prochaine heure d'une récolte (ms)
+   * @param {Number} debut
+   * @param {Number} fin
+   * @return {{nombre: Number, premiere: Number|null, derniere: Number|null}}
+   */
+  static recoltes(prochaine, debut, fin) {
+    let premiere =
+      prochaine >= debut
+        ? prochaine
+        : prochaine + Math.ceil((debut - prochaine) / MS_RECOLTE) * MS_RECOLTE;
+    if (fin < premiere) return { nombre: 0, premiere: null, derniere: null };
+    let nombre = Math.floor((fin - premiere) / MS_RECOLTE) + 1;
+    return { nombre, premiere, derniere: premiere + (nombre - 1) * MS_RECOLTE };
   }
   /**
    * Capacité au niveau suivant : 500 + 1 200 × 2^(niveau + 1).

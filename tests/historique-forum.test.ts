@@ -3,12 +3,12 @@ import { creerPage } from "./harnais";
 import { FORUM_SIMULE } from "./forum-simule";
 
 /**
- * Historique des chasses passées dans des sujets à part, « Historique Chasses
- * N | pseudo », pour que le suivi ne garde que les entrées en cours : la
- * réponse de chaque joueur dans les sujets communs « BDD générale … », le
- * premier message de « Convois | pseudo ». Les convois arrivés (1.97.2) et les
- * floods arrivés (15/11/2026, « l'historique des floods n'est pas à faire »)
- * sont seulement retirés (règles du mainteneur).
+ * Le suivi ne garde que les entrées en cours : la réponse de chaque joueur
+ * dans les sujets communs « BDD générale … », le premier message de
+ * « Convois | pseudo ». Les entrées passées sont seulement retirées, sans
+ * historique (règles du mainteneur : convois 1.97.2, floods 15/11/2026,
+ * chasses 19/11/2026) ; les pages « Historique … » d'avant ne sont ni lues ni
+ * modifiées.
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/page/PartageChasses.js", "js/page/ConvoisForum.js"],
@@ -158,7 +158,7 @@ describe("floods arrivés : retirés, sans historique", () => {
   });
 });
 
-describe("chasses passées vers l'historique", () => {
+describe("chasses passées : retirées, sans historique", () => {
   const PASSEE = "29/10/26 09:00 | 1 000 cm²";
   const A_VENIR_C = "29/10/26 12:00 | 2 000 cm²";
   const partagerChasse = () =>
@@ -166,63 +166,33 @@ describe("chasses passées vers l'historique", () => {
       `PartageChasses._partager("Chasses", [{ date: "2026-10-29 13:00", terrain: 3000 }])`,
     );
 
-  test("historique écrit d'abord, puis ma réponse sans la chasse passée", async () => {
+  test("partage : la chasse passée quitte ma réponse ; ni page d'historique, ni relecture avant l'écriture", async () => {
     commun("Chasses", [A_VENIR_C, PASSEE]);
     expect(await partagerChasse()).toBe(1);
-    expect(lire(`FORUM.appels`)).toEqual([
-      "callGetForum",
-      "callGetTopic",
-      "envoiNouveauSujet Historique Chasses 1 | DoggyBag",
-      // relue juste avant l'écriture ; la réponse du forum, sujet à jour, sert de vérification
-      "callGetTopic",
-      "envoiEditMessage",
-    ]);
-    expect(message("Historique Chasses 1 | DoggyBag")).toBe(PASSEE);
+    expect(lire(`FORUM.appels`)).toEqual(["callGetForum", "callGetTopic", "envoiEditMessage"]);
+    expect(message("Historique Chasses 1 | DoggyBag")).toBeNull();
     expect(maReponse("Chasses")).toBe(`29/10/26 13:00 | 3 000 cm²\n${A_VENIR_C}`);
   });
 
-  test("page existante : ligne ajoutée à la suite, sans doublon lors d'un nouvel essai", async () => {
+  test("une page « Historique Chasses » d'avant n'est ni lue ni modifiée", async () => {
     const autre = "29/10/26 08:00 | 500 cm²";
     commun("Chasses", [A_VENIR_C, PASSEE]);
-    sujet("2", "Historique Chasses 1 | DoggyBag", `${autre}\n${PASSEE}`);
+    sujet("2", "Historique Chasses 1 | DoggyBag", autre);
     await partagerChasse();
-    expect(message("Historique Chasses 1 | DoggyBag")).toBe(`${autre}\n${PASSEE}`);
-    expect(lire<string[]>(`FORUM.appels`)).not.toContain(
-      "envoiEditTopic Historique Chasses 1 | DoggyBag",
-    );
-    expect(maReponse("Chasses")).not.toContain("09:00");
-  });
-
-  test("page pleine : la suite part dans une nouvelle page", async () => {
-    const plein = Array.from(
-      { length: 800 },
-      (_, i) => `28/10/26 ${String(i % 24).padStart(2, "0")}:00 | ${1000 + i} cm²`,
-    ).join("\n");
-    commun("Chasses", [A_VENIR_C, PASSEE]);
-    sujet("2", "Historique Chasses 1 | DoggyBag", plein);
-    await partagerChasse();
-    expect(message("Historique Chasses 1 | DoggyBag")).toBe(plein);
-    expect(message("Historique Chasses 2 | DoggyBag")).toBe(PASSEE);
-  });
-
-  test("historique impossible à écrire : la chasse passée reste dans ma réponse, reprise ensuite", async () => {
-    commun("Chasses", [A_VENIR_C, PASSEE]);
-    lire(`FORUM.echoue = (f, args) => f == "envoiNouveauSujet";`);
-    await partagerChasse();
-    expect(maReponse("Chasses")).toContain("09:00");
-    expect(message("Historique Chasses 1 | DoggyBag")).toBeNull();
-    lire(`FORUM.echoue = null;`);
-    await partagerChasse();
-    expect(message("Historique Chasses 1 | DoggyBag")).toBe(PASSEE);
+    expect(message("Historique Chasses 1 | DoggyBag")).toBe(autre);
+    expect(lire(`FORUM.appels`)).toEqual(["callGetForum", "callGetTopic", "envoiEditMessage"]);
     expect(maReponse("Chasses")).not.toContain("09:00");
   });
 });
 
 describe("chasses annulées, convois arrivés retirés", () => {
-  test("chasses : la passée part dans l'historique, l'annulée disparaît", async () => {
+  test("chasses : la passée et l'annulée retirées, sans historique", async () => {
     commun("Chasses", ["29/10/26 12:00 | 20 000 cm²", "29/10/26 09:00 | 10 000 cm²"]);
     await lire(`PartageChasses.recalerChasses([])`);
-    expect(message("Historique Chasses 1 | DoggyBag")).toBe("29/10/26 09:00 | 10 000 cm²");
+    expect(message("Historique Chasses 1 | DoggyBag")).toBeNull();
+    expect(lire<string[]>(`FORUM.appels`).filter((a) => a.startsWith("envoiNouveauSujet"))).toEqual(
+      [],
+    );
     expect(maReponse("Chasses")).toBe("Aucune chasse en cours.");
   });
 

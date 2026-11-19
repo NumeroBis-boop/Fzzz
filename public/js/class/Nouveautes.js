@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.141.0",
+    notes: [
+      "Construction et Laboratoire : sous le coût, le temps avant d'avoir les ressources compte maintenant les convois et le pillage (il remplace celui du Compte+), et l'info-bulle détaille le calcul en cycles de récolte de 30 min. L'historique des chasses n'est plus écrit dans le forum.",
+    ],
+  },
+  {
     version: "1.140.1",
     notes: [
       "Colonne « Synchro » (info-bulle de la page Membres, page d'un membre) : l'heure de lancement s'affiche aussi sur chaque flood, pour arriver au début de sa minute, donc après lui.",

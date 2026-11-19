@@ -3717,6 +3717,15 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 .o_delaiInfobulle .o_delaiNote {
   font-size: 0.9em;
 }
+.o_delaiInfobulle .o_delaiBloc + .o_delaiBloc {
+  margin-top: 0.4em;
+}
+/* ligne horloge du coût : un entrepôt trop petit, en rouge comme les prérequis manquants du jeu ;
+   largeur bornée : le texte passe à la ligne au lieu d'élargir la colonne du coût */
+.o_delaiRequis {
+  color: #c5130f;
+  max-width: 10em;
+}
 /* sur le fond olive de l'info-bulle du jeu (#676b51) : clairs, en gras, pour rester lisibles */
 .o_delaiInfobulle .o_delaiPlus {
   color: #b5f0a0;

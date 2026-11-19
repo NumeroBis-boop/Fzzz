@@ -78,7 +78,7 @@ const reponses = (id: string) =>
 describe("partage dans ma réponse du sujet commun", () => {
   test("première réponse : postée après le premier message, vérifiée dans la réponse du forum, succès", async () => {
     const toasts = await partager("Chasses", CHASSE);
-    // rien à archiver : le sujet lu sert à l'écriture ; la réponse du forum, sujet à jour, sert de vérification
+    // le sujet lu sert à l'écriture ; la réponse du forum, sujet à jour, sert de vérification
     expect(lire(`FORUM.appels`)).toEqual([
       "callGetForum sections",
       "callGetForum",

@@ -21,6 +21,16 @@ class PageCommerce {
    *
    */
   executer() {
+    // convois qui arrivent, pour les entrepôts (encart, Construction,
+    // Laboratoire) : lus avant que le suivi ne déplace les lignes
+    try {
+      Entrepots.garderConvois(
+        Entrepots.lireConvois($(document), Horloge.maintenant()),
+        Horloge.maintenant(),
+      );
+    } catch (e) {
+      console.error(`[${NOM_EXTENSION}] convois qui arrivent non lus`, e);
+    }
     // ajout d'information
     if (Utils.affichage("convoisInfoEtable"))
       $("form table").append(

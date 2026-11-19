@@ -208,18 +208,9 @@ describe("format", () => {
       ["Alpha", "2026-11-14 00:02:59", [11, 8]],
       ["Gamma", "2026-11-14 00:02:59", [31]],
     ]);
-    expect(
-      lire<string>(`PartageChasses.texteCommun("En-tête", ${JSON.stringify([lu.sections[1]])})`),
-    ).toBe(
-      [
-        "En-tête",
-        section("Gamma", "2026-11-14 00:02:59", [
-          ligne("Floods", flood("2026-11-14 14:00", "Beta", 31)),
-        ]),
-      ].join("\n"),
-    );
+    expect(lire<string>(`PartageChasses.texteCommun("En-tête")`)).toBe("En-tête");
     // jamais vide
-    expect(lire<string>(`PartageChasses.texteCommun("", [])`)).toBe(
+    expect(lire<string>(`PartageChasses.texteCommun("")`)).toBe(
       "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.",
     );
   });
@@ -535,11 +526,11 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
       `(() => { const s = FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | " + ${JSON.stringify(pseudo)}); return s ? s.texte : null; })()`,
     );
 
-  test("premiers messages vidés (texte d'en-tête gardé), floods passés supprimés sans historique, anciens sujets supprimés en une fois ; réponses et convois gardés ; bilan", async () => {
+  test("premiers messages vidés (texte d'en-tête gardé), entrées passées supprimées sans historique, anciens sujets supprimés en une fois ; réponses et convois gardés ; bilan", async () => {
     preparer();
     const bilan = await ranger();
     expect(bilan).toBe(
-      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée supprimée (pas d'historique des floods). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 3 supprimés.`,
+      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée supprimée (pas d'historique). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 3 supprimés.`,
     );
     expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
     // titre et case « modifiable » réécrits comme avant
@@ -548,10 +539,10 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
       modifiable: true,
     });
     expect(reponses("10")).toEqual([["Beta", ligne("Floods", B1)]]);
-    // PASSE (flood arrivé) : supprimé, sans historique ; les anciens sujets de
-    // floods ne sont pas lus avant leur suppression, celui des chasses l'est
+    // PASSE (flood arrivé) : supprimé, sans historique ; les anciens sujets ne
+    // sont pas lus avant leur suppression
     expect(historique("Alpha")).toBeNull();
-    expect(ordre().filter((o) => /^callGetTopic [123]$/.test(o))).toEqual(["callGetTopic 3"]);
+    expect(ordre().filter((o) => /^callGetTopic [123]$/.test(o))).toEqual([]);
     expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3"]]);
     expect(titres()).toEqual(["Convois | Alpha", COMMUN_F, COMMUN_C]);
     expect(notes()).toContain("Anciens sujets : 3 supprimés.");
@@ -571,22 +562,16 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
     );
   });
 
-  test("historique des chasses pas écrit : l'ancien sujet des chasses gardé, ceux des floods supprimés ; le bilan le dit", async () => {
+  test("ancien sujet des chasses avec une chasse passée, même illisible : supprimé sans être lu, aucune page d'historique", async () => {
     preparer();
     lire(`(() => {
       const s = FORUM.sujets.find((s) => s.id == "3");
       s.texte += "\\n" + ${JSON.stringify(ligne("Chasses", { date: "2026-11-14 11:30", terrain: 900 }))};
-      FORUM.historiqueEchoue = true;
-      console.warn = () => {};
+      FORUM.echoue.push("2", "3");
     })()`);
-    const bilan = await ranger();
-    expect(bilan).toBe(
-      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée supprimée (pas d'historique des floods). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 2 supprimés, 1 gardé (historique du joueur pas écrit).`,
-    );
-    // les floods n'ont pas d'historique à écrire : toutes les sections parties
-    expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
-    expect(titres()).toContain("Chasses | Alpha");
-    expect(titres()).not.toContain("Floods | Alpha");
+    expect(await ranger()).toEndWith("Anciens sujets : 3 supprimés.");
+    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3"]]);
+    expect(titres().filter((t) => t.startsWith("Historique"))).toEqual([]);
   });
 
   test("suppression refusée par le forum (droits de gestion) : vue à la relecture de la liste", async () => {
@@ -603,13 +588,6 @@ describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", ()
     expect(await ranger()).toStartWith(
       `« ${COMMUN_F} » : premier message pas modifié (droits de la section ?), réessaie plus tard.`,
     );
-  });
-
-  test("ancien sujet des chasses illisible : gardé, jamais supprimé ; ceux des floods ne sont pas lus", async () => {
-    preparer();
-    lire(`(() => { FORUM.echoue.push("2", "3"); })()`);
-    expect(await ranger()).toEndWith("Anciens sujets : 2 supprimés, 1 gardé (sujet illisible).");
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2"]]);
   });
 
   test("tout est déjà rangé : rien n'est écrit ni supprimé", async () => {

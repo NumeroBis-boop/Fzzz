@@ -4,9 +4,9 @@ import { FORUM_SIMULE } from "./forum-simule";
 import { classeurSimule } from "./sheet-simule";
 
 /**
- * Robustesse de l'historique du forum face aux « bêtises » : double clic, page
- * rechargée entre l'historique et le sujet de suivi, deux onglets qui écrivent
- * l'historique au même instant (l'export : robustesse-export.test.ts).
+ * Robustesse des partages du forum face aux « bêtises » : double clic, page
+ * rechargée, écriture perdue ; aucun historique n'est écrit (règles du
+ * mainteneur ; l'export : robustesse-export.test.ts).
  */
 const page = creerPage(
   [
@@ -139,7 +139,7 @@ const CHASSES = {
   },
 };
 
-describe("historique du forum : clics répétés, pages rechargées, deux onglets", () => {
+describe("partages du forum : clics répétés, pages rechargées, écriture perdue", () => {
   const PASSE = "29/10/26 09:00 | 10 000 cm²";
   const message1 = (titre: string) =>
     lire<string | null>(
@@ -169,44 +169,24 @@ describe("historique du forum : clics répétés, pages rechargées, deux onglet
     forum([commun([PASSE])]);
   });
 
-  test("partage des chasses en double (double clic, page rechargée) : historique sans doublon", async () => {
+  test("partage des chasses en double (double clic, page rechargée) : une seule ligne, aucun historique", async () => {
     await Promise.all([
       lire(`PartageChasses.partager(${groupe}, null)`),
       lire(`PartageChasses.partager(${groupe}, null)`),
     ]);
-    expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(1);
-    expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
+    expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(0);
     expect(maReponse()).toBe("29/10/26 12:00 | 20 000 cm²");
     expect(lire<string[]>(`TOASTS`).at(-1)).toContain("déjà partagées");
   });
 
-  test("ma réponse non réécrite après l'historique (page fermée) : au nouvel essai, pas de doublon", async () => {
+  test("écriture de ma réponse perdue : au nouvel essai, la chasse partagée une fois, la passée retirée", async () => {
     lire(`FORUM.echoue = (f) => f == "envoiEditMessage";`);
     await lire(`PartageChasses.partager(${groupe}, null)`);
-    expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
     expect(maReponse()).toBe(PASSE);
     lire(`FORUM.echoue = null;`);
     await lire(`PartageChasses.partager(${groupe}, null)`);
-    expect(message1("Historique Chasses 1 | DoggyBag")).toBe(PASSE);
     expect(maReponse()).toBe("29/10/26 12:00 | 20 000 cm²");
-  });
-
-  test("page d'historique créée deux fois (deux onglets) : suite dans la plus ancienne, sans répéter de ligne", async () => {
-    const DEJA = "28/10/26 08:00 | 5 000 cm²";
-    forum([
-      commun([PASSE, "28/10/26 08:00 | 5 000 cm²"]),
-      { id: "3", titre: "Historique Chasses 1 | DoggyBag", messages: [DEJA] },
-      {
-        id: "2",
-        titre: "Historique Chasses 1 | DoggyBag",
-        messages: ["27/10/26 07:00 | 1 000 cm²"],
-      },
-    ]);
-    await lire(`PartageChasses.partager(${groupe}, null)`);
-    expect(lire(`FORUM.sujets.find((s) => s.id == "2").messages[0]`)).toBe(
-      `27/10/26 07:00 | 1 000 cm²\n${PASSE}`,
-    );
-    expect(lire(`FORUM.sujets.find((s) => s.id == "3").messages[0]`)).toBe(DEJA);
+    expect(sujetsDe("Historique Chasses 1 | DoggyBag")).toBe(0);
   });
 
   test("convois notés deux fois de suite (double clic) : chaque convoi une seule fois dans le suivi, sans historique", async () => {

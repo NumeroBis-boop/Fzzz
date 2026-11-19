@@ -31,7 +31,17 @@ const ONGLETS_PARAMETRE = [
     pages: ["Attaque"],
     affichages: ["couleurAttaquer", "statArmee", "lanceurFlood"],
   },
-  { id: "Convois", titre: "Convois", pages: ["Convois"], affichages: ["convoisSuiviLignes"] },
+  {
+    id: "Convois",
+    titre: "Convois",
+    pages: ["Convois"],
+    affichages: [
+      "convoisSuiviLignes",
+      "convoisSansReceptionBarree",
+      "convoisSansReceptionRouge",
+      "convoisSansReceptionColonne",
+    ],
+  },
   {
     id: "Messagerie",
     titre: "Messagerie",
@@ -146,7 +156,6 @@ class BoiteParametre extends Boite {
       "tdcArriveeMax",
       "ratioPlancher",
       "convoisAvantRecolte",
-      "convoisSansReception",
     ];
   }
   /**
@@ -871,7 +880,8 @@ class BoiteParametre extends Boite {
    * @method ongletConvois
    */
   ongletConvois() {
-    let site = OuafSuivi.site();
+    let site = OuafSuivi.site(),
+      testRefus = Journal.pourCeJoueur();
     if (!site) {
       $("#o_tabsParametreConvois").append(
         `<p class='left'>Aucun site de suivi des convois dans les réglages de ton alliance : un chef l'écrit sur la ligne « ${REGLAGES_ALLIANCE.siteConvois.nom} » du sujet « ${TITRE_REGLAGES} » (${this.lienOnglet("Partage", "onglet Partage de données")}, section « Fonctionnement sur les autres serveurs »).</p>`,
@@ -881,7 +891,7 @@ class BoiteParametre extends Boite {
     $("#o_tabsParametreConvois").append(`<form autocomplete='off'>
         ${this.section(
           `Suivi des convois de l'alliance ${this.etiquette("Grenier")}`,
-          `${this.cases("Convois")}
+          `${this.cases("Convois", ["convoisSuiviLignes"])}
             <p class='left small'>Site (réglages de l'alliance) : <a href='${Utils.echapper(site.url)}' target='_blank' rel='noopener'>${Utils.echapper(site.hote)}</a> <span id='o_siteConvoisEtat'></span></p>
             <p class='left small o_reglage'><label for='o_ouafCode'>Mot de passe du site de suivi :</label>
               <input type='password' id='o_ouafCode' autocomplete='new-password' spellcheck='false' style='width:12em'/>
@@ -898,10 +908,16 @@ class BoiteParametre extends Boite {
         )}
         ${this.section(
           `Récapitulatif : joueur qui ne veut pas de convois ${this.etiquette("Grenier")}`,
-          monProfil.parametre["convoisSansReception"].getForm("Le montrer par") +
+          `<p class='left small'>Le montrer par (une case ou plusieurs) :</p>${this.cases("Convois", MARQUES_SANS_RECEPTION)}` +
+            (testRefus
+              ? "<p class='left small o_reglage'><label for='o_sansReceptionSimule'>Test, pour toi seul : compter comme ne voulant pas de convois</label> <input type='text' id='o_sansReceptionSimule' spellcheck='false' autocomplete='off' placeholder='pseudo' style='width:12em'/></p>"
+              : "") +
             this.aide(
-              "Sur le site de suivi, un joueur peut cocher « Je ne souhaite pas recevoir de convois » (Mon profil) : le Récapitulatif de la page Convois le montre sur sa ligne.",
-              "Ligne barrée, ligne en rouge, ou colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place.",
+              "Sur le site de suivi, un joueur peut cocher « Je ne souhaite pas recevoir de convois » (Mon profil) : le Récapitulatif de la page Convois le montre sur sa ligne, avec les marques cochées ici, seules ou ensemble.",
+              "Ligne barrée, ligne en rouge, colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Aucune case cochée : rien n'est signalé. Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place." +
+                (testRefus
+                  ? " Test (ligne « Journal » des réglages de l'alliance) : les pseudos du champ, séparés par des virgules, sont comptés comme ne voulant pas de convois dans ton Récapitulatif, dans ce navigateur seulement, comme si le site le disait ; il faut que le site ait répondu et que le joueur soit dans le tableau. Un rappel s'affiche sous le tableau ; vide le champ pour arrêter."
+                  : ""),
             ),
         )}
         ${this.section(
@@ -916,6 +932,20 @@ class BoiteParametre extends Boite {
         )}
       </form>`);
     this.majEtiquettes();
+    // Entrée dans un champ ne doit pas envoyer ce formulaire : la page se rechargerait
+    $("#o_tabsParametreConvois form").on("submit", (e) => e.preventDefault());
+    if (testRefus) {
+      try {
+        $("#o_sansReceptionSimule").val(localStorage.getItem(CLE_SANS_RECEPTION_SIMULE) || "");
+      } catch (e) {}
+      $("#o_sansReceptionSimule").on("input", (e) => {
+        let texte = String($(e.currentTarget).val() || "").trim();
+        try {
+          if (texte) localStorage.setItem(CLE_SANS_RECEPTION_SIMULE, texte);
+          else localStorage.removeItem(CLE_SANS_RECEPTION_SIMULE);
+        } catch (err) {}
+      });
+    }
     let etat = (code) =>
         $("#o_ouafCodeEtat").html(
           code

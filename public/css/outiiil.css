@@ -2989,8 +2989,9 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   color: var(--fzzz-erreur);
   font-weight: bold;
 }
-/* destinataire qui ne veut pas de convois (case du site de suivi), au choix des Préférences */
-.o_convoisMembres tr.o_convoisBarree td:not(:last-child) {
+/* destinataire qui ne veut pas de convois (case du site de suivi), marques cumulables des
+   Préférences ; « ⚠️ Plein ⚠️ » reste lisible sur une ligne barrée */
+.o_convoisMembres tr.o_convoisBarree td:not(:last-child):not(.o_convoisMembreStatut) {
   text-decoration: line-through;
 }
 .o_convoisMembres tr.o_convoisRouge td,

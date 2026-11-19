@@ -38,6 +38,7 @@ const page = creerPage(
      codeEnregistre: () => Promise.resolve(""),
      enregistrerCode: () => Promise.resolve(),
    };
+   var CLE_SANS_RECEPTION_SIMULE = "fzzz_sansReceptionSimule";
    var heure = moment("2026-11-14 10:00", "YYYY-MM-DD HH:mm").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };`,
 );
@@ -84,6 +85,9 @@ describe("onglets de la liste du mainteneur", () => {
       lire<string[]>(`Object.keys(AFFICHAGES_REGLABLES).sort()`),
     );
     expect(cases.filter((c) => !c[2]).map((c) => c[1])).toEqual([
+      // Récapitulatif de la page Convois : ligne barrée seule par défaut
+      "convoisSansReceptionRouge",
+      "convoisSansReceptionColonne",
       "messagerieRanger",
       "messagerieCompacte",
       "messagerieNonLus",
@@ -131,6 +135,51 @@ describe("onglets de la liste du mainteneur", () => {
           ),
       ),
     ).toEqual([]);
+  });
+
+  test("Convois : marques cumulables du Récapitulatif dans leur section ; champ de test pour la ligne « Journal » seulement", () => {
+    construire();
+    const section = (selecteur: string) =>
+      lire<string>(
+        `$("#o_tabsParametreConvois ${selecteur}").closest(".o_sectionParam").find(".o_titreParam").text()`,
+      );
+    expect(
+      lire<string[]>(
+        `$("#o_tabsParametreConvois input[data-affichage^='convoisSansReception']").map((i, c) => c.dataset.affichage).get()`,
+      ),
+    ).toEqual(lire<string[]>(`MARQUES_SANS_RECEPTION`));
+    for (const cle of lire<string[]>(`MARQUES_SANS_RECEPTION`))
+      expect(section(`input[data-affichage='${cle}']`)).toContain(
+        "Récapitulatif : joueur qui ne veut pas de convois",
+      );
+    expect(section("input[data-affichage='convoisSuiviLignes']")).toContain(
+      "Suivi des convois de l'alliance",
+    );
+    expect(lire(`$("#o_sansReceptionSimule").length`)).toBe(0);
+    // joueur de la ligne « Journal » des réglages : le champ, gardé à la saisie, vidé = arrêté
+    lire(`(() => {
+      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["Moi"] } }));
+      localStorage.setItem(CLE_SANS_RECEPTION_SIMULE, "Alpha");
+      $("body").append("<div id='pseudo'>Moi</div>");
+      $("#o_tabsParametreConvois").empty();
+      boite.ongletConvois();
+    })()`);
+    expect(lire(`$("#o_sansReceptionSimule").val()`)).toBe("Alpha");
+    expect(section("#o_sansReceptionSimule")).toContain(
+      "Récapitulatif : joueur qui ne veut pas de convois",
+    );
+    lire(`$("#o_sansReceptionSimule").val(" Bravo, Charlie ").trigger("input")`);
+    expect(lire(`localStorage.getItem(CLE_SANS_RECEPTION_SIMULE)`)).toBe("Bravo, Charlie");
+    lire(`$("#o_sansReceptionSimule").val("  ").trigger("input")`);
+    expect(lire(`localStorage.getItem(CLE_SANS_RECEPTION_SIMULE)`)).toBeNull();
+    // Entrée dans un champ : le formulaire n'est pas envoyé (la page se rechargerait)
+    expect(
+      lire(`(() => {
+        let e = new Event("submit", { bubbles: true, cancelable: true });
+        $("#o_tabsParametreConvois form")[0].dispatchEvent(e);
+        return e.defaultPrevented;
+      })()`),
+    ).toBe(true);
   });
 
   test("chaque réglage de la liste dans son onglet", () => {

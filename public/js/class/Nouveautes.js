@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.143.0",
+    notes: [
+      "Page Convois : les marques d'un joueur qui ne veut pas de convois (ligne barrée, ligne en rouge, colonne « Statut des stocks ») se cumulent maintenant au choix, dans Préférences → Convois.",
+    ],
+  },
+  {
     version: "1.142.1",
     notes: [
       "Page Convois : le tri choisi dans le Récapitulatif est gardé, même après avoir quitté la page ou le lendemain. Sans tri choisi, les joueurs restent dans l'ordre où tu les as ajoutés.",

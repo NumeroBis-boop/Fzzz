@@ -13,11 +13,13 @@ const METHODE_FLOOD_OPTIMISEE = 1;
 const METHODE_FLOOD_DEGRESSIVE = 3;
 // rôle du joueur dans l'alliance (Préférences → Général)
 const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
-// Récapitulatif (page Convois) : comment montrer un destinataire qui ne veut
-// pas de convois (case « Je ne souhaite pas recevoir de convois » du site de suivi)
-const MARQUES_SANS_RECEPTION = ["Ligne barrée", "Ligne en rouge", "Colonne « Statut des stocks »"];
-const SANS_RECEPTION_ROUGE = 1;
-const SANS_RECEPTION_COLONNE = 2;
+// 1.142.0 et 1.142.1 : une seule marque au choix pour un joueur qui ne veut pas de
+// convois (paramètre convoisSansReception : 0 barrée, 1 rouge, 2 colonne),
+// reprise dans les cases MARQUES_SANS_RECEPTION tant qu'aucune n'a été réglée
+const ANCIENNES_MARQUES_SANS_RECEPTION = {
+  1: "convoisSansReceptionRouge",
+  2: "convoisSansReceptionColonne",
+};
 const ROLE_CHASSEUR = 3;
 const ROLE_GRENIER = 2;
 // rôle Chasseur posé une fois par navigateur (liste « Chasseurs » des réglages de l'alliance)
@@ -266,13 +268,6 @@ class Joueur {
       "Convois : ouvrières revenues avant la récolte comptées",
       "checkbox",
       false,
-    );
-    this._parametre["convoisSansReception"] = new Parametre(
-      "convoisSansReception",
-      "Joueur qui ne veut pas de convois (Récapitulatif)",
-      "select",
-      0,
-      MARQUES_SANS_RECEPTION,
     );
     // parametre divers
     this._parametre["couleurChat"] = new Parametre(
@@ -651,6 +646,14 @@ class Joueur {
           localStorage.setItem("outiiil_parametre", JSON.stringify(this._parametre));
         }
         localStorage.setItem(CLE_METHODE_DEGRESSIVE, "1");
+      }
+      let marque = data && ANCIENNES_MARQUES_SANS_RECEPTION[data.convoisSansReception];
+      if (
+        marque &&
+        MARQUES_SANS_RECEPTION.every((cle) => localStorage.getItem("fzzz_affichage_" + cle) == null)
+      ) {
+        localStorage.setItem("fzzz_affichage_convoisSansReceptionBarree", "0");
+        localStorage.setItem("fzzz_affichage_" + marque, "1");
       }
       // « Aucun », le rôle par défaut, est enregistré avec les autres réglages
       // sans avoir été choisi : pour un chasseur de la liste, il passe en

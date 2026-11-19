@@ -115,8 +115,9 @@ describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur ca
     // smileys), plus les boutons GIF et Smileys du forum et les 9 colonnes de la vue
     // « Floods et chasses en cours » de la page Membres (demandes du 14/11/2026), et ses
     // colonnes « État de la colonie » et « Retour » (demande du 15/11/2026), le
-    // remplissage des entrepôts et le bilan de la récolte (demandes du 16/11/2026)
-    expect(reglables.length).toBe(44);
+    // remplissage des entrepôts et le bilan de la récolte (demandes du 16/11/2026), les trois
+    // marques cumulables d'un joueur qui ne veut pas de convois (demande du 19/11/2026)
+    expect(reglables.length).toBe(47);
     const decoches = [
       ...lire("class/Utils.js")
         .match(/const AFFICHAGES_REGLABLES = \{([\s\S]*?)\n\};/)![1]!
@@ -137,6 +138,8 @@ describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur ca
       "membresFloodsTrajet",
       "membresFloodsRetour",
       "membresFloodsEtat",
+      "convoisSansReceptionRouge",
+      "convoisSansReceptionColonne",
     ]);
   });
 

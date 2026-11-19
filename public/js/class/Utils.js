@@ -254,7 +254,18 @@ const AFFICHAGES_CONVOIS = {
     "Suivi des convois devant chaque convoi : « ✅ Enregistré » ou bouton « 📤 Envoyer au suivi »",
   convoisColonnes:
     "Convois en cours en deux colonnes : le suivi des convois à gauche, le texte replié à droite (« Annuler » jamais près d'un bouton d'envoi)",
+  convoisSansReceptionBarree: "Sa ligne barrée",
+  convoisSansReceptionRouge: "Sa ligne en rouge",
+  convoisSansReceptionColonne:
+    "Colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » s'il ne veut pas de convois, « ✅ » s'il en accepte",
 };
+// marques du Récapitulatif pour un joueur qui ne veut pas de convois, cumulables
+// (demande du mainteneur) ; dans cet ordre dans Préférences → Convois
+const MARQUES_SANS_RECEPTION = [
+  "convoisSansReceptionBarree",
+  "convoisSansReceptionRouge",
+  "convoisSansReceptionColonne",
+];
 
 // Fzzz : seuils (s) du paramètre « alertePonte », dans l'ordre de ses choix
 const SEUILS_ALERTE_PONTE = [0, 900, 1800, 3600, 7200, 14400, 28800, 43200, 57600, 86400];
@@ -311,6 +322,9 @@ const AFFICHAGES_REGLABLES = {
   rappelExport: true,
   lanceurChasse: true,
   convoisSuiviLignes: true,
+  convoisSansReceptionBarree: true,
+  convoisSansReceptionRouge: false,
+  convoisSansReceptionColonne: false,
 };
 // colonnes au choix de la vue « Floods et chasses en cours » de la page Membres,
 // dans l'ordre où la vue les montre (cases de Préférences → Alliance)

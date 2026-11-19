@@ -30,6 +30,8 @@ const RECOLTE_VALIDITE_LECTURE = 60000;
 // Récapitulatif : info-bulle d'un destinataire qui ne veut pas de convois
 const TITRE_SANS_RECEPTION =
   "Ne veut pas de convois : case « Je ne souhaite pas recevoir de convois » cochée sur le site de suivi";
+const TITRE_SANS_RECEPTION_SIMULE =
+  "Test : compté comme ne voulant pas de convois (Préférences → Convois), que le site le dise ou non";
 
 /**
  * Ajouts Fzzz à la page /commerce.php : lecture des convois en cours, et
@@ -1019,9 +1021,10 @@ class CommerceFzzz {
           localStorage.setItem(CLE_CONVOIS_MEMBRES, JSON.stringify(suivis));
         } catch (e) {}
       },
-      ouaf = { restes: null, etat: "attente", membres: [], sansReception: null },
-      marque = parseInt(monProfil.parametre["convoisSansReception"].valeur) || 0,
-      colonneStatut = marque == SANS_RECEPTION_COLONNE,
+      ouaf = { restes: null, etat: "attente", membres: [], sansReception: null, simules: [] },
+      barree = Utils.affichage("convoisSansReceptionBarree"),
+      rouge = Utils.affichage("convoisSansReceptionRouge"),
+      colonneStatut = Utils.affichage("convoisSansReceptionColonne"),
       deux = (n) => String(n).padStart(2, "0"),
       hms = (s) =>
         `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`,
@@ -1041,13 +1044,17 @@ class CommerceFzzz {
               : null,
       // vrai : ne veut pas de convois ; indéfini : le site ne le dit pas (aucune ligne vers lui)
       refuse = (p) => (ouaf.sansReception ? ouaf.sansReception.get(p.toLowerCase()) : undefined),
+      titreRefus = (p) =>
+        ouaf.simules.some((s) => s.toLowerCase() == p.toLowerCase())
+          ? TITRE_SANS_RECEPTION_SIMULE
+          : TITRE_SANS_RECEPTION,
       statut = (p) => {
         let r = refuse(p);
         if (provisoire()) return provisoire();
         if (r == null)
           return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi : son choix n&#39;y est pas donné'>—</span>";
         return r
-          ? `<span class='o_convoisPlein' title='${TITRE_SANS_RECEPTION}'>⚠️ Plein ⚠️</span>`
+          ? `<span class='o_convoisPlein' title='${titreRefus(p)}'>⚠️ Plein ⚠️</span>`
           : "<span title='Accepte les convois (site de suivi)'>✅</span>";
       },
       reste = (p) => {
@@ -1069,8 +1076,11 @@ class CommerceFzzz {
         if (!p)
           return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td>${colonneStatut ? "<td>—</td>" : ""}<td>—</td><td>—</td><td></td></tr>`;
         let t = trajet(p),
-          marquer = !colonneStatut && refuse(p) === true;
-        return `<tr data-pseudo='${Utils.echapper(p)}'${marquer ? ` class='${marque == SANS_RECEPTION_ROUGE ? "o_convoisRouge" : "o_convoisBarree"}' title='${TITRE_SANS_RECEPTION}'` : ""}><td>${lien(p)}</td>
+          marques =
+            refuse(p) === true
+              ? [barree && "o_convoisBarree", rouge && "o_convoisRouge"].filter(Boolean)
+              : [];
+        return `<tr data-pseudo='${Utils.echapper(p)}'${marques.length ? ` class='${marques.join(" ")}' title='${titreRefus(p)}'` : ""}><td>${lien(p)}</td>
           <td>${reste(p)}</td>
           ${colonneStatut ? `<td class='o_convoisMembreStatut'>${statut(p)}</td>` : ""}
           <td>${t == null ? "<span class='small' title='Position inconnue : « Actualiser les positions » en bas de ce tableau'>?</span>" : hms(t)}</td>
@@ -1141,6 +1151,20 @@ class CommerceFzzz {
         $bloc.find(".o_convoisPositions:not(.o_enCours)").toggle(inconnus);
         $bloc.find(".o_convoisPositionsInconnues").toggle(inconnus);
       },
+      // test du mainteneur : rappelé sous le tableau, pour ne pas l'oublier
+      majSimulation = () => {
+        $bloc.find(".o_convoisSimulation").remove();
+        if (!ouaf.simules.length) return;
+        let noms = ouaf.simules.map((s) => {
+          let suivi = suivis.find((p) => p.toLowerCase() == s.toLowerCase());
+          return suivi ? Utils.echapper(suivi) : `${Utils.echapper(s)} (pas dans ce tableau)`;
+        });
+        $bloc
+          .find("table.o_convoisMembres")
+          .after(
+            `<p class='small o_convoisSimulation'>Test : ${noms.join(", ")} compté${noms.length > 1 ? "s" : ""} comme ne voulant pas de convois (Préférences → Convois).</p>`,
+          );
+      },
       afficher = () => {
         let vides = $bloc.find(".o_convoisMembreVide").length || (suivis.length ? 0 : 1);
         $bloc
@@ -1148,6 +1172,7 @@ class CommerceFzzz {
           .html(ordonnes().map(ligne).join("") + Array(vides).fill(ligne("")).join(""));
         icones();
         majPositions();
+        majSimulation();
       };
     // sous les convois en cours (dernier élément de la section)
     let $titre = $("#centre > h3").filter((i, e) => $(e).text().includes("Convois en cours")),
@@ -1280,11 +1305,14 @@ class CommerceFzzz {
       }
       OuafSuivi.mesConvois().then(
         (r) => {
+          let simules = OuafSuivi.simulesSansReception();
+          simules.forEach((p) => r.sansReception.set(p.toLowerCase(), true));
           Object.assign(ouaf, {
             etat: "ok",
             restes: r.restes,
             membres: r.membres,
             sansReception: r.sansReception,
+            simules,
           });
           afficher();
         },

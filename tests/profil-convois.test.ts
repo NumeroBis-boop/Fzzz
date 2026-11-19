@@ -501,7 +501,7 @@ describe("Préférences → Convois", () => {
        var ROLES = ["Aucun"];
        var heure = moment("2026-11-19 08:03", "YYYY-MM-DD HH:mm").valueOf();
        var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };
-       var monProfil = { pseudo: "Alpha", parametre: { role: { valeur: 0 }, convoisAvantRecolte: { getForm: () => "" }, convoisSansReception: { getForm: () => "" } } };`,
+       var monProfil = { pseudo: "Alpha", parametre: { role: { valeur: 0 }, convoisAvantRecolte: { getForm: () => "" } } };`,
     );
     const attendre = () => new Promise((r) => setTimeout(r, 0));
     p.lire(`(() => {

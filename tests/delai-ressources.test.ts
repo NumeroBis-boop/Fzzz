@@ -578,7 +578,7 @@ describe("sans Compte+ : convois qui arrivent lus dans le forum", () => {
     );
     expect(lire(`APPELS`)).toEqual([]);
     // même calcul qu'avec la page Convois : 1 000 000 de plus dans 2 h
-    expect(ligneHorloge(0).valeur).toBe("5j 19h 33m");
+    expect(ligneHorloge(0).valeur).toBe("dispo dans 5j 19h 33m");
     expect(lignes(0)).toContain("1 convoi : +1 000 000 bois");
     expect(lire(`Entrepots.convoisGardes()`)).toEqual([
       { de: "Alpha", t: HEURE + 2 * H, q: [50000, 1000000] },

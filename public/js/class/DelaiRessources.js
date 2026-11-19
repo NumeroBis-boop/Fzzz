@@ -169,7 +169,7 @@ class DelaiRessources {
     return r.atteint == null ? Number.MAX_VALUE / 2 : r.atteint;
   }
   /**
-   * « Matériaux suffisants dans 6j21h (Le 25/11 à 07h33) ».
+   * « Matériaux dispo dans 6j 21h 33m (Le 25/11 à 07h33) », formulation du mainteneur.
    *
    * @private
    * @static
@@ -190,7 +190,7 @@ class DelaiRessources {
     let date = moment(r.atteint).format("[Le] DD/MM [à] HH[h]mm");
     // heure passée depuis l'ouverture de la page, d'où part le calcul
     return r.atteint > maintenant
-      ? `${nom} ${accord} dans ${DelaiRessources.duree(maintenant, r.atteint)} (${date})`
+      ? `${nom} dispo dans ${DelaiRessources.duree(maintenant, r.atteint)} (${date})`
       : `${nom} ${accord} d'après le calcul (${date}) : recharge la page`;
   }
   /**
@@ -338,7 +338,8 @@ class DelaiRessources {
   }
   /**
    * Valeur de la ligne horloge d'un coût : le temps avant que toutes ses
-   * ressources suffisent, compté depuis l'ouverture de la page (« 1j 10h 12m »),
+   * ressources suffisent, compté depuis l'ouverture de la page (« dispo dans
+   * 1j 10h 12m »),
    * « REQUIS : Entrepôt de … niveau N » quand un entrepôt est trop petit,
    * « jamais », « &gt; 1 an », « ? » sans production connue.
    *
@@ -369,10 +370,11 @@ class DelaiRessources {
       return { html: "jamais", requis: false };
     if (manquent.some((i) => res(i).atteint == null)) return { html: "&gt; 1 an", requis: false };
     return {
-      html: DelaiRessources.duree(
+      // la durée d'un seul tenant : la cellule se replie après « dispo dans »
+      html: `dispo dans <span class='o_delaiDuree'>${DelaiRessources.duree(
         etat.maintenant,
         Math.max(...manquent.map((i) => res(i).atteint)),
-      ),
+      )}</span>`,
       requis: false,
     };
   }

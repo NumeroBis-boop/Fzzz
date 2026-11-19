@@ -3726,6 +3726,9 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   color: #c5130f;
   max-width: 10em;
 }
+.o_delaiDuree {
+  white-space: nowrap;
+}
 /* sur le fond olive de l'info-bulle du jeu (#676b51) : clairs, en gras, pour rester lisibles */
 .o_delaiInfobulle .o_delaiPlus {
   color: #b5f0a0;

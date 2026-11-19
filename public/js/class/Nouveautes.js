@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.141.2",
+    notes: [
+      "Construction et Laboratoire : le temps avant d'avoir les ressources s'écrit maintenant « dispo dans … », sous le coût comme dans l'info-bulle.",
+    ],
+  },
+  {
     version: "1.141.1",
     notes: [
       "Construction, Laboratoire et encart des entrepôts : les convois que tu vas recevoir sont maintenant comptés (leurs lignes de la page Convois n'étaient pas lues), et une ligne illisible est signalée dans l'info-bulle du coût. Les niveaux de tes bâtiments et recherches ne sont plus effacés par une page Construction ou Laboratoire qui n'affiche pas leur liste, et la page Convois dit « inconnu » au lieu de « null » pour l'étable tant que la page Construction n'a pas été ouverte.",

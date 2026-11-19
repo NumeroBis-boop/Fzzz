@@ -162,11 +162,11 @@ describe("heure où les ressources suffisent", () => {
     expect(r.atteint).toBe(HEURE + 227000 + 331 * 30 * MIN);
     // 332 × 19 095 = 6 339 540 ; durée en minutes de l'horloge : 10h00 → 07h33
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 6j 21h 33m (Le 25/11 à 07h33)",
+      "Matériaux dispo dans 6j 21h 33m (Le 25/11 à 07h33)",
       "332 cycles : les 332 récoltes du jeu (une toutes les 30 min) de 10h03 au 25/11 à 07h33",
       "Prod TdC : +6 339 540 bois en 332 cycles",
     ]);
-    expect(gras(0)).toEqual(["Matériaux suffisants dans 6j 21h 33m (Le 25/11 à 07h33)"]);
+    expect(gras(0)).toEqual(["Matériaux dispo dans 6j 21h 33m (Le 25/11 à 07h33)"]);
     expect(couleurs(0)).toEqual([["+6 339 540 bois", "o_delaiPlus"]]);
   });
 
@@ -181,13 +181,13 @@ describe("heure où les ressources suffisent", () => {
     // 803 446 qui manquent : 70 récoltes, la dernière le 19/11 à 20h33 ; le bois est déjà là
     // 595 612 ÷ 48 × 70 = 868 601 ; −42 173 ÷ 48 × 70 = −61 502 ; ensemble 807 099
     expect(lignes(0)).toEqual([
-      "Pommes suffisantes dans 1j 10h 33m (Le 19/11 à 20h33)",
+      "Pommes dispo dans 1j 10h 33m (Le 19/11 à 20h33)",
       "70 cycles : les 70 récoltes du jeu (une toutes les 30 min) de 10h03 au 19/11 à 20h33",
       "Champi : +868 601 pommes en 70 cycles",
       "Armée : −61 502 pommes en 70 cycles",
       "Matériaux suffisants",
     ]);
-    expect(gras(0)).toEqual(["Pommes suffisantes dans 1j 10h 33m (Le 19/11 à 20h33)"]);
+    expect(gras(0)).toEqual(["Pommes dispo dans 1j 10h 33m (Le 19/11 à 20h33)"]);
     expect(couleurs(0)).toEqual([
       ["+868 601 pommes", "o_delaiPlus"],
       ["−61 502 pommes", "o_delaiMoins"],
@@ -204,15 +204,15 @@ describe("heure où les ressources suffisent", () => {
     // bois : 1 501 537 qui manquent, 79 récoltes ; pommes : 79 446, 7 récoltes
     // chaque ressource a son nombre de cycles
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 1j 15h 03m (Le 20/11 à 01h03)",
+      "Matériaux dispo dans 1j 15h 03m (Le 20/11 à 01h03)",
       "79 cycles : les 79 récoltes du jeu (une toutes les 30 min) de 10h03 au 20/11 à 01h03",
       "Prod TdC : +1 508 505 bois en 79 cycles",
-      "Pommes suffisantes dans 3h 03m (Le 18/11 à 13h03)",
+      "Pommes dispo dans 3h 03m (Le 18/11 à 13h03)",
       "7 cycles : les 7 récoltes du jeu (une toutes les 30 min) de 10h03 à 13h03",
       "Champi : +86 860 pommes en 7 cycles",
       "Armée : −6 150 pommes en 7 cycles",
     ]);
-    expect(gras(0)).toEqual(["Matériaux suffisants dans 1j 15h 03m (Le 20/11 à 01h03)"]);
+    expect(gras(0)).toEqual(["Matériaux dispo dans 1j 15h 03m (Le 20/11 à 01h03)"]);
   });
 
   test("vassal : la part du seigneur est prise à chaque récolte sur le terrain et la champignonnière", async () => {
@@ -227,7 +227,7 @@ describe("heure où les ressources suffisent", () => {
     expect(r.atteint).toBe(HEURE + 227000 + 102 * 30 * MIN);
     // pillage : 30 % de 595 612 par jour, ÷ 48 × 103 = −383 425
     expect(lignes(0)).toEqual([
-      "Pommes suffisantes dans 2j 3h 03m (Le 20/11 à 13h03)",
+      "Pommes dispo dans 2j 3h 03m (Le 20/11 à 13h03)",
       "103 cycles : les 103 récoltes du jeu (une toutes les 30 min) de 10h03 au 20/11 à 13h03",
       "Champi : +1 278 084 pommes en 103 cycles",
       "Armée : −90 496 pommes en 103 cycles",
@@ -298,7 +298,7 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
     );
     // un bâtiment ne coûte pas de pommes : seule la part en bois du convoi est montrée
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 5j 19h 33m (Le 24/11 à 05h33)",
+      "Matériaux dispo dans 5j 19h 33m (Le 24/11 à 05h33)",
       "280 cycles : les 280 récoltes du jeu (une toutes les 30 min) de 10h03 au 24/11 à 05h33",
       "Prod TdC : +5 346 600 bois en 280 cycles",
       "1 convoi : +1 000 000 bois",
@@ -320,7 +320,7 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
     );
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 5j 19h 33m (Le 24/11 à 05h33)",
+      "Matériaux dispo dans 5j 19h 33m (Le 24/11 à 05h33)",
       "280 cycles : les 280 récoltes du jeu (une toutes les 30 min) de 10h03 au 24/11 à 05h33",
       "Prod TdC : +5 346 600 bois en 280 cycles",
       "1 convoi : +1 000 000 bois",
@@ -337,7 +337,7 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
     );
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 6j 21h 33m (Le 25/11 à 07h33)",
+      "Matériaux dispo dans 6j 21h 33m (Le 25/11 à 07h33)",
       "332 cycles : les 332 récoltes du jeu (une toutes les 30 min) de 10h03 au 25/11 à 07h33",
       "Prod TdC : +6 339 540 bois en 332 cycles",
       "Un convoi qui arrive n'a pas pu être lu sur la page Convois : pas compté.",
@@ -356,7 +356,7 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
     );
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 6j 21h 33m (Le 25/11 à 07h33)",
+      "Matériaux dispo dans 6j 21h 33m (Le 25/11 à 07h33)",
       "332 cycles : les 332 récoltes du jeu (une toutes les 30 min) de 10h03 au 25/11 à 07h33",
       "Prod TdC : +6 339 540 bois en 332 cycles",
     ]);
@@ -421,11 +421,13 @@ describe("cellule du coût : notre délai à la place de celui du Compte+", () =
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400", "6J 21h ")),
     );
     expect(ligneHorloge(0)).toEqual({
-      valeur: "6j 21h 33m",
+      valeur: "dispo dans 6j 21h 33m",
       requis: false,
       jeu: "none",
       derniere: true,
     });
+    // la durée d'un seul tenant : la cellule se replie après « dispo dans », pas au milieu
+    expect(lire(`$(".o_delaiValeur .o_delaiDuree").first().text()`)).toBe("6j 21h 33m");
   });
 
   test("sans Compte+ et au Laboratoire (le jeu n'a pas de ligne) : la nôtre ajoutée sous le coût", async () => {
@@ -439,13 +441,13 @@ describe("cellule du coût : notre délai à la place de celui du Compte+", () =
         ),
     );
     expect(ligneHorloge(0)).toEqual({
-      valeur: "6j 21h 33m",
+      valeur: "dispo dans 6j 21h 33m",
       requis: false,
       jeu: null,
       derniere: true,
     });
     // la ressource la plus tardive : le bois (79 cycles), les pommes suffisent avant
-    expect(ligneHorloge(1).valeur).toBe("1j 15h 03m");
+    expect(ligneHorloge(1).valeur).toBe("dispo dans 1j 15h 03m");
   });
 
   test("convoi qui arrive : compté dans la ligne, relue après la page Convois", async () => {
@@ -454,7 +456,7 @@ describe("cellule du coût : notre délai à la place de celui du Compte+", () =
     await ouvrir(
       encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400", "6J 21h ")),
     );
-    expect(ligneHorloge(0).valeur).toBe("5j 19h 33m");
+    expect(ligneHorloge(0).valeur).toBe("dispo dans 5j 19h 33m");
     // gardé pour les autres pages (encart « Plein dans … »)
     expect(lire(`Entrepots.convoisGardes()`)).toEqual([
       { de: "Alpha", t: HEURE + 2 * H, q: [50000, 1000000] },
@@ -524,7 +526,7 @@ describe("cycles de récolte", () => {
     noterRecolte({ recolte: HEURE + 227000 });
     await ouvrir(encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Remise", "3 508 463")));
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 3m (Le 18/11 à 10h03)",
+      "Matériaux dispo dans 3m (Le 18/11 à 10h03)",
       "1 cycle : la récolte du jeu de 10h03",
       "Prod TdC : +19 095 bois en 1 cycle",
     ]);
@@ -533,7 +535,7 @@ describe("cycles de récolte", () => {
     );
     await ouvrir(encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Silo", "3 998 463")));
     expect(lignes(0)).toEqual([
-      "Matériaux suffisants dans 1m (Le 18/11 à 10h01)",
+      "Matériaux dispo dans 1m (Le 18/11 à 10h01)",
       "1 convoi : +1 000 000 bois",
     ]);
   });
@@ -625,7 +627,7 @@ describe("toucher (téléphone)", () => {
     const ouvertes = () => lire<number>(`$(".o_delaiRessources[aria-describedby]").length`);
     lire(`$(".o_delaiRessources").eq(0).trigger("click")`);
     expect(ouvertes()).toBe(1);
-    expect(lire(`$(".o_delaiInfobulle").last().text()`)).toContain("Matériaux suffisants dans");
+    expect(lire(`$(".o_delaiInfobulle").last().text()`)).toContain("Matériaux dispo dans");
     expect(lire<number>(`$(".o_delaiRessources").eq(0).find("[title]").length`)).toBe(0);
     // une autre cellule : la première se ferme
     lire(`$(".o_delaiRessources").eq(1).trigger("click")`);

@@ -63,12 +63,14 @@ describe("PartageChasses.simuler : règle des 20 % et portée", () => {
     expect(sim.evenements.map((e: { prise: number }) => e.prise)).toEqual([16524, 11231, 10973]);
   });
 
-  test("cible hors portée (> 300 % − 1 du lanceur) : aucune prise", () => {
-    const e = simuler(
-      { chasses: {}, floods: [flood({ lanceur: "A", cible: "B", unites: 1000, terrain: 1000 })] },
-      { A: 10000, B: 30000 },
-    ).evenements[0];
-    expect(e.statut).toBe("portee");
+  test("cible hors portée (au-delà du triple du lanceur) : aucune prise ; au triple, à portée", () => {
+    const statut = (b: number) =>
+      simuler(
+        { chasses: {}, floods: [flood({ lanceur: "A", cible: "B", unites: 1000, terrain: 1000 })] },
+        { A: 10000, B: b },
+      ).evenements[0];
+    expect(statut(30001)).toMatchObject({ statut: "portee", prise: 0 });
+    expect(statut(30000)).toMatchObject({ statut: "ok", prise: 1000 });
   });
 
   test("TdC de la cible inconnu : prise estimée au lancement gardée", () => {

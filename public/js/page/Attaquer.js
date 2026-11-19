@@ -1025,14 +1025,15 @@ class PageAttaquer {
     // hors de portée (TdC à l'impact mis dans les champs, par exemple), le
     // flood est calculé quand même, à 0 % : sans cela les montants restaient
     // ceux d'avant, quelle que soit la méthode choisie
-    let $portee = $("#o_simulationFlood .o_floodPortee");
+    let $portee = $("#o_simulationFlood .o_floodPortee"),
+      bornes = Utils.bornesPortee(tdcAtt);
     if (Utils.aPortee(tdcCible, tdcAtt)) $portee.text("").removeAttr("title");
     else
       $portee
         .text("Hors de portée")
         .attr(
           "title",
-          `Avec ces TdC, ${this._cible.pseudo} doit avoir de ${numeral(Math.ceil(tdcAtt / 2)).format()} à ${numeral(tdcAtt * 3 - 1).format()} cm² (de la moitié au triple de « Mon Terrain ») : aucune attaque ne prendrait de TdC.`,
+          `Avec ces TdC, ${this._cible.pseudo} doit avoir de ${numeral(Math.ceil(bornes.min)).format()} à ${numeral(Math.floor(bornes.max)).format()} cm² (de la moitié au triple de « Mon Terrain », compris) : aucune attaque ne prendrait de TdC.`,
         );
     let methode = $("#o_methodeFlood").val(),
       p = monProfil.parametre;

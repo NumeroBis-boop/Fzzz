@@ -425,16 +425,8 @@ class Utils {
     return parseInt($("#quantite_tdc").text());
   }
   /**
-   * Échappe un texte venu du jeu, du forum ou d'un autre joueur avant de
-   * l'insérer comme HTML : sans cela, une ligne de forum contenant une balise
-   * serait exécutée dans la page de chaque lecteur.
-   *
-   * @static
-   * @method echapper
-   */
-  /**
-   * Cible attaquable par le lanceur : TdC d'au moins la moitié et d'au plus
-   * le triple − 1 du sien.
+   * Cible attaquable par le lanceur : TdC de la moitié au triple du sien,
+   * compris ; la seule définition de la portée (tests/portee.test.ts).
    *
    * @static
    * @method aPortee
@@ -443,10 +435,29 @@ class Utils {
    * @return {Boolean}
    */
   static aPortee(tdcCible, tdcLanceur) {
-    // moitié comprise : vérifié sur le RC du 05/11/26 (54 865 cm² face à
-    // 109 730, conquis 10 973) ; triple − 1 : borne héritée, non vérifiée
-    return tdcCible >= tdcLanceur / 2 && tdcCible <= tdcLanceur * 3 - 1;
+    let b = Utils.bornesPortee(tdcLanceur);
+    return tdcCible >= b.min && tdcCible <= b.max;
   }
+  /**
+   * @static
+   * @method bornesPortee
+   * @param {Number} tdcLanceur
+   * @return {{min: Number, max: Number}} une cible est à portée quand son TdC est entre les deux, compris
+   */
+  static bornesPortee(tdcLanceur) {
+    // moitié comprise : vérifié sur le RC du 05/11/26 (54 865 cm² face à 109 730,
+    // conquis 10 973) ; triple compris : la page « Flood TdC » du Compte+ (choix du
+    // mainteneur, 19/11/26), la page Ennemies montrait triple − 1 (observations-s5.md)
+    return { min: tdcLanceur / 2, max: tdcLanceur * 3 };
+  }
+  /**
+   * Échappe un texte venu du jeu, du forum ou d'un autre joueur avant de
+   * l'insérer comme HTML : sans cela, une ligne de forum contenant une balise
+   * serait exécutée dans la page de chaque lecteur.
+   *
+   * @static
+   * @method echapper
+   */
   static echapper(texte) {
     return String(texte ?? "").replace(
       /[&<>"']/g,

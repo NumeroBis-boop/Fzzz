@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.139.1",
+    notes: [
+      "Portée : une cible qui a exactement le triple de ton TdC compte maintenant comme à portée partout (vue Membres, « à portée le … », Lanceur de Flood, TdC à l'impact), comme sur la page Flood TdC du Compte+ et dans le Multi-flood.",
+    ],
+  },
+  {
     version: "1.139.0",
     notes: [
       "Multi-flood opti : un avertissement en rouge, au-dessus du bouton « Lancer + partager » et dans la confirmation, signale chacun de tes floods déjà lancés que les attaques cochées feraient sortir de portée (il ne prendrait plus rien).",

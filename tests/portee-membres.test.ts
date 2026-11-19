@@ -4,7 +4,7 @@ import { creerPage } from "./harnais";
 /**
  * « à portée le … » après le pseudo, dans l'info-bulle de la page Membres et
  * sur la page d'un membre (1.99.0, demande du mainteneur) : quand je peux le
- * flooder (Utils.aPortee de son TdC face au mien, de la moitié au triple − 1),
+ * flooder (Utils.aPortee de son TdC face au mien, de la moitié au triple, compris),
  * d'après les mouvements partagés à venir, les siens et les miens ; l'état est
  * pris à la fin de chaque minute. Joueurs inventés.
  */
@@ -23,7 +23,7 @@ const flood = (id: number, date: string, lanceur: string, cible: string, unites:
   terrain: unites,
   tdcCible: null,
 });
-// moi : 100 000 cm², donc à portée de 50 000 à 299 999 cm²
+// moi : 100 000 cm², donc à portée de 50 000 à 300 000 cm²
 function portee(cible: number, floods: object[] = [], chasses: object = {}, moi = 100000) {
   return page.lire(`(() => {
     let connus = { Moi: ${moi}, Cible: ${cible}, Alpha: 200000, Beta: 200000 },
@@ -42,7 +42,7 @@ describe("quand je peux le flooder", () => {
 
   test("état à la fin de la minute : un instant à portée entre deux floods ne compte pas", () => {
     expect(
-      portee(300000, [
+      portee(300001, [
         flood(1, "11:00", "Alpha", "Cible", 10000),
         flood(2, "11:00", "Cible", "Beta", 20000),
         flood(3, "12:00", "Alpha", "Cible", 20000),
@@ -56,13 +56,13 @@ describe("quand je peux le flooder", () => {
       date: "2026-11-09 11:00",
     });
     expect(portee(150000)).toEqual({ deja: true, date: null });
-    // bornes : la moitié comprise, le triple − 1 compris
+    // bornes : la moitié et le triple compris
     expect(portee(50000)).toEqual({ deja: true, date: null });
-    expect(portee(299999)).toEqual({ deja: true, date: null });
+    expect(portee(300000)).toEqual({ deja: true, date: null });
   });
 
   test("jamais à portée d'après les mouvements connus", () => {
-    expect(portee(300000)).toEqual({ deja: false, date: null });
+    expect(portee(300001)).toEqual({ deja: false, date: null });
     expect(portee(400000, [flood(1, "11:00", "Alpha", "Cible", 10000)])).toEqual({
       deja: false,
       date: null,

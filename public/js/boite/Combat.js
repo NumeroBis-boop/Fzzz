@@ -1061,7 +1061,7 @@ class BoiteCombat extends Boite {
   /**
    * Orchestre la simulation multi-cibles : chaîne `Armee.optimiserFlood`
    * sur chaque cible (triée par distance) en propageant `tdcAtt`.
-   * Détecte les cibles "trop hautes" (terrain > mon terrain × SEUIL_TROP_HAUT).
+   * Détecte les cibles hors de portée, trop hautes ou trop basses (Utils.aPortee).
    *
    * @private
    * @method simulerMultiFlood
@@ -1070,9 +1070,6 @@ class BoiteCombat extends Boite {
     if (!this._mfArmee) this._mfArmee = new Armee();
     this._mfLance = false;
     if (this._mfUnitesGardees) this._mfUnitesGardees.activer(true);
-    // Seuils alignés sur le natif (Attaquer.js:231 → tdcCible ∈ [tdcAtt × 0.5, tdcAtt × 3])
-    const SEUIL_TROP_HAUT = 3;
-    const SEUIL_TROP_BAS = 2;
     const MAX_ATTAQUES_PAR_CIBLE = 10;
     const UNITE_INFINIE = 1e9; // simu purement terrain — la contrainte d'armée est appliquée globalement (recap) pas par cible
     let cibles = [...this._mfCibles].sort((a, b) => a.tempsParcours - b.tempsParcours),
@@ -1086,19 +1083,10 @@ class BoiteCombat extends Boite {
     });
     let resultats = [];
     cibles.forEach((cible) => {
-      if (cible.terrain > mfTerrain * SEUIL_TROP_HAUT) {
+      if (!Utils.aPortee(cible.terrain, mfTerrain)) {
         resultats.push({
           cible,
-          tropHaute: true,
-          tdcAttDebut: mfTerrain,
-          tdcAttFin: mfTerrain,
-        });
-        return;
-      }
-      if (mfTerrain > cible.terrain * SEUIL_TROP_BAS) {
-        resultats.push({
-          cible,
-          tropBasse: true,
+          [cible.terrain > mfTerrain ? "tropHaute" : "tropBasse"]: true,
           tdcAttDebut: mfTerrain,
           tdcAttFin: mfTerrain,
         });

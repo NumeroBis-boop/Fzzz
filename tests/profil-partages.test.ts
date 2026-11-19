@@ -142,13 +142,17 @@ describe("page d'un membre : la synthèse seule", () => {
 });
 
 describe("page d'un membre : « à portée » après le titre", () => {
-  test("mon TdC 150 000 (portée de 75 000 à 449 999) : déjà à portée, ou heure d'entrée", async () => {
+  test("mon TdC 150 000 (portée de 75 000 à 450 000) : déjà à portée, ou heure d'entrée", async () => {
     expect(espaces((await afficher({ secondes: 4500 })).titre)).toBe(
       "Évolution du TdC de Alpha déjà à portée",
     );
-    // 460 000, puis 450 000 (10h30), 451 500 (chasse de 11h30), 446 500 (12h00)
-    expect(espaces((await afficher({ secondes: 4500 }, 460000)).titre)).toBe(
+    // 460 001, puis 450 001 (10h30), 451 501 (chasse de 11h30), 446 501 (12h00)
+    expect(espaces((await afficher({ secondes: 4500 }, 460001)).titre)).toBe(
       "Évolution du TdC de Alpha à portée le 09/11 à 12h00",
+    );
+    // 450 000 à 10h30 : le triple compris
+    expect(espaces((await afficher({ secondes: 4500 }, 460000)).titre)).toContain(
+      "à portée le 09/11 à 10h30",
     );
     // son propre profil : pas de mention
     expect(espaces((await afficher(null)).titre)).toBe("Évolution du TdC de Alpha");

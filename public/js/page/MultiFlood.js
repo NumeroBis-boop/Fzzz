@@ -925,8 +925,7 @@ class MultiFlood {
         cibleFin: ti,
       };
     if (!(t0 > 0) || !(ti > 0)) return { ...r, hors: "inconnu" };
-    if (ti > 3 * t0) return { ...r, hors: "haut" };
-    if (ti < 0.5 * t0) return { ...r, hors: "bas" };
+    if (!Utils.aPortee(ti, t0)) return { ...r, hors: ti > t0 ? "haut" : "bas" };
     let seuilAtt = Math.floor(((ti + t0) * 2) / 3),
       seuilDef = Math.ceil((ti + t0) / 3),
       arrondir = true;

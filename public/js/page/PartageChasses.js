@@ -1913,7 +1913,7 @@ class PartageChasses {
    * chaque flood à l'impact :
    *  - prise = min(unités envoyées, ⌊20 % du TdC de la cible à l'impact⌋) ;
    *  - aucune prise si, à l'impact, la cible n'est plus à portée du lanceur
-   *    (Utils.aPortee : de la moitié au triple − 1 du TdC du lanceur ; c'est
+   *    (Utils.aPortee : de la moitié au triple du TdC du lanceur, compris ; c'est
    *    l'« opti-flood raté ») ;
    *  - TdC connus : ceux de la page (paramètre `connus`), sinon, pour une
    *    cible, le TdC relevé au lancement du flood le plus récent sur elle ;

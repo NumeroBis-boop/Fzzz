@@ -3666,6 +3666,9 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   display: none;
 }
 /* d'où partent les chiffres du tableau (TdC à l'impact) */
+#o_mfoAvertissement:empty {
+  display: none;
+}
 #o_multiFlood .o_mfoNote {
   white-space: normal;
   font-style: italic;

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.139.0",
+    notes: [
+      "Multi-flood opti : un avertissement en rouge, au-dessus du bouton « Lancer + partager » et dans la confirmation, signale chacun de tes floods déjà lancés que les attaques cochées feraient sortir de portée (il ne prendrait plus rien).",
+    ],
+  },
+  {
     version: "1.138.0",
     notes: [
       "Site de suivi des convois : plus besoin de remplir « Mon profil ». L'extension y écrit tes niveaux d'Étable à pucerons et de Champignonnière et ton nombre total d'ouvrières (convois compris), une fois par jour et dès que l'un de ces deux niveaux change. La case « Je ne souhaite pas recevoir de convois » n'est pas touchée.",

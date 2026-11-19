@@ -165,6 +165,7 @@ class MultiFlood {
         <p class='o_mfoChoixImpact'><label title='Floods et chasses partagés dans le forum de l&#39;alliance, tes chasses et tes attaques en cours ; décochée : les TdC actuels, comme la page du Compte+'><input type='checkbox' id='o_mfoImpact'${MultiFlood.avecImpact() ? " checked" : ""}/> Calculer avec le TdC de chacun à l'impact</label></p>
         <p id='o_mfoEtat' class='reduce'></p>
         <div id='o_mfoResultats'></div>
+        <p id='o_mfoAvertissement' class='red'></p>
         <p class='o_mfoBoutons'><button type='button' id='o_mfoLancerPartager' class='o_button o_lieu1' disabled title='Lancement, puis publication des attaques dans le forum de la ${tag}'>Lancer + partager</button></p>
         <p id='o_mfoRecap'></p>
         <div class='o_mfoBas'><hr class='o_mfoSeparateur'/>${etatMultiFlood.gardees.html()}</div>
@@ -215,7 +216,7 @@ class MultiFlood {
    */
   static _explication() {
     return `<p><span class='gras'>À quoi ça sert ?</span><br/>Une attaque ne peut pas prendre plus de 20 % du terrain de chasse de sa cible. Cet outil cherche la meilleure série d'attaques pour prendre un maximum de terrain, comme le « Flood TdC » du Compte+, sur autant de cibles que tu veux.</p>
-      <p><span class='gras'>TdC à l'impact</span><br/>Case « Calculer avec le TdC de chacun à l'impact » cochée, chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches (elles changent aussi ce que prennent les floods qui dépendent de ton TdC : portée, 20 %). La ligne sous le nom de chaque cible donne ces TdC et d'où vient leur écart avec les TdC actuels. Décochée, avec les TdC actuels, comme la page du Compte+.</p>
+      <p><span class='gras'>TdC à l'impact</span><br/>Case « Calculer avec le TdC de chacun à l'impact » cochée, chaque attaque est calculée avec le TdC de chacun à son arrivée (minute du RC) : celui que donnent les floods et chasses partagés dans le forum de l'alliance, tes chasses (page Ressources), tes attaques en cours, et les attaques cochées de ce multi-flood sur les cibles plus proches (elles changent aussi ce que prennent les floods qui dépendent de ton TdC : portée, 20 %). La ligne sous le nom de chaque cible donne ces TdC et d'où vient leur écart avec les TdC actuels. Un avertissement en rouge, au-dessus du bouton, signale chacun de tes floods déjà lancés que les attaques cochées font sortir de portée : il ne prendrait plus rien. Décochée, avec les TdC actuels, comme la page du Compte+.</p>
       <p><span class='gras'>Comment ça marche ?</span><br/>Écris le pseudo d'une cible dans une case « Pseudo » et choisis-le dans la liste ; %% propose les membres de ton alliance à portée. Une case vidée retire sa cible ; une case vide de plus apparaît quand toutes sont prises. Les attaques commencent par la cible la plus proche. Coche ou décoche des attaques, dans la limite de tes attaques disponibles (Vitesse d'attaque + 1) et de ton armée sans les unités gardées (en bas de la page). « Lancer + partager » les envoie une à une par la page d'attaque de chaque cible, les publie dans le forum de l'alliance, puis ouvre la page Armée (replacement de l'armée).</p>
       <p><span class='gras'>Options</span><br/>- Terrain : ton TdC et celui de chaque cible, si tu en connais un plus récent.<br/>- Terrain final : celui que tu veux atteindre, ou laisser à ta cible.<br/>- Prise max : par cible, ou pour tout le multi-flood dans ta colonne.<br/>- Arrondir : une prise trop précise se repère si tes ennemis te surveillent.</p>`;
   }
@@ -654,9 +655,40 @@ class MultiFlood {
         cibleAvant: cible,
       };
     if (!minute || !e.partages) return sans;
+    let r = PageAttaquer.tdcImpact(
+      MultiFlood._simuler(c, precedentes),
+      monProfil.pseudo,
+      c.pseudo,
+      cle,
+    );
+    return {
+      ...sans,
+      moi: r.moi.tdc ?? moi,
+      cible: r.cible.tdc ?? cible,
+      partages: true,
+    };
+  }
+  /**
+   * Partages rejoués avec des attaques de ce multi-flood, mes floods datés à la
+   * minute du RC de leur cible et numérotés après ceux du jeu, depuis les TdC
+   * lus sur la page de la cible `c` (le mien compris) et ceux des cibles de ces
+   * attaques.
+   *
+   * @private
+   * @static
+   * @param {any} c cible dont la lecture donne mon TdC et l'heure de départ
+   * @param {Array<{pseudo: String, cle: String, prise: Number, tdc: Number}>} attaques
+   * @param {Boolean} [ajouter] false : TdC des mêmes cibles, sans leurs attaques
+   * @return {any} PartageChasses.simuler()
+   */
+  static _simuler(c, attaques, ajouter = true) {
+    let e = etatMultiFlood,
+      depuis = [c.lu, c.saisiA, e.moi.tdcSaisi != null ? e.moi.saisiA : null]
+        .filter(Boolean)
+        .sort((a, b) => b.valueOf() - a.valueOf())[0];
     /** @type {Object<string, Number>} */
     let connus = {},
-      floods = precedentes.map((p, k) => {
+      floods = attaques.map((p, k) => {
         connus[p.pseudo] = p.tdc;
         return {
           id: NUMERO_ATTAQUES_MULTI_FLOOD + k,
@@ -667,20 +699,87 @@ class MultiFlood {
           terrain: p.prise,
         };
       });
-    connus[monProfil.pseudo] = moi;
-    connus[c.pseudo] = cible;
+    connus[monProfil.pseudo] = e.moi.tdcSaisi ?? c.moiLu;
+    connus[c.pseudo] = c.tdcSaisi ?? c.tdcLu;
     // copie : les partages lus restent ceux du forum
-    let d = floods.length
+    let d =
+      ajouter && floods.length
         ? { chasses: e.partages.d.chasses, floods: e.partages.d.floods.concat(floods) }
-        : e.partages.d,
-      sim = PartageChasses.simuler(d, PartageChasses.tdcConnus(e.partages.tdc, connus), depuis),
-      r = PageAttaquer.tdcImpact(sim, monProfil.pseudo, c.pseudo, cle);
-    return {
-      ...sans,
-      moi: r.moi.tdc ?? moi,
-      cible: r.cible.tdc ?? cible,
-      partages: true,
-    };
+        : e.partages.d;
+    return PartageChasses.simuler(d, PartageChasses.tdcConnus(e.partages.tdc, connus), depuis);
+  }
+  /**
+   * Mes floods déjà lancés que les attaques cochées de ce multi-flood font
+   * sortir de portée (demande du mainteneur, 19/11/2026) : à portée sans elles,
+   * ils ne prendraient plus rien avec. Seulement avec le TdC à l'impact : il faut
+   * la simulation des partages, et la minute du RC de chaque cible.
+   *
+   * @static
+   * @method floodsPerdus
+   * @return {Array<{cible: String, date: String, prise: Number}>} prise : sans ce multi-flood
+   */
+  static floodsPerdus() {
+    let e = etatMultiFlood;
+    if (!e || !e.partages || !MultiFlood.avecImpact()) return [];
+    let dates = e.resultats.filter((/** @type {any} */ r) => r.impact && r.impact.partages),
+      attaques = dates.flatMap((/** @type {any} */ r) =>
+        r.attaques
+          .filter((/** @type {any} */ a) => a.coche && a.prise > 0)
+          .map((/** @type {any} */ a) => ({
+            pseudo: r.cible.pseudo,
+            cle: r.impact.cle,
+            prise: a.prise,
+            tdc: r.cible.tdcSaisi ?? r.cible.tdcLu,
+          })),
+      );
+    if (!attaques.length) return [];
+    // la cible lue en dernier donne mon TdC et l'heure de départ des deux simulations
+    let ref = dates
+        .map((/** @type {any} */ r) => r.cible)
+        .sort((/** @type {any} */ a, /** @type {any} */ b) => (b.lu || 0) - (a.lu || 0))[0],
+      moi = String(monProfil.pseudo).toLowerCase(),
+      mien = (/** @type {any} */ ev) =>
+        ev.type == "flood" &&
+        String(ev.lanceur).toLowerCase() == moi &&
+        !(ev.id >= NUMERO_ATTAQUES_MULTI_FLOOD),
+      cle = (/** @type {any} */ ev) => `${ev.id}|${ev.date}|${String(ev.cible).toLowerCase()}`,
+      avant = new Map(
+        MultiFlood._simuler(ref, attaques, false)
+          .evenements.filter(mien)
+          .map((/** @type {any} */ ev) => [cle(ev), ev]),
+      );
+    return MultiFlood._simuler(ref, attaques)
+      .evenements.filter((/** @type {any} */ ev) => {
+        let sans = avant.get(cle(ev));
+        return (
+          mien(ev) && ev.statut == "portee" && sans && sans.statut != "portee" && sans.prise > 0
+        );
+      })
+      .map((/** @type {any} */ ev) => ({
+        cible: ev.cible,
+        date: ev.date,
+        prise: avant.get(cle(ev)).prise,
+      }));
+  }
+  /**
+   * @private
+   * @static
+   * @param {Array<{cible: String, date: String, prise: Number}>} perdus floodsPerdus()
+   * @return {Array<String>} une phrase par flood, en texte
+   */
+  static _phrasesPerdus(perdus) {
+    return perdus.map(
+      (f) =>
+        `Avec les attaques cochées, ton flood déjà lancé sur ${f.cible} (impact le ${moment(f.date, "YYYY-MM-DD HH:mm").format("DD/MM [à] HH[h]mm")}) serait hors de portée : il ne prendrait rien au lieu de ${numeral(f.prise).format()}.`,
+    );
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _afficherAvertissement() {
+    let phrases = MultiFlood._phrasesPerdus(MultiFlood.floodsPerdus());
+    $("#o_mfoAvertissement").html(phrases.map((t) => `⚠ ${Utils.echapper(t)}`).join("<br/>"));
   }
   /**
    * Plan refait et affiché : TdC à l'impact, attaques, récapitulatif.
@@ -727,6 +826,7 @@ class MultiFlood {
           : x.impact,
     );
     MultiFlood._afficherResultats();
+    MultiFlood._afficherAvertissement();
     MultiFlood._afficherRecap();
     e.gardees.afficher(e.armee);
     MultiFlood._etat(
@@ -1113,9 +1213,10 @@ class MultiFlood {
         0,
       );
     if (!nombre) return Promise.resolve();
+    let perdus = MultiFlood._phrasesPerdus(MultiFlood.floodsPerdus());
     if (
       !confirm(
-        `Lancer ${nombre} attaque(s) sur ${aLancer.length} cible(s) ? Unités gardées : ${Armee.texteGardees(e.armee.gardeesFlood())}. Cette action est irréversible.`,
+        `Lancer ${nombre} attaque(s) sur ${aLancer.length} cible(s) ? Unités gardées : ${Armee.texteGardees(e.armee.gardeesFlood())}.${perdus.length ? `\n\nAttention : ${perdus.join("\n")}` : ""}\n\nCette action est irréversible.`,
       )
     )
       return Promise.resolve();

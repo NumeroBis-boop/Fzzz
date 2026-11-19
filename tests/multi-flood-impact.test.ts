@@ -54,7 +54,19 @@ const PARTAGES = {
   floods: [] as object[],
 };
 
-const ouvrir = (partages: object | null) =>
+// mon flood déjà lancé sur Echo (40 000), à 05h00 : à portée de mes 59 812, plus
+// de mes 106 460 après les attaques cochées sur Alpha et Bravo
+const ECHO = {
+  id: 500,
+  date: "2026-11-19 05:00",
+  lanceur: "Moi",
+  cible: "Echo",
+  unites: 9000,
+  terrain: 8000,
+  tdcCible: 40000,
+};
+
+const ouvrir = (partages: object | null, tdcMembres: object = {}) =>
   lire(`(() => {
     localStorage.clear();
     localStorage.setItem("outiiil_parametre", JSON.stringify({ reserveFlood: 0, reserveFloodAuto: false }));
@@ -75,9 +87,10 @@ const ouvrir = (partages: object | null) =>
       cible("Charlie", 45002, 18480),
       cible("Bravo", 55418, 14880),
     ];
-    etatMultiFlood.partages = ${partages ? `{ d: ${JSON.stringify(partages)}, tdc: {} }` : "null"};
+    etatMultiFlood.partages = ${partages ? `{ d: ${JSON.stringify(partages)}, tdc: ${JSON.stringify(tdcMembres)} }` : "null"};
     MultiFlood.rendre();
   })()`);
+const avertissement = () => lire<string>(`$("#o_mfoAvertissement").text()`);
 const notes = () =>
   lire<string[]>(`$(".o_mfoNote").map((i, e) => $(e).text().replace(/\\s+/g, " ")).get()`);
 const lignes = (pseudo: string) =>
@@ -126,20 +139,7 @@ describe("capture du 19/11 : chaque cible à son TdC à l'impact", () => {
   test("un flood déjà lancé que ce multi-flood fait sortir de portée ne prend rien (l'ancien calcul le comptait)", () => {
     // mon flood sur Echo (40 000) arrive à 05h00 : à portée de mes 59 812, plus
     // de mes 106 460 après les attaques sur Alpha et Bravo
-    const avecFlood = {
-      ...PARTAGES,
-      floods: [
-        {
-          id: 500,
-          date: "2026-11-19 05:00",
-          lanceur: "Moi",
-          cible: "Echo",
-          unites: 9000,
-          terrain: 8000,
-          tdcCible: 40000,
-        },
-      ],
-    };
+    const avecFlood = { ...PARTAGES, floods: [ECHO] };
     ouvrir(avecFlood);
     // sans ce multi-flood, le flood prendrait 8 000 ; avec, rien : Delta part de
     // 59 812 + 46 648 + 61 648, et non de 176 108 (prises ajoutées après coup)
@@ -152,6 +152,76 @@ describe("capture du 19/11 : chaque cible à son TdC à l'impact", () => {
     );
     // les partages lus ne sont pas touchés par la simulation
     expect(lire(`etatMultiFlood.partages.d.floods`)).toEqual(avecFlood.floods);
+  });
+
+  test("avertissement : un flood déjà lancé que les attaques cochées font sortir de portée, au-dessus du bouton et dans la confirmation", async () => {
+    ouvrir({ ...PARTAGES, floods: [ECHO] });
+    expect(avertissement()).toBe(
+      "⚠ Avec les attaques cochées, ton flood déjà lancé sur Echo (impact le 19/11 à 05h00) serait hors de portée : il ne prendrait rien au lieu de 8 000.",
+    );
+    // avant le bouton « Lancer + partager »
+    expect(lire(`$("#o_mfoAvertissement").next().hasClass("o_mfoBoutons")`)).toBe(true);
+    // la confirmation le répète ; refusée, rien ne part
+    lire(`window.CONFIRMATIONS = []; window.confirm = (t) => (CONFIRMATIONS.push(t), false)`);
+    await lire(`MultiFlood.lancer(true)`);
+    expect(lire<string[]>(`CONFIRMATIONS`)[0]).toContain(
+      "Attention : Avec les attaques cochées, ton flood déjà lancé sur Echo (impact le 19/11 à 05h00) serait hors de portée",
+    );
+    expect(lire(`etatMultiFlood.lance`)).toBe(false);
+  });
+
+  test("avertissement retiré quand plus aucune attaque cochée n'arrive avant ce flood, ou sans TdC à l'impact", () => {
+    ouvrir({ ...PARTAGES, floods: [ECHO] });
+    // attaques sur Alpha (04h21) et Bravo (04h38) décochées : mon TdC n'a pas encore monté à 05h00
+    lire(
+      `etatMultiFlood.cibles.filter((c) => ["Alpha", "Bravo"].includes(c.pseudo)).forEach((c) => { c.choix = { 0: false, 1: false, 2: false }; }); MultiFlood.rendre()`,
+    );
+    expect(avertissement()).toBe("");
+    lire(`etatMultiFlood.cibles.forEach((c) => { c.choix = {}; }); MultiFlood.rendre()`);
+    expect(avertissement()).not.toBe("");
+    // case « TdC à l'impact » décochée : pas de simulation, pas d'avertissement
+    lire(`localStorage.setItem("fzzz_multiFloodImpact", "0"); MultiFlood.rendre()`);
+    expect(avertissement()).toBe("");
+    lire(`localStorage.removeItem("fzzz_multiFloodImpact")`);
+  });
+
+  test("pas d'avertissement quand les attaques cochées ne changent la portée d'aucun de mes floods", () => {
+    ouvrir(PARTAGES);
+    expect(avertissement()).toBe("");
+    // mon flood sur Golf (20 000) : déjà hors de portée de mes 59 812, ce multi-flood n'y change rien
+    ouvrir({ ...PARTAGES, floods: [{ ...ECHO, id: 503, cible: "Golf", tdcCible: 20000 }] });
+    expect(avertissement()).toBe("");
+    // Foxtrot (35 000) me floode à 05h00 : à sa portée avec mes 59 812, plus avec mes
+    // 106 460 ; son flood ne prend plus rien, c'est un gain pour moi, pas un avertissement
+    ouvrir(
+      {
+        ...PARTAGES,
+        floods: [{ ...ECHO, id: 501, lanceur: "Foxtrot", cible: "Moi", tdcCible: null }],
+      },
+      { foxtrot: 35000 },
+    );
+    // les attaques cochées du plan, rejouées comme floodsPerdus() le fait
+    expect(
+      lire(`(() => {
+        let att = etatMultiFlood.resultats.filter((r) => r.impact.partages).flatMap((r) =>
+          r.attaques.filter((a) => a.coche).map((a) => ({ pseudo: r.cible.pseudo, cle: r.impact.cle, prise: a.prise, tdc: r.cible.tdcLu })));
+        return MultiFlood._simuler(etatMultiFlood.cibles[0], att).evenements.find((e) => e.id == 501).statut;
+      })()`),
+    ).toBe("portee");
+    expect(avertissement()).toBe("");
+  });
+
+  test("mon flood déjà lancé sur une cible du multi-flood, après ses attaques : avertissement, avec le TdC lu sur sa page", () => {
+    // lancé quand Bravo avait 20 000 ; sa page en donne 55 418 : sans ce multi-flood,
+    // il prend 9 000 à 06h00 (à portée de mes 59 812) ; avec, Bravo n'a plus que 38 713
+    // face à mes 106 460
+    ouvrir({
+      ...PARTAGES,
+      floods: [{ ...ECHO, id: 502, date: "2026-11-19 06:00", cible: "Bravo", tdcCible: 20000 }],
+    });
+    expect(avertissement()).toBe(
+      "⚠ Avec les attaques cochées, ton flood déjà lancé sur Bravo (impact le 19/11 à 06h00) serait hors de portée : il ne prendrait rien au lieu de 9 000.",
+    );
   });
 
   test("partages illisibles : TdC lus plus les prises cochées des plus proches, sans ligne d'impact", () => {

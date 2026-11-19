@@ -43,6 +43,12 @@ const ENTREPOT_PAR_NIVEAU = 1200;
 // de la page Convois, à chaque lecture ; le jeu ne les montre qu'avec le Compte+
 // (constat du mainteneur, 19/11/2026)
 const CLE_CONVOIS_ENTRANTS = "fzzz_convoisEntrants";
+// une ligne, icônes remplacées par leur nom : « Vous allez recevoir 1 500 000
+// nourritures et 0 materiaux de Krokmou dans 1J 2H 03m 10s » ; un seul montant lu aussi
+const LIGNE_CONVOI_RECU =
+  /^Vous allez recevoir (\d[\d ]*?) ?(\D*?)(?: et (\d[\d ]*?) ?(\D*?))? de (\S+(?: \S+){0,3}?) dans ((?:\d+ ?[jhms] ?)+)/i;
+// compte à rebours du jeu : reste(secondes, "id de son span"), resteTemps dans l'encart Compte+
+const RESTE_JEU = /reste(?:Temps)?\(\s*(\d+)\s*,\s*["']([^"']+)["']/;
 // entrepôt en construction, par joueur : vu dans l'encart Compte+ du jeu ou sur
 // la page Construction, gardé après sa fin tant que le niveau connu ne le compte pas
 const CLE_CHANTIER_ENTREPOT = "fzzz_chantierEntrepot";
@@ -212,7 +218,9 @@ class Entrepots {
    * @return {Number|null} null si le niveau est inconnu
    */
   static tauxColonie(niveauEtable) {
-    return niveauEtable >= 0 ? TAXE_COLONIE + TAXE_COLONIE_PAR_NIVEAU * niveauEtable : null;
+    return Number.isInteger(niveauEtable) && niveauEtable >= 0
+      ? TAXE_COLONIE + TAXE_COLONIE_PAR_NIVEAU * niveauEtable
+      : null;
   }
   /**
    * Bilan du jour : production, consommation de l'armée, pillage subi et
@@ -519,7 +527,11 @@ class Entrepots {
   }
   /**
    * Convois qui arrivent chez le joueur d'après une page Convois : « Vous allez
-   * recevoir A et B de X dans … ».
+   * recevoir A et B de X dans … ». Lus dans le texte du cadre, quelle que soit
+   * la balise des lignes : le jeu ne les montre qu'avec le Compte+ et leur forme
+   * réelle n'est pas connue (des <strong> attendus n'ont rien donné chez le
+   * mainteneur, 19/11/2026). Une ligne illisible est comptée dans
+   * `convoisIllisibles` et notée au journal avec son HTML.
    *
    * @static
    * @method lireConvois
@@ -530,21 +542,85 @@ class Entrepots {
    */
   static lireConvois($racine, instant) {
     /** @type {Array<{de: String, t: Number, q: Array<Number>}>} */
-    let liste = [];
-    $racine
-      .find("#centre > strong")
-      .each((/** @type {Number} */ k, /** @type {HTMLElement} */ elt) => {
-        let m = (elt.textContent || "")
-          .replace(/\s+/g, " ")
-          .match(/Vous allez recevoir ([\d ]+?) et ([\d ]+?) de\b.*?\bdans ((?:\d+ ?[jhms] ?)+)/i);
-        if (m)
-          liste.push({
-            de: $(elt).find("a").first().text().trim(),
-            t: instant + Utils.timeToInt(m[3].trim()) * 1000,
-            q: [Entrepots.nombre(m[1]), Entrepots.nombre(m[2])],
-          });
+    let liste = [],
+      /** @type {Array<String>} */
+      illisibles = [],
+      centre = $racine.find("#centre")[0];
+    Entrepots.convoisIllisibles = 0;
+    if (!centre) return liste;
+    let $copie = $(centre.cloneNode(true));
+    // compte à rebours écrit seulement par le script du jeu : ses secondes
+    $copie.find("script").each((/** @type {Number} */ k, /** @type {HTMLElement} */ s) => {
+      let m = (s.textContent || "").match(RESTE_JEU),
+        $span = m ? $copie.find(`[id="${m[2]}"]`) : $();
+      if ($span.length && !$span.text().trim()) $span.text(`${m[1]}s`);
+    });
+    $copie.find("script, style").remove();
+    // une icône compte pour son nom (« nourritures », « materiaux ») : il dit la ressource
+    $copie
+      .find("img")
+      .each((/** @type {Number} */ k, /** @type {HTMLElement} */ img) =>
+        $(img).replaceWith(` ${img.getAttribute("alt") || ""} `),
+      );
+    ($copie.text() || "")
+      .replace(/\s+/g, " ")
+      // une ligne par « Vous allez » : une ligne illisible ne prend pas le compte à rebours de la suivante
+      .split(/(?=Vous allez )/i)
+      .filter((/** @type {String} */ l) => /^Vous allez recevoir\b/i.test(l))
+      .forEach((/** @type {String} */ ligne) => {
+        let m = ligne.match(LIGNE_CONVOI_RECU);
+        if (!m) {
+          illisibles.push(ligne.slice(0, 200).trim());
+          return;
+        }
+        let q = [0, 0];
+        [
+          [m[1], m[2]],
+          [m[3], m[4]],
+        ].forEach(([n, nom], k) => {
+          if (n != null)
+            q[/mat|bois/i.test(nom) ? 1 : /nour|pomme/i.test(nom) ? 0 : k] += Entrepots.nombre(n);
+        });
+        liste.push({ de: m[5].trim(), t: instant + Utils.timeToInt(m[6].trim()) * 1000, q });
       });
+    if (illisibles.length) {
+      Entrepots.convoisIllisibles = illisibles.length;
+      Journal.info(
+        JOURNAL_ENTREPOTS,
+        `${illisibles.length} convoi(s) qui arrive(nt) illisible(s) sur la page Convois`,
+        `${illisibles.join(" | ")}\nHTML : ${Entrepots._htmlRecus(centre)}`,
+      );
+    }
     return liste.sort((a, b) => a.t - b.t);
+  }
+  /**
+   * HTML des lignes « recevoir » d'une page Convois, pour le journal : la
+   * balise de la ligne et ce qui la suit jusqu'au <br>.
+   *
+   * @private
+   * @static
+   * @param {HTMLElement} centre
+   * @return {String}
+   */
+  static _htmlRecus(centre) {
+    return $(centre)
+      .find("*")
+      .addBack()
+      .contents()
+      .filter(
+        (/** @type {Number} */ k, /** @type {Node} */ n) =>
+          n.nodeType == 3 && /allez recevoir/i.test(n.textContent || ""),
+      )
+      .slice(0, 3)
+      .map((/** @type {Number} */ k, /** @type {Node} */ texte) => {
+        let debut = texte.parentNode && texte.parentNode != centre ? texte.parentNode : texte,
+          html = "";
+        for (let n = debut; n && n.nodeName != "BR" && html.length < 500; n = n.nextSibling)
+          html += n.nodeType == 1 ? /** @type {Element} */ (n).outerHTML : n.textContent;
+        return html.slice(0, 500);
+      })
+      .get()
+      .join(" | ");
   }
   /**
    * @static
@@ -1090,5 +1166,7 @@ class Entrepots {
 Entrepots.derniere = /** @type {any} */ (null);
 /** convois de la page Convois relue sur la page ouverte (DelaiRessources), null sinon */
 Entrepots.convoisLus = /** @type {Array<{de: String, t: Number, q: Array<Number>}>|null} */ (null);
+/** lignes « Vous allez recevoir » illisibles à la dernière lecture d'une page Convois */
+Entrepots.convoisIllisibles = 0;
 /** @type {any} */
 Entrepots._minuterie = null;

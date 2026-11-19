@@ -154,6 +154,9 @@ describe("formules", () => {
     expect(lire<number>(`Entrepots.tauxColonie(0)`)).toBeCloseTo(0.2, 10);
     expect(lire<number>(`Entrepots.tauxColonie(6)`)).toBeCloseTo(0.26, 10);
     expect(lire(`Entrepots.tauxColonie(-1)`)).toBeNull();
+    // niveau effacé (« null » gardé par une version précédente) : inconnu, pas le niveau 0
+    expect(lire(`Entrepots.tauxColonie(null)`)).toBeNull();
+    expect(lire(`Entrepots.tauxColonie(undefined)`)).toBeNull();
   });
 });
 

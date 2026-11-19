@@ -388,6 +388,27 @@ class SuiviMembres {
     return niveaux;
   }
   /**
+   * Niveaux lus par nom (niveaux) dans l'ordre d'une liste du jeu
+   * (CONSTRUCTION, RECHERCHE) : un nom absent de la page garde son ancien
+   * niveau, -1 s'il n'en avait pas. Une page Construction ou Laboratoire sans
+   * la liste (une confirmation…) n'efface donc rien, et une ligne en plus ou en
+   * moins ne décale pas les autres.
+   *
+   * @static
+   * @method ranger
+   * @param {Record<String, Number>} niveaux (niveaux)
+   * @param {Array<String>} noms
+   * @param {Array<any>} anciens
+   * @return {Array<Number>}
+   */
+  static ranger(niveaux, noms, anciens) {
+    return noms.map((nom, i) => {
+      let lu = niveaux[SuiviMembres._nom(nom)],
+        ancien = (anciens || [])[i];
+      return lu != null ? lu : Number.isInteger(ancien) ? ancien : -1;
+    });
+  }
+  /**
    * Niveaux d'une page Construction ou Laboratoire : la page ouverte si c'est
    * elle, sinon lue dans le jeu une fois par page ouverte (le relevé et le
    * profil du site de suivi des convois, ProfilConvois, partagent la lecture).

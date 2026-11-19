@@ -21,11 +21,11 @@ class PageConstruction {
    *
    */
   executer() {
-    // verification des niveaux
-    let niveau = new Array(13);
-    $(".ligneAmelioration").each((i, elt) => {
-      niveau[i] = parseInt($(elt).find(".niveau_amelioration").text().split(" ")[1]);
-    });
+    let niveau = SuiviMembres.ranger(
+      SuiviMembres.niveaux($(document.body)),
+      CONSTRUCTION,
+      monProfil.niveauConstruction,
+    );
     if (niveau.join(",") != monProfil.niveauConstruction.join(",")) {
       monProfil.niveauConstruction = niveau;
       monProfil.sauvegarder();

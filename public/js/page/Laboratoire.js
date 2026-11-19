@@ -32,11 +32,11 @@ class PageLaboratoire {
    *
    */
   executer() {
-    // verification des niveaux
-    let niveau = new Array(10);
-    $(".ligneAmelioration").each((i, elt) => {
-      niveau[i] = parseInt($(elt).find(".niveau_amelioration").text().split(" ")[1]);
-    });
+    let niveau = SuiviMembres.ranger(
+      SuiviMembres.niveaux($(document.body)),
+      RECHERCHE,
+      monProfil.niveauRecherche,
+    );
     if (niveau.join(",") != monProfil.niveauRecherche.join(",")) {
       monProfil.niveauRecherche = niveau;
       monProfil.sauvegarder();

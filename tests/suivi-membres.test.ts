@@ -1042,6 +1042,54 @@ describe("lecture des niveaux et règles s5", () => {
     ).toEqual({ "vitesse d'attaque": 7, "etable a pucerons": 3 });
   });
 
+  /**
+   * Niveaux gardés du joueur (pages Construction et Laboratoire) : rangés par
+   * nom. Lus par position, une page sans la liste les effaçait (« Niveau
+   * d'étable null » sur la page Convois d'un joueur, 19/11/2026).
+   */
+  test("niveaux du joueur rangés par nom ; une page sans la liste n'efface rien", () => {
+    const ranger = (html: string, liste: string, anciens: unknown[]) =>
+      lire(
+        `SuiviMembres.ranger(SuiviMembres.niveaux(Utils.parseHtml(${JSON.stringify(html)})), ${liste}, ${JSON.stringify(anciens)})`,
+      );
+    const avant = BATIMENTS.map(([, v]) => v);
+    expect(ranger(CONSTRUCTION, "CONSTRUCTION", new Array(13).fill(-1))).toEqual(avant);
+    expect(ranger(`<p>Je confirme</p>`, "CONSTRUCTION", avant)).toEqual(avant);
+    // une seule ligne : le bon bâtiment, pas le premier de la liste
+    const seule = ranger(`<table>${ligne("Etable à pucerons", 7)}</table>`, "CONSTRUCTION", avant);
+    expect(seule[11]).toBe(7);
+    expect(seule.filter((v: number, i: number) => v != avant[i])).toEqual([7]);
+    // niveaux effacés par une version précédente : inconnus (-1) tant que la page n'est pas lue
+    expect(ranger(`<p></p>`, "CONSTRUCTION", new Array(13).fill(null))).toEqual(
+      new Array(13).fill(-1),
+    );
+    expect(ranger(LABORATOIRE, "RECHERCHE", [])).toEqual([12, 8, 9, 11, 4, 8, 7, 4, 1, 0]);
+  });
+
+  test("étable inconnue : ni « null » ni capacité fausse ; colonies non comptées", () => {
+    const etable = (niveaux: unknown) =>
+      lire(
+        `(() => { monProfil.niveauConstruction = ${JSON.stringify(niveaux)}; return [Utils.niveauEtable(), Utils.parOuvriere()]; })()`,
+      );
+    expect(etable(BATIMENTS.map(([n, v]) => (n == "Etable à pucerons" ? 6 : v)))).toEqual([6, 13]);
+    expect(etable(BATIMENTS.map(([n, v]) => (n == "Etable à pucerons" ? 0 : v)))).toEqual([0, 10]);
+    expect(etable(new Array(13).fill(null))).toEqual([null, 10]);
+    expect(etable(new Array(13).fill(-1))).toEqual([null, 10]);
+    expect(etable(undefined)).toEqual([null, 10]);
+    lire(`delete monProfil.niveauConstruction`);
+    const source = (f: string) => readFileSync(join(import.meta.dir, "..", "public", f), "utf8");
+    // plus aucune lecture par position des niveaux du joueur, ni du niveau d'étable gardé
+    for (const f of ["js/page/Construction.js", "js/page/Laboratoire.js"])
+      expect(source(f)).toContain("SuiviMembres.ranger(");
+    for (const f of [
+      "js/page/Commerce.js",
+      "js/page/CommerceFzzz.js",
+      "js/class/Utils.js",
+      "js/class/Entrepots.js",
+    ])
+      expect(source(f).match(/niveauConstruction\[11\]/g) || []).toEqual([]);
+  });
+
   test("aucune minuterie ni requête répétée dans le module ; le relevé part d'une page ouverte ou d'un clic", () => {
     const source = (f: string) => readFileSync(join(import.meta.dir, "..", "public", f), "utf8");
     expect(source("js/class/SuiviMembres.js")).not.toMatch(

@@ -33,7 +33,11 @@ class PageCommerce {
     // ajout d'information
     if (Utils.affichage("convoisInfoEtable"))
       $("form table").append(
-        `<tr class='centre'><td colspan=6>Info : Niveau d'étable <strong>${monProfil.niveauConstruction[11]}</strong>, 1 ouvrière peut transporter : <strong>${Utils.decimal(10 + monProfil.niveauConstruction[11] / 2, 1, true)}</strong> ressources.</td></tr>`,
+        `<tr class='centre'><td colspan=6>${
+          Utils.niveauEtable() == null
+            ? `Info : Niveau d'étable inconnu, ouvre la page <a href='construction.php'>Construction</a> pour qu'il soit lu ; d'ici là, 1 ouvrière est comptée pour <strong>10</strong> ressources.`
+            : `Info : Niveau d'étable <strong>${Utils.niveauEtable()}</strong>, 1 ouvrière peut transporter : <strong>${Utils.decimal(Utils.parOuvriere(), 1, true)}</strong> ressources.`
+        }</td></tr>`,
       );
     // ajout des boutons pour arrondir les quantités
     if (Utils.affichage("convoisArrondir")) this.arrondir();
@@ -63,13 +67,9 @@ class PageCommerce {
       $("#nbNourriture").val(newValue);
       // ouvrières arrondies au-dessus : une de moins ne porterait pas tout
       $("#input_nbOuvriere").val(
-        numeral(
-          Math.ceil((newValue + nbMat) / (10 + monProfil.niveauConstruction[11] / 2)),
-        ).format(),
+        numeral(Math.ceil((newValue + nbMat) / Utils.parOuvriere())).format(),
       );
-      $("#nbOuvriere").val(
-        Math.ceil((newValue + nbMat) / (10 + monProfil.niveauConstruction[11] / 2)),
-      );
+      $("#nbOuvriere").val(Math.ceil((newValue + nbMat) / Utils.parOuvriere()));
       return false;
     });
     // materiaux
@@ -85,13 +85,9 @@ class PageCommerce {
       $("#nbMateriaux").val(newValue);
       // ouvrières arrondies au-dessus : une de moins ne porterait pas tout
       $("#input_nbOuvriere").val(
-        numeral(
-          Math.ceil((newValue + nbNou) / (10 + monProfil.niveauConstruction[11] / 2)),
-        ).format(),
+        numeral(Math.ceil((newValue + nbNou) / Utils.parOuvriere())).format(),
       );
-      $("#nbOuvriere").val(
-        Math.ceil((newValue + nbNou) / (10 + monProfil.niveauConstruction[11] / 2)),
-      );
+      $("#nbOuvriere").val(Math.ceil((newValue + nbNou) / Utils.parOuvriere()));
       return false;
     });
     return this;

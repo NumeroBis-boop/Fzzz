@@ -792,7 +792,7 @@ class CommerceFzzz {
    * @return {{mat: String, ouvrieres: Number, reduit: String|null}} reduit : texte de la réduction des matériaux
    */
   static ecrireConvoi(du, libres) {
-    let parOuvriere = 10 + monProfil.niveauConstruction[11] / 2,
+    let parOuvriere = Utils.parOuvriere(),
       nou = Math.floor(parseFloat($("#nbNourriture").val())) || 0,
       mat = CommerceFzzz.montantMateriaux(du, Utils.materiaux, libres * parOuvriere - nou),
       ouvrieres = Math.ceil((parseInt(mat) + nou) / parOuvriere);
@@ -838,7 +838,7 @@ class CommerceFzzz {
     return CommerceFzzz.lireRecolte()
       .then((lu) => {
         if (jeton != CommerceFzzz._jetonRecolte) return;
-        let parOuvriere = 10 + monProfil.niveauConstruction[11] / 2,
+        let parOuvriere = Utils.parOuvriere(),
           maintenant = Horloge.maintenant(),
           envoi = trajet != null ? maintenant + RECOLTE_DELAI_ENVOI : null,
           calcul = CommerceFzzz.libresAvantRecolte({

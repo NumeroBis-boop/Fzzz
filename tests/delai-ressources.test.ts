@@ -305,6 +305,48 @@ describe("convois qui arrivent : page Convois relue à l'ouverture", () => {
     ]);
   });
 
+  test("ligne en <span> (forme réelle inconnue, 19/11/2026) : comptée ; ligne illisible : dite, pas comptée", async () => {
+    noterRecolte({ recolte: HEURE + 227000 });
+    const page = (lignes: string) =>
+      `<div id="data" style="display:none"><div id="quantite_tdc">19095</div></div><div id="centre"><h3>Convois en cours:</h3>${lignes}</div>`;
+    lire(
+      `REPONSE = () => $.Deferred().resolve(${JSON.stringify(
+        page(
+          `<span>- Vous allez recevoir 0 <img alt="nourritures" src="n.gif"/> et 1 000 000 <img alt="materiaux" src="m.gif"/> de <a href="Membre.php?Pseudo=Alpha">Alpha</a> dans <span id="convoi_3">2H 00m 00s </span></span><script>reste(7200, "convoi_3");</script><br />`,
+        ),
+      )}).promise()`,
+    );
+    await ouvrir(
+      encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
+    );
+    expect(lignes(0)).toEqual([
+      "Matériaux suffisants dans 5j 19h 33m (Le 24/11 à 05h33)",
+      "280 cycles : les 280 récoltes du jeu (une toutes les 30 min) de 10h03 au 24/11 à 05h33",
+      "Prod TdC : +5 346 600 bois en 280 cycles",
+      "1 convoi : +1 000 000 bois",
+    ]);
+
+    lire(
+      `REPONSE = () => $.Deferred().resolve(${JSON.stringify(
+        page(
+          `<span>- Vous allez recevoir 0 et 1 000 000 de Alpha, arrivée le 18/11 à 12h00</span><br />`,
+        ),
+      )}).promise()`,
+    );
+    await ouvrir(
+      encart([220554, 3498463]) + INFOBULLE + tableau(batiment("Couveuse", "9 830 400")),
+    );
+    expect(lignes(0)).toEqual([
+      "Matériaux suffisants dans 6j 21h 33m (Le 25/11 à 07h33)",
+      "332 cycles : les 332 récoltes du jeu (une toutes les 30 min) de 10h03 au 25/11 à 07h33",
+      "Prod TdC : +6 339 540 bois en 332 cycles",
+      "Un convoi qui arrive n'a pas pu être lu sur la page Convois : pas compté.",
+    ]);
+    expect(lire(`JOURNAL`)).toEqual([
+      expect.stringContaining("1 convoi(s) qui arrive(nt) illisible(s) sur la page Convois : "),
+    ]);
+  });
+
   test("convoi qui arrive après que la ressource suffit : pas compté", async () => {
     noterRecolte({ recolte: HEURE + 227000 });
     lire(

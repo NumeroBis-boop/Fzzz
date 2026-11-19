@@ -415,6 +415,30 @@ class Utils {
       : false;
   }
   /**
+   * Niveau d'Étable à pucerons du joueur, lu sur la page Construction.
+   *
+   * @static
+   * @method niveauEtable
+   * @return {Number|null} null : inconnu (page Construction pas encore lue dans ce navigateur)
+   */
+  static niveauEtable() {
+    // rang de « Etable à pucerons » dans CONSTRUCTION (content.js)
+    let n = ((monProfil && monProfil.niveauConstruction) || [])[11];
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  }
+  /**
+   * Ressources qu'une ouvrière porte en convoi : 10 + niveau d'Étable à
+   * pucerons / 2 ; niveau inconnu : celles du niveau 0, jamais plus qu'elle
+   * ne porte.
+   *
+   * @static
+   * @method parOuvriere
+   * @return {Number}
+   */
+  static parOuvriere() {
+    return 10 + (Utils.niveauEtable() || 0) / 2;
+  }
+  /**
    * Renvoie le terrain du joueur en cm².
    *
    * @static
@@ -1051,7 +1075,7 @@ class Utils {
   static htmlRentabiliteEtable({ total, reine, raison = "" }) {
     let tdc = Math.min(total, Utils.terrain || 0),
       dispo = total - tdc,
-      niveau = monProfil.niveauConstruction[11] || 0,
+      niveau = Utils.niveauEtable() || 0,
       communication = parseInt(monProfil.niveauRecherche[4]),
       coutComm = (k) => 80 * Math.pow(2, k - 1),
       capacite = (o, n) => o * (10 + 0.5 * n),

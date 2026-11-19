@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.141.1",
+    notes: [
+      "Construction, Laboratoire et encart des entrepôts : les convois que tu vas recevoir sont maintenant comptés (leurs lignes de la page Convois n'étaient pas lues), et une ligne illisible est signalée dans l'info-bulle du coût. Les niveaux de tes bâtiments et recherches ne sont plus effacés par une page Construction ou Laboratoire qui n'affiche pas leur liste, et la page Convois dit « inconnu » au lieu de « null » pour l'étable tant que la page Construction n'a pas été ouverte.",
+    ],
+  },
+  {
     version: "1.141.0",
     notes: [
       "Construction et Laboratoire : sous le coût, le temps avant d'avoir les ressources compte maintenant les convois et le pillage (il remplace celui du Compte+), et l'info-bulle détaille le calcul en cycles de récolte de 30 min. L'historique des chasses n'est plus écrit dans le forum.",

@@ -62,7 +62,7 @@ const noter = (niveau: string, source: string, message: string, detail = "") => 
   avancer(1000);
 };
 const lignes = () =>
-  (fichier.onglets.Journal?.grille || []).slice(1).map((l: unknown[]) => l.slice(1, 12));
+  (fichier.onglets.Journal?.grille || []).slice(1).map((l: unknown[]) => l.slice(2, 13));
 
 describe("seulement les jours avec une erreur", () => {
   test("sans erreur : rien n'est envoyé, et l'erreur notée plus tard le même jour part", async () => {

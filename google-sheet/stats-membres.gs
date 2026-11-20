@@ -45,7 +45,10 @@
  * il contient une erreur (requête « journal ») : une ligne par note dans
  * l'onglet « Journal », créé au premier envoi, jamais vidé (règle du
  * mainteneur) ; une note déjà reçue (même joueur, instant, niveau et source)
- * n'est pas recopiée. Quand le fichier approche de la limite de cellules de
+ * n'est pas recopiée. Sa première colonne, « Traitée », est une case à cocher
+ * que le mainteneur coche à la main une fois la ligne lue ; le script ne la
+ * touche jamais après l'avoir posée, décochée, sur une nouvelle ligne.
+ * Quand le fichier approche de la limite de cellules de
  * Google Sheets, le journal n'est plus écrit (les relevés le sont toujours) :
  * supprimer alors d'anciennes lignes de « Journal ».
  */
@@ -86,7 +89,9 @@ var JOUEURS_LUS_MAX = 50;
 var VALEUR_MAX = 1e15;
 // journal de débug envoyé par l'extension (EnvoiJournal) : une ligne par note
 var ONGLET_JOURNAL = "Journal";
+var COLONNE_TRAITEE = "Traitée";
 var TITRES_JOURNAL = [
+  COLONNE_TRAITEE,
   "Reçu le",
   "Joueur",
   "Serveur",
@@ -113,17 +118,19 @@ var LONGUEURS_JOURNAL = {
   version: 40,
 };
 var FORMAT_INSTANT = "dd/MM/yyyy HH:mm:ss";
-var TITRES_NON_TEXTE_JOURNAL = ["Reçu le", "Note du", "Répétitions"];
+var TITRES_NON_TEXTE_JOURNAL = [COLONNE_TRAITEE, "Reçu le", "Note du", "Répétitions"];
 // Google Sheets refuse au-delà de 10 millions de cellules par fichier : de quoi garder les relevés
 var LIMITE_CELLULES_JOURNAL = 9000000;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-20.1";
+var VERSION_SCRIPT = "stats-membres 2026-11-20.2";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
   avecVerrou(function () {
     preparer(classeur);
+    // ouvrir l'adresse après un redéploiement ajoute tout de suite la colonne « Traitée »
+    if (classeur.getSheetByName(ONGLET_JOURNAL)) preparerJournal(classeur);
   });
   return reponseJson({
     ok: true,
@@ -652,10 +659,23 @@ function refusDuJournal(j) {
   return "";
 }
 
-/** L'onglet du journal, créé s'il manque, à la largeur de ses colonnes (moins de cellules). */
+/**
+ * L'onglet du journal, créé s'il manque, à la largeur de ses colonnes (moins
+ * de cellules). Un onglet d'avant la colonne « Traitée » la reçoit en premier,
+ * décochée sur les lignes déjà là.
+ */
 function preparerJournal(classeur) {
   var feuille = classeur.getSheetByName(ONGLET_JOURNAL);
-  if (feuille) return feuille;
+  if (feuille) {
+    if (!titresLus(feuille)[COLONNE_TRAITEE]) {
+      feuille.insertColumnBefore(1);
+      feuille.getRange(1, 1).setValue(COLONNE_TRAITEE).setFontWeight("bold");
+      var lignes = feuille.getLastRow() - 1;
+      // la colonne insérée prend le format de date de sa voisine : retiré
+      if (lignes > 0) feuille.getRange(2, 1, lignes, 1).clearFormat().insertCheckboxes();
+    }
+    return feuille;
+  }
   feuille = classeur.insertSheet(ONGLET_JOURNAL);
   feuille
     .getRange(1, 1, 1, TITRES_JOURNAL.length)
@@ -721,6 +741,7 @@ function enregistrerJournal(classeur, j) {
       var l = [];
       for (var c = 0; c < largeur; c++) l.push("");
       var valeurs = {
+        Traitée: false,
         "Reçu le": recu,
         Joueur: valeurCellule(joueur),
         Serveur: valeurCellule(j.serveur || ""),
@@ -747,6 +768,7 @@ function enregistrerJournal(classeur, j) {
       feuille.getRange(debut, colonnes[t], lignes.length, 1).setNumberFormat("@");
   });
   feuille.getRange(debut, 1, lignes.length, largeur).setValues(lignes).setVerticalAlignment("top");
+  feuille.getRange(debut, colonnes[COLONNE_TRAITEE], lignes.length, 1).insertCheckboxes();
   ["Reçu le", "Note du"].forEach(function (t) {
     feuille.getRange(debut, colonnes[t], lignes.length, 1).setNumberFormat(FORMAT_INSTANT);
   });

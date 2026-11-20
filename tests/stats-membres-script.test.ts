@@ -683,7 +683,7 @@ describe("lecture de tout l'onglet pour la vue « Stats membres » (1.127.0)", (
     expect(fichier().doGet()).toMatchObject({
       releves: true,
       relevesPublics: true,
-      version: "stats-membres 2026-11-20.1",
+      version: "stats-membres 2026-11-20.2",
       journal: true,
     });
   });
@@ -773,6 +773,7 @@ describe("partage avec les autres membres (1.136.0) : colonne « Partagé avec l
 
 describe("journal de débug : onglet « Journal » (1.145.0, demande du mainteneur, 20/11/2026)", () => {
   const TITRES_JOURNAL = [
+    "Traitée",
     "Reçu le",
     "Joueur",
     "Serveur",
@@ -823,14 +824,23 @@ describe("journal de débug : onglet « Journal » (1.145.0, demande du maintene
     expect(j.grille[0]).toEqual(TITRES_JOURNAL);
     expect(j.getMaxColumns()).toBe(TITRES_JOURNAL.length);
     const [l1, l2] = j.grille.slice(1);
-    expect(l1[0]).toBeInstanceOf(Date);
-    expect((l1[4] as Date).getTime()).toBe(T);
-    expect(l1.slice(1, 4)).toEqual([
+    // « Traitée » : case décochée, que le mainteneur coche à la main
+    expect([l1[0], l2[0]]).toEqual([false, false]);
+    expect(j.validations).toContainEqual({
+      r: 2,
+      c: 1,
+      nl: 2,
+      nc: 1,
+      regle: { caseACocher: true },
+    });
+    expect(l1[1]).toBeInstanceOf(Date);
+    expect((l1[5] as Date).getTime()).toBe(T);
+    expect(l1.slice(2, 5)).toEqual([
       "Alpha",
       "s5.fourmizzz.fr",
       "Violentmonkey 2.30 | Mozilla/5.0 (Android)",
     ]);
-    expect(l1.slice(5)).toEqual([
+    expect(l1.slice(6)).toEqual([
       "INFO",
       "Export Google Sheet",
       "Ressources.php",
@@ -840,7 +850,7 @@ describe("journal de débug : onglet « Journal » (1.145.0, demande du maintene
       "",
       `alpha|${T}|info|Export Google Sheet`,
     ]);
-    expect(l2.slice(5, 12)).toEqual([
+    expect(l2.slice(6, 13)).toEqual([
       "ERREUR",
       "Export Google Sheet",
       "Ressources.php",
@@ -850,9 +860,10 @@ describe("journal de débug : onglet « Journal » (1.145.0, demande du maintene
       "statut 502",
     ]);
     // dates à la seconde, textes gardés tels quels, une ligne de haut par note
-    expect(j.formats["2,1"]).toBe("dd/MM/yyyy HH:mm:ss");
-    expect(j.formats["2,5"]).toBe("dd/MM/yyyy HH:mm:ss");
-    expect(j.formats["2,11"]).toBe("@");
+    expect(j.formats["2,1"]).toBeUndefined();
+    expect(j.formats["2,2"]).toBe("dd/MM/yyyy HH:mm:ss");
+    expect(j.formats["2,6"]).toBe("dd/MM/yyyy HH:mm:ss");
+    expect(j.formats["2,12"]).toBe("@");
     expect(j.hauteurs[2]).toBe(21);
     // le relevé du joueur n'a pas bougé
     expect(lignes(f)[1][0]).toBe("DoggyBag");
@@ -892,7 +903,46 @@ describe("journal de débug : onglet « Journal » (1.145.0, demande du maintene
   test("texte qui commence par = + - @ : jamais une formule", () => {
     const f = fichier();
     f.doPost(journal([note(T, { message: "=IMPORTXML(x)", detail: "-5" })]));
-    expect(f.onglets.Journal.grille[1].slice(10, 12)).toEqual(["'=IMPORTXML(x)", "'-5"]);
+    expect(f.onglets.Journal.grille[1].slice(11, 13)).toEqual(["'=IMPORTXML(x)", "'-5"]);
+  });
+
+  test("« Traitée » cochée à la main : jamais décochée par les envois suivants", () => {
+    const f = fichier();
+    f.doPost(journal([note(T), note(T + 1000)]));
+    const j = f.onglets.Journal;
+    j.grille[1][0] = true;
+    f.doPost(journal([note(T), note(T + 1000), note(T + 2000)]));
+    f.doGet();
+    expect(j.grille.slice(1).map((l: unknown[]) => l[0])).toEqual([true, false, false]);
+    expect(j.grille[0]).toEqual(TITRES_JOURNAL);
+  });
+
+  test("onglet de la version 20/11/2026.1 : ouvrir l'adresse ajoute « Traitée » en tête, décochée, rien d'autre ne bouge", () => {
+    // le script d'avant écrivait sans « Traitée » : un onglet de 13 colonnes déjà rempli
+    const ANCIENS = TITRES_JOURNAL.slice(1);
+    const j = feuille("Journal", [ANCIENS, ["a", "Alpha"], ["b", "Bravo"]], 4);
+    j.formats["2,1"] = "dd/MM/yyyy HH:mm:ss";
+    j.formats["2,2"] = "@";
+    const g = fichier({ Journal: j });
+    g.doGet();
+    expect(j.grille).toEqual([TITRES_JOURNAL, [false, "a", "Alpha"], [false, "b", "Bravo"]]);
+    expect(j.validations).toContainEqual({
+      r: 2,
+      c: 1,
+      nl: 2,
+      nc: 1,
+      regle: { caseACocher: true },
+    });
+    expect(j.formats["2,1"]).toBeUndefined();
+    expect(j.formats["2,2"]).toBe("dd/MM/yyyy HH:mm:ss");
+    expect(j.formats["2,3"]).toBe("@");
+    // une seule fois, et les notes suivantes vont sous leurs titres
+    g.doGet();
+    expect(j.grille[0]).toEqual(TITRES_JOURNAL);
+    expect(g.doPost(journal([note(T)]))).toMatchObject({ ajoutees: 1 });
+    expect(j.grille[3][0]).toBe(false);
+    expect(j.grille[3][TITRES_JOURNAL.indexOf("Joueur")]).toBe("Alpha");
+    expect(j.grille[3][TITRES_JOURNAL.indexOf("Message")]).toBe("le script ne répond pas");
   });
 
   test("fichier presque plein : le journal n'est plus écrit, les relevés le sont toujours", () => {

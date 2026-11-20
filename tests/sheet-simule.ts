@@ -59,6 +59,28 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
           }
       }
     },
+    // colonne insérée avant c : les cases à partir de c glissent d'une colonne, la
+    // nouvelle prend la mise en forme de sa voisine de droite
+    insertColumnBefore: (c: number) => {
+      colonnesMax += 1;
+      for (const l of grille) if (l.length >= c - 1) l.splice(c - 1, 0, "");
+      for (const table of [f.fonds, f.formats, f.formules] as Record<string, unknown>[]) {
+        const cles = Object.keys(table)
+          .map((k) => k.split(",").map(Number) as [number, number])
+          .filter(([, col]) => col >= c)
+          .sort((a, b) => b[1] - a[1]);
+        for (const [r, col] of cles) {
+          table[`${r},${col + 1}`] = table[`${r},${col}`];
+          delete table[`${r},${col}`];
+        }
+        if (table != f.formules)
+          for (const k of Object.keys(table)) {
+            const [r, col] = k.split(",").map(Number);
+            if (col == c + 1) table[`${r},${c}`] = table[k];
+          }
+      }
+      for (const v of f.validations) if (v.c >= c) v.c += 1;
+    },
     // mise en forme demandée par le script : hauteur forcée et alignement par ligne
     hauteurs: {} as Record<number, number>,
     alignements: {} as Record<number, string>,
@@ -197,6 +219,21 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
         setFormula: (x: string) => ((f.formules[`${r},${c}`] = x), plage),
         setNumberFormat: (x: string) => ((f.formats[`${r},${c}`] = x), plage),
         setDataValidation: (regle: any) => (f.validations.push({ r, c, nl, nc, regle }), plage),
+        // comme Apps Script : chaque case de la plage devient une case à cocher décochée
+        insertCheckboxes: () => {
+          f.validations.push({ r, c, nl, nc, regle: { caseACocher: true } });
+          return plage.setValues(
+            Array.from({ length: nl }, () => Array.from({ length: nc }, () => false)),
+          );
+        },
+        clearFormat: () => {
+          for (let i = 0; i < nl; i++)
+            for (let j = 0; j < nc; j++) {
+              delete f.formats[`${r + i},${c + j}`];
+              delete f.fonds[`${r + i},${c + j}`];
+            }
+          return plage;
+        },
         setVerticalAlignment: (a: string) => {
           for (let i = 0; i < nl; i++) f.alignements[r + i] = a;
           return plage;

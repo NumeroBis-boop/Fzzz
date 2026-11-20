@@ -151,9 +151,6 @@ class CommerceFzzz {
       gauche = r.left - rp.left - parseFloat(getComputedStyle(parent).paddingLeft || "0");
     if (!r.width) return;
     $bloc.css({ width: `${r.width}px`, marginLeft: `${Math.max(0, gauche)}px`, marginRight: "0" });
-    // tableau plus large que le cadre (téléphone) : débord réparti des deux côtés
-    let deborde = $bloc.outerWidth() - r.width;
-    if (deborde > 0) $bloc.css("marginLeft", `${Math.max(0, gauche - deborde / 2)}px`);
   }
   /**
    * Suivi des convois de l'alliance sur la page Convois : rien sans site de
@@ -1106,11 +1103,11 @@ class CommerceFzzz {
       // encadré à part, comme « Organiser un convoi » : bien distinct des convois en cours
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <div class='o_convoisMembresTitre'><span class='titre'>Récapitulatif</span></div>
-          <table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
+          <div class='o_convoisMembresDefile'><table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
             <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th>${colonneStatut ? "<th title='⚠️ Plein ⚠️ : ne veut pas de convois (case du site de suivi) ; ✅ : en accepte ; — : le site ne le dit pas'>Statut des stocks</th>" : ""}<th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
             <tfoot><tr><td colspan='${colonneStatut ? 6 : 5}'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a><a href='#' class='o_convoisPositions' title='Relit les positions des membres de l&#39;alliance, comme « Charger / Actualiser » de la Carte (un nouveau membre, une fourmilière déplacée)'>Actualiser les positions</a></td></tr></tfoot>
-          </table>
+          </table></div>
           ${Object.keys(connus).length ? "" : "<p class='small o_convoisPositionsInconnues'>Positions des membres inconnues : « Actualiser les positions » en bas de ce tableau.</p>"}
           <p class='o_convoisLienOuaf'><a href='${Utils.echapper(OuafSuivi.site().url)}' target='_blank' rel='noopener' title='Ouvre le site de suivi, connecté avec le mot de passe enregistré (Préférences → Convois)'>Ouvrir le site de suivi des convois</a></p>
         </div>`),

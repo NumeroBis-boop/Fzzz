@@ -54,8 +54,8 @@ const DONNEES_OBLIGATOIRES = ["champignonniere", "puceron"];
 const CLE_PARTAGE = "fzzz_partage_";
 // « Partagé avec les autres » décochée : "0" ; jamais choisie, comme celle des chefs
 const CLE_PARTAGE_AUTRES = "fzzz_partageAutres_";
-// par pseudo : jour du dernier relevé tenté, s'il est fait, essais du jour,
-// annonce déjà montrée, dernier envoi, construction suivie en cours
+// par pseudo : jour du dernier relevé tenté, s'il est fait (et sans quoi),
+// essais du jour, annonce déjà montrée, dernier envoi, construction suivie en cours
 const CLE_SUIVI_MEMBRES = "fzzz_suiviMembres";
 // relevé qui échoue (jeu, forum ou fichier sans réponse) : nouvel essai à une
 // page ouverte plus tard, jamais à chaque page
@@ -67,6 +67,10 @@ const SUIVI_CONSTRUCTION = ["tdp", "puceron", "champignonniere"];
 const SUIVI_LABORATOIRE = ["tdp", "va", "vc", "fdfAB"];
 const SUIVI_ARMEE = ["cdf", "fdfHB", "fdfAB"];
 const SUIVI_REINE = ["ouvrieres"];
+// sans Compte+ : une chasse ou une attaque lancée ailleurs est en cours, ses
+// troupes sont inconnues (_armeeSansComptePlus) ; au dernier essai du jour, le
+// reste part sans l'armée (réponse du mainteneur, 20/11/2026)
+const ARMEE_INCOMPLETE = "armeeIncomplete";
 // niveaux dont le changement fait refaire le relevé du jour sans attendre le
 // lendemain (demande du mainteneur) : information partagée → nom du bâtiment
 const SUIVI_NIVEAUX_SUIVIS = { champignonniere: "champignonniere", puceron: "etable a pucerons" };
@@ -314,7 +318,8 @@ class SuiviMembres {
   /**
    * @static
    * @method etat
-   * @return {any} suivi du joueur dans ce navigateur : {jour, fait, essais, essai, raison, annonce, envoi}
+   * @return {any} suivi du joueur dans ce navigateur : {jour, fait, essais, essai, raison,
+   *   incomplet (informations envoyées sans valeur), annonce, envoi}
    */
   static etat() {
     let e = Utils.lireStockage(CLE_SUIVI_MEMBRES)[SuiviMembres._pseudo()];
@@ -679,8 +684,8 @@ class SuiviMembres {
    * page Armée et troupes parties en chasse ou en attaque connues de ce
    * navigateur (TroupesDehors, mémorisées à l'envoi). Une chasse ou une attaque
    * en cours dont elles sont inconnues (lancée ailleurs) fait échouer le
-   * relevé, refait plus tard comme pour une page illisible : jamais d'armée
-   * comptée en moins.
+   * relevé (ARMEE_INCOMPLETE), refait plus tard comme pour une page illisible :
+   * jamais d'armée comptée en moins.
    *
    * @private
    * @static
@@ -707,10 +712,13 @@ class SuiviMembres {
         inconnues =
           attaques.filter((/** @type {any} */ l) => !connue("attaque", l.id)).length +
           TroupesDehors.lignesChasses($ressources).filter((l) => !connue("chasse", l.id)).length;
-      if (inconnues)
-        throw new Error(
+      if (inconnues) {
+        let erreur = new Error(
           `${inconnues} chasse(s) ou attaque(s) en cours aux troupes inconnues sans Compte+ (lancées depuis un autre navigateur) : armée incomplète`,
         );
+        erreur.name = ARMEE_INCOMPLETE;
+        throw erreur;
+      }
       let dehors = TroupesDehors.total();
       return new Armee()
         .chargeData(htmlArmee)
@@ -825,10 +833,20 @@ class SuiviMembres {
     )
       return Promise.resolve("attente");
     // noté avant les lectures : une page quittée en route ne relance pas tout à la suivante
-    etat = { ...etat, essais: (etat.essais || 0) + 1, essai: instant, raison: "" };
+    etat = {
+      ...etat,
+      essais: (etat.essais || 0) + 1,
+      essai: instant,
+      raison: "",
+      incomplet: undefined,
+    };
     SuiviMembres._garder(etat);
     let partages = SuiviMembres.partages(),
       publics = SuiviMembres.partagesAutres(),
+      dernierEssai = etat.essais >= SUIVI_ESSAIS_PAR_JOUR,
+      /** @type {Array<String>} informations de l'armée laissées de côté */
+      sansArmee = [],
+      raisonArmee = "",
       fin = (/** @type {String} */ resultat, /** @type {any} */ suite) => {
         SuiviMembres._garder({ ...etat, ...suite });
         return resultat;
@@ -857,6 +875,15 @@ class SuiviMembres {
         /** @type {{chantier?: any} | null} */
         let vu = $("#ligne_construction").length ? null : {};
         return SuiviMembres.relever(partages, vu)
+          .catch((e) => {
+            if (!dernierEssai || !e || e.name != ARMEE_INCOMPLETE) throw e;
+            // les cases restent partagées : le fichier laisse ces cellules vides, sans couleur
+            sansArmee = SUIVI_ARMEE.filter((c) => partages[c]);
+            raisonArmee = e.message;
+            let reste = { ...partages };
+            SUIVI_ARMEE.forEach((c) => (reste[c] = false));
+            return SuiviMembres.relever(reste, vu);
+          })
           .then((donnees) =>
             SuiviMembres.envoyer(url, jour, donnees, partages, publics).then(() => donnees),
           )
@@ -867,14 +894,18 @@ class SuiviMembres {
               niveaux = Object.fromEntries(
                 Object.keys(SUIVI_NIVEAUX_SUIVIS).map((c) => [c, donnees[c]]),
               );
-            Journal.info(
-              JOURNAL_SUIVI,
-              `relevé du ${jour} envoyé`,
-              `${cles.join(", ") || "rien"} ; avec les autres membres : ${autres.join(", ") || "rien"}`,
-            );
+            let partagees = `${cles.join(", ") || "rien"} ; avec les autres membres : ${autres.join(", ") || "rien"}`;
+            if (sansArmee.length)
+              Journal.info(
+                JOURNAL_SUIVI,
+                `relevé du ${jour} envoyé sans ${SuiviMembres._titres(sansArmee)} (dernier essai du jour)`,
+                `${raisonArmee} ; ${partagees}`,
+              );
+            else Journal.info(JOURNAL_SUIVI, `relevé du ${jour} envoyé`, partagees);
             return fin("envoyé", {
               annonce: true,
               fait: true,
+              incomplet: sansArmee.length ? sansArmee : undefined,
               envoi: { instant: Horloge.maintenant(), cles, autres, niveaux },
               ...(vu && "chantier" in vu ? { chantier: vu.chantier || undefined } : {}),
             });
@@ -950,6 +981,8 @@ class SuiviMembres {
       return `Aujourd'hui, le relevé n'a pas pu être envoyé : ${e.raison}. Nouvel essai à une page ouverte plus tard (${numeral(SUIVI_ESSAIS_PAR_JOUR).format()} essais par jour au plus).`;
     if (e.raison == "sans sujet")
       return `Aujourd'hui, rien n'a été envoyé : pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} » du forum caché de ton alliance.`;
+    if (e.fait && Array.isArray(e.incomplet) && e.incomplet.length)
+      return `Aujourd'hui, relevé envoyé sans ${SuiviMembres._titres(e.incomplet)} : une chasse ou une attaque lancée depuis un autre appareil ou navigateur était en cours (troupes inconnues sans Compte+).`;
     return "";
   }
   /**

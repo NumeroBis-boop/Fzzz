@@ -84,9 +84,6 @@ describe("onglets de la liste du mainteneur", () => {
       lire<string[]>(`Object.keys(AFFICHAGES_REGLABLES).sort()`),
     );
     expect(cases.filter((c) => !c[2]).map((c) => c[1])).toEqual([
-      // Récapitulatif de la page Convois : ligne barrée seule par défaut
-      "convoisSansReceptionRouge",
-      "convoisSansReceptionColonne",
       "messagerieRanger",
       "messagerieCompacte",
       "messagerieNonLus",

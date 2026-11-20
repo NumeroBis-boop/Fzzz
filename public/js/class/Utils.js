@@ -322,9 +322,10 @@ const AFFICHAGES_REGLABLES = {
   rappelExport: true,
   lanceurChasse: true,
   convoisSuiviLignes: true,
+  // les trois marques du Récapitulatif (demande du mainteneur, 20/11/2026)
   convoisSansReceptionBarree: true,
-  convoisSansReceptionRouge: false,
-  convoisSansReceptionColonne: false,
+  convoisSansReceptionRouge: true,
+  convoisSansReceptionColonne: true,
 };
 // colonnes au choix de la vue « Floods et chasses en cours » de la page Membres,
 // dans l'ordre où la vue les montre (cases de Préférences → Alliance)

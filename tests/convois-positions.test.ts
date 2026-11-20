@@ -33,6 +33,8 @@ function ouvrir() {
   lire(`(() => {
     localStorage.clear();
     localStorage.setItem("fzzz_convoisMembres", JSON.stringify(["Alpha", "XaTaK"]));
+    // sans la colonne « Statut des stocks » (cochée par défaut) : cellules lues par position
+    localStorage.setItem("fzzz_affichage_convoisSansReceptionColonne", "0");
     localStorage.setItem(${JSON.stringify(CLE)}, JSON.stringify({ timestamp: 1, members: [{ pseudo: "Alpha", id: 1, x: 12, y: 10, terrain: 1000 }] }));
     window.TOASTS = []; window.APPELS = { membres: 0, profils: [] };
     $.toast = (o) => TOASTS.push(o.text);

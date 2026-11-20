@@ -8,7 +8,8 @@ import { creerPage } from "./harnais";
  * relevé y lisait. Ouvrières : celles de l'en-tête de la page Convois et
  * celles de ses convois en cours ; armée : garnison de la page Armée et
  * troupes parties connues de ce navigateur, jamais une armée comptée en
- * moins. Pages, joueurs et nombres inventés.
+ * moins ; au dernier essai du jour, le reste part sans l'armée (réponse du
+ * mainteneur, 20/11/2026). Pages, joueurs et nombres inventés.
  */
 const page = creerPage(
   [
@@ -42,6 +43,14 @@ const CONSTRUCTION = `<div id="centre"><table>${[
   ["Couveuse", 14],
   ["Solarium", 12],
   ["Etable à pucerons", 2],
+]
+  .map(([n, v]) => ligne(String(n), Number(v)))
+  .join("")}</table></div>`;
+const LABORATOIRE = `<div id="centre"><table>${[
+  ["Technique de ponte", 3],
+  ["Armes", 6],
+  ["Vitesse d'attaque", 5],
+  ["Vitesse de chasse", 4],
 ]
   .map(([n, v]) => ligne(String(n), Number(v)))
   .join("")}</table></div>`;
@@ -178,5 +187,117 @@ describe("armée sans Compte+ : garnison de la page Armée et troupes parties co
   test("page Armée illisible (connexion) : échec, jamais une armée vide", async () => {
     lire(`JEU.pages["/Armee.php"] = "<form>Connexion</form>"`);
     expect((await relever({ cdf: true })).erreur).toContain("page Armée illisible");
+  });
+});
+
+describe("dernier essai du jour : une chasse lancée ailleurs n'empêche plus le reste de partir", () => {
+  // une page ouverte du jeu, puis la suivante une heure plus tard (pause entre deux essais)
+  const essai = async () => {
+    lire(`(() => { SuiviMembres._lues = {}; Utils._reine = null; Utils._pageReine = null; })()`);
+    const r = await lire<Promise<string>>(`SuiviMembres.lancer()`);
+    lire(`heure += 61 * 60000`);
+    return r;
+  };
+  const envois = () => lire<any[]>(`JSON.parse(JSON.stringify(ENVOIS))`);
+  const etat = () => lire<any>(`SuiviMembres.etat()`);
+  beforeEach(() => {
+    lire(`(() => {
+      heure = moment("2026-11-19 12:00", "YYYY-MM-DD HH:mm").valueOf();
+      JEU.pages["/laboratoire.php"] = ${JSON.stringify(LABORATOIRE)};
+      JEU.pages["/Ressources.php"] = ${JSON.stringify(ressources([77]))};
+      if (!document.getElementById("tag_alliance"))
+        document.body.insertAdjacentHTML("beforeend", "<div id='tag_alliance'>TAG</div>");
+      localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ alpha: { annonce: true } }));
+      window.ENVOIS = [];
+      SuiviMembres.adresse = () => Promise.resolve({ url: "https://script.invalid/exec" });
+      SuiviMembres.envoyer = (url, jour, donnees, partages) => {
+        ENVOIS.push({ jour, donnees, partages });
+        return Promise.resolve({ ok: true });
+      };
+    })()`);
+  });
+
+  test("deux échecs, puis au 3e essai tout part sauf CdF et FdF, toujours partagés (cases vides dans le fichier)", async () => {
+    expect([await essai(), await essai()]).toEqual(["échec", "échec"]);
+    expect(envois()).toEqual([]);
+    expect(etat().raison).toContain("armée incomplète");
+    expect(await essai()).toBe("envoyé");
+    const [envoi] = envois();
+    expect(envoi.donnees).toEqual({
+      tdp: 14 + 12 + 3,
+      va: 5,
+      vc: 4,
+      puceron: 2,
+      champignonniere: 17,
+      ouvrieres: OUVRIERES,
+    });
+    expect([envoi.partages.cdf, envoi.partages.fdfHB, envoi.partages.fdfAB]).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    expect(etat()).toMatchObject({ fait: true, raison: "", incomplet: ["cdf", "fdfHB", "fdfAB"] });
+    expect(lire(`SuiviMembres.probleme()`)).toBe(
+      "Aujourd'hui, relevé envoyé sans CdF, FdF HB et FdF AB : une chasse ou une attaque lancée depuis un autre appareil ou navigateur était en cours (troupes inconnues sans Compte+).",
+    );
+    // le relevé du jour est fait : plus d'essai
+    expect(await essai()).toBe("attente");
+    expect(envois().length).toBe(1);
+  });
+
+  test("CdF décochée : seules les FdF manquent", async () => {
+    lire(`localStorage.setItem("fzzz_partage_cdf", "0")`);
+    await essai();
+    await essai();
+    expect(await essai()).toBe("envoyé");
+    expect(envois()[0].partages.cdf).toBe(false);
+    expect(etat().incomplet).toEqual(["fdfHB", "fdfAB"]);
+    expect(lire<string>(`SuiviMembres.probleme()`)).toStartWith(
+      "Aujourd'hui, relevé envoyé sans FdF HB et FdF AB :",
+    );
+  });
+
+  test("la chasse est rentrée avant le 3e essai : relevé complet, rien à signaler", async () => {
+    await essai();
+    await essai();
+    lire(`JEU.pages["/Ressources.php"] = ${JSON.stringify(ressources())}`);
+    expect(await essai()).toBe("envoyé");
+    const { donnees } = envois()[0];
+    expect(donnees.cdf).toBe(1700);
+    expect(Object.keys(donnees)).toEqual(expect.arrayContaining(["fdfHB", "fdfAB"]));
+    expect(etat().incomplet).toBeUndefined();
+    expect(lire(`SuiviMembres.probleme()`)).toBe("");
+  });
+
+  test("3e essai, page Armée illisible : échec, jamais d'envoi partiel (seules les troupes inconnues le permettent)", async () => {
+    await essai();
+    await essai();
+    lire(`JEU.pages["/Armee.php"] = "<form>Connexion</form>"`);
+    expect(await essai()).toBe("échec");
+    expect(envois()).toEqual([]);
+    expect(etat().raison).toContain("page Armée illisible");
+  });
+
+  test("3e essai, une autre information illisible : rien n'est envoyé, tout ou rien pour le reste", async () => {
+    await essai();
+    await essai();
+    lire(`JEU.pages["/laboratoire.php"] = "<form>Connexion</form>"`);
+    expect(await essai()).toBe("échec");
+    expect(envois()).toEqual([]);
+    expect(etat().raison).toBe("niveau introuvable : technique de ponte");
+  });
+
+  test("le lendemain, un relevé complet efface la mention", async () => {
+    await essai();
+    await essai();
+    await essai();
+    expect(etat().incomplet).toEqual(["cdf", "fdfHB", "fdfAB"]);
+    lire(`(() => {
+      heure = moment("2026-11-20 09:00", "YYYY-MM-DD HH:mm").valueOf();
+      JEU.pages["/Ressources.php"] = ${JSON.stringify(ressources())};
+    })()`);
+    expect(await essai()).toBe("envoyé");
+    expect(etat().incomplet).toBeUndefined();
+    expect(lire(`SuiviMembres.probleme()`)).toBe("");
   });
 });

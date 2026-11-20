@@ -2930,12 +2930,17 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 }
 /* Fzzz : bloc « Récapitulatif » (page Convois) */
 #o_convoisMembres {
-  /* largeur du cadre « Organiser un convoi » (CommerceFzzz.calerSurCadreConvoi), jamais plus étroit que son tableau */
+  /* largeur du cadre « Organiser un convoi » (CommerceFzzz.calerSurCadreConvoi) */
   box-sizing: border-box;
   width: 85%;
-  min-width: min-content;
   margin: 24px auto 0;
   padding: 6px 10px 10px;
+}
+/* plus large que le cadre (téléphone, colonne « Statut des stocks ») : le tableau
+   défile dans sa largeur au lieu d'élargir la page */
+.o_convoisMembresDefile {
+  max-width: 100%;
+  overflow-x: auto;
 }
 .o_convoisMembresTitre {
   margin: 0 0 6px;

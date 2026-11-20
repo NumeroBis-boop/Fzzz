@@ -1127,7 +1127,7 @@ class BoiteParametre extends Boite {
         $bouton.prop("disabled", false);
         etat(
           resultat == "envoyé"
-            ? "Relevé envoyé."
+            ? SuiviMembres.probleme() || "Relevé envoyé."
             : resultat == "sans alliance"
               ? "Sans alliance, rien n'est relevé."
               : "",

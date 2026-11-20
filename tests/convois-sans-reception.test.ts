@@ -9,9 +9,9 @@ import { creerPage } from "./harnais";
  * mainteneur, 19/11/2026). Le site le donne sur chaque ligne de « Mes
  * convois » (`sans_reception`, réponses relevées par le mainteneur le
  * 19/11/2026) ; le Récapitulatif le montre avec les marques cochées dans les
- * Préférences, cumulables (demande du même jour) : ligne barrée (seule cochée
- * par défaut), ligne en rouge, colonne « Statut des stocks ». Joueurs et
- * montants inventés.
+ * Préférences, cumulables (demande du même jour) : ligne barrée, ligne en
+ * rouge, colonne « Statut des stocks », les trois cochées par défaut (demande
+ * du 20/11/2026). Joueurs et montants inventés.
  */
 const page = creerPage(
   [
@@ -132,9 +132,9 @@ describe("choix des destinataires lu dans « Mes convois »", () => {
 });
 
 describe("Récapitulatif : marques d'un joueur qui ne veut pas de convois, cumulables", () => {
-  test("par défaut, sa ligne barrée seule, avec une info-bulle ; montant et clic inchangés ; pas de colonne", async () => {
+  test("par défaut, les trois marques : ligne barrée et rouge, avec une info-bulle, et la colonne ; montant et clic inchangés", async () => {
     await ouvrir();
-    expect(classe("Alpha")).toBe("o_convoisBarree");
+    expect(classe("Alpha").split(" ").sort()).toEqual(["o_convoisBarree", "o_convoisRouge"]);
     expect(titre("Alpha")).toContain("Ne veut pas de convois");
     expect(classe("Bravo")).toBe("");
     // aucun convoi prévu vers lui : le site ne donne pas son choix
@@ -144,24 +144,27 @@ describe("Récapitulatif : marques d'un joueur qui ne veut pas de convois, cumul
         `$("#o_convoisMembres tr[data-pseudo='Alpha'] .o_convoisMembreMontant").data("montant")`,
       ),
     ).toBe(6452503);
-    expect(enTetes()).not.toContain("Statut des stocks");
-    expect(cellules("Alpha").length).toBe(5);
+    expect(enTetes()).toContain("Statut des stocks");
+    expect(cellules("Alpha")[2]).toBe("⚠️ Plein ⚠️");
+    expect(cellules("Bravo")[2]).toBe("✅");
   });
 
   test("ligne en rouge seule", async () => {
-    await ouvrir({ barree: false, rouge: true });
+    await ouvrir({ barree: false, rouge: true, colonne: false });
     expect(classe("Alpha")).toBe("o_convoisRouge");
     expect(classe("Bravo")).toBe("");
   });
 
-  test("barrée et rouge ensemble", async () => {
-    await ouvrir({ rouge: true });
+  test("barrée et rouge ensemble, sans colonne", async () => {
+    await ouvrir({ barree: true, rouge: true, colonne: false });
     expect(classe("Alpha").split(" ").sort()).toEqual(["o_convoisBarree", "o_convoisRouge"]);
     expect(titre("Alpha")).toContain("Ne veut pas de convois");
+    expect(enTetes()).not.toContain("Statut des stocks");
+    expect(cellules("Alpha").length).toBe(5);
   });
 
   test("colonne « Statut des stocks » seule : ⚠️ Plein ⚠️, ✅, — quand le site ne le dit pas ; ligne ni barrée ni rouge", async () => {
-    await ouvrir({ barree: false, colonne: true });
+    await ouvrir({ barree: false, rouge: false, colonne: true });
     expect(enTetes()).toEqual([
       "Joueur ⇅",
       "Convoi à faire ⇅",
@@ -181,16 +184,8 @@ describe("Récapitulatif : marques d'un joueur qui ne veut pas de convois, cumul
     expect(lire(`$("#o_convoisMembres tfoot td").attr("colspan")`)).toBe("6");
   });
 
-  test("les trois ensemble : ligne barrée et rouge, et la colonne", async () => {
-    await ouvrir({ rouge: true, colonne: true });
-    expect(classe("Alpha").split(" ").sort()).toEqual(["o_convoisBarree", "o_convoisRouge"]);
-    expect(cellules("Alpha")[2]).toBe("⚠️ Plein ⚠️");
-    expect(classe("Bravo")).toBe("");
-    expect(cellules("Bravo")[2]).toBe("✅");
-  });
-
   test("aucune case : rien n'est signalé", async () => {
-    await ouvrir({ barree: false });
+    await ouvrir({ barree: false, rouge: false, colonne: false });
     expect(classe("Alpha")).toBe("");
     expect(titre("Alpha")).toBe("");
     expect(enTetes()).not.toContain("Statut des stocks");
@@ -213,12 +208,25 @@ describe("Récapitulatif : marques d'un joueur qui ne veut pas de convois, cumul
     expect(css).toContain(".o_convoisMembres tr.o_convoisRouge a {\n  color: var(--fzzz-erreur);");
     // la colonne se replie sur téléphone (« ⚠️ Plein ⚠️ » sur deux lignes)
     expect(css).toContain(".o_convoisMembres td.o_convoisMembreStatut {\n  white-space: normal;");
+    // plus large que le cadre (téléphone, colonne cochée par défaut) : le tableau défile, la page ne s'élargit pas
+    expect(css).toContain(".o_convoisMembresDefile {\n  max-width: 100%;\n  overflow-x: auto;");
+    expect(css).not.toMatch(/#o_convoisMembres \{[^}]*min-width: min-content/);
+  });
+
+  test("le tableau est dans son conteneur qui défile", async () => {
+    await ouvrir();
+    expect(
+      lire(`$("#o_convoisMembres .o_convoisMembresDefile > table.o_convoisMembres").length`),
+    ).toBe(1);
   });
 });
 
 describe("plus de simulation pour le mainteneur (retirée en 1.143.2)", () => {
   test("pseudo laissé dans ce navigateur par 1.143.0 ou 1.143.1, joueur de la ligne « Journal » : ignoré", async () => {
-    await ouvrir({ colonne: true }, "secret", { journal: true, simule: "Bravo" });
+    await ouvrir({ barree: true, rouge: false, colonne: true }, "secret", {
+      journal: true,
+      simule: "Bravo",
+    });
     // le site dit que Bravo accepte : rien ne le contredit
     expect(classe("Bravo")).toBe("");
     expect(cellules("Bravo")[2]).toBe("✅");
@@ -238,15 +246,15 @@ describe("choix unique de 1.142.0 et 1.142.1 repris dans les cases", () => {
       return Object.fromEntries(MARQUES_SANS_RECEPTION.map((c) => [c, localStorage.getItem("fzzz_affichage_" + c)]));
     })()`);
 
-  test("ligne en rouge (1) ou colonne (2) choisie : cette case seule cochée ; barrée (0) : rien à reprendre", () => {
+  test("ligne en rouge (1) ou colonne (2) choisie : cette case seule cochée, les deux autres décochées ; barrée (0) : rien à reprendre, les trois par défaut", () => {
     expect(reprendre({ convoisSansReception: "1" })).toEqual({
       convoisSansReceptionBarree: "0",
       convoisSansReceptionRouge: "1",
-      convoisSansReceptionColonne: null,
+      convoisSansReceptionColonne: "0",
     });
     expect(reprendre({ convoisSansReception: 2 })).toEqual({
       convoisSansReceptionBarree: "0",
-      convoisSansReceptionRouge: null,
+      convoisSansReceptionRouge: "0",
       convoisSansReceptionColonne: "1",
     });
     expect(reprendre({ convoisSansReception: "0" })).toEqual({

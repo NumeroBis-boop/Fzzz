@@ -15,7 +15,8 @@ const METHODE_FLOOD_DEGRESSIVE = 3;
 const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
 // 1.142.0 et 1.142.1 : une seule marque au choix pour un joueur qui ne veut pas de
 // convois (paramètre convoisSansReception : 0 barrée, 1 rouge, 2 colonne),
-// reprise dans les cases MARQUES_SANS_RECEPTION tant qu'aucune n'a été réglée
+// reprise seule dans les cases MARQUES_SANS_RECEPTION (les autres décochées, toutes
+// étant cochées par défaut) tant qu'aucune n'a été réglée
 const ANCIENNES_MARQUES_SANS_RECEPTION = {
   1: "convoisSansReceptionRouge",
   2: "convoisSansReceptionColonne",
@@ -652,8 +653,9 @@ class Joueur {
         marque &&
         MARQUES_SANS_RECEPTION.every((cle) => localStorage.getItem("fzzz_affichage_" + cle) == null)
       ) {
-        localStorage.setItem("fzzz_affichage_convoisSansReceptionBarree", "0");
-        localStorage.setItem("fzzz_affichage_" + marque, "1");
+        MARQUES_SANS_RECEPTION.forEach((cle) =>
+          localStorage.setItem("fzzz_affichage_" + cle, cle == marque ? "1" : "0"),
+        );
       }
       // « Aucun », le rôle par défaut, est enregistré avec les autres réglages
       // sans avoir été choisi : pour un chasseur de la liste, il passe en

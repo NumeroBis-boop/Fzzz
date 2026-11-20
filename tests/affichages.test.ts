@@ -138,8 +138,6 @@ describe("affichages ajoutés : seuls ceux de la liste du mainteneur ont leur ca
       "membresFloodsTrajet",
       "membresFloodsRetour",
       "membresFloodsEtat",
-      "convoisSansReceptionRouge",
-      "convoisSansReceptionColonne",
     ]);
   });
 

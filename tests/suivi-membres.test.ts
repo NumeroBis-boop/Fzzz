@@ -1378,6 +1378,18 @@ describe("Préférences → Partage de données", () => {
     expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe(
       "Sans alliance, rien n'est relevé.",
     );
+    // dernier essai du jour, armée incomplète : envoyé sans CdF ni FdF, et dit
+    preferences.lire(`(() => {
+      SuiviMembres.lancer = () => {
+        SuiviMembres._garder({ jour: SuiviMembres.jour(), fait: true, essais: 3, essai: heure, raison: "", incomplet: ["cdf", "fdfHB", "fdfAB"] });
+        return Promise.resolve("envoyé");
+      };
+      $("#o_partageEnvoyer").trigger("click");
+    })()`);
+    await attendre();
+    expect(preferences.lire<string>(`$("#o_partageEtat").text()`)).toStartWith(
+      "Aujourd'hui, relevé envoyé sans CdF, FdF HB et FdF AB :",
+    );
   });
 
   test("boutons « Exporter mes chasses » et « Exporter mes RC » : l'export de la boîte de réception, de n'importe quelle page", async () => {

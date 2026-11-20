@@ -52,12 +52,12 @@ class PageRessource {
           // chasses commencé maintenant serait coupé en route
           if (this._rechargement) return;
           this._armee.chargeData(data);
-          new LanceurChasse(this._armee, this._nbChasse).afficher($("#boite_tdc"));
+          this.lanceur();
         },
         () => {
           // armée illisible : le lanceur quand même, l'armée à saisir dans son encart
           if (this._rechargement) return;
-          new LanceurChasse(this._armee, this._nbChasse).afficher($("#boite_tdc"));
+          this.lanceur();
           $.toast({
             ...TOAST_ERROR,
             text: "Armée illisible : à saisir dans « Armée et niveaux utilisés ».",
@@ -77,6 +77,17 @@ class PageRessource {
     // annulation d'une chasse, lancement : même position à l'écran après rechargement
     Utils.garderPosition("fzzz_positionRessources");
     return this;
+  }
+  /**
+   * Lanceur de chasses, puis à droite de ses boutons d'envoi les floods
+   * partagés sur moi qui arrivent bientôt (lus à l'ouverture de la page).
+   *
+   * @private
+   * @method lanceur
+   */
+  lanceur() {
+    new LanceurChasse(this._armee, this._nbChasse).afficher($("#boite_tdc"));
+    AlerteFloods.installer().catch((e) => console.error("Fzzz : alerte des floods", e));
   }
   /**
    * Fzzz : synthèse des chasses en cours par minute d'impact. Les chasses qui

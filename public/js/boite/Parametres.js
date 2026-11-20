@@ -152,6 +152,7 @@ class BoiteParametre extends Boite {
       "alertePonte",
       "tdcArriveeMax",
       "ratioPlancher",
+      "alerteFloods",
       "convoisAvantRecolte",
     ];
   }
@@ -599,6 +600,11 @@ class BoiteParametre extends Boite {
             this.aide(
               "Ratio plancher quand le ratio est libre (pertes acceptées fixées).",
               "À 7,2 plus aucune chance de réplique à 50 % ; à 6, l'ancien plancher du lanceur par budget, 65 % des chasses subissent 30 % de réplique mais le budget sert en entier.",
+            ) +
+            p["alerteFloods"].getForm() +
+            this.aide(
+              "À droite des boutons « Envoyer » du lanceur, les floods sur toi qui arrivent dans ce délai, avec leur prise estimée.",
+              "Seuls les floods partagés dans le forum de l'alliance par ses membres sont connus : une attaque ennemie ne l'est pas. Ils sont lus à l'ouverture de la page Ressources (forum, et la page Membres quand un autre joueur est concerné) ; le texte se met à jour chaque minute, sans autre lecture. Sans flood dans ce délai, rien ne s'affiche.",
             ),
         )}
         ${this.section(

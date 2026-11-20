@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.146.0",
+    notes: [
+      "Page Ressources : à droite des boutons « Envoyer » du lanceur de chasses, une alerte signale les floods partagés sur toi qui arrivent dans l'heure. Le délai se règle dans Préférences → Ressources.",
+    ],
+  },
+  {
     version: "1.145.3",
     notes: ["Stats membres : une espace sépare le nombre de son préfixe (3,67 M, 150 k)."],
   },

@@ -258,7 +258,12 @@ describe("onglets de la liste du mainteneur", () => {
       expect.arrayContaining(["alertePonte", "role", "o_majFzzz", "o_copierJournal"]),
     );
     expect(dans("Ressources")).toEqual(
-      expect.arrayContaining(["affectationRessource", "tdcArriveeMax", "ratioPlancher"]),
+      expect.arrayContaining([
+        "affectationRessource",
+        "tdcArriveeMax",
+        "ratioPlancher",
+        "alerteFloods",
+      ]),
     );
     expect(dans("Armee")).toEqual(
       expect.arrayContaining(["replacerArmeeAuto", "uniteAntisondeTerrain", "uniteAntisondeDome"]),

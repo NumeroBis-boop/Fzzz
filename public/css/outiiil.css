@@ -3130,6 +3130,54 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   margin-left: 0;
   margin-right: 0;
 }
+/* Ressources : floods partagés sur le joueur à droite des boutons d'envoi du
+   lanceur de chasses, sans les décentrer ; dessous quand la place manque */
+.o_chasseActions {
+  container-type: inline-size;
+  margin-top: 15px;
+}
+.o_chasseActionsGrille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 8px;
+}
+.o_chasseActionsGrille > .o_pile {
+  grid-column: 2;
+}
+.o_alerteFloods {
+  grid-column: 3;
+  justify-self: start;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--fzzz-erreur);
+  border-radius: 6px;
+  padding: 4px 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.o_alerteFloods[hidden] {
+  display: none;
+}
+.o_alerteFloodsTitre {
+  color: var(--fzzz-erreur);
+  font-weight: bold;
+}
+/* « 1 h », « −20 600 cm² » jamais coupés en fin de ligne */
+.o_alerteFloods span {
+  white-space: nowrap;
+}
+@container (max-width: 560px) {
+  .o_chasseActionsGrille {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .o_chasseActionsGrille > .o_pile,
+  .o_alerteFloods {
+    grid-column: 1;
+  }
+}
 /* Lanceur de Flood : boutons à gauche ; TdC à l'impact sous « Mon Terrain »
    et la cible, à droite des boutons (au-dessus d'eux sur téléphone) */
 #o_prepaFlood .o_floodBoutons {

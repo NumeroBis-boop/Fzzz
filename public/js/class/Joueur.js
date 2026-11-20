@@ -13,6 +13,10 @@ const METHODE_FLOOD_OPTIMISEE = 1;
 const METHODE_FLOOD_DEGRESSIVE = 3;
 // rôle du joueur dans l'alliance (Préférences → Général)
 const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
+// délais au choix de l'alerte des floods sur moi (page Ressources, AlerteFloods) ;
+// le paramètre alerteFloods garde le rang du choix, 1 h par défaut
+const ALERTE_FLOODS_HEURES = [0.5, 1, 2, 3, 4, 6, 8, 12, 24];
+const ALERTE_FLOODS_DEFAUT = 1;
 // 1.142.0 et 1.142.1 : une seule marque au choix pour un joueur qui ne veut pas de
 // convois (paramètre convoisSansReception : 0 barrée, 1 rouge, 2 colonne),
 // reprise seule dans les cases MARQUES_SANS_RECEPTION (les autres décochées, toutes
@@ -331,6 +335,13 @@ class Joueur {
       "slider",
       7.2, // SimulationChasse.RATIO_PLANCHER (classe chargée après celle-ci)
       { min: 3, max: 10, step: 0.1 },
+    );
+    this._parametre["alerteFloods"] = new Parametre(
+      "alerteFloods",
+      "Alerte des floods sur moi qui arrivent d'ici",
+      "select",
+      ALERTE_FLOODS_DEFAUT,
+      ALERTE_FLOODS_HEURES.map((h) => (h < 1 ? `${h * 60} min` : `${h} h`)),
     );
     return this;
   }

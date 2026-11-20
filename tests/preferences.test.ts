@@ -38,7 +38,6 @@ const page = creerPage(
      codeEnregistre: () => Promise.resolve(""),
      enregistrerCode: () => Promise.resolve(),
    };
-   var CLE_SANS_RECEPTION_SIMULE = "fzzz_sansReceptionSimule";
    var heure = moment("2026-11-14 10:00", "YYYY-MM-DD HH:mm").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure) };`,
 );
@@ -137,7 +136,7 @@ describe("onglets de la liste du mainteneur", () => {
     ).toEqual([]);
   });
 
-  test("Convois : marques cumulables du Récapitulatif dans leur section ; champ de test pour la ligne « Journal » seulement", () => {
+  test("Convois : marques cumulables du Récapitulatif dans leur section", () => {
     construire();
     const section = (selecteur: string) =>
       lire<string>(
@@ -155,23 +154,6 @@ describe("onglets de la liste du mainteneur", () => {
     expect(section("input[data-affichage='convoisSuiviLignes']")).toContain(
       "Suivi des convois de l'alliance",
     );
-    expect(lire(`$("#o_sansReceptionSimule").length`)).toBe(0);
-    // joueur de la ligne « Journal » des réglages : le champ, gardé à la saisie, vidé = arrêté
-    lire(`(() => {
-      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["Moi"] } }));
-      localStorage.setItem(CLE_SANS_RECEPTION_SIMULE, "Alpha");
-      $("body").append("<div id='pseudo'>Moi</div>");
-      $("#o_tabsParametreConvois").empty();
-      boite.ongletConvois();
-    })()`);
-    expect(lire(`$("#o_sansReceptionSimule").val()`)).toBe("Alpha");
-    expect(section("#o_sansReceptionSimule")).toContain(
-      "Récapitulatif : joueur qui ne veut pas de convois",
-    );
-    lire(`$("#o_sansReceptionSimule").val(" Bravo, Charlie ").trigger("input")`);
-    expect(lire(`localStorage.getItem(CLE_SANS_RECEPTION_SIMULE)`)).toBe("Bravo, Charlie");
-    lire(`$("#o_sansReceptionSimule").val("  ").trigger("input")`);
-    expect(lire(`localStorage.getItem(CLE_SANS_RECEPTION_SIMULE)`)).toBeNull();
     // Entrée dans un champ : le formulaire n'est pas envoyé (la page se rechargerait)
     expect(
       lire(`(() => {
@@ -180,6 +162,47 @@ describe("onglets de la liste du mainteneur", () => {
         return e.defaultPrevented;
       })()`),
     ).toBe(true);
+  });
+
+  test("textes et sections retirés (demande du mainteneur, 1.143.2), même pour la ligne « Journal » des réglages", () => {
+    construire({
+      fzzz_reglagesAlliance: JSON.stringify({
+        lu: 0,
+        section: true,
+        sujet: true,
+        reglages: { journal: ["Moi"] },
+      }),
+    });
+    lire(`(() => {
+      $("body").append("<div id='pseudo'>Moi</div>");
+      for (const id of ["General", "Convois", "Partage"]) {
+        $("#o_tabsParametre" + id).empty();
+        boite["onglet" + id]();
+      }
+    })()`);
+    expect(lire(`Journal.pourCeJoueur()`)).toBe(true);
+    const texte = (id: string) => lire<string>(`$("#o_tabsParametre${id}").text()`);
+    // le site des réglages est en http : plus d'avertissement
+    expect(lire(`OuafSuivi.site().url`)).toStartWith("http:");
+    const retires: [string, string][] = [
+      ["General", "Les réglages propres à un rôle"],
+      ["General", "Le jeu supprime les conversations lues"],
+      ["Convois", "n'est pas chiffré"],
+      ["Convois", "Test, pour toi seul"],
+      ["Convois", "Sur le site de suivi, un joueur peut cocher"],
+      ["Partage", "Une fois par jour, à la première page que tu ouvres"],
+      ["Partage", "Décochée pour les chefs"],
+      ["Partage", "Ranger le forum"],
+      ["Partage", "Sujets de floods inutiles"],
+    ];
+    for (const [id, retire] of retires) expect(texte(id)).not.toContain(retire);
+    expect(
+      lire(`$("#o_sansReceptionSimule, .o_partageRanger, .o_partageSupprimerFloods").length`),
+    ).toBe(0);
+    // ce qui reste : le détail replié du Récapitulatif
+    expect(texte("Convois")).toContain(
+      "Ligne barrée, ligne en rouge, colonne « Statut des stocks »",
+    );
   });
 
   test("chaque réglage de la liste dans son onglet", () => {
@@ -384,8 +407,8 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     lire(
       `$("#o_boiteParametre").prepend("<input id='o_rechercheParam'/><ul id='o_rechercheResultats' hidden></ul>")`,
     );
-    // le réglage d'abord, puis la section dont l'aide a les deux mots (unités de la CdF, envoyée)
-    expect(resultats("UNITÉ envoyée")).toEqual([
+    // le réglage d'abord, puis la section dont l'aide a les deux mots (unités de la CdF, « ni envoyé »)
+    expect(resultats("UNITÉ envoyé")).toEqual([
       "Attaque › Sonder › Unité envoyée en sonde",
       "Partage de données › Statistiques des membres",
     ]);

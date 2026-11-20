@@ -119,18 +119,16 @@ describe("suivi : réponses des joueurs dans les sujets communs, premier message
     expect(c.map((x) => x.id)).toEqual([5]);
   });
 
-  test("pages d'historique repérées à part, jamais prises pour un sujet de suivi", async () => {
+  test("pages d'historique et anciens sujets de suivi : jamais pris pour un sujet de suivi", async () => {
     sujet("1", "Floods | DoggyBag", A_VENIR);
     sujet("2", "Historique Floods 1 | DoggyBag", PASSE);
     sujet("3", "Historique Convois 2 | DoggyBag", "x");
     sujet("4", "Réglages de l'extension", "Journal : Alpha");
     const s = await lire<Promise<any>>(`PartageChasses.sujets()`);
+    // seuls les réglages : les floods sont dans le sujet commun, l'historique n'est plus tenu
+    expect(Object.keys(s).sort()).toEqual(["communs", "reglages"]);
     expect(s.reglages).toBe("4");
-    // ancien sujet de suivi des floods : plus lu, les floods sont dans le sujet commun
-    expect(s["Floods | doggybag"]).toBeUndefined();
-    expect(s.historiques).toEqual([{ type: "Floods", page: 1, pseudo: "DoggyBag", id: "2" }]);
-    // ancien historique des convois (avant 1.97.2) : ignoré
-    expect(s["Convois | doggybag"]).toBeUndefined();
+    expect(s.communs).toEqual({});
   });
 });
 

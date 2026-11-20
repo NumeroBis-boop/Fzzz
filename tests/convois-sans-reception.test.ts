@@ -10,10 +10,8 @@ import { creerPage } from "./harnais";
  * convois » (`sans_reception`, réponses relevées par le mainteneur le
  * 19/11/2026) ; le Récapitulatif le montre avec les marques cochées dans les
  * Préférences, cumulables (demande du même jour) : ligne barrée (seule cochée
- * par défaut), ligne en rouge, colonne « Statut des stocks ». Pour voir ces
- * marques sans attendre qu'un joueur coche la case, un joueur de la ligne
- * « Journal » des réglages peut en simuler (demande du mainteneur, qui n'est
- * pas grenier). Joueurs et montants inventés.
+ * par défaut), ligne en rouge, colonne « Statut des stocks ». Joueurs et
+ * montants inventés.
  */
 const page = creerPage(
   [
@@ -115,7 +113,6 @@ const enTetes = () =>
   lire<string[]>(
     `$("#o_convoisMembres thead th").map((i, th) => $(th).text().replace(/\\s+/g, " ").trim()).get()`,
   );
-const rappel = () => lire<string>(`$("#o_convoisMembres .o_convoisSimulation").text()`);
 
 describe("choix des destinataires lu dans « Mes convois »", () => {
   test("sans_reception de chaque ligne ; casse du pseudo ignorée ; un « oui » suffit ; sans le champ : inconnu", () => {
@@ -149,7 +146,6 @@ describe("Récapitulatif : marques d'un joueur qui ne veut pas de convois, cumul
     ).toBe(6452503);
     expect(enTetes()).not.toContain("Statut des stocks");
     expect(cellules("Alpha").length).toBe(5);
-    expect(rappel()).toBe("");
   });
 
   test("ligne en rouge seule", async () => {
@@ -220,40 +216,15 @@ describe("Récapitulatif : marques d'un joueur qui ne veut pas de convois, cumul
   });
 });
 
-describe("test du mainteneur : joueur compté comme ne voulant pas de convois", () => {
-  test("joueur de la ligne « Journal » : le pseudo simulé est marqué comme si le site le disait, avec un rappel", async () => {
-    await ouvrir({ colonne: true }, "secret", { journal: true, simule: "bravo" });
-    // le site dit que Bravo accepte : la simulation l'emporte
-    expect(classe("Bravo")).toBe("o_convoisBarree");
-    expect(titre("Bravo")).toContain("Test : compté comme ne voulant pas de convois");
-    expect(cellules("Bravo")[2]).toBe("⚠️ Plein ⚠️");
-    // le vrai refus garde son info-bulle
+describe("plus de simulation pour le mainteneur (retirée en 1.143.2)", () => {
+  test("pseudo laissé dans ce navigateur par 1.143.0 ou 1.143.1, joueur de la ligne « Journal » : ignoré", async () => {
+    await ouvrir({ colonne: true }, "secret", { journal: true, simule: "Bravo" });
+    // le site dit que Bravo accepte : rien ne le contredit
+    expect(classe("Bravo")).toBe("");
+    expect(cellules("Bravo")[2]).toBe("✅");
+    expect(classe("Alpha")).toBe("o_convoisBarree");
     expect(titre("Alpha")).toContain("case « Je ne souhaite pas recevoir de convois » cochée");
-    expect(classe("Charlie")).toBe("");
-    expect(rappel()).toBe(
-      "Test : Bravo compté comme ne voulant pas de convois (Préférences → Convois).",
-    );
-  });
-
-  test("plusieurs pseudos, casse et doublons ignorés ; un joueur absent du tableau est signalé", async () => {
-    await ouvrir({}, "secret", { journal: true, simule: "charlie, Delta ; CHARLIE" });
-    expect(classe("Charlie")).toBe("o_convoisBarree");
-    expect(rappel()).toBe(
-      "Test : Charlie, Delta (pas dans ce tableau) comptés comme ne voulant pas de convois (Préférences → Convois).",
-    );
-  });
-
-  test("un autre joueur que ceux de la ligne « Journal » : la simulation est ignorée", async () => {
-    await ouvrir({}, "secret", { journal: false, simule: "Bravo" });
-    expect(classe("Bravo")).toBe("");
-    expect(rappel()).toBe("");
-    expect(lire(`OuafSuivi.simulesSansReception()`)).toEqual([]);
-  });
-
-  test("site sans réponse ou pas de mot de passe : rien n'est simulé", async () => {
-    await ouvrir({}, "", { journal: true, simule: "Bravo" });
-    expect(classe("Bravo")).toBe("");
-    expect(rappel()).toBe("");
+    expect(lire<string>(`$("#o_convoisMembres").text()`)).not.toContain("Test");
   });
 });
 

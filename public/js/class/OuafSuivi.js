@@ -15,9 +15,6 @@ const CLE_OUAF_NUMEROS = "fzzz_ouafNumeros";
 // convois transmis dont le joueur a cliqué « Annuler », à retirer du suivi au
 // chargement suivant : [{id, vers, montant, arrivee, prevu?, avance?, dansForum, siteFait, quand}]
 const CLE_OUAF_ANNULES = "fzzz_ouafAnnules";
-// test du mainteneur : pseudos que le Récapitulatif fait passer pour « ne veut
-// pas de convois », comme si le site le disait (Préférences → Convois)
-const CLE_SANS_RECEPTION_SIMULE = "fzzz_sansReceptionSimule";
 // au-delà, une annulation non reportée est abandonnée (à corriger à la main)
 const OUAF_DUREE_ANNULATION = 86400000;
 // écart d'arrivée toléré pour reconnaître un convoi sans son numéro (heure lue
@@ -461,30 +458,6 @@ class OuafSuivi {
       choix.set(cle, Boolean(choix.get(cle)) || l.sans_reception);
     });
     return choix;
-  }
-  /**
-   * Pseudos que le Récapitulatif fait passer pour « ne veut pas de convois » :
-   * test réservé aux joueurs de la ligne « Journal » des réglages de
-   * l'alliance, pour voir ses marques sans attendre qu'un joueur coche la case
-   * du site (Préférences → Convois, ce navigateur seulement).
-   *
-   * @static
-   * @method simulesSansReception
-   * @return {Array<string>} pseudos tels qu'écrits, sans doublon (casse ignorée)
-   */
-  static simulesSansReception() {
-    if (!Journal.pourCeJoueur()) return [];
-    let texte = "";
-    try {
-      texte = localStorage.getItem(CLE_SANS_RECEPTION_SIMULE) || "";
-    } catch (e) {}
-    let vus = new Set();
-    return texte.split(/[\s,;]+/).filter((p) => {
-      let cle = p.toLowerCase();
-      if (!p || vus.has(cle)) return false;
-      vus.add(cle);
-      return true;
-    });
   }
   /**
    * Lecture de « Mes convois » sur le site : reste à livrer par destinataire,

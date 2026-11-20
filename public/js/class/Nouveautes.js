@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.143.2",
+    notes: [
+      "Préférences : moins de textes d'explication dans les onglets Général, Convois et Partage de données.",
+    ],
+  },
+  {
     version: "1.143.1",
     notes: [
       "Stats membres : le relevé quotidien fonctionne maintenant sans Compte+. Les ouvrières parties en convoi et les troupes parties en chasse ou en attaque depuis ce navigateur sont comptées.",

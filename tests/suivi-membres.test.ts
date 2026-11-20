@@ -526,18 +526,14 @@ describe("cases de Préférences → Partage de données", () => {
     expect([recus().length, lire(`TOASTS.length`), etat().annonce]).toEqual([2, 0, true]);
   });
 
-  test("état affiché dans l'onglet", async () => {
-    expect(lire(`SuiviMembres.resume()`)).toBe("Aucun envoi depuis ce navigateur pour l'instant.");
+  test("onglet : rien à dire tant que le relevé n'a pas échoué (ni dernier envoi, ni prochain)", async () => {
+    expect(lire(`SuiviMembres.probleme()`)).toBe("");
     annonceVue();
-    decocher("puceron", "champignonniere", "fdfHB", "fdfAB", "va", "vc", "ouvrieres");
     await ouvrirPage();
-    expect(lire(`SuiviMembres.resume()`)).toBe(
-      "Dernier envoi depuis ce navigateur : le 12/11/2026 à 08h03 (TdP, CdF, Puceron et Champignonnière ; avec les autres membres : TdP et CdF).",
-    );
-    lire(`SuiviMembres.choisir("va", true)`);
-    expect(lire<string>(`SuiviMembres.resume()`)).toEndWith(
-      "Le prochain envoi se fera à ta prochaine page.",
-    );
+    expect(etat().fait).toBe(true);
+    expect(lire(`SuiviMembres.probleme()`)).toBe("");
+    lire(`SuiviMembres.choisir("va", false)`);
+    expect(lire(`SuiviMembres.probleme()`)).toBe("");
   });
 });
 
@@ -558,9 +554,12 @@ describe("relevé impossible : jamais relancé à chaque page", () => {
     expect(await essais()).toEqual(["échec", "échec", "échec"]);
     expect([recus(), lues()]).toEqual([[], []]);
     expect(etat()).toMatchObject({ fait: false, essais: 3 });
-    expect(lire<string>(`SuiviMembres.resume()`)).toContain(
+    expect(lire<string>(`SuiviMembres.probleme()`)).toBe(
       "Aujourd'hui, le relevé n'a pas pu être envoyé : forum. Nouvel essai à une page ouverte plus tard (3 essais par jour au plus).",
     );
+    // le lendemain, l'échec de la veille n'est plus montré
+    avancer(24 * 60);
+    expect(lire(`SuiviMembres.probleme()`)).toBe("");
   });
 
   test("page du jeu illisible : rien d'envoyé, pas de relevé partiel ; nouvel essai une heure après, réussi", async () => {
@@ -1199,12 +1198,9 @@ describe("Préférences → Partage de données", () => {
       "CdF : nombre total d'unités de ton armée, ouvrières non comptées (partagé avec les chefs puisque partagé avec les autres)",
       "Champignonnière : niveau (toujours partagé avec les chefs)",
     ]);
-    // ce qui est envoyé, où, à qui, et ce que devient une case décochée : dit dans l'onglet
+    // le détail, replié sous « En savoir plus »
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     for (const dit of [
-      "Une fois par jour, à la première page que tu ouvres",
-      "Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension",
-      "Les chefs voient dans la vue « Stats membres » du menu Alliance ce que tu partages avec eux, les autres membres ce que tu partages avec les autres.",
       "Partager une information avec les autres, c'est aussi la partager avec les chefs.",
       "Champignonnière et Puceron sont toujours partagés avec les chefs.",
       "Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons.",
@@ -1212,10 +1208,22 @@ describe("Préférences → Partage de données", () => {
       "sans elle, rien n'est relevé ni envoyé ; les chefs sont ceux de la ligne « Chefs » de ce sujet.",
       "TdP : Couveuse + Solarium + Technique de ponte ; CdF : nombre total d'unités de ton armée, ouvrières non comptées",
       "« Chefs : … » : pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient tout ce que les joueurs partagent avec les chefs ; les autres membres, ce qu'ils partagent avec les autres",
-      "Décochée pour les chefs : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas.",
-      "Aucun envoi depuis ce navigateur pour l'instant.",
     ])
       expect(texte).toContain(dit);
+    // retirés à la demande du mainteneur (1.143.2) : l'annonce du premier envoi le dit
+    for (const retire of [
+      "Une fois par jour",
+      "avec ton pseudo et la version de l'extension",
+      "Les chefs voient dans la vue",
+      "Décochée pour les chefs",
+      "Dernier envoi",
+      "Aucun envoi depuis ce navigateur",
+      "prochain envoi",
+      "Ranger le forum",
+      "Sujets de floods inutiles",
+    ])
+      expect(texte).not.toContain(retire);
+    expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe("");
   });
 
   test("case décochée : gardée dans ce navigateur, relue à la réouverture, envoyée à la page suivante", () => {
@@ -1224,6 +1232,9 @@ describe("Préférences → Partage de données", () => {
       `localStorage.setItem("fzzz_suiviMembres", JSON.stringify({ doggybag: { jour: "2026-11-12", fait: true, essais: 1, essai: heure, raison: "sans sujet" } }))`,
     );
     ouvrir();
+    expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe(
+      "Aujourd'hui, rien n'a été envoyé : pas de ligne « Google Sheet des stats membres » dans le sujet « Réglages de l'extension » du forum caché de ton alliance.",
+    );
     // vue « Stats membres » construite ensuite, qui rebranche les cases : l'état de l'onglet suit quand même
     preferences.lire(`SuiviMembres.brancherCases()`);
     // plus partagée avec les autres : la case des chefs se déverrouille, toujours cochée
@@ -1231,9 +1242,8 @@ describe("Préférences → Partage de données", () => {
     expect(preferences.lire(`localStorage.getItem("fzzz_partageAutres_fdfAB")`)).toBe("0");
     expect(cases().find(([c]) => c == "fdfAB")).toEqual(["fdfAB", true, false, false]);
     expect(preferences.lire(`SuiviMembres.etat()`)).toMatchObject({ fait: false, essais: 0 });
-    expect(preferences.lire<string>(`$("#o_partageEtat").text()`)).toEndWith(
-      "Le prochain envoi se fera à ta prochaine page.",
-    );
+    // relevé à refaire à la page suivante : plus rien à signaler
+    expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe("");
     // plus partagée avec les chefs non plus : gardé, relu à la réouverture
     cocher("chefs", "fdfAB", false);
     expect(preferences.lire(`localStorage.getItem("fzzz_partage_fdfAB")`)).toBe("0");
@@ -1345,7 +1355,29 @@ describe("Préférences → Partage de données", () => {
       ),
     ).toEqual([[true], true, "Relevé et envoi en cours…"]);
     await attendre();
-    expect(preferences.lire(`$("#o_partageEnvoyer").prop("disabled")`)).toBe(false);
+    expect(
+      preferences.lire(`[$("#o_partageEnvoyer").prop("disabled"), $("#o_partageEtat").text()]`),
+    ).toEqual([false, "Relevé envoyé."]);
+    // échec : la raison gardée par le relevé
+    preferences.lire(`(() => {
+      SuiviMembres.lancer = () => {
+        SuiviMembres._garder({ jour: SuiviMembres.jour(), fait: false, essais: 1, essai: heure, raison: "page Armée illisible" });
+        return Promise.resolve("échec");
+      };
+      $("#o_partageEnvoyer").trigger("click");
+    })()`);
+    await attendre();
+    expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe(
+      "Aujourd'hui, le relevé n'a pas pu être envoyé : page Armée illisible. Nouvel essai à une page ouverte plus tard (3 essais par jour au plus).",
+    );
+    preferences.lire(`(() => {
+      SuiviMembres.lancer = () => Promise.resolve("sans alliance");
+      $("#o_partageEnvoyer").trigger("click");
+    })()`);
+    await attendre();
+    expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe(
+      "Sans alliance, rien n'est relevé.",
+    );
   });
 
   test("boutons « Exporter mes chasses » et « Exporter mes RC » : l'export de la boîte de réception, de n'importe quelle page", async () => {
@@ -1369,131 +1401,5 @@ describe("Préférences → Partage de données", () => {
       ["chasse", "Exporter mes chasses", ["liste chasse"]],
       ["combat", "Exporter mes RC", ["liste combat"]],
     ]);
-  });
-
-  test("bouton « Ranger le forum » : pour le mainteneur seulement ; confirmé, avancement, puis bilan", async () => {
-    preferences.lire(`localStorage.clear()`);
-    ouvrir();
-    // un autre joueur : ni le bloc ni le bouton
-    expect(preferences.lire(`$(".o_partageRanger").length`)).toBe(0);
-    expect(preferences.lire<string>(`$("#o_tabsParametrePartage").text()`)).not.toContain(
-      "Ranger le forum",
-    );
-    preferences.lire(`(() => {
-      $("body").append("<span id='pseudo'>DoggyBag</span>");
-      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["doggybag"] } }));
-      $("#o_tabsParametrePartage").empty();
-      boite.ongletPartage();
-    })()`);
-    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
-    expect(texte).toContain("« Floods | pseudo » et « Chasses | pseudo »");
-    expect(texte).toContain("une réponse par joueur, que son extension écrit et modifie");
-    expect(texte).toContain("supprimés avec toutes leurs entrées, sans historique");
-    expect(texte).not.toContain("l'historique de leur joueur");
-    expect(texte).toContain("Il faut les droits de gestion du forum ;");
-    preferences.lire(`(() => {
-      window.RANGE = { fin: null, echec: null, appels: 0, confirmer: false };
-      window.confirm = () => RANGE.confirmer;
-      PartageChasses.rangerForum = (etat) => {
-        RANGE.appels++;
-        etat("Anciens sujets : 1 / 4 (Floods | Beta)…");
-        return new Promise((ok, non) => { RANGE.fin = ok; RANGE.echec = non; });
-      };
-      $(".o_partageRanger").trigger("click");
-    })()`);
-    // supprimer des sujets ne se défait pas : rien sans confirmation
-    expect(preferences.lire(`RANGE.appels`)).toBe(0);
-    preferences.lire(
-      `(() => { RANGE.confirmer = true; $(".o_partageRanger").trigger("click"); })()`,
-    );
-    const etat = () =>
-      preferences.lire(
-        `[$(".o_partageRanger").prop("disabled"), $("#o_partageRangerEtat").text()]`,
-      );
-    expect(etat()).toEqual([true, "Anciens sujets : 1 / 4 (Floods | Beta)…"]);
-    preferences.lire(`RANGE.fin("Anciens sujets : 4 supprimés.")`);
-    await attendre();
-    expect(etat()).toEqual([false, "Anciens sujets : 4 supprimés."]);
-    preferences.lire(`$(".o_partageRanger").trigger("click")`);
-    preferences.lire(`RANGE.echec(new Error("absente"))`);
-    await attendre();
-    expect(etat()).toEqual([false, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
-    preferences.lire(`$(".o_partageRanger").trigger("click")`);
-    preferences.lire(`RANGE.echec(new Error("forum"))`);
-    await attendre();
-    expect(etat()[1]).toBe(
-      "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
-    );
-    preferences.lire(`$("#pseudo").remove()`);
-  });
-
-  test("bouton « Supprimer les sujets de floods inutiles » : pour le mainteneur seulement ; liste lue confirmée, avancement, puis bilan", async () => {
-    preferences.lire(`localStorage.clear()`);
-    ouvrir();
-    // un autre joueur : ni le bloc ni le bouton
-    expect(preferences.lire(`$(".o_partageSupprimerFloods").length`)).toBe(0);
-    preferences.lire(`(() => {
-      $("body").append("<span id='pseudo'>DoggyBag</span>");
-      localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { journal: ["doggybag"] } }));
-      $("#o_tabsParametrePartage").empty();
-      boite.ongletPartage();
-    })()`);
-    const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
-    expect(texte).toContain("Sujets de floods inutiles");
-    expect(texte).toContain(
-      "« Historique Floods N | pseudo » (l'historique des floods n'est plus tenu)",
-    );
-    expect(texte).toContain("est toujours gardé");
-    preferences.lire(`(() => {
-      window.SUPPR = { fin: null, echec: null, confirmations: [], accord: false, reponses: [] };
-      window.confirm = (m) => (SUPPR.confirmations.push(m), SUPPR.accord);
-      PartageChasses.supprimerSujetsFloods = (etat, confirmer) => {
-        etat("Lecture de la liste des sujets…");
-        SUPPR.reponses.push(
-          confirmer(Array.from({ length: 17 }, (_, i) => ({ id: String(i), titre: "Historique Floods " + (i + 1) + " | Beta" }))),
-        );
-        return new Promise((ok, non) => { SUPPR.fin = ok; SUPPR.echec = non; });
-      };
-      $(".o_partageSupprimerFloods").trigger("click");
-    })()`);
-    const etat = () =>
-      preferences.lire(
-        `[$(".o_partageSupprimerFloods").prop("disabled"), $("#o_partageSupprimerFloodsEtat").text()]`,
-      );
-    expect(etat()).toEqual([true, "Lecture de la liste des sujets…"]);
-    // la confirmation montre la liste lue (les 15 premiers titres, puis leur nombre)
-    const message = preferences.lire<string>(`SUPPR.confirmations[0]`).split("\n");
-    expect(message[0]).toBe(
-      "Supprimer ces 17 sujets de floods ? Une suppression ne se défait pas.",
-    );
-    expect(message.slice(1, 3)).toEqual([
-      "• Historique Floods 1 | Beta",
-      "• Historique Floods 2 | Beta",
-    ]);
-    expect(message.slice(-2)).toEqual([
-      "… et 2 autres",
-      `Le sujet « ${preferences.lire<string>(`SUJETS_COMMUNS.Floods`)} » est gardé.`,
-    ]);
-    expect(message.length).toBe(18);
-    expect(preferences.lire(`SUPPR.reponses`)).toEqual([false]);
-    preferences.lire(`SUPPR.fin("Suppression annulée : aucun sujet supprimé.")`);
-    await attendre();
-    expect(etat()).toEqual([false, "Suppression annulée : aucun sujet supprimé."]);
-    preferences.lire(
-      `(() => { SUPPR.accord = true; $(".o_partageSupprimerFloods").trigger("click"); })()`,
-    );
-    expect(preferences.lire(`SUPPR.reponses`)).toEqual([false, true]);
-    preferences.lire(`SUPPR.fin("Sujets de floods inutiles : 17 supprimés.")`);
-    await attendre();
-    expect(etat()).toEqual([false, "Sujets de floods inutiles : 17 supprimés."]);
-    preferences.lire(`$(".o_partageSupprimerFloods").trigger("click")`);
-    preferences.lire(`SUPPR.echec(new Error("absente"))`);
-    await attendre();
-    expect(etat()).toEqual([false, preferences.lire<string>(`SECTION_INTROUVABLE`)]);
-    preferences.lire(`$(".o_partageSupprimerFloods").trigger("click")`);
-    preferences.lire(`SUPPR.echec(new Error("forum"))`);
-    await attendre();
-    expect(etat()[1]).toBe("Forum de l'alliance illisible : réessaie plus tard.");
-    preferences.lire(`$("#pseudo").remove()`);
   });
 });

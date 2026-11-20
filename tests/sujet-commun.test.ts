@@ -6,9 +6,9 @@ import { FORUM_SIMULE, SUJET_RELEVE } from "./forum-simule";
  * Sujets communs « BDD générale flood » et « BDD générale chasse » : une
  * réponse par joueur, postée puis modifiée par son extension, que lui seul
  * écrit (demande du mainteneur, 14/11/2026) ; le premier message (ancien
- * format, une section par joueur) n'est plus lu, « Ranger le forum » le vide
- * et supprime les anciens sujets des joueurs. HTML du forum relevé le 14/11
- * (tests/forum-simule.ts). Joueurs inventés.
+ * format, une section par joueur) et les anciens sujets des joueurs ne sont
+ * plus lus. HTML du forum relevé le 14/11 (tests/forum-simule.ts). Joueurs
+ * inventés.
  */
 const page = creerPage(
   ["js/class/Utils.js", "js/class/Requetes.js", "js/page/PartageChasses.js"],
@@ -29,7 +29,7 @@ lire(`(() => {
     // comme le vrai _xajax : une écriture rend les lectures gardées périmées
     if (/^envoi/.test(f)) PartageChasses.oublierCache();
     if (f == "callGetForum")
-      return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.slice(0, FORUM.limite || Infinity).map((s) =>
+      return Promise.resolve('<form id="form_cat"><table>' + FORUM.sujets.map((s) =>
         '<tr><td><input name="topic[]" value="' + s.id + '"/></td><td>' + s.titre + '</td><td><b>X</b><br/>' + (s.dernier || "13 nov. à 22h03") + '</td></tr>').join("") + '</table></form>');
     if (f == "callGetTopic" && FORUM.echoue.includes(String(args))) return Promise.reject(new Error("forum"));
     // écriture acceptée par le jeu sans effet (grade sans droit d'écrire)
@@ -44,12 +44,6 @@ lire(`(() => {
     if (f == "envoiNouveauSujet") {
       if (FORUM.historiqueEchoue) return Promise.reject(new Error("forum"));
       FORUM.sujets.push({ id: String(200 + FORUM.sujets.length), titre: SIM.q(args, "sujet"), texte: SIM.q(args, "message") });
-      return Promise.resolve("<xjx></xjx>");
-    }
-    if (f == "callSupprimer") {
-      const ids = [...String(args[0]).matchAll(/topic\\[\\]=(\\d+)/g)].map((m) => m[1]);
-      FORUM.suppressions.push(ids);
-      if (!FORUM.refuseSuppression) FORUM.sujets = FORUM.sujets.filter((s) => !ids.includes(s.id));
       return Promise.resolve("<xjx></xjx>");
     }
     const r = SIM.traiter(FORUM.sujets, f, args, monProfil.pseudo);
@@ -118,8 +112,8 @@ function preparer() {
     monProfil.pseudo = "Alpha";
     journalInstalle = true;
     Object.keys(COMPTE_REQUETES).forEach((k) => (COMPTE_REQUETES[k] = 0));
-    FORUM = { sujets: ${JSON.stringify(sujets)}, ordre: [], echoue: [], refuse: [], premiers: [], suppressions: [],
-      reponseVide: false, historiqueEchoue: false, refuseSuppression: false };
+    FORUM = { sujets: ${JSON.stringify(sujets)}, ordre: [], echoue: [], refuse: [], premiers: [],
+      reponseVide: false, historiqueEchoue: false };
   })()`);
 }
 const sujet = (id: string) => lire<any>(`FORUM.sujets.find((s) => s.id == ${JSON.stringify(id)})`);
@@ -196,23 +190,6 @@ describe("format", () => {
     ]);
     lire(`(() => { monProfil.pseudo = "Alpha"; })()`);
     expect(lire<any>(`PartageChasses._maReponse(${JSON.stringify(messages)}).id`)).toBe(503);
-  });
-
-  test("sections de l'ancien format (lues par « Ranger le forum ») : en-tête, lignes, texte d'en-tête gardé", () => {
-    preparer();
-    const lu = lire<any>(`PartageChasses.sections(${JSON.stringify(sujet("10").texte)})`);
-    expect(lu.preambule).toBe("NE RIEN ÉCRIRE ICI");
-    expect(
-      lu.sections.map((s: any) => [s.pseudo, s.ecrit, s.floods.map((f: any) => f.id)]),
-    ).toEqual([
-      ["Alpha", "2026-11-14 00:02:59", [11, 8]],
-      ["Gamma", "2026-11-14 00:02:59", [31]],
-    ]);
-    expect(lire<string>(`PartageChasses.texteCommun("En-tête")`)).toBe("En-tête");
-    // jamais vide
-    expect(lire<string>(`PartageChasses.texteCommun("")`)).toBe(
-      "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.",
-    );
   });
 });
 
@@ -513,180 +490,5 @@ describe("écriture de ma réponse", () => {
       );
       expect(relue).toBe(l);
     }
-  });
-});
-
-describe("« Ranger le forum » (mainteneur) : les anciens formats retirés", () => {
-  const ranger = () =>
-    lire<Promise<string>>(
-      `(() => { window.ETATS = []; return PartageChasses.rangerForum((t) => ETATS.push(t)); })()`,
-    );
-  const historique = (pseudo: string) =>
-    lire<string | null>(
-      `(() => { const s = FORUM.sujets.find((s) => s.titre == "Historique Floods 1 | " + ${JSON.stringify(pseudo)}); return s ? s.texte : null; })()`,
-    );
-
-  test("premiers messages vidés (texte d'en-tête gardé), entrées passées supprimées sans historique, anciens sujets supprimés en une fois ; réponses et convois gardés ; bilan", async () => {
-    preparer();
-    const bilan = await ranger();
-    expect(bilan).toBe(
-      `« ${COMMUN_F} » : 2 sections de l'ancien format retirées, 1 entrée passée supprimée (pas d'historique). « ${COMMUN_C} » : premier message déjà rangé. Anciens sujets : 3 supprimés.`,
-    );
-    expect(sujet("10").texte).toBe("NE RIEN ÉCRIRE ICI");
-    // titre et case « modifiable » réécrits comme avant
-    expect(lire<any>(`FORUM.premiers.find((p) => p.id == "10")`)).toMatchObject({
-      sujet: COMMUN_F,
-      modifiable: true,
-    });
-    expect(reponses("10")).toEqual([["Beta", ligne("Floods", B1)]]);
-    // PASSE (flood arrivé) : supprimé, sans historique ; les anciens sujets ne
-    // sont pas lus avant leur suppression
-    expect(historique("Alpha")).toBeNull();
-    expect(ordre().filter((o) => /^callGetTopic [123]$/.test(o))).toEqual([]);
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3"]]);
-    expect(titres()).toEqual(["Convois | Alpha", COMMUN_F, COMMUN_C]);
-    expect(notes()).toContain("Anciens sujets : 3 supprimés.");
-    // l'affichage n'en voit rien : seule la réponse de Beta compte
-    const d = await charger();
-    expect(d.floods.map((f: any) => [f.lanceur, f.id])).toEqual([["Beta", 21]]);
-  });
-
-  test("premier message sans texte d'en-tête : le texte par défaut", async () => {
-    preparer();
-    lire(
-      `(() => { const s = FORUM.sujets.find((s) => s.id == "10"); s.texte = s.texte.replace("NE RIEN ÉCRIRE ICI\\n", ""); })()`,
-    );
-    await ranger();
-    expect(sujet("10").texte).toBe(
-      "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.",
-    );
-  });
-
-  test("ancien sujet des chasses avec une chasse passée, même illisible : supprimé sans être lu, aucune page d'historique", async () => {
-    preparer();
-    lire(`(() => {
-      const s = FORUM.sujets.find((s) => s.id == "3");
-      s.texte += "\\n" + ${JSON.stringify(ligne("Chasses", { date: "2026-11-14 11:30", terrain: 900 }))};
-      FORUM.echoue.push("2", "3");
-    })()`);
-    expect(await ranger()).toEndWith("Anciens sujets : 3 supprimés.");
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2", "3"]]);
-    expect(titres().filter((t) => t.startsWith("Historique"))).toEqual([]);
-  });
-
-  test("suppression refusée par le forum (droits de gestion) : vue à la relecture de la liste", async () => {
-    preparer();
-    lire(`(() => { FORUM.refuseSuppression = true; })()`);
-    expect(await ranger()).toEndWith(
-      "Anciens sujets : 0 supprimé, 3 pas supprimés : le forum les montre encore (droits de gestion du forum ?).",
-    );
-  });
-
-  test("premier message pas modifié (droits de la section) : le bilan le dit", async () => {
-    preparer();
-    lire(`(() => { FORUM.refuse = ["envoiEditTopic"]; })()`);
-    expect(await ranger()).toStartWith(
-      `« ${COMMUN_F} » : premier message pas modifié (droits de la section ?), réessaie plus tard.`,
-    );
-  });
-
-  test("tout est déjà rangé : rien n'est écrit ni supprimé", async () => {
-    preparer();
-    await ranger();
-    lire(`(() => { FORUM.premiers.length = 0; FORUM.suppressions.length = 0; })()`);
-    expect(await ranger()).toBe(
-      `« ${COMMUN_F} » : premier message déjà rangé. « ${COMMUN_C} » : premier message déjà rangé. Aucun ancien sujet « Floods | … » ou « Chasses | … » à supprimer.`,
-    );
-    expect(lire(`[FORUM.premiers.length, FORUM.suppressions.length]`)).toEqual([0, 0]);
-  });
-
-  test("pas de sujet commun : le bilan le dit, les anciens sujets sont quand même supprimés", async () => {
-    preparer();
-    lire(`(() => { FORUM.sujets = FORUM.sujets.filter((s) => !["10", "11"].includes(s.id)); })()`);
-    expect(await ranger()).toBe(
-      `Aucun sujet « ${COMMUN_F} » ni « ${COMMUN_C} » dans la section. Anciens sujets : 3 supprimés.`,
-    );
-  });
-});
-
-describe("« Supprimer les sujets de floods inutiles » (mainteneur)", () => {
-  /** preparer(), plus des pages d'historique de chaque type. */
-  const preparerHistoriques = () => {
-    preparer();
-    lire(`FORUM.sujets.push(
-      { id: "20", titre: "Historique Floods 1 | Alpha", texte: "x" },
-      { id: "21", titre: "Historique Floods 2 | Alpha", texte: "x" },
-      { id: "22", titre: "Historique Floods 1 | Beta", texte: "x" },
-      { id: "23", titre: "Historique Chasses 1 | Alpha", texte: "x" },
-      { id: "24", titre: "Historique Convois 1 | Alpha", texte: "x" },
-    )`);
-  };
-  /** Suppression ; la liste soumise à confirmation est gardée dans LISTES. */
-  const supprimer = (accord = true) =>
-    lire<Promise<string>>(`(() => {
-      window.ETATS = [];
-      window.LISTES = [];
-      return PartageChasses.supprimerSujetsFloods(
-        (t) => ETATS.push(t),
-        (liste) => (LISTES.push(liste.map((t) => t.titre)), ${accord}),
-      );
-    })()`);
-
-  test("pages « Historique Floods » et anciens « Floods | … » supprimés en une fois après confirmation de la liste ; sujet commun, chasses et convois gardés", async () => {
-    preparerHistoriques();
-    expect(await supprimer()).toBe("Sujets de floods inutiles : 5 supprimés.");
-    expect(lire(`LISTES`)).toEqual([
-      [
-        "Historique Floods 1 | Alpha",
-        "Historique Floods 2 | Alpha",
-        "Historique Floods 1 | Beta",
-        "Floods | Alpha",
-        "Floods | Beta",
-      ],
-    ]);
-    expect(lire(`FORUM.suppressions`)).toEqual([["20", "21", "22", "1", "2"]]);
-    expect(titres()).toEqual([
-      "Chasses | Alpha",
-      "Convois | Alpha",
-      COMMUN_F,
-      COMMUN_C,
-      "Historique Chasses 1 | Alpha",
-      "Historique Convois 1 | Alpha",
-    ]);
-    // aucun sujet lu ni écrit : la liste seulement
-    expect(ordre().filter((o) => !/^call(GetForum|Supprimer)/.test(o))).toEqual([]);
-    expect(notes()).toContain("Sujets de floods inutiles : 5 supprimés.");
-  });
-
-  test("confirmation refusée : rien n'est supprimé", async () => {
-    preparerHistoriques();
-    expect(await supprimer(false)).toBe("Suppression annulée : aucun sujet supprimé.");
-    expect(lire(`FORUM.suppressions`)).toEqual([]);
-  });
-
-  test("aucun sujet de floods inutile : rien à confirmer ni à supprimer", async () => {
-    preparer();
-    lire(
-      `(() => { FORUM.sujets = FORUM.sujets.filter((s) => !s.titre.startsWith("Floods |")); })()`,
-    );
-    expect(await supprimer()).toBe("Aucun sujet de floods inutile dans la section.");
-    expect(lire(`[LISTES.length, FORUM.suppressions.length]`)).toEqual([0, 0]);
-  });
-
-  test("suppression refusée par le forum (droits de gestion) : vue à la relecture de la liste, une seule tentative", async () => {
-    preparerHistoriques();
-    lire(`(() => { FORUM.refuseSuppression = true; })()`);
-    expect(await supprimer()).toBe(
-      "Sujets de floods inutiles : 0 supprimé, 5 pas supprimés : le forum les montre encore (droits de gestion du forum ?).",
-    );
-    expect(lire(`FORUM.suppressions.length`)).toBe(1);
-  });
-
-  test("liste du forum limitée : les sujets qui apparaissent après une suppression sont supprimés à leur tour", async () => {
-    preparerHistoriques();
-    lire(`(() => { FORUM.limite = 6; })()`);
-    expect(await supprimer()).toBe("Sujets de floods inutiles : 5 supprimés.");
-    expect(lire(`LISTES`)).toEqual([["Floods | Alpha", "Floods | Beta"]]);
-    expect(lire(`FORUM.suppressions`)).toEqual([["1", "2"], ["20", "21"], ["22"]]);
   });
 });

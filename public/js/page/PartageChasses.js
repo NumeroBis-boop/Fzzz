@@ -12,9 +12,6 @@ const FORUM_SECTIONS_CHASSES = ["BDD partagée cachée", "Fzzz-Chasses", "Fzzz_C
 const SECTION_INTROUVABLE = `Section « ${FORUM_SECTIONS_CHASSES[0]} » introuvable : elle n'existe pas encore, ou ton grade ne la voit pas. Demande à un chef.`;
 // entrées gardées par sujet (les plus récentes)
 const PARTAGE_MAX_ENTREES = 300;
-// « Supprimer les sujets de floods inutiles » : nouvelles suppressions tant que
-// la liste relue en montre d'autres (sa longueur maximale n'est pas connue)
-const SUPPRESSION_TOURS_MAX = 5;
 // sujets où l'alliance tient à la main ses listes de GIF et de smileys pour le chat (ChatGif)
 const TITRE_GIF_ALLIANCE = "GIF de l'alliance";
 const TITRE_SMILEYS_ALLIANCE = "Smileys de l'alliance";
@@ -55,11 +52,6 @@ const SUJETS_COMMUNS = {
   Chasses: "BDD générale chasse - NE RIEN ÉCRIRE",
   Convois: "BDD générale convoi - NE RIEN ÉCRIRE",
 };
-// types dont le premier message a eu un ancien format (« Ranger le forum »)
-const TYPES_PARTAGES = ["Floods", "Chasses"];
-// ancien format (1.113), une section par joueur dans le premier message :
-// « --- pseudo · AAAA-MM-JJ HH:mm:ss --- » ; lu seulement par « Ranger le forum »
-const ENTETE_SECTION = /^\s*---\s*(.+?)\s*·\s*(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\s*---\s*$/;
 // un message du forum est coupé au-delà d'une taille maximale (relevé du
 // 13/11/2026 : 63 253 caractères gardés, 65 484 octets) : au-delà de ce seuil
 // prudent, le partage est refusé plutôt que coupé
@@ -72,9 +64,6 @@ const MESSAGE_VIDE = {
   Chasses: "Aucune chasse en cours.",
   Convois: "Aucun convoi en cours.",
 };
-// premier message d'un sujet commun rangé, sans texte d'en-tête écrit à la main
-const PREAMBULE_COMMUN =
-  "Une réponse par joueur, écrite et modifiée par son Extension OUAF. NE RIEN ÉCRIRE ICI.";
 
 /**
  * Partage des chasses et des floods avec l'alliance, stocké dans son forum
@@ -339,7 +328,7 @@ class PartageChasses {
       .trim();
   }
   /**
-   * Sujets de la section : {"Convois | pseudo": idSujet, communs, historiques…}.
+   * Sujets de la section : {"Convois | pseudo": idSujet, communs, reglages…}.
    *
    * @static
    * @method sujets
@@ -366,13 +355,10 @@ class PartageChasses {
         throw new Error("section inaccessible");
       }
       // clé « Convois | pseudo en minuscules » → id du sujet des convois du joueur ;
-      // sujets.liste : anciens sujets « Floods | … » / « Chasses | … » des joueurs
-      // pas encore à jour {type, pseudo, id}, supprimés par « Ranger le forum » ;
-      // sujets.historiques : pages d'historique {type, page, pseudo, id} ;
       // sujets.reglages : sujet des réglages de l'alliance (ReglagesAlliance) ;
       // sujets.gifAlliance, sujets.smileysAlliance : sujets des GIF et des smileys de l'alliance ;
       // sujets.communs : sujets communs par type {type, id, dernier}
-      let sujets = { liste: [], historiques: [], communs: {} },
+      let sujets = { communs: {} },
         // titre écrit à la main : casse, espaces et apostrophe typographique tolérés
         normaliser = (/** @type {String} */ t) =>
           t
@@ -385,8 +371,6 @@ class PartageChasses {
         .each((i, elt) => {
           let titre = $(elt).find("td:eq(1)").text().trim(),
             m = titre.match(/^Convois \| (.+)$/),
-            suivi = titre.match(/^(Chasses|Floods) \| (.+)$/),
-            h = titre.match(/^Historique (Chasses|Floods) (\d+) \| (.+)$/),
             idSujet =
               $(elt).find("input[name='topic[]']").val() ||
               (($(elt).find("a.topic_forum").attr("onclick") || "").match(/\d+/) || [])[0],
@@ -407,12 +391,6 @@ class PartageChasses {
           // titre écrit par un membre : caractères de balisage retirés
           if (m && idSujet)
             sujets[`Convois | ${PartageChasses.nettoyer(m[1]).toLowerCase()}`] = idSujet;
-          if (suivi && idSujet)
-            sujets.liste.push({
-              type: suivi[1],
-              pseudo: PartageChasses.nettoyer(suivi[2]),
-              id: idSujet,
-            });
           if (
             commun &&
             idSujet &&
@@ -431,13 +409,6 @@ class PartageChasses {
               (!sujets[cle] || Number(idSujet) < Number(sujets[cle]))
             )
               sujets[cle] = idSujet;
-          if (h && idSujet)
-            sujets.historiques.push({
-              type: h[1],
-              page: parseInt(h[2]),
-              pseudo: PartageChasses.nettoyer(h[3]),
-              id: idSujet,
-            });
         });
       return sujets;
     });
@@ -479,17 +450,6 @@ class PartageChasses {
     } catch (e) {}
   }
   /**
-   * Premier message d'un sujet, lu au forum (sans les lectures gardées).
-   *
-   * @private
-   * @static
-   * @param {String} idSujet
-   * @return {Promise<String>}
-   */
-  static _texteSujet(idSujet) {
-    return PartageChasses._lireSujet(idSujet).then((data) => PartageChasses.premierMessage(data));
-  }
-  /**
    * Sujet lu au forum (réponse xajax), sans les lectures gardées.
    *
    * @static
@@ -501,7 +461,7 @@ class PartageChasses {
   }
   /**
    * Chasses et floods des lignes d'un texte : réponse d'un joueur dans un
-   * sujet commun, section de l'ancien format, ou ancien sujet d'un joueur.
+   * sujet commun.
    *
    * @static
    * @method lireEntrees
@@ -592,52 +552,6 @@ class PartageChasses {
         .replace(/\s+/g, " ")
         .trim();
     return simple(titre).startsWith(simple(SUJETS_COMMUNS[type].split(" - ")[0]));
-  }
-  /**
-   * Sections de l'ancien format (1.113, premier message d'un sujet commun) :
-   * l'en-tête de chacune (ENTETE_SECTION) puis ses lignes ; le texte avant la
-   * première section, écrit à la main, est gardé. Lu par « Ranger le forum ».
-   *
-   * @static
-   * @method sections
-   * @param {String} texte premier message
-   * @return {{preambule: String, sections: Array<any>}} sections : {pseudo,
-   *   ecrit, lignes, chasses, floods}
-   */
-  static sections(texte) {
-    /** @type {Array<String>} */
-    let preambule = [],
-      /** @type {Array<any>} */
-      sections = [],
-      /** @type {any} */
-      courante = null;
-    String(texte || "")
-      .split("\n")
-      .forEach((ligne) => {
-        let m = ligne.match(ENTETE_SECTION);
-        if (m)
-          sections.push(
-            (courante = { pseudo: PartageChasses.nettoyer(m[1]), ecrit: m[2], lignes: [] }),
-          );
-        else if (courante) {
-          if (ligne.trim()) courante.lignes.push(ligne.trim());
-        } else preambule.push(ligne);
-      });
-    return {
-      preambule: preambule.join("\n").trim(),
-      sections: sections.map((s) => ({ ...s, ...PartageChasses.lireEntrees(s.lignes.join("\n")) })),
-    };
-  }
-  /**
-   * Premier message d'un sujet commun rangé : son texte d'en-tête ; jamais vide.
-   *
-   * @static
-   * @method texteCommun
-   * @param {String} preambule
-   * @return {String}
-   */
-  static texteCommun(preambule) {
-    return preambule.trim() || PREAMBULE_COMMUN;
   }
   /**
    * Réponses d'un sujet commun par joueur, gardées une minute (sujetGarde).
@@ -748,233 +662,6 @@ class PartageChasses {
       )
         .then((data) => prise(data) || PartageChasses._lireSujet(idSujet).then(prise))
         .then((ok) => ({ etat: ok ? "écrite" : "refusée", longueur: texte.length }));
-    });
-  }
-  /**
-   * Bouton « Ranger le forum » (Préférences → Partage de données, réservé au
-   * mainteneur) : passage à une réponse par joueur. Le premier message de
-   * chaque sujet commun (ancien format, une section par joueur) ne garde que
-   * son texte d'en-tête, puis les anciens sujets « Floods | … » /
-   * « Chasses | … » sont supprimés, avec leurs entrées : chaque joueur partage
-   * de nouveau celles à venir (règle du mainteneur, 14/11/2026 : « tout le
-   * monde repart de la nouvelle »).
-   *
-   * @static
-   * @method rangerForum
-   * @param {(texte: String) => void} [etat] avancement affiché
-   * @return {Promise<String>} bilan à afficher
-   */
-  static rangerForum(etat = () => {}) {
-    return PartageChasses._viderPremiers(etat).then((vidage) =>
-      PartageChasses._supprimerAnciens(etat).then((suppression) =>
-        [vidage, suppression].filter(Boolean).join(" "),
-      ),
-    );
-  }
-  /**
-   * @private
-   * @static
-   * @param {(texte: String) => void} etat
-   * @return {Promise<String>}
-   */
-  static _viderPremiers(etat) {
-    etat("Lecture de la liste des sujets…");
-    PartageChasses.oublierCache();
-    return PartageChasses.sujets().then((sujets) => {
-      let types = TYPES_PARTAGES.filter((type) => (sujets.communs || {})[type]),
-        /** @type {Array<String>} */
-        bilans = [];
-      if (!types.length)
-        return `Aucun sujet ${TYPES_PARTAGES.map((type) => `« ${SUJETS_COMMUNS[type]} »`).join(
-          " ni ",
-        )} dans la section.`;
-      return types
-        .reduce(
-          (suite, type) =>
-            suite.then(() =>
-              PartageChasses._viderPremier(type, sujets, etat).then((b) => void bilans.push(b)),
-            ),
-          Promise.resolve(),
-        )
-        .then(() => bilans.join(" "));
-    });
-  }
-  /**
-   * @private
-   * @static
-   * @param {String} type
-   * @param {any} sujets
-   * @param {(texte: String) => void} etat
-   * @return {Promise<String>}
-   */
-  static _viderPremier(type, sujets, etat) {
-    let titre = SUJETS_COMMUNS[type],
-      commun = sujets.communs[type],
-      maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-      nombre = (
-        /** @type {Number} */ n,
-        /** @type {String} */ un,
-        /** @type {String} */ plusieurs,
-      ) => `${numeral(n).format()} ${n > 1 ? plusieurs : un}`;
-    etat(`« ${titre} » : lecture du premier message…`);
-    return PartageChasses._texteSujet(commun.id).then((texte) => {
-      let lu = PartageChasses.sections(texte);
-      if (!lu.sections.length) return `« ${titre} » : premier message déjà rangé.`;
-      let passees = lu.sections.reduce(
-        (n, /** @type {any} */ s) =>
-          n +
-          (type == "Chasses" ? s.chasses : s.floods).filter(
-            (/** @type {any} */ e) => e.date < maintenant,
-          ).length,
-        0,
-      );
-      etat(`« ${titre} » : écriture…`);
-      let q = `sujet=${encodeURIComponent(titre)}&message=${encodeURIComponent(PartageChasses.texteCommun(lu.preambule))}&modifiable=envoyer&send=Envoyer`;
-      return PartageChasses._xajax(
-        "envoiEditTopic",
-        `<xjxquery><q>IDTopic=${commun.id}&${q}</q></xjxquery>`,
-      )
-        .then(() => PartageChasses._texteSujet(commun.id))
-        .then((relu) => {
-          let refuse = PartageChasses.sections(relu).sections.length > 0,
-            bilan = refuse
-              ? `« ${titre} » : premier message pas modifié (droits de la section ?), réessaie plus tard.`
-              : `« ${titre} » : ${nombre(
-                  lu.sections.length,
-                  "section de l'ancien format retirée",
-                  "sections de l'ancien format retirées",
-                )}, ${nombre(passees, "entrée passée supprimée", "entrées passées supprimées")} (pas d'historique).`;
-          if (refuse) Journal.erreur("Forum", bilan);
-          else Journal.info("Forum", bilan);
-          return bilan;
-        });
-    });
-  }
-  /**
-   * « Ranger le forum », seconde étape : chaque ancien sujet « Floods | … » /
-   * « Chasses | … » est supprimé, sans être lu.
-   *
-   * @private
-   * @static
-   * @param {(texte: String) => void} etat
-   * @return {Promise<String>}
-   */
-  static _supprimerAnciens(etat) {
-    let nombre = (
-      /** @type {Number} */ n,
-      /** @type {String} */ un,
-      /** @type {String} */ plusieurs,
-    ) => `${numeral(n).format()} ${n > 1 ? plusieurs : un}`;
-    etat("Anciens sujets : lecture de la liste…");
-    PartageChasses.oublierCache();
-    return PartageChasses.sujets().then((sujets) => {
-      let anciens = sujets.liste;
-      if (!anciens.length)
-        return "Aucun ancien sujet « Floods | … » ou « Chasses | … » à supprimer.";
-      etat("Anciens sujets : suppression…");
-      return PartageChasses._xajax("callSupprimer", [
-        `<xjxquery><q>${anciens.map((/** @type {any} */ t) => "topic[]=" + t.id).join("&")}</q></xjxquery>`,
-        PartageChasses.idSection,
-      ])
-        .then(() => {
-          PartageChasses.oublierCache();
-          return PartageChasses.sujets();
-        })
-        .then((apres) => {
-          let restants = new Set(apres.liste.map((/** @type {any} */ t) => t.id)),
-            refuses = anciens.filter((/** @type {any} */ t) => restants.has(t.id)).length,
-            bilan = `Anciens sujets : ${[
-              nombre(anciens.length - refuses, "supprimé", "supprimés"),
-              refuses
-                ? `${nombre(refuses, "pas supprimé", "pas supprimés")} : le forum le${refuses > 1 ? "s" : ""} montre encore (droits de gestion du forum ?)`
-                : "",
-            ]
-              .filter(Boolean)
-              .join(", ")}.`;
-          if (refuses) Journal.erreur("Forum", bilan);
-          else Journal.info("Forum", bilan);
-          return bilan;
-        });
-    });
-  }
-  /**
-   * Bouton « Supprimer les sujets de floods inutiles » (Préférences → Partage
-   * de données, réservé au mainteneur) : les pages « Historique Floods N |
-   * pseudo » (plus d'historique des floods) et les anciens sujets
-   * « Floods | pseudo », supprimés en une requête comme les cases et le bouton
-   * « Supprimer » du jeu, une fois la liste lue confirmée ; jamais le sujet
-   * commun. La liste relue dit ce que le forum a gardé (droits) ; si elle
-   * montre d'autres sujets de floods inutiles (liste du forum peut-être
-   * limitée), ils sont supprimés à leur tour.
-   *
-   * @static
-   * @method supprimerSujetsFloods
-   * @param {(texte: String) => void} [etat] avancement affiché
-   * @param {(sujets: Array<{id: String, titre: String}>) => Boolean} [confirmer]
-   *   accord sur les sujets lus, avant toute suppression
-   * @return {Promise<String>} bilan à afficher
-   */
-  static supprimerSujetsFloods(etat = () => {}, confirmer = () => true) {
-    let nombre = (
-        /** @type {Number} */ n,
-        /** @type {String} */ un,
-        /** @type {String} */ plusieurs,
-      ) => `${numeral(n).format()} ${n > 1 ? plusieurs : un}`,
-      inutiles = (/** @type {any} */ sujets) => [
-        ...sujets.historiques
-          .filter((/** @type {any} */ h) => h.type == "Floods")
-          .sort((/** @type {any} */ a, /** @type {any} */ b) =>
-            a.pseudo == b.pseudo ? a.page - b.page : a.pseudo < b.pseudo ? -1 : 1,
-          )
-          .map((/** @type {any} */ h) => ({
-            id: h.id,
-            titre: `Historique Floods ${h.page} | ${h.pseudo}`,
-          })),
-        ...sujets.liste
-          .filter((/** @type {any} */ t) => t.type == "Floods")
-          .map((/** @type {any} */ t) => ({ id: t.id, titre: `Floods | ${t.pseudo}` })),
-      ],
-      supprimes = 0,
-      tours = 0;
-    let supprimer = (/** @type {Array<{id: String, titre: String}>} */ liste) => {
-      etat(`Suppression de ${nombre(liste.length, "sujet", "sujets")}…`);
-      return PartageChasses._xajax("callSupprimer", [
-        `<xjxquery><q>${liste.map((t) => "topic[]=" + t.id).join("&")}</q></xjxquery>`,
-        PartageChasses.idSection,
-      ])
-        .then(() => {
-          PartageChasses.oublierCache();
-          return PartageChasses.sujets();
-        })
-        .then((apres) => {
-          let restants = inutiles(apres),
-            ids = new Set(restants.map((t) => t.id)),
-            faits = liste.filter((t) => !ids.has(t.id)).length;
-          supprimes += faits;
-          if (faits && restants.length && ++tours < SUPPRESSION_TOURS_MAX)
-            return supprimer(restants);
-          return restants;
-        });
-    };
-    etat("Lecture de la liste des sujets…");
-    PartageChasses.oublierCache();
-    return PartageChasses.sujets().then((sujets) => {
-      let liste = inutiles(sujets);
-      if (!liste.length) return "Aucun sujet de floods inutile dans la section.";
-      if (!confirmer(liste)) return "Suppression annulée : aucun sujet supprimé.";
-      return supprimer(liste).then((restants) => {
-        let bilan = `Sujets de floods inutiles : ${[
-          nombre(supprimes, "supprimé", "supprimés"),
-          restants.length
-            ? `${nombre(restants.length, "pas supprimé", "pas supprimés")} : le forum le${restants.length > 1 ? "s" : ""} montre encore (droits de gestion du forum ?)`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(", ")}.`;
-        if (restants.length) Journal.erreur("Forum", bilan);
-        else Journal.info("Forum", bilan);
-        return bilan;
-      });
     });
   }
   /**

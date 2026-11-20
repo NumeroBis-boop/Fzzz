@@ -936,31 +936,21 @@ class SuiviMembres {
       });
   }
   /**
-   * Où en est le partage dans ce navigateur, pour l'onglet des Préférences.
+   * Ce qui a empêché le relevé d'aujourd'hui dans ce navigateur, pour l'onglet
+   * des Préférences.
    *
    * @static
-   * @method resume
-   * @return {String} texte
+   * @method probleme
+   * @return {String} texte, vide quand rien ne l'a empêché
    */
-  static resume() {
-    let e = SuiviMembres.etat(),
-      phrases = [];
-    if (e.envoi && e.envoi.instant)
-      phrases.push(
-        `Dernier envoi depuis ce navigateur : le ${moment(e.envoi.instant).format("DD/MM/YYYY [à] HH[h]mm")} (${SuiviMembres._titres(e.envoi.cles || []) || "aucune information partagée"}${Array.isArray(e.envoi.autres) ? ` ; avec les autres membres : ${SuiviMembres._titres(e.envoi.autres) || "aucune"}` : ""}).`,
-      );
-    else phrases.push("Aucun envoi depuis ce navigateur pour l'instant.");
-    if (e.jour == SuiviMembres.jour() && !e.fait && e.raison)
-      phrases.push(
-        `Aujourd'hui, le relevé n'a pas pu être envoyé : ${e.raison}. Nouvel essai à une page ouverte plus tard (${numeral(SUIVI_ESSAIS_PAR_JOUR).format()} essais par jour au plus).`,
-      );
-    else if (e.jour == SuiviMembres.jour() && e.raison == "sans sujet")
-      phrases.push(
-        `Aujourd'hui, rien n'a été envoyé : pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} » du forum caché de ton alliance.`,
-      );
-    else if (e.jour == SuiviMembres.jour() && !e.fait)
-      phrases.push("Le prochain envoi se fera à ta prochaine page.");
-    return phrases.join(" ");
+  static probleme() {
+    let e = SuiviMembres.etat();
+    if (e.jour != SuiviMembres.jour()) return "";
+    if (!e.fait && e.raison)
+      return `Aujourd'hui, le relevé n'a pas pu être envoyé : ${e.raison}. Nouvel essai à une page ouverte plus tard (${numeral(SUIVI_ESSAIS_PAR_JOUR).format()} essais par jour au plus).`;
+    if (e.raison == "sans sujet")
+      return `Aujourd'hui, rien n'a été envoyé : pas de ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » dans le sujet « ${TITRE_REGLAGES} » du forum caché de ton alliance.`;
+    return "";
   }
   /**
    * Pourquoi le fichier de l'alliance est introuvable, d'après ce que

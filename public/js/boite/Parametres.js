@@ -92,9 +92,6 @@ const ONGLETS_PARAMETRE = [
 ];
 // onglet montré à chaque ouverture des Préférences (règle du mainteneur, 16/11/2026)
 const ONGLET_OUVERTURE = "General";
-// titres montrés dans la confirmation de « Supprimer les sujets de floods
-// inutiles » ; au-delà, leur nombre (fenêtre de confirmation lisible sur un téléphone)
-const SUJETS_FLOODS_MONTRES = 15;
 // pages où l'extension agit, chacune désactivable (Préférences → Pages ; ids lus
 // par bootstrap.js, ONGLET_PAGE, et stockés sous CLE_ORIGINE + id)
 const PAGES_EXTENSION = [
@@ -545,14 +542,7 @@ class BoiteParametre extends Boite {
     $("#o_tabsParametreGeneral").append(`<form>
         ${this.section("Horloge et nouveautés", this.cases("General"))}
         ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}
-        ${this.section(
-          "Rôle",
-          p["role"].getForm("Ton rôle dans l'alliance") +
-            this.aide(
-              `Les réglages propres à un rôle portent son étiquette, en couleur pour le tien. Chasseur : export automatique de tes chasses et rappel d'export (${this.lienOnglet("Partage", "onglet Partage de données")}), lanceur de chasses (${this.lienOnglet("Ressources", "onglet Ressources")}).`,
-              "Le jeu supprime les conversations lues au bout de 7 jours : l'export de tes chasses se fait deux fois par semaine.",
-            ),
-        )}
+        ${this.section("Rôle", p["role"].getForm("Ton rôle dans l'alliance"))}
       </form>
       ${this.section(
         `Mise à jour (v${VERSION})`,
@@ -880,8 +870,7 @@ class BoiteParametre extends Boite {
    * @method ongletConvois
    */
   ongletConvois() {
-    let site = OuafSuivi.site(),
-      testRefus = Journal.pourCeJoueur();
+    let site = OuafSuivi.site();
     if (!site) {
       $("#o_tabsParametreConvois").append(
         `<p class='left'>Aucun site de suivi des convois dans les réglages de ton alliance : un chef l'écrit sur la ligne « ${REGLAGES_ALLIANCE.siteConvois.nom} » du sujet « ${TITRE_REGLAGES} » (${this.lienOnglet("Partage", "onglet Partage de données")}, section « Fonctionnement sur les autres serveurs »).</p>`,
@@ -903,21 +892,14 @@ class BoiteParametre extends Boite {
             ${this.aide(
               "Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension.",
               "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif, le lien « Ouvrir le site de suivi des convois » et la mise à jour de ton profil sur le site (niveaux de l'Étable à pucerons et de la Champignonnière, nombre total d'ouvrières, convois compris), une fois par jour et quand l'un de ces deux niveaux change. Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
-            )}
-            ${/^http:/i.test(site.url) ? "<p class='left small red'><em>Attention : ce site n'est pas chiffré (http, pas de https). Ton mot de passe et le détail des convois envoyés y circulent en clair sur le réseau.</em></p>" : ""}`,
+            )}`,
         )}
         ${this.section(
           `Récapitulatif : joueur qui ne veut pas de convois ${this.etiquette("Grenier")}`,
           `<p class='left small'>Le montrer par (une case ou plusieurs) :</p>${this.cases("Convois", MARQUES_SANS_RECEPTION)}` +
-            (testRefus
-              ? "<p class='left small o_reglage'><label for='o_sansReceptionSimule'>Test, pour toi seul : compter comme ne voulant pas de convois</label> <input type='text' id='o_sansReceptionSimule' spellcheck='false' autocomplete='off' placeholder='pseudo' style='width:12em'/></p>"
-              : "") +
             this.aide(
-              "Sur le site de suivi, un joueur peut cocher « Je ne souhaite pas recevoir de convois » (Mon profil) : le Récapitulatif de la page Convois le montre sur sa ligne, avec les marques cochées ici, seules ou ensemble.",
-              "Ligne barrée, ligne en rouge, colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Aucune case cochée : rien n'est signalé. Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place." +
-                (testRefus
-                  ? " Test (ligne « Journal » des réglages de l'alliance) : les pseudos du champ, séparés par des virgules, sont comptés comme ne voulant pas de convois dans ton Récapitulatif, dans ce navigateur seulement, comme si le site le disait ; il faut que le site ait répondu et que le joueur soit dans le tableau. Un rappel s'affiche sous le tableau ; vide le champ pour arrêter."
-                  : ""),
+              "",
+              "Ligne barrée, ligne en rouge, colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Aucune case cochée : rien n'est signalé. Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place.",
             ),
         )}
         ${this.section(
@@ -934,18 +916,6 @@ class BoiteParametre extends Boite {
     this.majEtiquettes();
     // Entrée dans un champ ne doit pas envoyer ce formulaire : la page se rechargerait
     $("#o_tabsParametreConvois form").on("submit", (e) => e.preventDefault());
-    if (testRefus) {
-      try {
-        $("#o_sansReceptionSimule").val(localStorage.getItem(CLE_SANS_RECEPTION_SIMULE) || "");
-      } catch (e) {}
-      $("#o_sansReceptionSimule").on("input", (e) => {
-        let texte = String($(e.currentTarget).val() || "").trim();
-        try {
-          if (texte) localStorage.setItem(CLE_SANS_RECEPTION_SIMULE, texte);
-          else localStorage.removeItem(CLE_SANS_RECEPTION_SIMULE);
-        } catch (err) {}
-      });
-    }
     let etat = (code) =>
         $("#o_ouafCodeEtat").html(
           code
@@ -1086,13 +1056,10 @@ class BoiteParametre extends Boite {
         ${this.section(
           "Statistiques des membres",
           this.aide(
-            `Une fois par jour, à la première page que tu ouvres, l'extension relève les informations cochées ci-dessous et les envoie au Google Sheet des stats membres de ton alliance, avec ton pseudo et la version de l'extension. Les chefs voient dans la vue « Stats membres » du menu Alliance ce que tu partages avec eux, les autres membres ce que tu partages avec les autres.`,
+            "",
             `Partager une information avec les autres, c'est aussi la partager avec les chefs. Champignonnière et Puceron sont toujours partagés avec les chefs. Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons. Sans Compte+, la page Reine ne donne ni le total des ouvrières ni l'armée complète : l'extension compte les ouvrières présentes et celles de tes convois en cours (page Convois), et ton armée en garnison (page Armée) avec les troupes parties en chasse ou en attaque depuis ce navigateur ; tant qu'une chasse ou une attaque lancée ailleurs (autre appareil) est en cours, l'armée ne peut pas être relevée et le relevé est réessayé plus tard. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé ; les chefs sont ceux de la ligne « ${REGLAGES_ALLIANCE.chefs.nom} » de ce sujet. ${DONNEES_PARTAGEES.map((d) => d.libelle).join(" ; ")}.`,
           ) +
             SuiviMembres.casesPartage("o_partageLigne") +
-            this.aide(
-              "Décochée pour les chefs : elle n'est plus relevée ni envoyée ; le fichier indique seulement que tu ne la partages pas. Réglage propre à ce navigateur, envoyé à ta prochaine page.",
-            ) +
             `<p id='o_partageEtat' class='left small'></p>
             <p class='left o_reglage'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>`,
         )}
@@ -1112,33 +1079,11 @@ class BoiteParametre extends Boite {
             ),
         )}
         <div id='o_exportSheetReglage'></div>
-        ${
-          // réservé au mainteneur, comme le journal
-          Journal.pourCeJoueur()
-            ? this.section(
-                "Ranger le forum",
-                this.aide(
-                  `Les floods et les chasses sont partagés dans les sujets « ${SUJETS_COMMUNS.Floods} » et « ${SUJETS_COMMUNS.Chasses} » de la section cachée, une réponse par joueur, que son extension écrit et modifie.`,
-                  "Ce bouton retire les floods et chasses des anciens formats : les sections du premier message de ces deux sujets, et les sujets « Floods | pseudo » et « Chasses | pseudo », supprimés avec toutes leurs entrées, sans historique : chaque joueur partage de nouveau celles à venir. Un joueur pas encore à jour peut les réécrire : reclique plus tard. Il faut les droits de gestion du forum ; reste sur la page jusqu'au bilan.",
-                ) +
-                  `<p class='left o_reglage'><button type='button' class='o_button f_info o_partageRanger'>Ranger le forum</button></p>
-                  <p id='o_partageRangerEtat' class='left small'></p>`,
-              ) +
-              this.section(
-                "Sujets de floods inutiles",
-                this.aide(
-                  "Supprime d'un coup les pages « Historique Floods N | pseudo » (l'historique des floods n'est plus tenu) et les anciens sujets « Floods | pseudo » de la section cachée.",
-                  `La liste lue est montrée avant toute suppression ; le sujet « ${SUJETS_COMMUNS.Floods} » est toujours gardé. Il faut les droits de gestion du forum ; une suppression ne se défait pas.`,
-                ) +
-                  `<p class='left o_reglage'><button type='button' class='o_button f_info o_partageSupprimerFloods'>Supprimer les sujets de floods inutiles</button></p>
-                  <p id='o_partageSupprimerFloodsEtat' class='left small'></p>`,
-              )
-            : ""
-        }
         ${this.section("Fonctionnement sur les autres serveurs", BoiteParametre.autresServeurs())}
       </form>`),
+      // seulement ce qui a empêché le relevé, ou le résultat de « Envoyer maintenant »
       etat = (message = "") =>
-        $onglet.find("#o_partageEtat").text(message || SuiviMembres.resume()),
+        $onglet.find("#o_partageEtat").text(message || SuiviMembres.probleme()),
       etatChasses = () => $onglet.find("#o_partageChassesEtat").text(ExportAuto.resume());
     this.reglageExport().majEtiquettes();
     etat();
@@ -1174,68 +1119,19 @@ class BoiteParametre extends Boite {
     $(document)
       .off("o_partageChoisi.preferences")
       .on("o_partageChoisi.preferences", () => etat());
-    $onglet.find(".o_partageRanger").on("click", (e) => {
-      e.preventDefault();
-      // supprimer des sujets ne se défait pas
-      if (
-        !confirm(
-          "Retirer les floods et chasses des anciens formats (sections du premier message des sujets communs, sujets « Floods | pseudo » et « Chasses | pseudo », supprimés) ? Toutes leurs entrées sont supprimées, sans historique.",
-        )
-      )
-        return;
-      let $bouton = $(e.currentTarget).prop("disabled", true),
-        afficher = (/** @type {String} */ texte) => {
-          $onglet.find("#o_partageRangerEtat").text(texte);
-          this.ajusterTaille();
-        };
-      PartageChasses.rangerForum(afficher)
-        .then(afficher, (err) =>
-          afficher(
-            err && err.message == "absente"
-              ? SECTION_INTROUVABLE
-              : "Forum de l'alliance illisible ou modifié pendant le rangement : réessaie plus tard.",
-          ),
-        )
-        .then(() => $bouton.prop("disabled", false));
-    });
-    $onglet.find(".o_partageSupprimerFloods").on("click", (e) => {
-      e.preventDefault();
-      let $bouton = $(e.currentTarget).prop("disabled", true),
-        afficher = (/** @type {String} */ texte) => {
-          $onglet.find("#o_partageSupprimerFloodsEtat").text(texte);
-          this.ajusterTaille();
-        },
-        // supprimer des sujets ne se défait pas : la liste lue d'abord, à confirmer
-        confirmer = (/** @type {Array<{titre: String}>} */ liste) =>
-          confirm(
-            [
-              `Supprimer ${liste.length > 1 ? `ces ${numeral(liste.length).format()} sujets` : "ce sujet"} de floods ? Une suppression ne se défait pas.`,
-              ...liste.slice(0, SUJETS_FLOODS_MONTRES).map((t) => "• " + t.titre),
-              liste.length > SUJETS_FLOODS_MONTRES
-                ? `… et ${numeral(liste.length - SUJETS_FLOODS_MONTRES).format()} autres`
-                : "",
-              `Le sujet « ${SUJETS_COMMUNS.Floods} » est gardé.`,
-            ]
-              .filter(Boolean)
-              .join("\n"),
-          );
-      PartageChasses.supprimerSujetsFloods(afficher, confirmer)
-        .then(afficher, (err) =>
-          afficher(
-            err && err.message == "absente"
-              ? SECTION_INTROUVABLE
-              : "Forum de l'alliance illisible : réessaie plus tard.",
-          ),
-        )
-        .then(() => $bouton.prop("disabled", false));
-    });
     $onglet.find("#o_partageEnvoyer").on("click", (e) => {
       e.preventDefault();
       let $bouton = $(e.currentTarget).prop("disabled", true);
       etat("Relevé et envoi en cours…");
-      SuiviMembres.lancer(true).then(() => {
+      SuiviMembres.lancer(true).then((resultat) => {
         $bouton.prop("disabled", false);
-        etat();
+        etat(
+          resultat == "envoyé"
+            ? "Relevé envoyé."
+            : resultat == "sans alliance"
+              ? "Sans alliance, rien n'est relevé."
+              : "",
+        );
         this.ajusterTaille();
       });
     });

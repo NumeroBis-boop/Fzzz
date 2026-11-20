@@ -1778,6 +1778,23 @@ class Utils {
     else return tmp.join(" ");
   }
   /**
+   * Paramètres de l'adresse sans le jeton « jt » que le jeu y ajoute (signalé le
+   * 20/11/2026 : « ennemie.php?jt=1.84…#multiflood ») : « ?Membres »,
+   * « ?Attaquer=12 », "" pour une page sans paramètre.
+   *
+   * @static
+   * @method requete
+   * @param {String} [recherche] location.search par défaut
+   * @return {String}
+   */
+  static requete(recherche = location.search) {
+    let parametres = String(recherche || "")
+      .replace(/^\?/, "")
+      .split("&")
+      .filter((p) => p && !/^jt=/i.test(p));
+    return parametres.length ? "?" + parametres.join("&") : "";
+  }
+  /**
    * Extrait les paramétres d'une URL.
    *
    * @static

@@ -71,8 +71,16 @@
     origine = (onglet) => lire("fzzz_origine_" + onglet),
     // « Désactiver l'extension » (boîte Extension OUAF) : toute la page comme le jeu
     desactivee = lire("fzzz_desactivee"),
-    ongletPage = ONGLET_PAGE.find(([re, , requete]) =>
-      re.test(requete ? location.pathname + location.search : location.pathname),
+    // sans le jeton « jt » que le jeu ajoute à l'adresse, comme Utils.requete
+    requete = (() => {
+      let p = location.search
+        .replace(/^\?/, "")
+        .split("&")
+        .filter((x) => x && !/^jt=/i.test(x));
+      return p.length ? "?" + p.join("&") : "";
+    })(),
+    ongletPage = ONGLET_PAGE.find(([re, , avecRequete]) =>
+      re.test(avecRequete ? location.pathname + requete : location.pathname),
     ),
     originePage = desactivee || (!!ongletPage && origine(ongletPage[1]));
   document.documentElement.classList.toggle("o_desactivee", desactivee);

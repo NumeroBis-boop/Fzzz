@@ -34,6 +34,15 @@ describe("pages des nouveaux onglets", () => {
     expect(originePage("/Membre.php?Pseudo=X", "Membre")).toBe(true);
   });
 
+  test("jeton « jt » que le jeu ajoute à l'adresse (20/11/2026) : même page, avant ou après les autres paramètres", () => {
+    expect(originePage("/alliance.php?jt=1.8413570ba0aa85dd", "Chat")).toBe(true);
+    expect(originePage("/alliance.php?forum_menu&jt=1.84", "Forum")).toBe(true);
+    expect(originePage("/alliance.php?jt=1.84&forum_menu", "Forum")).toBe(true);
+    expect(originePage("/alliance.php?jt=1.84&forum_menu", "Chat")).toBe(false);
+    expect(originePage("/alliance.php?jt=1.84&Membres", "Membre")).toBe(true);
+    expect(originePage("/ennemie.php?jt=1.84", "Attaque")).toBe(true);
+  });
+
   test("l'onglet d'une autre page ne change rien", () => {
     expect(originePage("/Reine.php", "Chat")).toBe(false);
     expect(originePage("/Armee.php", "Reine")).toBe(false);

@@ -741,6 +741,8 @@ const DATEPICKER_OPTION = {
         });
 
         let uri = location.pathname,
+          // sans le jeton « jt » que le jeu ajoute à l'adresse
+          requete = Utils.requete(),
           page = null;
         // niveau de la Champignonnière ou de l'Étable à pucerons changé : profil du
         // site de suivi des convois et relevé du jour à refaire ; lu avant que le
@@ -799,12 +801,12 @@ const DATEPICKER_OPTION = {
               page = new PageMessagerie();
               page.executer();
               break;
-            case uri == "/alliance.php" && location.search == "":
+            case uri == "/alliance.php" && requete == "":
             case uri == "/chat.php":
               page = new PageChat();
               page.executer();
               break;
-            case location.href.indexOf("/alliance.php?forum_menu") > 0:
+            case uri == "/alliance.php" && requete.startsWith("?forum_menu"):
               // Fzzz : repère la section du forum qui stocke les chasses partagées
               PartageChasses.observerForum();
               ChatGif.forum({
@@ -812,11 +814,10 @@ const DATEPICKER_OPTION = {
                 smileys: Utils.affichage("forumSmileysAlliance"),
               });
               break;
-            case location.href.indexOf("/alliance.php?Membres") > 0:
+            case uri == "/alliance.php" && requete.startsWith("?Membres"):
               page = new PageAlliance();
               page.executer();
               break;
-            case location.href.indexOf("/Membre.php?Pseudo") > 0:
             case uri == "/Membre.php":
               page = new PageProfil(boiteRadar);
               page.executer();
@@ -827,12 +828,11 @@ const DATEPICKER_OPTION = {
               page = new PageDescription(boiteRadar);
               page.executer();
               break;
-            case location.href.indexOf("/ennemie.php?Attaquer") > 0:
-            case location.href.indexOf("/ennemie.php?annuler") > 0:
+            case uri == "/ennemie.php" && /^\?(Attaquer|annuler)/.test(requete):
               page = new PageAttaquer(boiteComptePlus);
               page.executer();
               break;
-            case uri == "/ennemie.php" && location.search == "":
+            case uri == "/ennemie.php" && requete == "":
               MultiFlood.installer();
               PageAttaquer.ajouterFiltreEnnemis();
               if (Utils.affichage("ennemisTemps")) {

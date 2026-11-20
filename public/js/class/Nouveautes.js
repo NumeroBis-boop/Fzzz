@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.143.4",
+    notes: [
+      "« Multi-flood opti » s'ouvre de nouveau depuis le menu : le jeu ajoute maintenant un jeton à certaines adresses, que l'extension ne reconnaissait pas.",
+    ],
+  },
+  {
     version: "1.143.3",
     notes: [
       "Stats membres sans Compte+ : si une chasse ou une attaque lancée depuis un autre appareil empêche encore de compter l'armée au 3e essai du jour, le relevé part sans CdF ni FdF. Page Convois : les trois marques d'un joueur qui ne veut pas de convois sont cochées par défaut, et le Récapitulatif défile sur téléphone au lieu d'élargir la page.",

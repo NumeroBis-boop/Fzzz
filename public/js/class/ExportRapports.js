@@ -1466,7 +1466,7 @@ class ExportRapports {
       return ExportRapports.listees(type, $racine);
     };
     // avec une ancre (#Envoi, #Chasse…), le jeu affiche un autre dossier
-    if (/^\/messagerie\.php$/i.test(location.pathname) && !location.search && !location.hash)
+    if (/^\/messagerie\.php$/i.test(location.pathname) && !Utils.requete() && !location.hash)
       return Promise.resolve().then(() => lire($(document)));
     return Promise.resolve($.ajax({ url: location.origin + "/messagerie.php", ...options })).then(
       (html) => lire(Utils.parseHtml(String(html))),

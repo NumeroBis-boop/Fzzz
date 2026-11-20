@@ -344,6 +344,90 @@ describe("export des RC : script du Google Sheet de l'alliance", () => {
     expect(JSON.parse(requetes[0].data)).toEqual({ onglet: "BDD RC", lignes: [] });
   });
 
+  // page où Google range la réponse d'un POST (adresse inventée)
+  const PAGE_REPONSE =
+    "https://script.googleusercontent.com/macros/echo?user_content_key=Abc_12-3&lib=Mxyz";
+  const POST = { type: "fzzz_sheet", url: URL_SCRIPT, methode: "POST", corps: { suivi: {} } };
+
+  test("redirection suivie en POST par le gestionnaire (405, Opera, 20/11/2026) : la page de réponse relue en GET", async () => {
+    const requetes: any[] = [];
+    const chrome = charger({
+      GM_xmlhttpRequest: (d: any) => {
+        requetes.push([d.method, d.url, d.data]);
+        if (d.method == "POST")
+          d.onload({
+            status: 405,
+            finalUrl: PAGE_REPONSE,
+            responseText: "<html><title>Error 405 (Method Not Allowed)</title></html>",
+          });
+        else d.onload({ status: 200, finalUrl: d.url, responseText: '{"ok":true,"nouveau":true}' });
+      },
+    });
+    expect(await chrome.runtime.sendMessage(POST)).toEqual({
+      ok: true,
+      statut: 200,
+      donnees: { ok: true, nouveau: true },
+    });
+    // le script a tourné au POST : la relecture est un GET, sans corps
+    expect(requetes).toEqual([
+      ["POST", URL_SCRIPT, '{"suivi":{}}'],
+      ["GET", PAGE_REPONSE, undefined],
+    ]);
+  });
+
+  test("redirection rendue telle quelle par le gestionnaire : suivie en GET", async () => {
+    const requetes: any[] = [];
+    const chrome = charger({
+      GM_xmlhttpRequest: (d: any) => {
+        requetes.push([d.method, d.url]);
+        if (d.method == "POST")
+          d.onload({
+            status: 302,
+            responseHeaders: `content-type: text/html\r\nLocation: ${PAGE_REPONSE}\r\n`,
+            responseText: "",
+          });
+        else d.onload({ status: 200, responseText: '{"ok":true}' });
+      },
+    });
+    expect(await chrome.runtime.sendMessage(POST)).toEqual({
+      ok: true,
+      statut: 200,
+      donnees: { ok: true },
+    });
+    expect(requetes).toEqual([
+      ["POST", URL_SCRIPT],
+      ["GET", PAGE_REPONSE],
+    ]);
+  });
+
+  test("405 hors de la page de réponse de Google, relecture impossible : rien de plus, l'échec reste dit", async () => {
+    const requetes: any[] = [];
+    const chrome = charger({
+      GM_xmlhttpRequest: (d: any) => {
+        requetes.push(d.method);
+        d.onload({ status: 405, finalUrl: URL_SCRIPT, responseText: "Method Not Allowed" });
+      },
+    });
+    expect(await chrome.runtime.sendMessage(POST)).toMatchObject({ ok: false, statut: 405 });
+    expect(requetes).toEqual(["POST"]);
+    // une adresse de redirection qui n'est pas celle de Google n'est jamais suivie
+    const ailleurs: any[] = [];
+    const autre = charger({
+      GM_xmlhttpRequest: (d: any) => {
+        ailleurs.push(d.url);
+        d.onload({ status: 302, responseHeaders: "Location: https://evil.example/x\r\n" });
+      },
+    });
+    expect(await autre.runtime.sendMessage(POST)).toMatchObject({ ok: false, statut: 302 });
+    expect(ailleurs).toEqual([URL_SCRIPT]);
+    // page de réponse injoignable : erreur réseau
+    const coupe = charger({
+      GM_xmlhttpRequest: (d: any) =>
+        d.method == "POST" ? d.onload({ status: 405, finalUrl: PAGE_REPONSE }) : d.onerror(),
+    });
+    expect(await coupe.runtime.sendMessage(POST)).toEqual({ erreur: "reseau" });
+  });
+
   test("page d'erreur de Google au lieu de JSON : son texte gardé pour le journal", async () => {
     const chrome = charger({
       GM_xmlhttpRequest: (d: any) =>

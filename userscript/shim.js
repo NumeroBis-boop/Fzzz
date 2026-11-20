@@ -55,6 +55,8 @@ var chrome = (function () {
   const ORIGINE_SITE = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
   const ADRESSE_SHEET =
     /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/\s]+|macros)\/s\/[\w-]+\/exec$/;
+  // page où Google range la réponse d'un script après un POST
+  const ADRESSE_REPONSE_SHEET = /^https:\/\/script\.googleusercontent\.com\/macros\/echo\?\S+$/;
   const MAX_ECHANTILLONS = 30;
 
   /** Dossier public/ de la version installée, d'après la ressource fzzzBase. */
@@ -197,38 +199,66 @@ var chrome = (function () {
           ? GM.xmlHttpRequest
           : null;
     if (!xhr) return Promise.resolve({ erreur: "reseau" });
-    return new Promise((resoudre) => {
-      xhr({
-        method: m.methode,
-        url: m.url,
-        headers: m.corps === undefined ? {} : { "Content-Type": "text/plain;charset=utf-8" },
-        data: m.corps === undefined ? undefined : JSON.stringify(m.corps),
-        timeout: 60000,
-        onload: (r) => {
-          let donnees = {},
-            extrait = "";
-          try {
-            donnees = JSON.parse(r.responseText);
-          } catch (e) {
-            // page d'erreur de Google (exception du script…) : son texte, pour le journal
-            extrait = String(r.responseText || "")
-              .replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ")
-              .replace(/<[^>]+>/g, " ")
-              .replace(/\s+/g, " ")
-              .trim()
-              .slice(0, 300);
-          }
-          resoudre({
-            ok: r.status >= 200 && r.status < 300,
-            statut: r.status,
-            donnees,
-            ...(extrait ? { extrait } : {}),
-          });
-        },
-        onerror: () => resoudre({ erreur: "reseau" }),
-        ontimeout: () => resoudre({ erreur: "reseau" }),
+    let envoyer = (/** @type {String} */ methode, /** @type {String} */ url, corps) =>
+      new Promise((resoudre) => {
+        xhr({
+          method: methode,
+          url,
+          headers: corps === undefined ? {} : { "Content-Type": "text/plain;charset=utf-8" },
+          data: corps === undefined ? undefined : JSON.stringify(corps),
+          timeout: 60000,
+          onload: (r) => resoudre(r),
+          onerror: () => resoudre(null),
+          ontimeout: () => resoudre(null),
+        });
       });
-    });
+    return envoyer(m.methode, m.url, m.corps)
+      .then((r) => {
+        let reponse = r && pageDeReponse(r);
+        return reponse ? envoyer("GET", reponse) : r;
+      })
+      .then((r) => {
+        if (!r) return { erreur: "reseau" };
+        let donnees = {},
+          extrait = "";
+        try {
+          donnees = JSON.parse(r.responseText);
+        } catch (e) {
+          // page d'erreur de Google (exception du script…) : son texte, pour le journal
+          extrait = String(r.responseText || "")
+            .replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 300);
+        }
+        return {
+          ok: r.status >= 200 && r.status < 300,
+          statut: r.status,
+          donnees,
+          ...(extrait ? { extrait } : {}),
+        };
+      });
+  }
+
+  /**
+   * Le script répond à un POST par une redirection vers sa page de réponse
+   * (script.googleusercontent.com), qui ne se lit qu'en GET : un gestionnaire
+   * qui la suit en gardant POST reçoit 405 (signalé sous Opera le 20/11/2026),
+   * un autre peut rendre la redirection telle quelle. Le script a déjà tourné :
+   * relire cette page ne refait pas l'envoi.
+   *
+   * @param {any} r réponse du gestionnaire
+   * @return {String} adresse de la page de réponse à relire en GET, ou ""
+   */
+  function pageDeReponse(r) {
+    let redirection = r.status >= 300 && r.status < 400,
+      adresse = redirection
+        ? (/^location:\s*(\S+)/im.exec(String(r.responseHeaders || "")) || [])[1] || ""
+        : r.status == 405
+          ? String(r.finalUrl || "")
+          : "";
+    return ADRESSE_REPONSE_SHEET.test(adresse) ? adresse : "";
   }
 
   // Horloge : heure d'envoi et en-tête Date des requêtes vers le jeu (lecture seule)

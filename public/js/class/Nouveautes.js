@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.145.1",
+    notes: [
+      "Export des RC, stats membres et journal : l'« erreur 405 » qui apparaissait sur certains navigateurs (Opera) est corrigée.",
+    ],
+  },
+  {
     version: "1.145.0",
     notes: [
       "Les jours où ton journal de débug contient une erreur, il est envoyé une fois au Google Sheet des stats membres de l'alliance, pour aider à corriger les bugs. La case est dans Préférences → Partage de données.",

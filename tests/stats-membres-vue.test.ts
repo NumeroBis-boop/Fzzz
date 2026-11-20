@@ -215,7 +215,7 @@ describe("tableau du dernier relevé de chaque joueur", () => {
     expect(cellules()).toEqual([
       ["Alpha", "18/11 08h03", "30", "350 000", "1k", "50k", "1", "5", "1", "1", "1", "2 345 678"],
       ["Bravo", "17/11 22h10", "40", "—", "—", "150k", "1", "9", "1", "1", "1", "987 654"],
-      ["Char<lie>", "16/11", "35", "", "", "1,23m", "", "", "", "", "", ""],
+      ["Char<lie>", "16/11", "35", "", "", "1,23M", "", "", "", "", "", ""],
     ]);
     // information non partagée : case rouge (classe), dite par la légende
     expect(
@@ -281,8 +281,8 @@ describe("tableau du dernier relevé de chaque joueur", () => {
   });
 });
 
-describe("nombres abrégés : k, m, g, t, trois chiffres, tronqués", () => {
-  test("dès 1 000 dans la plus grande unité, trois chiffres tronqués (3 678 837 → 3,67m, 999 999 → 999k)", () => {
+describe("nombres abrégés : préfixes du Système international k, M, G, T, trois chiffres, tronqués", () => {
+  test("dès 1 000 dans la plus grande unité, trois chiffres tronqués (3 678 837 → 3,67M, 999 999 → 999k)", () => {
     const abreger = (v: number) => lire<string>(`StatsMembres.abreger(${v})`);
     expect(
       [0, 7, 50, 99, 100, 200, 949, 999, 1000, 1050, 1234, 1500, 9999, 12345, 15000].map(abreger),
@@ -313,15 +313,15 @@ describe("nombres abrégés : k, m, g, t, trois chiffres, tronqués", () => {
       "150k",
       "250k",
       "999k",
-      "1,99m",
-      "2,4m",
-      "3,67m",
-      "4,86m",
-      "25m",
-      "3g",
-      "4,5g",
-      "4,5t",
-      "77t",
+      "1,99M",
+      "2,4M",
+      "3,67M",
+      "4,86M",
+      "25M",
+      "3G",
+      "4,5G",
+      "4,5T",
+      "77T",
     ]);
     // jamais plus de trois chiffres
     const valeurs = [

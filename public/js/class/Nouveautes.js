@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.145.2",
+    notes: [
+      "Stats membres : les grands nombres utilisent les préfixes du Système international k, M, G, T (3,67M au lieu de 3,67m).",
+    ],
+  },
+  {
     version: "1.145.1",
     notes: [
       "Export des RC, stats membres et journal : l'« erreur 405 » qui apparaissait sur certains navigateurs (Opera) est corrigée.",

@@ -25,15 +25,15 @@ const VERTS_STATS = [
 ];
 const VERT_TEXTE_BLANC = 5;
 const HASH_STATS_MEMBRES = "#statsMembres";
-// grands nombres écrits avec trois chiffres, tronqués : « 3,67m », « 150k »
+// grands nombres écrits avec trois chiffres, tronqués, préfixes du Système international : « 3,67M », « 150k »
 const STATS_ABREGEES = ["cdf", "fdfHB", "fdfAB"];
 /** @type {Array<[string, number]>} */
 const UNITES_STATS = [
   ["", 1],
   ["k", 1e3],
-  ["m", 1e6],
-  ["g", 1e9],
-  ["t", 1e12],
+  ["M", 1e6],
+  ["G", 1e9],
+  ["T", 1e12],
 ];
 // TdC lus il y a plus longtemps : relus sur la page Membres, à l'affichage de
 // la vue et à l'export (la date de l'export date les TdC)
@@ -443,9 +443,11 @@ class StatsMembres {
   }
   /**
    * Nombre écrit avec trois chiffres, tronqué (mainteneur, 18/11/2026 :
-   * 3 678 837 → « 3,67m », 150 000 → « 150k », 999 999 → « 999k », jamais
-   * arrondi au-dessus) : dès 1 000, en k, m, g ou t, les zéros de fin de la
-   * partie décimale retirés (« 2,4m », « 15k ») ; sous 1 000, le nombre entier.
+   * 3 678 837 → « 3,67M », 150 000 → « 150k », 999 999 → « 999k », jamais
+   * arrondi au-dessus) : dès 1 000, en k, M, G ou T (préfixes du Système
+   * international, mainteneur, 20/11/2026 : « m » y est le milli), les zéros de
+   * fin de la partie décimale retirés (« 2,4M », « 15k ») ; sous 1 000, le
+   * nombre entier.
    *
    * @static
    * @method abreger

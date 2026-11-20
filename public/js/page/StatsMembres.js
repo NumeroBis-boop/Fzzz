@@ -25,8 +25,10 @@ const VERTS_STATS = [
 ];
 const VERT_TEXTE_BLANC = 5;
 const HASH_STATS_MEMBRES = "#statsMembres";
-// grands nombres écrits avec trois chiffres, tronqués, préfixes du Système international : « 3,67M », « 150k »
+// grands nombres écrits avec trois chiffres, tronqués, préfixes du Système international : « 3,67 M », « 150 k »
 const STATS_ABREGEES = ["cdf", "fdfHB", "fdfAB"];
+// insécable : « 3,67 M » ne se coupe pas en fin de ligne
+const ESPACE_PREFIXE = "\u00a0";
 /** @type {Array<[string, number]>} */
 const UNITES_STATS = [
   ["", 1],
@@ -443,11 +445,11 @@ class StatsMembres {
   }
   /**
    * Nombre écrit avec trois chiffres, tronqué (mainteneur, 18/11/2026 :
-   * 3 678 837 → « 3,67M », 150 000 → « 150k », 999 999 → « 999k », jamais
+   * 3 678 837 → « 3,67 M », 150 000 → « 150 k », 999 999 → « 999 k », jamais
    * arrondi au-dessus) : dès 1 000, en k, M, G ou T (préfixes du Système
-   * international, mainteneur, 20/11/2026 : « m » y est le milli), les zéros de
-   * fin de la partie décimale retirés (« 2,4M », « 15k ») ; sous 1 000, le
-   * nombre entier.
+   * international, mainteneur, 20/11/2026 : « m » y est le milli), séparés du
+   * nombre par une espace insécable, les zéros de fin de la partie décimale
+   * retirés (« 2,4 M », « 15 k ») ; sous 1 000, le nombre entier.
    *
    * @static
    * @method abreger
@@ -461,7 +463,11 @@ class StatsMembres {
     if (unite == 1) return Utils.decimal(n);
     let decimales = n < 10 * unite ? 2 : n < 100 * unite ? 1 : 0,
       dixiemes = Math.pow(10, decimales);
-    return Utils.decimal(Math.floor(n / (unite / dixiemes)) / dixiemes, decimales, true) + lettre;
+    return (
+      Utils.decimal(Math.floor(n / (unite / dixiemes)) / dixiemes, decimales, true) +
+      ESPACE_PREFIXE +
+      lettre
+    );
   }
   /**
    * Mise en couleur, par colonne, des valeurs partagées : vert très clair pour

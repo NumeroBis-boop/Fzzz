@@ -9,6 +9,10 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.145.3",
+    notes: ["Stats membres : une espace sépare le nombre de son préfixe (3,67 M, 150 k)."],
+  },
+  {
     version: "1.145.2",
     notes: [
       "Stats membres : les grands nombres utilisent les préfixes du Système international k, M, G, T (3,67M au lieu de 3,67m).",

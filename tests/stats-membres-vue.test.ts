@@ -213,9 +213,22 @@ describe("tableau du dernier relevé de chaque joueur", () => {
     // trié par pseudo ; les pseudos viennent du fichier : échappés ; CdF et FdF
     // abrégés ; TdC de la page Membres, vide pour un ancien membre
     expect(cellules()).toEqual([
-      ["Alpha", "18/11 08h03", "30", "350 000", "1k", "50k", "1", "5", "1", "1", "1", "2 345 678"],
-      ["Bravo", "17/11 22h10", "40", "—", "—", "150k", "1", "9", "1", "1", "1", "987 654"],
-      ["Char<lie>", "16/11", "35", "", "", "1,23M", "", "", "", "", "", ""],
+      [
+        "Alpha",
+        "18/11 08h03",
+        "30",
+        "350 000",
+        "1\u00a0k",
+        "50\u00a0k",
+        "1",
+        "5",
+        "1",
+        "1",
+        "1",
+        "2 345 678",
+      ],
+      ["Bravo", "17/11 22h10", "40", "—", "—", "150\u00a0k", "1", "9", "1", "1", "1", "987 654"],
+      ["Char<lie>", "16/11", "35", "", "", "1,23\u00a0M", "", "", "", "", "", ""],
     ]);
     // information non partagée : case rouge (classe), dite par la légende
     expect(
@@ -295,13 +308,13 @@ describe("nombres abrégés : préfixes du Système international k, M, G, T, tr
       "200",
       "949",
       "999",
-      "1k",
-      "1,05k",
-      "1,23k",
-      "1,5k",
-      "9,99k",
-      "12,3k",
-      "15k",
+      "1\u00a0k",
+      "1,05\u00a0k",
+      "1,23\u00a0k",
+      "1,5\u00a0k",
+      "9,99\u00a0k",
+      "12,3\u00a0k",
+      "15\u00a0k",
     ]);
     expect(
       [
@@ -309,20 +322,23 @@ describe("nombres abrégés : préfixes du Système international k, M, G, T, tr
         4.5e12, 77e12,
       ].map(abreger),
     ).toEqual([
-      "99,6k",
-      "150k",
-      "250k",
-      "999k",
-      "1,99M",
-      "2,4M",
-      "3,67M",
-      "4,86M",
-      "25M",
-      "3G",
-      "4,5G",
-      "4,5T",
-      "77T",
+      "99,6\u00a0k",
+      "150\u00a0k",
+      "250\u00a0k",
+      "999\u00a0k",
+      "1,99\u00a0M",
+      "2,4\u00a0M",
+      "3,67\u00a0M",
+      "4,86\u00a0M",
+      "25\u00a0M",
+      "3\u00a0G",
+      "4,5\u00a0G",
+      "4,5\u00a0T",
+      "77\u00a0T",
     ]);
+    // une espace insécable entre le nombre et le préfixe, jamais une espace simple
+    expect(abreger(3678837)).toBe("3,67\u00a0M");
+    expect(abreger(3678837)).not.toContain(" ");
     // jamais plus de trois chiffres
     const valeurs = [
       0,

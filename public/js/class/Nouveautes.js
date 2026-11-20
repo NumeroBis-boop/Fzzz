@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.144.0",
+    notes: [
+      "Préférences → Général : bouton « Copier le journal de débug ». Pour signaler un bug, copie-le et colle-le dans ton message.",
+    ],
+  },
+  {
     version: "1.143.5",
     notes: [
       "Pages Construction et Laboratoire : sur téléphone, le texte de l'info-bulle du délai (« dispo dans … ») n'est plus agrandi par le navigateur.",

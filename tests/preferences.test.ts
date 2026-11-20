@@ -59,6 +59,33 @@ function construire(stockage: Record<string, string> = {}) {
   })()`);
 }
 
+describe("Général : « Journal de débug » (demande du mainteneur, 20/11/2026)", () => {
+  test("un bouton copie tout le journal, sans le montrer ; pour tous les joueurs", async () => {
+    construire();
+    lire(
+      `Journal.installer(); Journal.erreur("Export", "échec de l'envoi", "statut 500"); Journal.info("Forum", "lu")`,
+    );
+    const $section = `$("#o_copierJournal").closest(".o_sectionParam")`;
+    expect(lire(`${$section}.find(".o_titreParam").text()`)).toBe("Journal de débug");
+    expect(lire(`$("#o_copierJournal").text()`)).toBe("Copier le journal de débug");
+    // le journal n'est pas affiché : ni ses entrées ni une liste
+    expect(lire<string>(`${$section}.text()`)).not.toContain("échec de l'envoi");
+    expect(lire(`${$section}.find("textarea, ul, .o_journalListe").length`)).toBe(0);
+    lire(`window.COPIE = null; Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: (t) => { COPIE = t; return Promise.resolve(); } } });
+      $("#o_copierJournal").trigger("click")`);
+    await lire(`new Promise((r) => setTimeout(r, 0))`);
+    expect(lire<string>(`COPIE`)).toBe(lire<string>(`Journal.texte()`));
+    expect(lire<string>(`COPIE`)).toContain("échec de l'envoi");
+    expect(lire(`$("#o_copierJournalEtat").text()`)).toBe(
+      "Journal copié (2 entrées) : colle-le dans ton message.",
+    );
+    // trouvé par la recherche des Préférences
+    expect(lire<string[]>(`boite.chercher("debug").map((r) => r.section)`)).toContain(
+      "Journal de débug",
+    );
+  });
+});
+
 describe("onglets de la liste du mainteneur", () => {
   test("Général, les pages du jeu dans l'ordre de son menu, Partage de données, Pages et À propos", () => {
     expect(lire(`ONGLETS_PARAMETRE.map((o) => o.titre)`)).toEqual([
@@ -206,7 +233,9 @@ describe("onglets de la liste du mainteneur", () => {
     construire();
     const dans = (id: string) =>
       lire<string[]>(`$("#o_tabsParametre${id}").find("[id]").map((i, e) => e.id).get()`);
-    expect(dans("General")).toEqual(expect.arrayContaining(["alertePonte", "role", "o_majFzzz"]));
+    expect(dans("General")).toEqual(
+      expect.arrayContaining(["alertePonte", "role", "o_majFzzz", "o_copierJournal"]),
+    );
     expect(dans("Ressources")).toEqual(
       expect.arrayContaining(["affectationRessource", "tdcArriveeMax", "ratioPlancher"]),
     );

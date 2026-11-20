@@ -23,6 +23,7 @@ Toolzzz does **not** collect, store, or transmit any personal data to external s
   - `outiiil_evolution` — local history of player stats over time
   - `outiiil_radar` — local radar tracking data
   - `outiiil_boiteActive` — which panel was last open
+  - `fzzz_journal` — the extension's debug journal (its last 200 notes: notifications, errors, steps of its reads and sends; Google script addresses and passwords masked). It never leaves the browser by itself: the player copies it with « Copier le journal de débug » (Préférences → Général) and pastes it where they choose to report a bug.
 - **Network requests**: The only requests Toolzzz initiates are to `*.fourmizzz.fr` itself (e.g. `classementAlliance.php`), to fetch in-game data the user is already authenticated to access. No request is sent to any other domain.
 
 ## Third-party services

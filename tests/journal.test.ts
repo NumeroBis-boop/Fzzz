@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { creerPage } from "./harnais";
 
 /**
@@ -16,7 +18,7 @@ const page = creerPage(
    $.toast.options = { position: "top-right" };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
-// journal actif, comme pour son joueur (content.js)
+// journal actif, comme au début de chaque page (content.js)
 lire(`Journal.installer()`);
 const SCRIPT = "https://script.google.com/macros/s/AKfycbVraieAdresse_123-abc/exec";
 
@@ -54,7 +56,7 @@ describe("entrées du journal", () => {
   });
 });
 
-describe("réservé aux joueurs de la ligne « Journal » des réglages de l'alliance", () => {
+describe("boîte réservée aux joueurs de la ligne « Journal » des réglages de l'alliance", () => {
   test("pseudos de la dernière lecture gardée, casse ignorée ; pseudo lu sur la page par défaut", () => {
     const pour = (p: string) => lire<boolean>(`Journal.pourCeJoueur(${JSON.stringify(p)})`);
     // réglages pas encore lus dans ce navigateur : personne
@@ -76,7 +78,18 @@ describe("réservé aux joueurs de la ligne « Journal » des réglages de l'all
     expect(pour("Alpha")).toBe(false);
   });
 
-  test("journal non installé (autre joueur) : rien n'est noté", () => {
+  test("journal tenu pour tous les joueurs ; la boîte seule reste réservée", () => {
+    const content = readFileSync(join(import.meta.dir, "..", "public", "js", "content.js"), "utf8");
+    // installé sans condition, et plus jamais effacé au chargement
+    expect(content).toMatch(/^\s*Journal\.installer\(\);$/m);
+    expect(content).not.toContain("Journal.vider(");
+    // la boîte, elle, dépend toujours de la ligne « Journal » (dans la même condition)
+    expect(content).toMatch(
+      /Journal\.pourCeJoueur\(\)[^;]{0,80}new BoiteJournal\(\)\.afficher\(\)/,
+    );
+  });
+
+  test("avant son installation (début de chaque page), rien n'est noté", () => {
     const p = creerPage(["js/class/Journal.js"], `var Horloge = { maintenant: () => 1 };`);
     p.lire(`Journal.erreur("Export", "échec"); Journal.info("Forum", "lu");`);
     expect(p.lire(`localStorage.getItem("fzzz_journal")`)).toBeNull();
@@ -232,6 +245,35 @@ describe("boîte « Journal » sous « Extension OUAF »", () => {
     expect(lire<string>(`$("#o_boiteJournal .o_journalCopie").val()`)).toBe(
       lire<string>(`Journal.texte()`),
     );
+  });
+
+  test("sans presse-papiers (page en http) : copie par sélection, puis à la main si elle échoue", async () => {
+    lire(`Journal.erreur("Export", "échec")`);
+    afficher();
+    // execCommand reçoit la zone invisible sélectionnée, retirée ensuite
+    lire(`window.COPIE = null; Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+      document.execCommand = (c) => { COPIE = c == "copy" ? [...document.querySelectorAll("textarea")].pop().value : null; return true; }`);
+    await lire(`BOITE.copier()`);
+    expect(lire<string>(`COPIE`)).toBe(lire<string>(`Journal.texte()`));
+    expect(lire(`$("textarea").length`)).toBe(0);
+    expect(lire(`$("#o_boiteJournal .o_journalEtat").text()`)).toBe(
+      "Journal copié (1 entrée) : colle-le dans ton message.",
+    );
+    // presse-papiers refusé et sélection impossible : texte montré sélectionné
+    lire(`Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.reject(new Error("refus")) } });
+      document.execCommand = () => false`);
+    await lire(`BOITE.copier()`);
+    expect(lire<string>(`$("#o_boiteJournal .o_journalCopie").val()`)).toBe(
+      lire<string>(`Journal.texte()`),
+    );
+    expect(lire(`$("#o_boiteJournal .o_journalEtat").text()`)).toContain("Texte sélectionné");
+    // une copie réussie ensuite retire le texte montré
+    lire(
+      `Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.resolve() } })`,
+    );
+    await lire(`BOITE.copier()`);
+    expect(lire(`$("#o_boiteJournal .o_journalCopie").length`)).toBe(0);
+    lire(`delete document.execCommand`);
   });
 
   test("une seule boîte, et aucune sans encadré « Extension OUAF »", () => {

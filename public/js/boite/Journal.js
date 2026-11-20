@@ -128,26 +128,11 @@ class BoiteJournal {
     );
   }
   /**
-   * Copie le texte complet ; sans presse-papiers (page en http, navigateur
-   * qui refuse), le texte est montré sélectionné pour une copie à la main.
-   *
    * @method copier
+   * @return {Promise<void>}
    */
   copier() {
-    let texte = Journal.texte(),
-      manuelle = () => {
-        let $zone = this._$boite.find(".o_journalCopie");
-        if (!$zone.length)
-          $zone = $("<textarea class='o_journalCopie' readonly></textarea>").insertAfter(
-            this._$boite.find(".o_journalEtat"),
-          );
-        $zone.val(texte).trigger("focus").trigger("select");
-        this.etat("Texte sélectionné : copie-le (Ctrl+C, ou appui long puis « Copier »).");
-      };
-    if (!navigator.clipboard || !navigator.clipboard.writeText) return manuelle();
-    navigator.clipboard
-      .writeText(texte)
-      .then(() => this.etat("Journal copié : colle-le dans ton message."), manuelle);
+    return Journal.copier(this._$boite.find(".o_journalEtat"), (texte) => this.etat(texte));
   }
   /**
    * @method etat

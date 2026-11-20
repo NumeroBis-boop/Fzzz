@@ -14,12 +14,13 @@ const JOURNAL_REPETITION = 60000;
 const NIVEAUX_JOURNAL = { erreur: "ERREUR", alerte: "ALERTE", succes: "OK", info: "INFO" };
 // en-têtes génériques des notifications (TOAST_*) : la source devient « Notification »
 const TITRES_NOTIFICATION = ["Erreur", "Succès", "Attention", "Information"];
-// installé (joueur de la ligne « Journal » des réglages) : sinon les notes sont ignorées
+// installé au début de chaque page (content.js), pour tous les joueurs : avant, les notes sont ignorées
 let journalInstalle = false;
 
 /**
  * Journal de l'extension : ce qu'elle fait et ses erreurs, à copier pour les
- * signaler (boîte « Journal » sous l'encadré « Extension OUAF »). Rempli par
+ * signaler (Préférences → Général pour tous ; boîte « Journal » sous
+ * l'encadré « Extension OUAF » pour la ligne « Journal » des réglages). Rempli par
  * les notifications affichées, les erreurs écrites dans la console par
  * l'extension, les erreurs JavaScript non rattrapées et les étapes notées par
  * les modules. Adresses de script Google et codes masqués : le texte copié
@@ -237,9 +238,66 @@ class Journal {
     return Journal.masquer(lignes.join("\n"));
   }
   /**
-   * Le joueur de la page a-t-il le journal (et les boutons qui rangent le
-   * forum) ? Les joueurs de la ligne « Journal » du sujet des réglages de
-   * l'alliance, d'après sa dernière lecture ; casse ignorée.
+   * Copie le texte complet : presse-papiers, sinon copie de la sélection
+   * (page en http, où le presse-papiers n'existe pas) ; à défaut, le texte est
+   * montré sélectionné après `$apres` pour une copie à la main.
+   *
+   * @static
+   * @method copier
+   * @param {any} $apres élément jQuery après lequel montrer le texte à copier à la main
+   * @param {function(String): void} etat écrit où en est la copie
+   * @return {Promise<void>}
+   */
+  static copier($apres, etat) {
+    let texte = Journal.texte(),
+      n = Journal.entrees().length,
+      copie = () => {
+        $apres.next(".o_journalCopie").remove();
+        etat(`Journal copié (${n} entrée${n > 1 ? "s" : ""}) : colle-le dans ton message.`);
+      },
+      parSelection = () => (Journal._copierParSelection(texte) ? copie() : manuelle()),
+      manuelle = () => {
+        let $zone = $apres.next(".o_journalCopie");
+        if (!$zone.length)
+          $zone = $("<textarea class='o_journalCopie' readonly></textarea>").insertAfter($apres);
+        $zone.val(texte).trigger("focus").trigger("select");
+        etat("Texte sélectionné : copie-le (Ctrl+C, ou appui long puis « Copier »).");
+      };
+    if (!navigator.clipboard || !navigator.clipboard.writeText)
+      return Promise.resolve(parSelection());
+    return navigator.clipboard.writeText(texte).then(copie, parSelection);
+  }
+  /**
+   * Copie par une zone de texte invisible sélectionnée (execCommand) ; lecture
+   * seule retirée le temps de la sélection, comme clipboard.js le fait pour Safari iOS.
+   *
+   * @private
+   * @static
+   * @param {String} texte
+   * @return {Boolean} copié
+   */
+  static _copierParSelection(texte) {
+    let zone = document.createElement("textarea"),
+      copie = false;
+    zone.value = texte;
+    zone.setAttribute("readonly", "");
+    zone.style.cssText =
+      "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:12pt;";
+    document.body.appendChild(zone);
+    try {
+      zone.removeAttribute("readonly");
+      zone.select();
+      zone.setSelectionRange(0, texte.length);
+      zone.setAttribute("readonly", "");
+      copie = document.execCommand("copy") === true;
+    } catch (e) {}
+    zone.remove();
+    return copie;
+  }
+  /**
+   * Le joueur de la page a-t-il la boîte « Journal » ? Les joueurs de la ligne
+   * « Journal » du sujet des réglages de l'alliance, d'après sa dernière
+   * lecture ; casse ignorée.
    *
    * @static
    * @method pourCeJoueur

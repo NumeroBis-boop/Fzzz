@@ -533,7 +533,7 @@ class BoiteParametre extends Boite {
     return this;
   }
   /**
-   * Général : ce qui agit sur toutes les pages, rôle et mise à jour.
+   * Général : ce qui agit sur toutes les pages, rôle, mise à jour et journal de débug.
    *
    * @method ongletGeneral
    */
@@ -548,10 +548,24 @@ class BoiteParametre extends Boite {
         `Mise à jour (v${VERSION})`,
         `<p class='left o_reglage'><button type='button' id='o_majFzzz' class='o_button f_success'>Mettre à jour l'extension</button></p>
         <p id='o_majFzzzEtat' class='left small'></p>`,
+      )}
+      ${this.section(
+        "Journal de débug",
+        `<p class='left o_reglage'><button type='button' id='o_copierJournal' class='o_button'>Copier le journal de débug</button></p>
+        <p id='o_copierJournalEtat' class='left small'></p>
+        ${this.aide(
+          "Pour signaler un bug : copie le journal, puis colle-le dans ton message.",
+          "Le journal garde, dans ce navigateur et pour ce serveur, les 200 dernières notes de l'extension : notifications, erreurs, étapes des lectures et des envois. Les adresses des fichiers Google et les mots de passe y sont masqués. Rien n'est envoyé : le texte ne part que dans le message où tu le colles.",
+        )}`,
       )}`);
     $("#o_majFzzz").on("click", (e) => {
       e.preventDefault();
       BoiteParametre.mettreAJour($(e.currentTarget), $("#o_majFzzzEtat"));
+    });
+    $("#o_copierJournal").on("click", (e) => {
+      e.preventDefault();
+      let $etat = $("#o_copierJournalEtat");
+      Journal.copier($etat, (texte) => $etat.text(texte));
     });
     this.majEtiquettes();
     return this;

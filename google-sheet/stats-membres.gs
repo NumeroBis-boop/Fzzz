@@ -40,6 +40,14 @@
  * partagée) n'y étant pas rendue ; pour les autres membres (requête
  * « relevesPublics »), seulement les joueurs qui partagent au moins une
  * information avec les autres, et ces informations-là.
+ *
+ * Il reçoit aussi le journal de débug de l'extension d'un joueur, les jours où
+ * il contient une erreur (requête « journal ») : une ligne par note dans
+ * l'onglet « Journal », créé au premier envoi, jamais vidé (règle du
+ * mainteneur) ; une note déjà reçue (même joueur, instant, niveau et source)
+ * n'est pas recopiée. Quand le fichier approche de la limite de cellules de
+ * Google Sheets, le journal n'est plus écrit (les relevés le sont toujours) :
+ * supprimer alors d'anciennes lignes de « Journal ».
  */
 
 var ONGLET = "Dernier relevé";
@@ -76,9 +84,41 @@ var JOURS_ECART_MAX = 1;
 // requête « niveaux » : les colonies d'un seigneur, quelques joueurs
 var JOUEURS_LUS_MAX = 50;
 var VALEUR_MAX = 1e15;
+// journal de débug envoyé par l'extension (EnvoiJournal) : une ligne par note
+var ONGLET_JOURNAL = "Journal";
+var TITRES_JOURNAL = [
+  "Reçu le",
+  "Joueur",
+  "Serveur",
+  "Appareil",
+  "Note du",
+  "Niveau",
+  "Source",
+  "Page",
+  "Version",
+  "Répétitions",
+  "Message",
+  "Détail",
+  "Clé",
+];
+// niveaux des notes : NIVEAUX_JOURNAL de public/js/class/Journal.js
+var NIVEAUX_JOURNAL = { erreur: "ERREUR", alerte: "ALERTE", succes: "OK", info: "INFO" };
+// l'extension garde 200 notes ; textes un peu plus longs que les siens
+var NOTES_JOURNAL_MAX = 200;
+var LONGUEURS_JOURNAL = {
+  source: 100,
+  message: 2000,
+  detail: 5000,
+  page: 200,
+  version: 40,
+};
+var FORMAT_INSTANT = "dd/MM/yyyy HH:mm:ss";
+var TITRES_NON_TEXTE_JOURNAL = ["Reçu le", "Note du", "Répétitions"];
+// Google Sheets refuse au-delà de 10 millions de cellules par fichier : de quoi garder les relevés
+var LIMITE_CELLULES_JOURNAL = 9000000;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-18.3";
+var VERSION_SCRIPT = "stats-membres 2026-11-20.1";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -93,6 +133,7 @@ function doGet() {
     niveaux: true,
     releves: true,
     relevesPublics: true,
+    journal: true,
   });
 }
 
@@ -117,6 +158,15 @@ function doPost(e) {
     )
       return reponseJson({ erreur: "joueurs invalides" });
     return reponseJson(lireNiveaux(classeur, joueurs));
+  }
+  if (d && d.journal && typeof d.journal == "object") {
+    var refusJournal = refusDuJournal(d.journal);
+    if (refusJournal) return reponseJson({ erreur: refusJournal });
+    return reponseJson(
+      avecVerrou(function () {
+        return enregistrerJournal(classeur, d.journal);
+      }),
+    );
   }
   var refus =
     d && d.suivi && typeof d.suivi == "object"
@@ -569,4 +619,143 @@ function valeurCellule(v) {
   if (v === null || v === undefined) return "";
   if (typeof v == "string" && /^[=+\-@]/.test(v)) return "'" + v;
   return v;
+}
+
+/**
+ * Pourquoi un journal est refusé, ou "" : {joueur, serveur, appareil, version,
+ * notes [{t (instant en ms), niveau, source, message, detail, page, version, x}]}.
+ */
+function refusDuJournal(j) {
+  if (typeof j.joueur != "string" || !j.joueur.trim() || j.joueur.length > 40)
+    return "joueur invalide";
+  if (!Array.isArray(j.notes) || !j.notes.length || j.notes.length > NOTES_JOURNAL_MAX)
+    return "notes invalides";
+  var enTete = { serveur: 60, appareil: 400, version: 40 };
+  for (var k in enTete)
+    if (j[k] != null && (typeof j[k] != "string" || j[k].length > enTete[k]))
+      return k + " invalide";
+  for (var i = 0; i < j.notes.length; i++) {
+    var n = j.notes[i];
+    if (
+      !n ||
+      typeof n != "object" ||
+      typeof n.t != "number" ||
+      !isFinite(n.t) ||
+      !NIVEAUX_JOURNAL.hasOwnProperty(n.niveau) ||
+      !(n.x == null || (Math.floor(n.x) === n.x && n.x >= 1 && n.x <= 1e9))
+    )
+      return "note " + (i + 1) + " invalide";
+    for (var c in LONGUEURS_JOURNAL)
+      if (n[c] != null && (typeof n[c] != "string" || n[c].length > LONGUEURS_JOURNAL[c]))
+        return "note " + (i + 1) + " invalide (" + c + ")";
+  }
+  return "";
+}
+
+/** L'onglet du journal, créé s'il manque, à la largeur de ses colonnes (moins de cellules). */
+function preparerJournal(classeur) {
+  var feuille = classeur.getSheetByName(ONGLET_JOURNAL);
+  if (feuille) return feuille;
+  feuille = classeur.insertSheet(ONGLET_JOURNAL);
+  feuille
+    .getRange(1, 1, 1, TITRES_JOURNAL.length)
+    .setValues([TITRES_JOURNAL])
+    .setFontWeight("bold");
+  feuille.setFrozenRows(1);
+  if (feuille.getMaxColumns() > TITRES_JOURNAL.length)
+    feuille.deleteColumns(
+      TITRES_JOURNAL.length + 1,
+      feuille.getMaxColumns() - TITRES_JOURNAL.length,
+    );
+  return feuille;
+}
+
+/** Cellules de tout le fichier (grilles des onglets, remplies ou non). */
+function cellulesDuFichier(classeur) {
+  return classeur.getSheets().reduce(function (somme, f) {
+    return somme + f.getMaxRows() * f.getMaxColumns();
+  }, 0);
+}
+
+/** Ajoute les notes pas encore reçues, une ligne chacune, sous les autres. */
+function enregistrerJournal(classeur, j) {
+  var feuille = preparerJournal(classeur),
+    colonnes = colonnesDe(feuille, TITRES_JOURNAL),
+    derniere = Math.max(feuille.getLastRow(), 1),
+    connues = {};
+  if (derniere > 1)
+    feuille
+      .getRange(2, colonnes["Clé"], derniere - 1, 1)
+      .getValues()
+      .forEach(function (l) {
+        connues[String(l[0])] = true;
+      });
+  var joueur = j.joueur.trim(),
+    recu = new Date(),
+    nouvelles = j.notes.filter(function (n) {
+      var cle = cleNote(joueur, n);
+      if (connues[cle]) return false;
+      connues[cle] = true;
+      return true;
+    });
+  if (!nouvelles.length) return { ok: true, ajoutees: 0, deja: j.notes.length };
+  var manque = derniere + nouvelles.length - feuille.getMaxRows();
+  if (
+    manque > 0 &&
+    cellulesDuFichier(classeur) + manque * feuille.getMaxColumns() > LIMITE_CELLULES_JOURNAL
+  )
+    return {
+      erreur:
+        "fichier presque plein : supprimer d'anciennes lignes de l'onglet « " +
+        ONGLET_JOURNAL +
+        " »",
+    };
+  if (manque > 0) feuille.insertRowsAfter(feuille.getMaxRows(), manque);
+  var largeur = Math.max.apply(
+      null,
+      TITRES_JOURNAL.map(function (t) {
+        return colonnes[t];
+      }),
+    ),
+    lignes = nouvelles.map(function (n) {
+      var l = [];
+      for (var c = 0; c < largeur; c++) l.push("");
+      var valeurs = {
+        "Reçu le": recu,
+        Joueur: valeurCellule(joueur),
+        Serveur: valeurCellule(j.serveur || ""),
+        Appareil: valeurCellule(j.appareil || ""),
+        "Note du": new Date(n.t),
+        Niveau: NIVEAUX_JOURNAL[n.niveau],
+        Source: valeurCellule(n.source || ""),
+        Page: valeurCellule(n.page || ""),
+        Version: valeurCellule(n.version || j.version || ""),
+        Répétitions: n.x || 1,
+        Message: valeurCellule(n.message || ""),
+        Détail: valeurCellule(n.detail || ""),
+        Clé: valeurCellule(cleNote(joueur, n)),
+      };
+      TITRES_JOURNAL.forEach(function (t) {
+        l[colonnes[t] - 1] = valeurs[t];
+      });
+      return l;
+    }),
+    debut = derniere + 1;
+  // textes gardés tels quels : « 12/11 » ou « 1.5 » ne deviennent ni date ni nombre
+  TITRES_JOURNAL.forEach(function (t) {
+    if (TITRES_NON_TEXTE_JOURNAL.indexOf(t) == -1)
+      feuille.getRange(debut, colonnes[t], lignes.length, 1).setNumberFormat("@");
+  });
+  feuille.getRange(debut, 1, lignes.length, largeur).setValues(lignes).setVerticalAlignment("top");
+  ["Reçu le", "Note du"].forEach(function (t) {
+    feuille.getRange(debut, colonnes[t], lignes.length, 1).setNumberFormat(FORMAT_INSTANT);
+  });
+  // une ligne par note, même quand son détail tient sur plusieurs lignes
+  feuille.setRowHeightsForced(debut, lignes.length, 21);
+  return { ok: true, ajoutees: lignes.length, deja: j.notes.length - lignes.length };
+}
+
+/** Une note reçue deux fois (réponse perdue, envoi repris) n'est écrite qu'une fois. */
+function cleNote(joueur, n) {
+  return [cleJoueur(joueur), n.t, n.niveau, n.source || ""].join("|");
 }

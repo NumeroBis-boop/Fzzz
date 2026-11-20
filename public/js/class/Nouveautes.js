@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.145.0",
+    notes: [
+      "Les jours où ton journal de débug contient une erreur, il est envoyé une fois au Google Sheet des stats membres de l'alliance, pour aider à corriger les bugs. La case est dans Préférences → Partage de données.",
+    ],
+  },
+  {
     version: "1.144.0",
     notes: [
       "Préférences → Général : bouton « Copier le journal de débug ». Pour signaler un bug, copie-le et colle-le dans ton message.",

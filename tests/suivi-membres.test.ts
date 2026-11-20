@@ -23,6 +23,7 @@ const page = creerPage(
     "js/class/Armee.js",
     "js/page/PartageChasses.js",
     "js/class/SuiviMembres.js",
+    "js/class/EnvoiJournal.js",
     "js/content.js",
   ],
   // constantes du jeu (content.js) ; l'encart « Connexion » empêche le démarrage
@@ -1133,6 +1134,7 @@ describe("Préférences → Partage de données", () => {
       "js/page/PartageChasses.js",
       "js/class/RappelExport.js",
       "js/class/SuiviMembres.js",
+      "js/class/EnvoiJournal.js",
       "js/class/ExportRapports.js",
       "js/class/ExportAuto.js",
       "js/boite/Boite.js",

@@ -1168,17 +1168,19 @@ class ExportRapports {
     let quoi =
         corps && corps.suivi
           ? "relevé des statistiques du joueur"
-          : corps && corps.niveaux
-            ? "niveaux de champignonnière des colonies"
-            : corps && corps.releves
-              ? "stats des membres"
-              : corps && corps.statistiques
-                ? "statistiques de la synthèse"
-                : corps && corps.verifier
-                  ? "vérification des RC déjà exportés"
-                  : corps && corps.onglet
-                    ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
-                    : "test du script",
+          : corps && corps.journal
+            ? "envoi du journal de débug"
+            : corps && corps.niveaux
+              ? "niveaux de champignonnière des colonies"
+              : corps && corps.releves
+                ? "stats des membres"
+                : corps && corps.statistiques
+                  ? "statistiques de la synthèse"
+                  : corps && corps.verifier
+                    ? "vérification des RC déjà exportés"
+                    : corps && corps.onglet
+                      ? `envoi de ${(corps.lignes || []).length} ligne(s) à « ${corps.onglet} »`
+                      : "test du script",
       echec = (/** @type {String} */ message, /** @type {any} */ r) => {
         // statut, réponse du script, ou texte de la page d'erreur de Google
         Journal.erreur(

@@ -22,6 +22,7 @@ const page = creerPage(
     "js/page/PartageChasses.js",
     "js/class/RappelExport.js",
     "js/class/SuiviMembres.js",
+    "js/class/EnvoiJournal.js",
     "js/class/ProfilConvois.js",
     "js/class/ExportRapports.js",
     "js/class/ExportAuto.js",
@@ -60,6 +61,26 @@ function construire(stockage: Record<string, string> = {}) {
 }
 
 describe("Général : « Journal de débug » (demande du mainteneur, 20/11/2026)", () => {
+  test("Partage de données : envoi du journal les jours avec une erreur, case cochée par défaut", () => {
+    construire();
+    const $case = `$("#o_tabsParametrePartage #o_partageJournal")`;
+    expect(lire(`${$case}.closest(".o_sectionParam").find(".o_titreParam").text()`)).toBe(
+      "Journal de débug",
+    );
+    expect(lire(`${$case}.prop("checked")`)).toBe(true);
+    lire(`${$case}.prop("checked", false).trigger("change")`);
+    expect(lire(`localStorage.getItem("fzzz_partage_journal")`)).toBe("0");
+    construire({ fzzz_partage_journal: "0" });
+    expect(lire(`${$case}.prop("checked")`)).toBe(false);
+    // l'aide du bouton de copie dit que le journal part, et où le décocher
+    const aide = lire<string>(
+      `$("#o_copierJournal").closest(".o_sectionParam").find(".o_aideParam").html()`,
+    );
+    expect(aide).toContain("Google Sheet des stats membres");
+    expect(aide).toContain('data-onglet="Partage"');
+    expect(aide).not.toContain("Rien n'est envoyé");
+  });
+
   test("un bouton copie tout le journal, sans le montrer ; pour tous les joueurs", async () => {
     construire();
     lire(

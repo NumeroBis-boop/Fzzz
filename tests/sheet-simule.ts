@@ -33,6 +33,11 @@ export function feuille(nom: string, grille: Grille = [], lignesMax = 1000) {
     insertColumnsAfter: (c: number, n: number) => {
       colonnesMax += n;
     },
+    deleteColumns: (c: number, n: number) => {
+      if (c < 1 || c + n - 1 > colonnesMax) throw new Error("Those columns are out of bounds.");
+      for (const l of grille) l.splice(c - 1, n);
+      colonnesMax -= n;
+    },
     // colonne insérée au milieu : les cases à sa droite glissent d'une colonne,
     // la nouvelle prend la mise en forme de sa voisine de gauche, comme dans Sheets
     insertColumnAfter: (c: number) => {
@@ -215,6 +220,7 @@ export function classeurSimule(
     getName: () => "Extension OUAF",
     getSpreadsheetTimeZone: () => fuseau,
     getSheetByName: (n: string) => onglets[n] || null,
+    getSheets: () => ordre.map((n) => onglets[n]),
     insertSheet: (n: string, position?: number) => {
       ordre.splice(position ?? ordre.length, 0, n);
       return (onglets[n] = feuille(n));

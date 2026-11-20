@@ -683,7 +683,8 @@ describe("lecture de tout l'onglet pour la vue « Stats membres » (1.127.0)", (
     expect(fichier().doGet()).toMatchObject({
       releves: true,
       relevesPublics: true,
-      version: "stats-membres 2026-11-18.3",
+      version: "stats-membres 2026-11-20.1",
+      journal: true,
     });
   });
 });
@@ -767,5 +768,160 @@ describe("partage avec les autres membres (1.136.0) : colonne « Partagé avec l
       erreur: "partage invalide : TdP",
     });
     expect(f.doPost(releve({ publics: "tout" }))).toEqual({ erreur: "informations invalides" });
+  });
+});
+
+describe("journal de débug : onglet « Journal » (1.145.0, demande du mainteneur, 20/11/2026)", () => {
+  const TITRES_JOURNAL = [
+    "Reçu le",
+    "Joueur",
+    "Serveur",
+    "Appareil",
+    "Note du",
+    "Niveau",
+    "Source",
+    "Page",
+    "Version",
+    "Répétitions",
+    "Message",
+    "Détail",
+    "Clé",
+  ];
+  const note = (t: number, plus: Record<string, unknown> = {}) => ({
+    t,
+    niveau: "erreur",
+    source: "Export Google Sheet",
+    message: "le script ne répond pas",
+    detail: "statut 502",
+    page: "Ressources.php",
+    version: "1.145.0",
+    x: 1,
+    ...plus,
+  });
+  const journal = (notes: object[], plus: Record<string, unknown> = {}) => ({
+    journal: {
+      joueur: "Alpha",
+      serveur: "s5.fourmizzz.fr",
+      appareil: "Violentmonkey 2.30 | Mozilla/5.0 (Android)",
+      version: "1.145.0",
+      notes,
+      ...plus,
+    },
+  });
+  const T = Date.UTC(2026, 10, 20, 9, 0, 0);
+
+  test("une ligne par note, onglet créé au premier envoi, à la largeur de ses colonnes ; relevés intacts", () => {
+    const f = fichier();
+    f.doPost(releve());
+    expect(
+      f.doPost(
+        journal([note(T, { niveau: "info", message: "sujets lus", detail: "" }), note(T + 1000)]),
+      ),
+    ).toEqual({ ok: true, ajoutees: 2, deja: 0 });
+    expect(f.ordre).toEqual([ONGLET, "Journal"]);
+    const j = f.onglets.Journal;
+    expect(j.grille[0]).toEqual(TITRES_JOURNAL);
+    expect(j.getMaxColumns()).toBe(TITRES_JOURNAL.length);
+    const [l1, l2] = j.grille.slice(1);
+    expect(l1[0]).toBeInstanceOf(Date);
+    expect((l1[4] as Date).getTime()).toBe(T);
+    expect(l1.slice(1, 4)).toEqual([
+      "Alpha",
+      "s5.fourmizzz.fr",
+      "Violentmonkey 2.30 | Mozilla/5.0 (Android)",
+    ]);
+    expect(l1.slice(5)).toEqual([
+      "INFO",
+      "Export Google Sheet",
+      "Ressources.php",
+      "1.145.0",
+      1,
+      "sujets lus",
+      "",
+      `alpha|${T}|info|Export Google Sheet`,
+    ]);
+    expect(l2.slice(5, 12)).toEqual([
+      "ERREUR",
+      "Export Google Sheet",
+      "Ressources.php",
+      "1.145.0",
+      1,
+      "le script ne répond pas",
+      "statut 502",
+    ]);
+    // dates à la seconde, textes gardés tels quels, une ligne de haut par note
+    expect(j.formats["2,1"]).toBe("dd/MM/yyyy HH:mm:ss");
+    expect(j.formats["2,5"]).toBe("dd/MM/yyyy HH:mm:ss");
+    expect(j.formats["2,11"]).toBe("@");
+    expect(j.hauteurs[2]).toBe(21);
+    // le relevé du joueur n'a pas bougé
+    expect(lignes(f)[1][0]).toBe("DoggyBag");
+  });
+
+  test("envoi repris (réponse perdue) : une note déjà reçue n'est pas recopiée", () => {
+    const f = fichier();
+    f.doPost(journal([note(T), note(T + 1000)]));
+    expect(f.doPost(journal([note(T), note(T + 1000), note(T + 2000)]))).toEqual({
+      ok: true,
+      ajoutees: 1,
+      deja: 2,
+    });
+    expect(f.onglets.Journal.grille).toHaveLength(4);
+    // un autre joueur au même instant : ses lignes à lui
+    expect(f.doPost(journal([note(T)], { joueur: "Bravo" }))).toMatchObject({ ajoutees: 1 });
+  });
+
+  test("conservé sans limite : les lignes s'ajoutent sous les autres, la grille s'agrandit", () => {
+    const f = fichier({ Journal: feuille("Journal", [TITRES_JOURNAL], 3) });
+    const notes = Array.from({ length: 5 }, (_, i) => note(T + i * 1000));
+    expect(f.doPost(journal(notes))).toMatchObject({ ajoutees: 5 });
+    expect(f.onglets.Journal.getMaxRows()).toBe(6);
+    expect(f.doPost(journal([note(T + 9000)]))).toMatchObject({ ajoutees: 1 });
+    expect(f.onglets.Journal.grille).toHaveLength(7);
+  });
+
+  test("colonnes déplacées à la main : chaque valeur sous son titre", () => {
+    const melange = [...TITRES_JOURNAL].reverse();
+    const f = fichier({ Journal: feuille("Journal", [melange]) });
+    f.doPost(journal([note(T)]));
+    const l = f.onglets.Journal.grille[1];
+    expect(l[melange.indexOf("Joueur")]).toBe("Alpha");
+    expect(l[melange.indexOf("Message")]).toBe("le script ne répond pas");
+  });
+
+  test("texte qui commence par = + - @ : jamais une formule", () => {
+    const f = fichier();
+    f.doPost(journal([note(T, { message: "=IMPORTXML(x)", detail: "-5" })]));
+    expect(f.onglets.Journal.grille[1].slice(10, 12)).toEqual(["'=IMPORTXML(x)", "'-5"]);
+  });
+
+  test("fichier presque plein : le journal n'est plus écrit, les relevés le sont toujours", () => {
+    const f = fichier({
+      Gros: feuille("Gros", [["x"]], 400000),
+      Journal: feuille("Journal", [TITRES_JOURNAL], 1),
+    });
+    expect(f.doPost(journal([note(T)]))).toEqual({
+      erreur: "fichier presque plein : supprimer d'anciennes lignes de l'onglet « Journal »",
+    });
+    expect(f.onglets.Journal.grille).toHaveLength(1);
+    expect(f.doPost(releve())).toMatchObject({ ok: true });
+  });
+
+  test("journaux refusés", () => {
+    const f = fichier();
+    const refus = (corps: object) => f.doPost(corps).erreur;
+    expect(refus(journal([note(T)], { joueur: "" }))).toBe("joueur invalide");
+    expect(refus(journal([]))).toBe("notes invalides");
+    expect(refus(journal(Array.from({ length: 201 }, (_, i) => note(T + i))))).toBe(
+      "notes invalides",
+    );
+    expect(refus(journal([note(T, { niveau: "panique" })]))).toBe("note 1 invalide");
+    expect(refus(journal([note(T), note(Number.NaN)]))).toBe("note 2 invalide");
+    expect(refus(journal([note(T, { x: 0 })]))).toBe("note 1 invalide");
+    expect(refus(journal([note(T, { message: "a".repeat(2001) })]))).toBe(
+      "note 1 invalide (message)",
+    );
+    expect(refus(journal([note(T)], { appareil: "a".repeat(401) }))).toBe("appareil invalide");
+    expect(f.onglets.Journal).toBeUndefined();
   });
 });

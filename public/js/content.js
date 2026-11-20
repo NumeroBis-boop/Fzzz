@@ -870,6 +870,11 @@ const DATEPICKER_OPTION = {
           .catch(() => {})
           .then(() => ProfilConvois.lancer())
           .catch((e) => console.error("Fzzz : profil du site de suivi des convois", e));
+        // journal de débug, les jours où il contient une erreur : au fichier des stats membres
+        releve
+          .catch(() => {})
+          .then(() => EnvoiJournal.lancer())
+          .catch((e) => console.error("Fzzz : envoi du journal de débug", e));
         releve
           .catch(() => {})
           .then(() => ExportAuto.lancer())

@@ -188,6 +188,7 @@ export default defineConfig({
           "js/class/Parametre.js",
           "js/class/RappelExport.js",
           "js/class/SuiviMembres.js",
+          "js/class/EnvoiJournal.js",
           "js/class/ProfilConvois.js",
           "js/class/ExportAuto.js",
           "js/class/SimulationChasse.js",

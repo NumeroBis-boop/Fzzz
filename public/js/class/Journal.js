@@ -462,6 +462,16 @@ class Journal {
     }
   }
   /**
+   * Gestionnaire de scripts et navigateur, pour savoir d'où vient un journal envoyé.
+   *
+   * @static
+   * @method appareil
+   * @return {String}
+   */
+  static appareil() {
+    return `${Journal._gestionnaire()} | ${navigator.userAgent}`;
+  }
+  /**
    * @private
    * @static
    * @return {String}

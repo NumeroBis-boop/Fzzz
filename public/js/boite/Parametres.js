@@ -555,7 +555,7 @@ class BoiteParametre extends Boite {
         <p id='o_copierJournalEtat' class='left small'></p>
         ${this.aide(
           "Pour signaler un bug : copie le journal, puis colle-le dans ton message.",
-          "Le journal garde, dans ce navigateur et pour ce serveur, les 200 dernières notes de l'extension : notifications, erreurs, étapes des lectures et des envois. Les adresses des fichiers Google et les mots de passe y sont masqués. Rien n'est envoyé : le texte ne part que dans le message où tu le colles.",
+          `Le journal garde, dans ce navigateur et pour ce serveur, les 200 dernières notes de l'extension : notifications, erreurs, étapes des lectures et des envois. Les adresses des fichiers Google et les mots de passe y sont masqués. Les jours où il contient une erreur, il est aussi envoyé une fois au Google Sheet des stats membres de l'alliance (${this.lienOnglet("Partage", "onglet Partage de données")}).`,
         )}`,
       )}`);
     $("#o_majFzzz").on("click", (e) => {
@@ -1078,6 +1078,14 @@ class BoiteParametre extends Boite {
             <p class='left o_reglage'><button type='button' id='o_partageEnvoyer' class='o_button'>Envoyer maintenant</button></p>`,
         )}
         ${this.section(
+          "Journal de débug",
+          `<label class='o_affichageFzzz'><input type='checkbox' id='o_partageJournal' ${EnvoiJournal.coche() ? "checked" : ""}/> Envoyer mon journal de débug les jours où il contient une erreur</label>` +
+            this.aide(
+              "",
+              `Au plus une fois par jour, à une page que tu ouvres : les notes du journal depuis le dernier envoi, à l'onglet « Journal » du Google Sheet des stats membres de l'alliance. Rien n'est envoyé les jours sans erreur. Les adresses des fichiers Google et les mots de passe sont masqués. L'adresse du fichier est celle de la ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} » : sans elle, rien n'est envoyé. Le bouton « Copier le journal de débug » est dans l'${this.lienOnglet("General", "onglet Général")}.`,
+            ),
+        )}
+        ${this.section(
           "Rapports de chasse et de combat",
           `<label class='o_affichageFzzz'><input type='checkbox' id='o_partageChasses' ${ExportAuto.coche() ? "checked" : ""}/> Exporter mes chasses automatiquement${this.etiquette("Chasseur")}</label>` +
             this.aide(
@@ -1114,6 +1122,9 @@ class BoiteParametre extends Boite {
         )
         .then(() => $b.prop("disabled", false));
     });
+    $onglet
+      .find("#o_partageJournal")
+      .on("change", (e) => EnvoiJournal.choisir(e.currentTarget.checked));
     $onglet.find("#o_partageChasses").on("change", (e) => {
       ExportAuto.choisir(e.currentTarget.checked);
       etatChasses();

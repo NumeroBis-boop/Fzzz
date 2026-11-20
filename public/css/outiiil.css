@@ -3723,10 +3723,15 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   cursor: help;
 }
 /* les événements souris d'un toucher passent à la cellule : sinon elle est « quittée » et la bulle se ferme ;
-   largeur : les 500 px du jeu (.warning-tooltip, !important), moins sur un téléphone */
+   largeur : les 500 px du jeu (.warning-tooltip, !important), moins sur un téléphone ;
+   text-size-adjust : un navigateur mobile (Firefox Android, capture du 20/11/2026) grossit le texte
+   d'un bloc large et long, ici environ 1,5 fois, bien plus que celui de la page */
 .ui-tooltip.o_delaiInfobulle {
   max-width: min(92vw, 500px) !important;
   pointer-events: none;
+  -moz-text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
 }
 .o_delaiInfobulle .o_delaiDetail,
 .o_delaiInfobulle .o_delaiNote {

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { creerPage } from "./harnais";
 
 /**
@@ -640,5 +642,18 @@ describe("toucher (téléphone)", () => {
     lire(`$("#boiteInfo").trigger("click")`);
     expect(ouvertes()).toBe(0);
     expect(lire<number>(`$(".o_delaiRessources [title]").length`)).toBe(5);
+  });
+
+  test("le navigateur ne grossit pas le texte de l'info-bulle (Firefox Android : environ 1,5 fois)", () => {
+    const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8");
+    const regle = css.match(/\.ui-tooltip\.o_delaiInfobulle \{([^}]*)\}/);
+    expect(regle).not.toBeNull();
+    // -moz- pour Firefox (auto | none seulement), -webkit- et sans préfixe pour Chromium et Safari
+    for (const propriete of [
+      "-moz-text-size-adjust",
+      "-webkit-text-size-adjust",
+      "text-size-adjust",
+    ])
+      expect(regle![1]).toMatch(new RegExp(`(^|[\\s;])${propriete}: none;`));
   });
 });

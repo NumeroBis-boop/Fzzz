@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.143.5",
+    notes: [
+      "Pages Construction et Laboratoire : sur téléphone, le texte de l'info-bulle du délai (« dispo dans … ») n'est plus agrandi par le navigateur.",
+    ],
+  },
+  {
     version: "1.143.4",
     notes: [
       "« Multi-flood opti » s'ouvre de nouveau depuis le menu : le jeu ajoute maintenant un jeton à certaines adresses, que l'extension ne reconnaissait pas.",

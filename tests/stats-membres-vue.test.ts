@@ -32,6 +32,8 @@ const page = creerPage(
   "https://s5.fourmizzz.fr/alliance.php?Membres",
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
+// ordre au hasard des non-chefs : remis à chaque test (un test le remplace)
+lire(`window.MELANGER_ORIGINE = StatsMembres.melanger`);
 
 const ADRESSE = "https://script.google.com/macros/s/AKfycbInventeStats/exec";
 // ordre des colonnes de la vue
@@ -84,6 +86,7 @@ beforeEach(() => {
     // le joueur de la page (Bravo) est chef : le tableau est réservé aux chefs
     localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, alliance: "OUAF", section: true, sujet: true, reglages: { chefs: ["Alpha", "Bravo"] } }));
     lectureStatsMembres = null;
+    StatsMembres.melanger = MELANGER_ORIGINE;
     relevesStatsMembres = null;
     tdcStatsMembres = null;
     tdcTableauStats = null;
@@ -462,16 +465,18 @@ describe("ce que voit un membre qui n'est pas chef : les mêmes relevés, sans p
       .filter((a) => Array.isArray(a) && a[0] == ADRESSE)
       .map((a) => a[2]);
   // réponse de la requête « relevesAnonymes » : pseudos vides sauf celui du
-  // joueur (Bravo), lignes rangées par TdP ; un pseudo rendu quand même est effacé
+  // joueur (Bravo) ; un pseudo rendu quand même est effacé
   const ANONYMES = [
     { ...RELEVES[0], joueur: "Alpha" },
     { ...RELEVES[2], joueur: "" },
     { ...RELEVES[1], joueur: "bravo" },
   ];
 
-  test("non chef : relevés sans pseudo sauf le sien, sans TdC, rangés par TdP ; même partage que les chefs", async () => {
+  test("non chef : relevés sans pseudo sauf le sien, sans TdC, dans l'ordre tiré au hasard ; même partage que les chefs", async () => {
     lire(garder(["Alpha"]));
     relus(["Alpha"]);
+    // ordre tiré : ici l'inverse de la réponse, que le tableau garde sans le trier
+    lire(`StatsMembres.melanger = (l) => [...l].reverse()`);
     lire(`REPONSE = { ok: true, releves: ${JSON.stringify(ANONYMES)} }`);
     await ouvrir();
     expect(demandes()).toEqual([{ relevesAnonymes: { joueur: "Bravo" } }]);
@@ -488,12 +493,13 @@ describe("ce que voit un membre qui n'est pas chef : les mêmes relevés, sans p
       "Champi",
       "Puceron",
     ]);
-    // TdP décroissant ; ni pseudo ni lien sur les autres lignes ; aucun TdC lu
+    // ni pseudo ni lien sur les autres lignes ; aucun TdC lu ; aucune colonne triée
     expect(cellules()).toEqual([
       ["bravo", "17/11 22h10", "40", "—", "—", "150\u00a0k", "1", "9", "1", "1", "1"],
       ["", "16/11", "35", "", "", "1,23\u00a0M", "", "", "", "", ""],
       ["", "18/11 08h03", "30", "350 000", "1\u00a0k", "50\u00a0k", "1", "5", "1", "1", "1"],
     ]);
+    expect(lire(`$("#o_statsMembresTable").DataTable().order()`)).toEqual([]);
     expect(lire(`$("#o_statsMembresTable tbody a").map((i, a) => a.textContent).get()`)).toEqual([
       "bravo",
     ]);
@@ -516,9 +522,34 @@ describe("ce que voit un membre qui n'est pas chef : les mêmes relevés, sans p
     ).toEqual([CLES.length, 1, false]);
   });
 
-  test("non chef : export CSV sans pseudo sauf le sien, sans TdC", async () => {
+  test("ordre tiré au hasard : les mêmes lignes, un autre ordre d'un chargement à l'autre", () => {
+    const lignes = ANONYMES.map((r, i) => ({ ...r, i }));
+    // Math.random proche de 1 : chaque élément reste à sa place ; proche de 0 : il change
+    expect(
+      lire<number[]>(
+        `(() => { const r = Math.random; Math.random = () => 0.999; const m = StatsMembres.melanger(${JSON.stringify(lignes)}).map((x) => x.i); Math.random = r; return m; })()`,
+      ),
+    ).toEqual([0, 1, 2]);
+    expect(
+      lire<number[]>(
+        `(() => { const r = Math.random; Math.random = () => 0; const m = StatsMembres.melanger(${JSON.stringify(lignes)}).map((x) => x.i); Math.random = r; return m; })()`,
+      ),
+    ).toEqual([1, 2, 0]);
+    const ordres = new Set(
+      Array.from({ length: 40 }, () =>
+        lire<number[]>(`StatsMembres.anonymes(${JSON.stringify(lignes)}).map((x) => x.i)`).join(
+          ",",
+        ),
+      ),
+    );
+    expect(ordres.size).toBeGreaterThan(1);
+    expect([...ordres].every((o) => o.split(",").sort().join(",") == "0,1,2")).toBe(true);
+  });
+
+  test("non chef : export CSV sans pseudo sauf le sien, sans TdC, dans l'ordre du tableau", async () => {
     lire(garder(["Alpha"]));
     relus(["Alpha"]);
+    lire(`StatsMembres.melanger = (l) => [...l].reverse()`);
     lire(`REPONSE = { ok: true, releves: ${JSON.stringify(ANONYMES)} }`);
     await ouvrir();
     await lire(`StatsMembres.exporter()`);
@@ -548,7 +579,11 @@ describe("ce que voit un membre qui n'est pas chef : les mêmes relevés, sans p
     lire(`REPONSE = { ok: true, releves: ${JSON.stringify(ANONYMES)} }`);
     await ouvrir();
     expect(demandes()).toEqual([{ relevesAnonymes: { joueur: "Bravo" } }]);
-    expect(cellules().map((l) => l[0])).toEqual(["bravo", "", ""]);
+    expect(
+      cellules()
+        .map((l) => l[0])
+        .sort(),
+    ).toEqual(["", "", "bravo"]);
   });
 
   test("script pas encore redéployé : il refuse la requête, rien n'est montré au non-chef", async () => {

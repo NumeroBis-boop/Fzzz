@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.148.1",
+    notes: [
+      "Stats membres : pour les membres qui ne sont pas chefs, les joueurs sont affichés dans un ordre tiré au hasard à chaque chargement.",
+    ],
+  },
+  {
     version: "1.148.0",
     notes: [
       "Stats membres : un seul niveau de partage ; les chefs voient les pseudos, les autres membres les mêmes stats sans pseudo, sauf le leur. Les réglages de l'extension sont envoyés une fois par jour au fichier des stats membres, pour aider à corriger les problèmes d'affichage.",

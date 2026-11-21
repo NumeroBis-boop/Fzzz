@@ -658,7 +658,7 @@ describe("lecture de tout l'onglet pour la vue « Stats membres » (1.127.0)", (
       releves: true,
       relevesAnonymes: true,
       relevesPublics: true,
-      version: "stats-membres 2026-11-21.1",
+      version: "stats-membres 2026-11-21.2",
       journal: true,
       reglages: true,
     });
@@ -680,13 +680,18 @@ describe("lecture sans pseudo pour les membres qui ne sont pas chefs (1.148.0, m
     f.doPost(releve({ joueur: "Delta", donnees: {}, partages: AUCUN }));
   };
 
-  test("les relevés des chefs, sans pseudo sauf celui qui demande (casse ignorée), rangés par TdP ; rien d'écrit", () => {
+  test("les relevés des chefs, sans pseudo sauf celui qui demande (casse ignorée), dans un ordre au hasard ; rien d'écrit", () => {
     const f = fichier();
     remplir(f);
     const avant = JSON.stringify([f.onglets[ONGLET].grille, f.onglets[ONGLET].fonds]);
     const r = f.doPost({ relevesAnonymes: { joueur: "bravo" } });
     expect(JSON.stringify([f.onglets[ONGLET].grille, f.onglets[ONGLET].fonds])).toBe(avant);
-    expect(r.releves.map((x: any) => [x.joueur, x.valeurs.tdp])).toEqual([
+    const tdp = (x: any) => x.valeurs.tdp ?? -1;
+    expect(
+      r.releves
+        .map((x: any) => [x.joueur, x.valeurs.tdp])
+        .sort((a: any, b: any) => (b[1] ?? -1) - (a[1] ?? -1)),
+    ).toEqual([
       ["Bravo", 40],
       ["", 35],
       ["", 30],
@@ -694,11 +699,22 @@ describe("lecture sans pseudo pour les membres qui ne sont pas chefs (1.148.0, m
     ]);
     // les mêmes informations que pour un chef : la CdF décochée de Bravo sans valeur
     const chefs = f.doPost({ releves: true }).releves;
-    expect(r.releves[0]).toEqual(chefs.find((x: any) => x.joueur == "Bravo"));
-    expect(r.releves[0].partages.cdf).toBe(false);
-    expect(r.releves[0].valeurs.cdf).toBe(null);
-    expect(r.releves[3].partages).toEqual(AUCUN);
+    const bravo = r.releves.find((x: any) => x.joueur == "Bravo");
+    expect(bravo).toEqual(chefs.find((x: any) => x.joueur == "Bravo"));
+    expect(bravo.partages.cdf).toBe(false);
+    expect(bravo.valeurs.cdf).toBe(null);
+    expect(r.releves.find((x: any) => x.valeurs.tdp == null).partages).toEqual(AUCUN);
     expect(JSON.stringify(r)).not.toMatch(/Alpha|Charlie|Delta/);
+    // ordre tiré à chaque lecture (mainteneur, 21/11/2026) : ni celui de l'onglet ni un tri
+    const ordres = new Set(
+      Array.from({ length: 40 }, () =>
+        f
+          .doPost({ relevesAnonymes: { joueur: "bravo" } })
+          .releves.map(tdp)
+          .join(","),
+      ),
+    );
+    expect(ordres.size).toBeGreaterThan(1);
   });
 
   test("extension d'avant (requête « relevesPublics ») ou demandeur absent : aucun pseudo", () => {

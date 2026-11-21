@@ -284,7 +284,8 @@ class StatsMembres {
   }
   /**
    * Ce que voit un membre qui n'est pas chef, que le script rend déjà : aucun
-   * pseudo, sauf le sien.
+   * pseudo, sauf le sien, les joueurs dans un ordre tiré au hasard à chaque
+   * chargement (mainteneur, 21/11/2026).
    *
    * @static
    * @method anonymes
@@ -295,13 +296,29 @@ class StatsMembres {
     let moi = String(monProfil.pseudo || "")
       .trim()
       .toLowerCase();
-    return releves.map((r) =>
-      String(r.joueur || "")
-        .trim()
-        .toLowerCase() == moi
-        ? r
-        : { ...r, joueur: "" },
+    return StatsMembres.melanger(
+      releves.map((r) =>
+        String(r.joueur || "")
+          .trim()
+          .toLowerCase() == moi
+          ? r
+          : { ...r, joueur: "" },
+      ),
     );
+  }
+  /**
+   * @static
+   * @method melanger
+   * @param {Array<any>} liste
+   * @return {Array<any>} les mêmes éléments dans un ordre au hasard (Fisher-Yates)
+   */
+  static melanger(liste) {
+    let copie = [...liste];
+    for (let i = copie.length - 1; i > 0; i--) {
+      let j = Math.floor(Math.random() * (i + 1));
+      [copie[i], copie[j]] = [copie[j], copie[i]];
+    }
+    return copie;
   }
   /**
    * @static
@@ -360,7 +377,8 @@ class StatsMembres {
   /**
    * Une ligne par joueur, triable par colonne ; refait (tri gardé) quand les
    * TdC sont relus. Sans pseudo (membre qui n'est pas chef) : ni TdC, ni tri
-   * par pseudo, rangé par TdP.
+   * par pseudo, ni tri au chargement : les lignes restent dans l'ordre tiré
+   * au hasard (anonymes).
    *
    * @static
    * @method remplir
@@ -377,7 +395,8 @@ class StatsMembres {
         .toLowerCase(),
       $table = $("#o_statsMembresTable"),
       colonnes = donnees.length + (chef ? 3 : 2),
-      ordre = chef ? [[0, "asc"]] : [[2, "desc"]];
+      /** @type {Array<any>} */
+      ordre = chef ? [[0, "asc"]] : [];
     if ($.fn.dataTable.isDataTable($table[0])) {
       let api = $table.DataTable(),
         garde = api.order();

@@ -39,8 +39,8 @@
  * une information sur fond rouge (non partagée) n'y étant pas rendue : avec
  * les pseudos pour un chef (requête « releves »), sans pseudo pour les autres
  * membres, sauf sur la ligne du joueur qui demande (requête « relevesAnonymes »,
- * lignes rangées par TdP ; « relevesPublics » des extensions d'avant : aucun
- * pseudo). Le script ne sait pas qui demande : l'adresse suffit pour lire
+ * lignes dans un ordre tiré au hasard ; « relevesPublics » des extensions
+ * d'avant : aucun pseudo). Le script ne sait pas qui demande : l'adresse suffit pour lire
  * les pseudos, comme pour écrire.
  *
  * Il range aussi les réglages de l'extension que chaque joueur envoie une fois
@@ -134,7 +134,7 @@ var ONGLET_REGLAGES = "Réglages extension";
 var TITRES_REGLAGES = ["Groupe", "Réglage", "Clé"];
 var REGLAGES_MAX = 400;
 var LONGUEURS_REGLAGE = { groupe: 80, cle: 80, libelle: 300, valeur: 400 };
-var VERSION_SCRIPT = "stats-membres 2026-11-21.1";
+var VERSION_SCRIPT = "stats-membres 2026-11-21.2";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -261,8 +261,8 @@ function lireNiveaux(classeur, joueurs) {
  * null}}]. Une information sur fond rouge (décochée par le joueur) est rendue
  * sans sa valeur, que la case garde pour le fichier seulement. Avec `anonymes`
  * (membre qui n'est pas chef) : le pseudo vide, sauf sur la ligne de
- * `demandeur`, et les lignes rangées par TdP, de la plus élevée à la plus
- * faible, plutôt que dans l'ordre de l'onglet. Lecture seule.
+ * `demandeur`, et les lignes dans un ordre tiré au hasard à chaque lecture,
+ * plutôt que dans l'ordre de l'onglet. Lecture seule.
  */
 function lireReleves(classeur, anonymes, demandeur) {
   var feuille = classeur.getSheetByName(ONGLET),
@@ -305,14 +305,21 @@ function lireReleves(classeur, anonymes, demandeur) {
     });
     releves.push(releve);
   });
-  // l'ordre de l'onglet (souvent par pseudo) dirait qui est qui
-  if (anonymes)
-    releves.sort(function (a, b) {
-      var x = a.valeurs.tdp,
-        y = b.valeurs.tdp;
-      return (y == null ? -1 : y) - (x == null ? -1 : x);
-    });
+  // l'ordre de l'onglet (souvent par pseudo) ou un tri dirait qui est qui :
+  // tiré au hasard à chaque lecture (mainteneur, 21/11/2026)
+  if (anonymes) melanger(releves);
   return { ok: true, releves: releves };
+}
+
+/** Mélange la liste sur place, au hasard (Fisher-Yates). */
+function melanger(liste) {
+  for (var i = liste.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1)),
+      x = liste[i];
+    liste[i] = liste[j];
+    liste[j] = x;
+  }
+  return liste;
 }
 
 /** Nombre d'une case : nombre, ou chiffres d'un texte tapé à la main ; null si vide. */

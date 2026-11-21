@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.150.0",
+    notes: [
+      "Page Armée, bloc « Mes attaques en cours » : « Annuler » sur tes chasses que le jeu permet encore d'annuler ; la chasse est annulée et son partage retiré du forum.",
+    ],
+  },
+  {
     version: "1.149.3",
     notes: [
       "Page d'attaque : la date et l'heure de retour s'affichent aussi sous chaque attaque de la liste « Attaque(s) en cours », dès que tu viens de lancer.",

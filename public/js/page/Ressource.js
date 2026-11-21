@@ -148,14 +148,7 @@ class PageRessource {
     let aPartager = () => PageRessource.aPartager(groupes);
     if (partagerMaintenant) PartageChasses.partager(aPartager(), null);
     // chasses partagées puis annulées (ici ou par le lien du jeu) : retirées du forum
-    else
-      PartageChasses.recalerChasses(
-        groupes.map((g) => ({
-          debut: g.chasses[0].impact.format("YYYY-MM-DD HH:mm"),
-          fin: g.impact.format("YYYY-MM-DD HH:mm"),
-          terrain: somme(g.chasses).terrain,
-        })),
-      );
+    else PartageChasses.recalerChasses(PageRessource.groupesForum(groupes));
     if (!Utils.affichage("syntheseChasses")) return;
     groupes.forEach((g, i) => {
       html += ligne(g.impact.format("D MMM [à] HH[h]mm"), g.chasses, i % 2 ? "" : "ligne_paire");
@@ -245,7 +238,8 @@ class PageRessource {
         if (m) unites[m[2].trim()] = numeral(m[1]).value();
       });
       // durée : écoulé depuis le lancement + reste du jeu, sinon estimée
-      let envoi = dehors[parseInt($(elt).attr("id").split("_")[1])],
+      let id = parseInt($(elt).attr("id").split("_")[1]),
+        envoi = dehors[id],
         duree = envoi
           ? Math.max(1, secondes + (Horloge.maintenant() - envoi.lancee) / 1000)
           : Math.max(1, SimulationChasse.duree(tdc, terrain || 0, vitesse)),
@@ -255,6 +249,9 @@ class PageRessource {
         pertes =
           attaque > 0 ? SimulationChasse.pertes(attaque / difficulte, difficulte, bouclier).AVG : 0;
       chasses.push({
+        id: id,
+        // le jeu n'écrit son lien « Annuler » que sur les chasses encore annulables
+        annulable: $ligne.nextAll(`a[href$='annuler=${id}']`).length > 0,
         impact: impact,
         arrivee: arrivee,
         terrain: terrain || 0,
@@ -265,6 +262,21 @@ class PageRessource {
       });
     });
     return chasses;
+  }
+  /**
+   * Chasses en cours telles que le recalage du forum les attend.
+   *
+   * @static
+   * @method groupesForum
+   * @param {Array} groupes PageRessource.grouperChasses
+   * @return {Array} {debut, fin, terrain}
+   */
+  static groupesForum(groupes) {
+    return groupes.map((g) => ({
+      debut: g.chasses[0].impact.format("YYYY-MM-DD HH:mm"),
+      fin: g.impact.format("YYYY-MM-DD HH:mm"),
+      terrain: PageRessource.sommeChasses(g.chasses).terrain,
+    }));
   }
   /**
    * Groupes de chasses par minute d'impact (minutes consécutives : un seul

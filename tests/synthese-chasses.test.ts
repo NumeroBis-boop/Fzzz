@@ -253,3 +253,22 @@ describe("chasses partagées avant 1.101.6 (minute affichée par le jeu)", () =>
     });
   });
 });
+
+describe("chasses annulables (« Annuler » du bloc « Mes attaques en cours »)", () => {
+  test("numéro de chaque chasse ; annulable seulement quand le jeu écrit son lien « Annuler »", () => {
+    // structure de la liste du jeu (page enregistrée), nombres inventés : la
+    // chasse 40061 n'est plus annulable, la 400614, après elle, l'est encore
+    // (son lien contient « annuler=40061 » : seul un lien qui finit par le numéro compte)
+    const liste =
+      `<span class="titre">Chasse en cours<br /> </span><span >- Vos chasseuses vont conquérir 12 924 cm² dans <span id="chasse_40061">3H 14m 27s </span></span><script language="JavaScript">reste(11667, "chasse_40061");</script><br /><small><em> Troupes en chasses :  518 Jeunes Soldates Naines.<br />Arrivée à 03h57</em></small><br/><br />` +
+      `<span >- Vos chasseuses vont conquérir 1 200 cm² dans <span id="chasse_400614">2H 16m 44s </span></span><script language="JavaScript">reste(8204, "chasse_400614");</script> - <a href="/Ressources.php?annuler=400614">Annuler</a><br /><small><em> Troupes en chasses :  384 Jeunes Soldates Naines.<br />Arrivée à 02h59</em></small><br/><br />`;
+    expect(
+      lire<[number, boolean, number][]>(
+        `PageRessource.lireChasses(Utils.parseHtml(${JSON.stringify(`<div id='boite_tdc'>${liste}</div>`)})).map((c) => [c.id, c.annulable, c.terrain])`,
+      ),
+    ).toEqual([
+      [40061, false, 12924],
+      [400614, true, 1200],
+    ]);
+  });
+});

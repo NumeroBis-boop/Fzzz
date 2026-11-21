@@ -37,7 +37,7 @@ const page = creerPage(
      getProfil() { JEU.lues.push("/Membre.php?Pseudo=" + this.pseudo); return new Promise((r) => setTimeout(() => r(""), 5)); }
      chargerProfil() { this.terrain = JEU.profils[this.pseudo]; return !!this.terrain; }
    };
-   var TroupesDehors = { synchroniserAttaques: () => {}, ajouterAttaque: () => {}, charger: () => [] };
+   var TroupesDehors = { synchroniserAttaques: () => {}, ajouterAttaque: () => {}, charger: () => [], synchroniserChasses: () => {} };
    var CommerceFzzz = { copier: (texte, message) => { window.COPIE = texte; window.COPIE_MESSAGE = message; } };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
@@ -96,9 +96,12 @@ beforeEach(() => {
     heure = moment("2026-11-12 10:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
     window.TOASTS = []; $.toast = (o) => { TOASTS.push(o.text); return {}; };
     window.COPIE = null; window.COPIE_MESSAGE = null;
-    window.JEU = { lues: [], ressources: true, annulation: "", rechargements: 0, profils: { Dehors: 55000 } };
+    window.JEU = { lues: [], ressources: true, annulation: "", rechargements: 0, profils: { Dehors: 55000 },
+      annulables: [], annulees: [], refus: false, pageAnnulation: "<div id='boite_tdc'></div>" };
+    window.CONFIRMER = true; window.CONFIRMATIONS = [];
+    window.confirm = (m) => { CONFIRMATIONS.push(m); return CONFIRMER; };
     window.FORUM = ${JSON.stringify(FORUM)};
-    window.ECRITS = { floods: [], chasses: [], retraits: [], partage: true, illisible: false };
+    window.ECRITS = { floods: [], chasses: [], retraits: [], recalages: [], partage: true, illisible: false };
     PartageChasses.simuler = ORIGINE.simuler; console.error = ORIGINE.erreur;
     PartageChasses.sujets = ORIGINE.sujets; PartageChasses._lireSujet = ORIGINE.lireSujet; PartageChasses._html = ORIGINE.html; performance.now = ORIGINE.instant;
     AttaqueLancee.recharger = () => JEU.rechargements++;
@@ -111,14 +114,26 @@ beforeEach(() => {
     PartageChasses.partagerFloods = (captures, $b) => { ECRITS.floods.push(captures.map((c) => c.id)); return Promise.resolve(true); };
     PartageChasses.partager = (groupes, $b) => { ECRITS.chasses.push(groupes.map((g) => g.impact.format("HH:mm") + " " + g.terrain)); return Promise.resolve(ECRITS.partage); };
     PartageChasses.retirerFloods = (ids) => { ECRITS.retraits.push(ids); return Promise.resolve(); };
-    PageRessource.lireChasses = () => ${JSON.stringify(CHASSES)}.map(([h, terrain, jsn]) => ({
+    PartageChasses.recalerChasses = (groupes) => {
+      ECRITS.recalages.push(groupes.map((g) => g.debut.slice(11) + "-" + g.fin.slice(11) + " " + g.terrain));
+      return Promise.resolve();
+    };
+    // chasses n° 901 à 903 ; le jeu n'écrit « Annuler » que sur celles de JEU.annulables
+    PageRessource.lireChasses = () => ${JSON.stringify(CHASSES)}.map(([h, terrain, jsn], i) => ({
+      id: 901 + i, annulable: JEU.annulables.includes(901 + i),
       impact: moment("2026-11-12 " + h, "YYYY-MM-DD HH:mm"), arrivee: moment("2026-11-12 " + h, "YYYY-MM-DD HH:mm").subtract(30, "s"),
-      terrain, unites: { "Jeunes Soldates Naines": jsn }, duree: 3600, estime: false, pertes: 0 }));
+      terrain, unites: { "Jeunes Soldates Naines": jsn }, duree: 3600, estime: false, pertes: 0 }))
+      .filter((c) => !JEU.annulees.includes(c.id));
     let lire = (url) => {
       let adresse = String(url);
       JEU.lues.push(adresse.replace(location.origin, ""));
       if (adresse.endsWith("/Ressources.php")) return Promise.resolve(JEU.ressources ? "<div id='boite_tdc'></div>" : "<div class='boite_connexion_titre'>Connexion</div>");
       if (adresse.endsWith("/alliance.php?Membres")) return Promise.resolve(${JSON.stringify(MEMBRES)});
+      // annulation d'une chasse : le jeu répond par la page Ressources ; délai dépassé, la chasse reste
+      if (adresse.includes("/Ressources.php?annuler=")) {
+        if (!JEU.refus) JEU.annulees.push(Number(adresse.split("annuler=")[1]));
+        return Promise.resolve(JEU.pageAnnulation);
+      }
       if (adresse.includes("annuler=")) return Promise.resolve(JEU.annulation);
       return Promise.reject({ status: 404 });
     };
@@ -845,11 +860,13 @@ describe("« Annuler » : l'ordre du jeu d'abord, le partage du forum ensuite", 
       localStorage.setItem("fzzz_floodsPartages", JSON.stringify({ 503: Date.now(), 504: Date.now() }));
     })()`);
 
-  test("écrit en noir gras", () => {
+  test("écrit en noir gras, sur une ligne d'attaque comme sur une ligne de chasses", () => {
     const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8");
-    const regles = [...css.matchAll(/#o_attaquesLancees \.o_attaqueAnnuler a \{([^}]*)\}/g)].map(
-      (r) => String(r[1]).replace(/\s+/g, " "),
-    );
+    const regles = [
+      ...css.matchAll(
+        /#o_attaquesLancees \.o_attaqueAnnuler a,\s*#o_attaquesLancees \.o_chasseAnnuler a \{([^}]*)\}/g,
+      ),
+    ].map((r) => String(r[1]).replace(/\s+/g, " "));
     expect(regles.filter((r) => r.includes("color:"))).toEqual([
       " padding: 0; border: 0; color: #000 !important; font-weight: bold; ",
     ]);
@@ -928,5 +945,77 @@ describe("« Annuler » : l'ordre du jeu d'abord, le partage du forum ensuite", 
   test("attaque lancée d'ici il y a plus de 2 min : le jeu n'annule plus, pas de lien", async () => {
     await ouvrir();
     expect(lire(`$("#o_attaquesLancees .o_attaqueAnnuler a").length`)).toBe(0);
+  });
+});
+
+describe("« Annuler » d'une chasse : l'ordre du jeu, puis son partage dans le forum", () => {
+  // lignes de chasses du bloc : n° 901 et 902 (10h20, 10h21) sur une ligne, n° 903 (11h00) sur une autre
+  const liens = () =>
+    lire<string[]>(`$("#o_attaquesLancees .o_chasseAnnuler a").map((i, a) => a.dataset.ids).get()`);
+  const annuler = async (ids: string) => {
+    lire(`$("#o_attaquesLancees .o_chasseAnnuler a[data-ids='${ids}']").trigger("click")`);
+    await attendre();
+  };
+  const annulations = () => lire<string[]>(`JEU.lues.filter((u) => u.includes("annuler="))`);
+
+  test("seulement sur les chasses que le jeu permet encore d'annuler, après « Partager » ou « Partagée ✓ »", async () => {
+    lire(`JEU.annulables = [902]`);
+    await ouvrir();
+    expect(liens()).toEqual(["902"]);
+    expect(lignes().find((l) => l.includes("Chasse × 2"))).toEndWith("| CopierPartagée ✓Annuler");
+    lire(`JEU.annulables = []`);
+    await ouvrir();
+    expect(liens()).toEqual([]);
+  });
+
+  test("une chasse : annulée sans confirmation, forum recalé sur les chasses restantes, page rechargée", async () => {
+    lire(`JEU.annulables = [901, 902, 903]`);
+    await ouvrir();
+    expect(liens()).toEqual(["901,902", "903"]);
+    await annuler("903");
+    expect(annulations()).toEqual(["/Ressources.php?annuler=903"]);
+    expect(lire(`CONFIRMATIONS.length`)).toBe(0);
+    expect(lire(`ECRITS.recalages`)).toEqual([["10:20-10:21 3000"]]);
+    expect(lire(`JEU.rechargements`)).toBe(1);
+  });
+
+  test("plusieurs chasses sur la ligne : confirmation, puis annulées l'une après l'autre ; refusée, rien ne part", async () => {
+    lire(`JEU.annulables = [901, 902]`);
+    await ouvrir();
+    lire(`CONFIRMER = false`);
+    await annuler("901,902");
+    expect(lire(`CONFIRMATIONS`)).toEqual(["Annuler les 2 chasses de cette ligne ?"]);
+    expect(annulations()).toEqual([]);
+    expect(lire(`[ECRITS.recalages.length, JEU.rechargements]`)).toEqual([0, 0]);
+    lire(`CONFIRMER = true`);
+    await annuler("901,902");
+    expect(annulations()).toEqual(["/Ressources.php?annuler=901", "/Ressources.php?annuler=902"]);
+    expect(lire(`ECRITS.recalages`)).toEqual([["11:00-11:00 1000"]]);
+    expect(lire(`JEU.rechargements`)).toBe(1);
+  });
+
+  test("délai d'annulation du jeu dépassé : la chasse reste, partage gardé, signalé après rechargement", async () => {
+    lire(`JEU.annulables = [903]; JEU.refus = true`);
+    await ouvrir();
+    await annuler("903");
+    expect(lire(`ECRITS.recalages`)).toEqual([["10:20-10:21 3000", "11:00-11:00 1000"]]);
+    expect(lire(`JEU.rechargements`)).toBe(1);
+    lire(`TOASTS = []`);
+    await ouvrir();
+    expect(lire(`TOASTS`)).toContain(
+      "1 chasse n'a pas pu être annulée : le délai d'annulation du jeu est dépassé.",
+    );
+  });
+
+  test("le jeu répond par une autre page (connexion) : la page Ressources est relue, illisible elle aussi : forum non recalé", async () => {
+    lire(`JEU.annulables = [903]`);
+    await ouvrir();
+    lire(
+      `JEU.pageAnnulation = "<div class='boite_connexion_titre'>Connexion</div>"; JEU.ressources = false; JEU.lues = []`,
+    );
+    await annuler("903");
+    expect(lire(`JEU.lues`)).toEqual(["/Ressources.php?annuler=903", "/Ressources.php"]);
+    expect(lire(`ECRITS.recalages`)).toEqual([]);
+    expect(lire(`JEU.rechargements`)).toBe(1);
   });
 });

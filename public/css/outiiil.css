@@ -1455,7 +1455,8 @@ h2:has(+ .o_nbUnite) {
   white-space: nowrap;
 }
 #o_attaquesLancees .o_button,
-#o_attaquesLancees .o_attaqueAnnuler a {
+#o_attaquesLancees .o_attaqueAnnuler a,
+#o_attaquesLancees .o_chasseAnnuler a {
   padding: 0 5px;
   line-height: 1.35;
 }
@@ -2537,7 +2538,8 @@ html:not(.o_originePage):not(.o_sans_messagerieCompacte) tr.en_tete_message > td
   padding: 1px 6px;
   font-size: var(--fzzz-petit);
 }
-.o_attaqueAnnuler a {
+.o_attaqueAnnuler a,
+.o_chasseAnnuler a {
   display: inline-block;
   padding: 1px 6px;
   border: 1px solid var(--fzzz-erreur);
@@ -3315,13 +3317,15 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   color: #1d4f59;
 }
 /* « Annuler » en noir gras (demande du mainteneur) */
-#o_attaquesLancees .o_attaqueAnnuler a {
+#o_attaquesLancees .o_attaqueAnnuler a,
+#o_attaquesLancees .o_chasseAnnuler a {
   padding: 0;
   border: 0;
   color: #000 !important;
   font-weight: bold;
 }
-#o_attaquesLancees .o_attaqueAnnuler a::before {
+#o_attaquesLancees .o_attaqueAnnuler a::before,
+#o_attaquesLancees .o_chasseAnnuler a::before {
   content: "• ";
 }
 /* page Ennemies : filtre de la liste sous l'encadré « Cibles » */

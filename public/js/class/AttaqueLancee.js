@@ -30,6 +30,7 @@ const MARGE_REFUS = 5;
 const DELAI_ANNULATION = 120;
 // nombre d'attaques qu'un « Tout annuler » n'a pas pu annuler, affiché après rechargement
 const CLE_ANNULATION_ECHEC = "outiiil_annulationEchec";
+const CLE_ANNULATION_CHASSES_ECHEC = "fzzz_annulationChassesEchec";
 // recalcul de la taille du tableau au redimensionnement, installé une fois
 let ajustementTailleActif = false;
 // replacements de l'armée attendus ou en cours : le bloc « Mes attaques en
@@ -826,6 +827,9 @@ class AttaqueLancee {
       let e = c.evenement,
         s = c.groupe ? PageRessource.sommeChasses(c.groupe.chasses) : null,
         nb = c.groupe ? c.groupe.chasses.length : 1,
+        annulables = c.groupe
+          ? c.groupe.chasses.filter((x) => x.annulable && x.id).map((x) => x.id)
+          : [],
         $tr = $(
           `<tr class="o_ligneChasse" data-date="${e.date}" data-id="0" title="Chasse en cours : heure du rapport, à la minute"><td></td>
           <td>${heure(e.date)}</td><td>Chasse${nb > 1 ? ` <small>× ${numeral(nb).format()}</small>` : ""}</td>
@@ -836,6 +840,10 @@ class AttaqueLancee {
             c.partagee
               ? `<span class="o_attaquePartage" title="Déjà publiée dans le forum de la ${tag}">Partagée ✓</span>`
               : `<button type="button" class="o_button f_info o_chassePartager" title="Partager cette chasse avec la ${tag}">Partager</button>`
+          }${
+            annulables.length
+              ? `<span class="o_chasseAnnuler"><a href="/Ressources.php?annuler=${annulables[0]}" data-ids="${annulables.join(",")}" title="${annulables.length > 1 ? `Annuler les ${annulables.length} chasses de cette ligne` : "Annuler cette chasse"}, et son partage dans le forum">Annuler</a></span>`
+              : ""
           }</td></tr>`,
         );
       if (s && s.detail) $tr.find(".o_troupesCourtes").attr("title", s.detail);
@@ -873,6 +881,10 @@ class AttaqueLancee {
       .on("click.o_chasses", ".o_chassePartager", (e) => {
         AttaqueLancee.partagerChasses($(e.currentTarget));
       })
+      .on("click.o_chasses", ".o_chasseAnnuler a", (e) => {
+        e.preventDefault();
+        AttaqueLancee.annulerChasses($(e.currentTarget));
+      })
       .on("click.o_chasses", ".o_chasseCopier", (e) => {
         let c = $(e.currentTarget).data("o_chasse");
         if (!c) return;
@@ -886,6 +898,61 @@ class AttaqueLancee {
     AttaqueLancee.majPartages();
     AttaqueLancee.figerActions();
     AttaqueLancee.ajusterTaille();
+  }
+  /**
+   * « Annuler » d'une ligne de chasses : les liens d'annulation du jeu, l'un
+   * après l'autre (actions, avant les lectures en attente), puis ma réponse du
+   * sujet commun des chasses recalée sur les chasses restantes (une chasse
+   * annulée quitte le forum, une ligne de plusieurs chasses suit celles qui
+   * restent), puis la page rechargée. La réponse du dernier lien est la page
+   * Ressources à jour ; une autre page (connexion) ne recale rien : la page
+   * Ressources suivante le fera.
+   *
+   * @static
+   * @method annulerChasses
+   * @param {any} $lien (jQuery) lien Annuler, data-ids : numéros des chasses
+   * @return {Promise}
+   */
+  static annulerChasses($lien) {
+    if ($lien.hasClass("o_enCours")) return Promise.resolve();
+    let ids = String($lien.attr("data-ids") || "")
+      .split(",")
+      .map(Number)
+      .filter(Boolean);
+    if (!ids.length) return Promise.resolve();
+    if (ids.length > 1 && !confirm(`Annuler les ${ids.length} chasses de cette ligne ?`))
+      return Promise.resolve();
+    $lien.addClass("o_enCours").css("pointer-events", "none");
+    let ressources = location.origin + "/Ressources.php",
+      page = (/** @type {any} */ html) => Utils.parseHtml(String(html));
+    return ids
+      .reduce(
+        (/** @type {Promise<any>} */ suite, id) =>
+          suite.then(() => $.get(`${ressources}?annuler=${id}`)),
+        Promise.resolve(),
+      )
+      .then((html) => {
+        let $page = page(html);
+        return $page.find("#boite_tdc").length
+          ? $page
+          : Promise.resolve($.get(ressources)).then(page);
+      })
+      .then(($page) => {
+        if (!$page.find("#boite_tdc").length) {
+          Journal.info("Chasses", "annulation : page Ressources illisible, forum recalé plus tard");
+          return;
+        }
+        TroupesDehors.synchroniserChasses($page);
+        let chasses = PageRessource.lireChasses($page),
+          restees = chasses.filter((c) => ids.includes(c.id)).length;
+        // délai d'annulation du jeu dépassé : signalé après rechargement
+        if (restees) sessionStorage.setItem(CLE_ANNULATION_CHASSES_ECHEC, String(restees));
+        return PartageChasses.recalerChasses(
+          PageRessource.groupesForum(PageRessource.grouperChasses(chasses)),
+        );
+      })
+      .catch((err) => Journal.erreur("Chasses", "annulation", err && err.message))
+      .then(() => AttaqueLancee.recharger());
   }
   /**
    * Publie dans le sujet « Chasses » du joueur les chasses de ces boutons
@@ -917,7 +984,8 @@ class AttaqueLancee {
    * après chacun (le contenu de la page d'un membre, pour moi). Chaque attaque
    * a ses boutons : copie au format du jeu, partage dans le forum, annulation
    * (copie du lien Annuler du jeu), unitaire ou groupée ; chaque chasse, sa
-   * copie au format du jeu et son partage.
+   * copie au format du jeu, son partage et, tant que le jeu le permet, son
+   * annulation (annulerChasses).
    *
    * La liste du jeu reste telle quelle sous « Attaque(s) en cours ». Pour une
    * attaque non capturée, troupes et lieu viennent du texte du jeu quand il les
@@ -932,6 +1000,14 @@ class AttaqueLancee {
       $.toast({
         ...TOAST_WARNING,
         text: `${echecs} attaque${echecs > 1 ? "s" : ""} n'${echecs > 1 ? "ont" : "a"} pas pu être annulée${echecs > 1 ? "s" : ""} : le délai d'annulation du jeu est dépassé.`,
+      });
+    }
+    let chassesEchec = parseInt(sessionStorage.getItem(CLE_ANNULATION_CHASSES_ECHEC) || "");
+    if (chassesEchec) {
+      sessionStorage.removeItem(CLE_ANNULATION_CHASSES_ECHEC);
+      $.toast({
+        ...TOAST_WARNING,
+        text: `${chassesEchec} chasse${chassesEchec > 1 ? "s" : ""} n'${chassesEchec > 1 ? "ont" : "a"} pas pu être annulée${chassesEchec > 1 ? "s" : ""} : le délai d'annulation du jeu est dépassé.`,
       });
     }
     let lignes = AttaqueLancee.extraireLignes(),

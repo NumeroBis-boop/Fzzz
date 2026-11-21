@@ -2,8 +2,9 @@
 /*
  * AlerteFloods.js
  * Page Ressources : les floods partagés sur le joueur qui arrivent bientôt,
- * à droite des boutons d'envoi du lanceur de chasses (demande du mainteneur,
- * 20/11/2026). Sans flood dans le délai choisi, la page ne change pas.
+ * sous les boutons d'envoi du lanceur de chasses, sur toute la largeur
+ * (demandes du mainteneur, 20 et 21/11/2026). Sans flood dans le délai
+ * choisi, la page ne change pas.
  **********************************************************************/
 
 // texte (« dans 23 min ») refait chaque minute, sans lecture
@@ -159,8 +160,8 @@ class AlerteFloods {
     };
   }
   /**
-   * Lit les floods sur moi et place l'alerte à droite des boutons « Envoyer »
-   * du lanceur de la page, déjà affiché ; refaite chaque minute sans lecture.
+   * Lit les floods sur moi et place l'alerte sous les boutons « Envoyer » du
+   * lanceur de la page, déjà affiché ; refaite chaque minute sans lecture.
    * Forum illisible : rien (la page reste celle d'aujourd'hui), noté au journal ;
    * pendant les essais, le flood fictif quand aucun n'arrive.
    *
@@ -194,12 +195,9 @@ class AlerteFloods {
             if (!html) return;
             let $pile = $("#o_chasseEnvoyer").closest(".o_pile");
             if (!$pile.length) return;
-            $pile
-              .removeClass("o_marginT15")
-              .wrap("<div class='o_chasseActions'><div class='o_chasseActionsGrille'></div></div>")
-              .after(
-                "<div id='o_alerteFloods' class='o_alerteFloods' role='status' title='Floods partagés dans le forum de l&#39;alliance : une attaque ennemie n&#39;y figure pas. Heure du rapport, à la minute ; prise estimée à l&#39;impact.'></div>",
-              );
+            $pile.after(
+              "<div id='o_alerteFloods' class='o_alerteFloods' role='status' title='Floods partagés dans le forum de l&#39;alliance : une attaque ennemie n&#39;y figure pas. Heure du rapport, à la minute ; prise estimée à l&#39;impact.'></div>",
+            );
             $alerte = $("#o_alerteFloods");
           }
           $alerte.html(html).prop("hidden", !html);

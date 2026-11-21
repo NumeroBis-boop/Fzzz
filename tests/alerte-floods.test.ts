@@ -5,8 +5,9 @@ import { creerPage } from "./harnais";
 
 /**
  * Page Ressources : les floods partagés sur le joueur qui arrivent d'ici le
- * délai de Préférences → Ressources (1 h par défaut) s'affichent à droite des
- * boutons d'envoi du lanceur de chasses (demande du mainteneur, 20/11/2026) ;
+ * délai de Préférences → Ressources (1 h par défaut) s'affichent sous les
+ * boutons d'envoi du lanceur de chasses, sur toute la largeur (demandes du
+ * mainteneur, 20 et 21/11/2026) ;
  * sans flood dans le délai, la page ne change pas. Lus à l'ouverture de la
  * page, le texte refait chaque minute sans lecture. Joueurs inventés.
  */
@@ -93,7 +94,7 @@ const alerte = () =>
     ).join(" "),
   );
 
-describe("floods sur moi d'ici le délai : à droite des boutons d'envoi", () => {
+describe("floods sur moi d'ici le délai : sous les boutons d'envoi", () => {
   test("un flood d'ici 1 h : titre, lanceur, heure du rapport, délai et prise estimée", async () => {
     await installer([flood(700, "10:25", "Autre", "Moi", 30000)]);
     // 100 000 + 3 000 (chasse de 10h21) : 20 % de 103 000
@@ -101,12 +102,10 @@ describe("floods sur moi d'ici le délai : à droite des boutons d'envoi", () =>
       "⚠️ 1 flood arrive sur toi d'ici 1 h Autre à 10h25 (dans 25 min) : −20 600 cm² (20 %)",
     );
     expect(lire(`$("#o_alerteFloods a").attr("href")`)).toBe("Membre.php?Pseudo=Autre");
-    // à côté des boutons, dans la même grille ; la marge passe au cadre commun
-    expect(
-      lire(
-        `$(".o_chasseActions > .o_chasseActionsGrille").children().map((i, e) => e.id || e.className).get()`,
-      ),
-    ).toEqual(["o_pile", "o_alerteFloods"]);
+    // sous les boutons, dans le même bloc ; la pile garde sa marge (mainteneur, 21/11/2026)
+    expect(lire(`$("#o_prepaChasse").children().map((i, e) => e.id || e.className).get()`)).toEqual(
+      ["o_pile o_marginT15", "o_alerteFloods"],
+    );
   });
 
   test("plusieurs floods : le titre au pluriel, une ligne chacun dans l'ordre d'arrivée, ni mes floods ni ceux des autres ; un flood que la portée annule à l'impact reste signalé", async () => {

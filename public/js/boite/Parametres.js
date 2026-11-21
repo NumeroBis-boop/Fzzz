@@ -552,7 +552,7 @@ class BoiteParametre extends Boite {
           p["decalageChasses"].getForm("Chasses, au plus") +
             p["decalageFloods"].getForm("Floods, au plus") +
             this.aide(
-              "L'heure de chaque chasse ou flood que tu partages est retardée d'un délai tiré au hasard, de 0 à ce maximum : une fuite du forum ne donne pas l'heure exacte où ton armée est dehors. 0 : heure exacte. Par défaut, chasses : 0 pour un Chasseur, 5 min sinon ; floods : 0.",
+              "L'heure de chaque chasse ou flood que tu partages est retardée d'un délai tiré au hasard, de 0 à ce maximum : une fuite du forum ne donne pas l'heure exacte où ton armée est dehors. 0, la valeur par défaut : heure exacte.",
               "Le délai est tiré une fois par chasse ou flood et gardé dans ce navigateur ; la ligne reste dans le forum jusqu'à son heure publiée, même si la chasse ou le flood est déjà arrivé. Les autres membres calculent avec l'heure publiée : leur TdC à l'impact, « à portée le … », la colonne « Synchro » et l'alerte des floods peuvent être décalés d'autant. Tes propres affichages gardent l'heure exacte.",
             ),
         )}

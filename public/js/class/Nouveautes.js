@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.149.2",
+    notes: [
+      "Heures de tes chasses et floods partagés dans le forum : plus aucun retard par défaut, pour tout le monde. Tu peux toujours en choisir un dans Préférences → Général.",
+    ],
+  },
+  {
     version: "1.149.1",
     notes: [
       "Heures des chasses partagées : pas de retard par défaut pour les joueurs au rôle Chasseur (5 min au hasard pour les autres), et les curseurs de Préférences → Général tiennent sur une ligne au téléphone. Page Convois : une seule notification reste, quand le montant est réduit faute d'ouvrières pour le porter.",

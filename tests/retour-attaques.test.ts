@@ -2,15 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { creerPage } from "./harnais";
 
 /**
- * Page Armée, liste des attaques du jeu : date et heure de retour de chaque
- * attaque (demande du mainteneur, 21/11/2026, toujours affichées). Les
+ * Pages Armée et d'attaque, liste des attaques du jeu : date et heure de retour de chaque
+ * attaque (demande du mainteneur, 21/11/2026, toujours affichées ; page
+ * d'attaque signalée par un joueur le même jour : rien après un lancement). Les
  * survivantes sont de nouveau en garnison à l'arrivée de l'attaque (modèle de
  * TroupesDehors) : le retour est l'arrivée, datée. Compte+ : sous « Arrivée à
  * … » du détail (ligne relevée sur la page enregistrée du mainteneur) ; sans
  * Compte+ : sous la ligne, qui n'a qu'un compte à rebours. Joueurs inventés.
  */
 const page = creerPage(
-  ["js/class/Utils.js", "js/page/PartageChasses.js", "js/class/AttaqueLancee.js"],
+  [
+    "js/class/Utils.js",
+    "js/page/PartageChasses.js",
+    "js/class/AttaqueLancee.js",
+    "js/page/Attaquer.js",
+  ],
   `var heure = moment("2026-11-21 23:00:00", "YYYY-MM-DD HH:mm:ss").valueOf();
    var Horloge = { maintenant: () => heure, serveur: () => moment(heure), serveurA: () => moment(heure) };
    var monProfil = { pseudo: "Moi" };`,
@@ -76,5 +82,28 @@ describe("retour des attaques sur la liste du jeu", () => {
       troupesNatif: "1 Jeune Soldate Naine.",
       jeu: "23:30",
     });
+  });
+});
+
+describe("retour des attaques sur la page d'attaque", () => {
+  test("après un lancement, sans Compte+ : sous la ligne de la liste « Attaque(s) en cours »", () => {
+    // page d'attaque relue après l'envoi (capture d'un joueur sans Compte+) :
+    // plus d'armée à envoyer, la liste du jeu sous le formulaire
+    const r = page.lire<string[]>(`(() => {
+      document.body.innerHTML = "<div id='centre'><fieldset>Vous n'avez pas d'armée à envoyer. Vos troupes sont en marche.</fieldset>"
+        + "<center><h3>Attaque(s) en cours</h3>" + ${JSON.stringify(ligne(7, 3600, false))} + "</center></div>";
+      AttaqueLancee.afficherTableaux = () => {};
+      Object.create(PageAttaquer.prototype).executer();
+      return $(".o_retourAttaque").map((i, e) => $(e).text()).get();
+    })()`);
+    expect(r).toEqual(["Retour le 22 nov. à 00h00"]);
+  });
+
+  test("Compte+ : lignes séparées par deux sauts de ligne, comme la page du jeu", () => {
+    const r = afficher(
+      `<h3>Attaque(s) en cours</h3>${ligne(7, 1800, true)}<br />${ligne(8, 1830, true)}<br />`,
+    );
+    expect(r.retours).toEqual(["Retour le 21 nov. à 23h30", "Retour le 21 nov. à 23h30"]);
+    expect(r.texte).toContain("Arrivée à 23h30Retour le 21 nov. à 23h30- Vous allez attaquer");
   });
 });

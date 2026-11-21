@@ -454,7 +454,7 @@ class AttaqueLancee {
     return `${minute.isSame(Horloge.serveur(), "day") ? "à" : "le " + minute.format("D MMM à")} ${minute.format("HH[h]mm")}`;
   }
   /**
-   * Liste du jeu (page Armée) : date et heure de retour de chaque attaque,
+   * Liste du jeu (pages Armée et d'attaque) : date et heure de retour de chaque attaque,
    * celles de son arrivée (les survivantes sont alors de nouveau en garnison) :
    * Compte+, sous « Arrivée à … » du détail ; sans Compte+, sous la ligne, qui
    * n'a qu'un compte à rebours.

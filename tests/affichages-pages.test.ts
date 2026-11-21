@@ -133,6 +133,7 @@ describe("page d'attaque : une case par bouton ou ligne", () => {
         p.ajouterBoutons = p.activerBoutons = p.plus = () => {};
         window.Armee = function () {};
         AttaqueLancee.afficherTableaux = () => {};
+        AttaqueLancee.afficherRetours = () => {};
         Utils.garderPosition = () => {};
         p.executer();
       })()`);

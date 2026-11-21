@@ -243,6 +243,7 @@ class PageAttaquer {
       });
     }
     if (!Utils.comptePlus) this.plus();
+    AttaqueLancee.afficherRetours();
     // pas de bloc « Mes attaques en cours » : il s'afficherait après coup
     // au-dessus du formulaire et déplacerait le bouton du jeu sous le doigt
     AttaqueLancee.afficherTableaux(false);

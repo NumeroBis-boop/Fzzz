@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.149.1",
+    notes: [
+      "Heures des chasses partagées : pas de retard par défaut pour les joueurs au rôle Chasseur (5 min au hasard pour les autres), et les curseurs de Préférences → Général tiennent sur une ligne au téléphone. Page Convois : une seule notification reste, quand le montant est réduit faute d'ouvrières pour le porter.",
+    ],
+  },
+  {
     version: "1.149.0",
     notes: [
       "L'heure de tes chasses partagées dans le forum est retardée de 0 à 5 min au hasard, et celle de tes floods si tu le choisis (Préférences → Général), pour qu'une fuite ne donne pas l'heure exacte où ton armée est dehors. Page Reine : date de fin de chaque ponte ; page Armée : date et heure de retour sous chaque attaque ; page Convois : le Récapitulatif se met à jour quand tu enregistres un convoi.",

@@ -51,7 +51,8 @@ describe("clic sur un montant du Récapitulatif", () => {
     formulaire("2207991", "Staffie", "3014663", "2760000", "2\u00a0207\u00a0990");
     page.lire(`CommerceFzzz.remplirMateriaux(12604640)`);
     expect(champs().slice(0, 2)).toEqual(["2207990", "2207990"]);
-    expect(page.lire(`TOASTS`)).toEqual(["Matériaux réduits à 2 207 990 sur 12 604 640 : stock."]);
+    // réduit au stock, pas faute d'ouvrières : aucune notification (demande du mainteneur, 21/11/2026)
+    expect(page.lire(`TOASTS`)).toEqual([]);
   });
 
   test("stock lu : le plus petit du nombre caché et de l'encart ; l'un des deux illisible : l'autre", () => {

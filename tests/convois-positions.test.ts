@@ -93,7 +93,8 @@ describe("Récapitulatif : « Actualiser les positions »", () => {
     const attendu = lire<number>(`monProfil.getTempsParcours2({ x: 20, y: 30 })`);
     const [h, m, s] = xatak[2]!.split(":").map(Number);
     expect(h! * 3600 + m! * 60 + s!).toBe(attendu);
-    expect(lire(`TOASTS`)).toEqual(["Positions mises à jour : 3 membres."]);
+    // plus de notification des convois, hors réduction faute d'ouvrières (mainteneur, 21/11/2026)
+    expect(lire(`TOASTS`)).toEqual([]);
     expect(lire(`$("#o_convoisMembres .o_convoisPositions").text()`)).toBe(
       "Actualiser les positions",
     );
@@ -134,9 +135,7 @@ describe("Récapitulatif : « Actualiser les positions »", () => {
     await attendre();
     lire(`$("#o_convoisMembres .o_convoisPositions").trigger("click")`);
     await attendre();
-    expect(lire(`TOASTS`)).toEqual([
-      "Positions mises à jour : 3 membres. Toujours inconnue : Ancien (plus dans l'alliance ?).",
-    ]);
+    expect(lire(`TOASTS`)).toEqual([]);
     expect(ligne("XaTaK")[2]).toMatch(/^\d\d:\d\d:\d\d$/);
     expect(ligne("Ancien")[2]).toBe("?");
     expect(lienAffiche()).toBe(true);

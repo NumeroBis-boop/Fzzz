@@ -246,6 +246,7 @@ class BoiteParametre extends Boite {
   event() {
     super.event();
     for (let param of this._paramGeneral) monProfil.parametre[param].ajouterEvent();
+    Joueur.suivreChoixDecalage();
     // le curseur de ratio n'a de sens qu'en mode Ratio
     $("#affectationRessource")
       .on("change", (e) => {
@@ -547,11 +548,11 @@ class BoiteParametre extends Boite {
         ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}
         ${this.section("Rôle", p["role"].getForm("Ton rôle dans l'alliance"))}
         ${this.section(
-          "Heures partagées dans le forum",
-          p["decalageChasses"].getForm("Retard de mes chasses, au plus") +
-            p["decalageFloods"].getForm("Retard de mes floods, au plus") +
+          "Retard des heures partagées dans le forum",
+          p["decalageChasses"].getForm("Chasses, au plus") +
+            p["decalageFloods"].getForm("Floods, au plus") +
             this.aide(
-              "L'heure de chaque chasse ou flood que tu partages est retardée d'un délai tiré au hasard, de 0 à ce maximum : une fuite du forum ne donne pas l'heure exacte où ton armée est dehors. 0 : heure exacte.",
+              "L'heure de chaque chasse ou flood que tu partages est retardée d'un délai tiré au hasard, de 0 à ce maximum : une fuite du forum ne donne pas l'heure exacte où ton armée est dehors. 0 : heure exacte. Par défaut, chasses : 0 pour un Chasseur, 5 min sinon ; floods : 0.",
               "Le délai est tiré une fois par chasse ou flood et gardé dans ce navigateur ; la ligne reste dans le forum jusqu'à son heure publiée, même si la chasse ou le flood est déjà arrivé. Les autres membres calculent avec l'heure publiée : leur TdC à l'impact, « à portée le … », la colonne « Synchro » et l'alerte des floods peuvent être décalés d'autant. Tes propres affichages gardent l'heure exacte.",
             ),
         )}

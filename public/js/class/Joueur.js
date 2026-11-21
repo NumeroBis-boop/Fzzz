@@ -22,6 +22,12 @@ const ALERTE_FLOODS_DEFAUT = 1;
 const CLE_MARQUES_RECOCHEES = "fzzz_marquesSansReceptionRecochees";
 const ROLE_CHASSEUR = 3;
 const ROLE_GRENIER = 2;
+// retard au hasard de l'heure de mes chasses partagées (PartageChasses.decaler) :
+// 0 pour un Chasseur, ce maximum pour les autres (règles du mainteneur,
+// 21/11/2026), tant que le joueur ne l'a pas réglé ; tous les réglages étant
+// enregistrés ensemble, la valeur gardée ne dit pas qu'il l'a choisie
+const DECALAGE_CHASSES_DEFAUT = 5;
+const CLE_DECALAGE_CHASSES_CHOISI = "fzzz_decalageChassesChoisi";
 // rôle Chasseur posé une fois par navigateur (liste « Chasseurs » des réglages de l'alliance)
 const CLE_ROLE_CHASSEUR_DEFAUT = "fzzz_roleChasseurDefaut";
 // réglages des greniers (liste « Greniers » des réglages de l'alliance), posés
@@ -344,7 +350,7 @@ class Joueur {
       "decalageChasses",
       "Retard de l'heure de mes chasses partagées, au plus",
       "slider",
-      5,
+      DECALAGE_CHASSES_DEFAUT,
       { min: 0, max: 59, step: 1, unite: " min" },
     );
     this._parametre["decalageFloods"] = new Parametre(
@@ -704,10 +710,30 @@ class Joueur {
         }
         localStorage.setItem(CLE_PROFIL_GRENIER, "1");
       }
+      if (!localStorage.getItem(CLE_DECALAGE_CHASSES_CHOISI))
+        this._parametre["decalageChasses"].valeur =
+          parseInt(this._parametre["role"].valeur) == ROLE_CHASSEUR ? 0 : DECALAGE_CHASSES_DEFAUT;
     } catch (e) {
       /* stockage indisponible : rien n'est enregistré non plus */
     }
     return this;
+  }
+  /**
+   * Retard des chasses réglé par le joueur dans les Préférences : il ne suit
+   * plus son rôle (getParametre).
+   *
+   * @static
+   * @method suivreChoixDecalage
+   */
+  static suivreChoixDecalage() {
+    $(document)
+      .off("o_parametre.decalage")
+      .on("o_parametre.decalage", (e, id) => {
+        if (id == "decalageChasses")
+          try {
+            localStorage.setItem(CLE_DECALAGE_CHASSES_CHOISI, "1");
+          } catch (x) {}
+      });
   }
   /**
    * @static

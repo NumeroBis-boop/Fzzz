@@ -571,10 +571,7 @@ class CommerceFzzz {
       libres = total - Math.min(total, Utils.terrain || 0),
       avantRecolte = !!monProfil.parametre?.["convoisAvantRecolte"]?.valeur,
       ecrit = CommerceFzzz.ecrireConvoi(du, libres);
-    if (!avantRecolte) {
-      if (ecrit.reduit) $.toast({ ...TOAST_INFO, text: ecrit.reduit });
-      return;
-    }
+    if (!avantRecolte) return void CommerceFzzz.avisCapacite(ecrit);
     return CommerceFzzz.remplirAvantRecolte(du, libres, ecrit, trajet);
   }
   /**
@@ -584,7 +581,8 @@ class CommerceFzzz {
    * @method ecrireConvoi
    * @param {Number} du montant restant à livrer
    * @param {Number} libres ouvrières qui peuvent partir
-   * @return {{mat: String, ouvrieres: Number, reduit: String|null}} reduit : texte de la réduction des matériaux
+   * @return {{mat: String, ouvrieres: Number, reduit: String|null, capacite: Boolean}} reduit : texte
+   *   de la réduction des matériaux ; capacite : réduits faute d'ouvrières, pas de stock
    */
   static ecrireConvoi(du, libres) {
     let parOuvriere = Utils.parOuvriere(),
@@ -595,20 +593,33 @@ class CommerceFzzz {
     $("#nbMateriaux").val(mat);
     $("#input_nbOuvriere").val(String(ouvrieres));
     $("#nbOuvriere").val(ouvrieres);
+    let reduit = parseInt(mat) < Math.floor(du),
+      stock = parseInt(mat) >= Utils.materiaux;
     return {
       mat,
       ouvrieres,
-      reduit:
-        parseInt(mat) < Math.floor(du)
-          ? `Matériaux réduits à ${numeral(mat).format()} sur ${numeral(du).format()} : ${
-              parseInt(mat) >= Utils.materiaux
-                ? "stock"
-                : libres >= Utils.ouvrieres
-                  ? "pas assez d'ouvrières"
-                  : "ouvrières à garder pour exploiter le terrain"
-            }.`
-          : null,
+      reduit: reduit
+        ? `Matériaux réduits à ${numeral(mat).format()} sur ${numeral(du).format()} : ${
+            stock
+              ? "stock"
+              : libres >= Utils.ouvrieres
+                ? "pas assez d'ouvrières"
+                : "ouvrières à garder pour exploiter le terrain"
+          }.`
+        : null,
+      capacite: reduit && !stock,
     };
+  }
+  /**
+   * Seule notification du remplissage d'un convoi (demande du mainteneur,
+   * 21/11/2026) : le montant réduit faute d'ouvrières pour le porter.
+   *
+   * @static
+   * @method avisCapacite
+   * @param {{reduit: String|null, capacite: Boolean}} ecrit ecrireConvoi
+   */
+  static avisCapacite(ecrit) {
+    if (ecrit.capacite) $.toast({ ...TOAST_INFO, text: ecrit.reduit });
   }
   /**
    * Remplissage refait selon la formule du mainteneur (idée de KWHWWYMWN,
@@ -649,6 +660,14 @@ class CommerceFzzz {
           garde = !intacts(),
           refait = garde ? ecrit : CommerceFzzz.ecrireConvoi(du, calcul.libres);
         Journal.info("Convois", "remplissage avant la récolte", {
+          message: CommerceFzzz.messageRecolte(calcul, habituelles, {
+            reduit: refait.reduit,
+            automatique: lu.automatique,
+            armee: lu.armee,
+            inconnues: lu.attaquesInconnues,
+            envoi,
+            garde,
+          }),
           recolte: calcul.recolte == null ? null : moment(calcul.recolte).format("HH:mm:ss"),
           libres: calcul.libres,
           habituelles,
@@ -663,31 +682,21 @@ class CommerceFzzz {
           automatique: lu.automatique,
           champsGardes: garde,
         });
-        $.toast({
-          ...TOAST_INFO,
-          hideAfter: 12000,
-          text: CommerceFzzz.messageRecolte(calcul, habituelles, {
-            reduit: refait.reduit,
-            automatique: lu.automatique,
-            armee: lu.armee,
-            inconnues: lu.attaquesInconnues,
-            envoi,
-            garde,
-          }),
-        });
+        if (!garde) CommerceFzzz.avisCapacite(refait);
       })
       .catch((err) => {
         if (jeton != CommerceFzzz._jetonRecolte) return;
-        Journal.erreur("Convois", "remplissage avant la récolte", err && err.message);
-        $.toast({
-          ...TOAST_WARNING,
-          hideAfter: 10000,
-          text: `Ouvrières d'avant la récolte non comptées (${Utils.echapper((err && err.message) || "lecture impossible")}) : remplissage habituel.${ecrit.reduit ? " " + ecrit.reduit : ""}`,
-        });
+        Journal.erreur(
+          "Convois",
+          "remplissage avant la récolte : remplissage habituel",
+          err && err.message,
+        );
+        CommerceFzzz.avisCapacite(ecrit);
       });
   }
   /**
-   * Message du remplissage avant la récolte.
+   * Détail du remplissage avant la récolte, noté au journal de débug (la
+   * notification ne dit que la réduction faute d'ouvrières, avisCapacite).
    *
    * @static
    * @method messageRecolte
@@ -1272,11 +1281,6 @@ class CommerceFzzz {
             });
             $bloc.find(".o_convoisPositionsInconnues").remove();
             afficher();
-            let toujours = suivis.filter((p) => trajet(p) == null);
-            $.toast({
-              ...TOAST_SUCCESS,
-              text: `Positions mises à jour : ${numeral(members.length).format()} membres.${toujours.length ? ` Toujours inconnue${toujours.length > 1 ? "s" : ""} : ${toujours.map(Utils.echapper).join(", ")} (plus dans l'alliance ?).` : ""}`,
-            });
           },
           (err) =>
             $.toast({

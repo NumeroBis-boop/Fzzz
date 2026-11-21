@@ -1071,9 +1071,14 @@ hr.o_calcSepar {
 
 /* Parametre */
 /* hauteur des onglets : BoiteParametre.ajusterTaille (la croix reste à l'écran) */
+/* text-size-adjust : Firefox Android grossissait les aides (capture du 21/11/2026),
+   « En savoir plus » se coupant alors mot par mot, comme dans .o_delaiInfobulle */
 #o_boiteParametre {
   min-width: 40%;
   max-width: min(760px, calc(100vw - 16px));
+  -moz-text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
 }
 #o_tabsParametre .ui-tabs-panel {
   box-sizing: border-box;
@@ -1132,6 +1137,12 @@ form > .o_titreParam:first-child {
 .o_sliderParam {
   flex: 1 1 120px;
   margin: 0 10px;
+}
+/* retards des heures partagées : le curseur reste à droite du champ sur un téléphone */
+#decalageChassesGroupe .o_sliderParam,
+#decalageFloodsGroupe .o_sliderParam {
+  flex-basis: 40px;
+  margin: 0 6px;
 }
 .o_grilleParam {
   display: grid;

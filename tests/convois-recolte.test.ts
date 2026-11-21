@@ -413,6 +413,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     lire(`(() => {
       window.TOASTS = []; window.LECTURES = [];
       $.toast = (o) => TOASTS.push(o.text);
+      journalInstalle = true; localStorage.removeItem(CLE_JOURNAL);
       CommerceFzzz._recolteLue = null; CommerceFzzz._recolteEnCours = null;
       document.body.innerHTML = '<div id="data"><div id="nb_ouvrieres">15000</div><div id="nb_materiaux">3460273</div><div id="quantite_tdc">14000</div></div>'
         + ${comptePlus ? `'<div id="menuComptePlus"><a class="boutonStatJoueur">Stat</a></div>'` : "''"}
@@ -443,6 +444,15 @@ describe("clic sur un montant du Récapitulatif", () => {
       `["#input_nbMateriaux", "#nbMateriaux", "#input_nbOuvriere", "#nbOuvriere"].map((s) => String($(s).val()))`,
     );
   const toast = () => espaces(lire<string[]>(`TOASTS`)[0]!);
+  // seule notification : la réduction faute d'ouvrières ; le détail du calcul va au journal
+  const message = () =>
+    espaces(
+      lire<string>(
+        `JSON.parse(Journal.entrees().find((e) => e.m == "remplissage avant la récolte").d).message`,
+      ),
+    );
+  const notesRecolte = () =>
+    lire<number>(`Journal.entrees().filter((e) => e.m == "remplissage avant la récolte").length`);
 
   test("option décochée (par défaut) : remplissage habituel, aucune page lue", async () => {
     option(false);
@@ -471,9 +481,12 @@ describe("clic sur un montant du Récapitulatif", () => {
     expect(lire(`LECTURES`)).toEqual(["/Ressources.php", "/Armee.php"]);
     // 15 000 + 10 000 (Alpha, de retour à 14h20:30) − 14 000 ; Bravo (14h30:10) trop tard
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
-    expect(toast()).toBe(
+    expect(message()).toBe(
       "Récolte de 14h30 : 10 000 ouvrières de plus pour le convoi (comptées : 10 000 de retour de convoi). Matériaux réduits à 219 000 sur 300 000 : ouvrières à garder pour exploiter le terrain. Valable si tu lances le convoi d'ici 14h05.",
     );
+    expect(lire<string[]>(`TOASTS`).map(espaces)).toEqual([
+      "Matériaux réduits à 219 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
+    ]);
   });
 
   test("convoi long : les récoltes suivantes aussi, un flood qui tombe après la première réduit le convoi", async () => {
@@ -489,7 +502,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     await lire(`CommerceFzzz.remplirMateriaux(300000, 7200)`);
     // 15h00 : 15 000 + 17 500 − 14 000 − 9 000 (flood de 14h40)
     expect(champs()).toEqual(["189000", "189000", "9500", "9500"]);
-    expect(toast()).toBe(
+    expect(message()).toBe(
       "Récolte de 15h00 : 8 500 ouvrières de plus pour le convoi (comptées : 17 500 de retour de convoi ; terrain gagné d'ici là : 9 000 cm² de tes floods). Matériaux réduits à 189 000 sur 300 000 : ouvrières à garder pour exploiter le terrain. Valable si tu lances le convoi d'ici 14h05.",
     );
     // destinataire à 40 min : de retour avant 15h00, le flood ne change rien
@@ -505,7 +518,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     // destinataire à 10 min : de retour à 14h15
     await lire(`CommerceFzzz.remplirMateriaux(300000, 600)`);
     expect(champs()).toEqual(["299000", "299000", "15000", "15000"]);
-    expect(toast()).toBe(
+    expect(message()).toBe(
       "Le convoi revient au moins une minute avant la prochaine récolte : toutes tes ouvrières présentes peuvent partir. Matériaux réduits à 299 000 sur 300 000 : pas assez d'ouvrières. Valable si tu lances le convoi d'ici 14h05.",
     );
   });
@@ -517,7 +530,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     pages(RESSOURCES());
     await lire(`CommerceFzzz.remplirMateriaux(300000)`);
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
-    expect(toast()).not.toContain("Valable si");
+    expect(message()).not.toContain("Valable si");
   });
 
   test("sans affectation automatique, ou avec un flood aux troupes inconnues : le message le dit", async () => {
@@ -526,7 +539,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     synthese();
     pages(RESSOURCES(1800, "rien"), false, ARMEE(ATTAQUE(504, "Golf", 4000)));
     await lire(`CommerceFzzz.remplirMateriaux(100000, 2400)`);
-    const texte = toast();
+    const texte = message();
     expect(texte).toContain(
       "Sans affectation automatique des ouvrières (Compte+ réglé sur Nourriture ou Matériaux, page Ressources), affecte toi-même celles qui arrivent avant chaque récolte.",
     );
@@ -555,7 +568,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     pages(RESSOURCES(), false, false);
     await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["219000", "219000", "11000", "11000"]);
-    expect(toast()).toContain(
+    expect(message()).toContain(
       "Page Armée illisible : le terrain de tes floods en cours n'est pas compté.",
     );
   });
@@ -569,7 +582,7 @@ describe("clic sur un montant du Récapitulatif", () => {
     pages(RESSOURCES(1800, "materiaux", CHASSE(7, "500", 600)));
     await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["9000", "9000", "500", "500"]);
-    expect(toast()).toBe(
+    expect(message()).toBe(
       "Récolte de 14h30 : 500 ouvrières de moins pour le convoi, gardées pour exploiter ton terrain (500 cm² de chasses compris). Matériaux réduits à 9 000 sur 300 000 : ouvrières à garder pour exploiter le terrain. Valable si tu lances le convoi d'ici 14h05.",
     );
   });
@@ -582,8 +595,14 @@ describe("clic sur un montant du Récapitulatif", () => {
     await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(champs()).toEqual(["19000", "19000", "1000", "1000"]);
     expect(toast()).toBe(
-      "Ouvrières d'avant la récolte non comptées (le jeu traitait une autre action) : remplissage habituel. Matériaux réduits à 19 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
+      "Matériaux réduits à 19 000 sur 300 000 : ouvrières à garder pour exploiter le terrain.",
     );
+    expect(lire<string[]>(`TOASTS`).length).toBe(1);
+    expect(
+      lire<string>(
+        `Journal.entrees().find((e) => e.m == "remplissage avant la récolte : remplissage habituel").d`,
+      ),
+    ).toBe("le jeu traitait une autre action");
   });
 
   test("champs changés par le joueur pendant la lecture : pas réécrits", async () => {
@@ -595,7 +614,8 @@ describe("clic sur un montant du Récapitulatif", () => {
     lire(`$("#input_nbMateriaux").val("5000")`);
     await lecture;
     expect(champs()[0]).toBe("5000");
-    expect(toast()).toContain("Champs du convoi changés entre-temps : non réécrits.");
+    expect(message()).toContain("Champs du convoi changés entre-temps : non réécrits.");
+    expect(lire<string[]>(`TOASTS`)).toEqual([]);
   });
 
   test("deux clics de suite : seul le dernier s'applique, pages lues une fois pour la minute", async () => {
@@ -606,7 +626,9 @@ describe("clic sur un montant du Récapitulatif", () => {
     await lire(
       `Promise.all([CommerceFzzz.remplirMateriaux(300000, 2400), CommerceFzzz.remplirMateriaux(50000, 2400)])`,
     );
-    expect(lire<string[]>(`TOASTS`).length).toBe(1);
+    expect(notesRecolte()).toBe(1);
+    // 50 000 sans réduction : aucune notification
+    expect(lire<string[]>(`TOASTS`)).toEqual([]);
     expect(champs()).toEqual(["50000", "50000", "2550", "2550"]);
     await lire(`CommerceFzzz.remplirMateriaux(300000, 2400)`);
     expect(lire(`LECTURES`).length).toBe(2);

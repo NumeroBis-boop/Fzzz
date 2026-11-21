@@ -205,7 +205,7 @@ describe("une fois par jour, avec le relevé des stats membres", () => {
 
   test("« Ov » et l'armée décochées pour le fichier : le site reçoit quand même les ouvrières (page Reine lue pour lui)", async () => {
     lire(
-      `["ouvrieres", "cdf", "fdfHB", "fdfAB"].forEach((c) => { localStorage.setItem("fzzz_partage_" + c, "0"); localStorage.setItem("fzzz_partageAutres_" + c, "0"); })`,
+      `["ouvrieres", "cdf", "fdfHB", "fdfAB"].forEach((c) => { localStorage.setItem("fzzz_partage_" + c, "0"); })`,
     );
     await ouvrirPage();
     expect(lire(`SHEET[0].suivi.donnees.ouvrieres`)).toBeUndefined();

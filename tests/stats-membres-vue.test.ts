@@ -10,8 +10,10 @@ import { creerPage } from "./harnais";
  * élevée). Depuis 1.131.0 : colonnes dans l'ordre du mainteneur (« Ov » après
  * TdP, « Champi » avant Puceron), CdF et FdF abrégés (k, m, g, t, deux
  * chiffres au plus), TdC actuel de chaque membre en dernière colonne (tableau
- * de la page Membres) et export CSV daté. Rien n'est lu avant que la vue soit
- * montrée. Joueurs inventés.
+ * de la page Membres) et export CSV daté. Depuis 1.148.0 : un seul niveau de
+ * partage ; un membre qui n'est pas chef voit les mêmes relevés sans pseudo,
+ * sauf le sien, ni TdC. Rien n'est lu avant que la vue soit montrée. Joueurs
+ * inventés.
  */
 const page = creerPage(
   [
@@ -236,7 +238,7 @@ describe("tableau du dernier relevé de chaque joueur", () => {
     ).toEqual(["ouvrieres", "cdf"]);
     expect(lire(`$("#o_statsMembres > p:last .o_statsNonPartage").text()`)).toBe("—");
     expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).toContain(
-      "— case rouge : information que le joueur ne partage pas avec toi. Case vide : information pas relevée ce jour-là",
+      "— case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là",
     );
     expect(lire(`$("#o_statsMembresTable tbody a").last().attr("href")`)).toBe(
       "Membre.php?Pseudo=Char%3Clie%3E",
@@ -395,38 +397,38 @@ describe("colonne TdC : TdC actuel de chaque membre, page Membres", () => {
   });
 });
 
-describe("cases du partage : avec les chefs, avec les autres, les mêmes que dans Préférences → Partage de données", () => {
-  // chaque information, dans l'ordre des colonnes : [clé, chefs, verrouillée, autres]
+describe("cases du partage, les mêmes que dans Préférences → Partage de données", () => {
+  // chaque information, dans l'ordre des colonnes : [clé, cochée, verrouillée]
   const cases = () =>
-    lire<[string, boolean, boolean, boolean][]>(
-      `$("#o_statsMembres input[data-partage-chefs]").map((i, c) => [[c.dataset.partageChefs, c.checked, c.disabled,
-        $("#o_statsMembres input[data-partage-autres='" + c.dataset.partageChefs + "']").prop("checked")]]).get()`,
+    lire<[string, boolean, boolean][]>(
+      `$("#o_statsMembres input[data-partage]").map((i, c) => [[c.dataset.partage, c.checked, c.disabled]]).get()`,
     );
 
-  test("deux lignes, dans l'ordre et avec les titres des colonnes ; état de ce navigateur ; Champi et Puceron verrouillés", async () => {
+  test("une ligne, dans l'ordre et avec les titres des colonnes ; état de ce navigateur ; Champi et Puceron verrouillés", async () => {
     lire(`(() => {
       localStorage.setItem("fzzz_partage_vc", "0");
+      // choix « avec les autres » des versions 1.136.0 à 1.147.0 : plus lu
       localStorage.setItem("fzzz_partageAutres_tdp", "0");
       localStorage.setItem("fzzz_partage_champignonniere", "0");
     })()`);
     await ouvrir();
     expect(
-      lire<string[]>(
-        `$("#o_statsMembres .o_statsMembresReglages").slice(0, 2).map((i, l) => l.textContent.replace(/\\s+/g, " ").trim()).get()`,
+      lire<string>(
+        `$("#o_statsMembres .o_statsMembresReglages").first().text().replace(/\\s+/g, " ").trim()`,
       ),
-    ).toEqual([
-      "Partagé avec les chefs : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
-      "Partagé avec les autres : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
-    ]);
+    ).toBe("Partagé : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron");
+    expect(
+      lire(
+        `$("#o_statsMembres input[data-partage-autres], #o_statsMembres input[data-partage-chefs]").length`,
+      ),
+    ).toBe(0);
     expect(cases()).toEqual(
       CLES.map((c) =>
         c == "vc"
-          ? [c, false, false, false]
-          : c == "tdp"
-            ? [c, true, false, false]
-            : c == "champignonniere"
-              ? [c, true, true, false]
-              : [c, true, true, true],
+          ? [c, false, false]
+          : c == "champignonniere" || c == "puceron"
+            ? [c, true, true]
+            : [c, true, false],
       ),
     );
   });
@@ -437,28 +439,15 @@ describe("cases du partage : avec les chefs, avec les autres, les mêmes que dan
       `$("body").append(SuiviMembres.casesPartage("o_partageLigne").replace(/<div /g, "<div data-pref ")); SuiviMembres.majCases()`,
     );
     await ouvrir();
-    lire(
-      `$("#o_statsMembres input[data-partage-autres='cdf']").prop("checked", false).trigger("change")`,
-    );
-    expect(lire(`localStorage.getItem("fzzz_partageAutres_cdf")`)).toBe("0");
-    expect(lire(`SuiviMembres.etat().fait`)).toBe(false);
-    // la case des chefs de la CdF se déverrouille, ici et dans les Préférences
-    expect(
-      lire(`$("input[data-partage-chefs='cdf']").map((i, c) => [[c.checked, c.disabled]]).get()`),
-    ).toEqual([
-      [true, false],
-      [true, false],
-    ]);
-    lire(
-      `$("#o_statsMembres input[data-partage-chefs='cdf']").prop("checked", false).trigger("change")`,
-    );
+    lire(`$("#o_statsMembres input[data-partage='cdf']").prop("checked", false).trigger("change")`);
     expect(lire(`localStorage.getItem("fzzz_partage_cdf")`)).toBe("0");
-    expect(lire(`$("[data-pref] input[data-partage-chefs='cdf']").prop("checked")`)).toBe(false);
+    expect(lire(`SuiviMembres.etat().fait`)).toBe(false);
+    expect(lire(`$("[data-pref] input[data-partage='cdf']").prop("checked")`)).toBe(false);
     lire(`$("[data-pref]").remove()`);
   });
 });
 
-describe("ce que voit un membre qui n'est pas chef : ce que les joueurs partagent avec les autres (règle du mainteneur, 18/11/2026)", () => {
+describe("ce que voit un membre qui n'est pas chef : les mêmes relevés, sans pseudo sauf le sien (mainteneur, 21/11/2026)", () => {
   const garder = (chefs: string[]) =>
     `localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, alliance: "OUAF", section: true, sujet: true, reglages: { chefs: ${JSON.stringify(chefs)} } }))`;
   // réglages relus à l'affichage de la vue (SuiviMembres.adresse) : cette liste de chefs
@@ -472,63 +461,94 @@ describe("ce que voit un membre qui n'est pas chef : ce que les joueurs partagen
     lire<any[]>(`APPELS`)
       .filter((a) => Array.isArray(a) && a[0] == ADRESSE)
       .map((a) => a[2]);
-  // réponse de la requête « relevesPublics » : Alpha partage TdP et VA avec les autres ; une ligne
-  // sans rien de partagé ou une valeur non partagée, que le script ne rend pas, sont écartées quand même
-  const PUBLICS = [
-    {
-      joueur: "Alpha",
-      date: "2026-11-18 08:03",
-      valeurs: { ...tous(null), tdp: 30, va: 5, cdf: 1000 },
-      partages: { ...tous(false), tdp: true, va: true },
-    },
-    {
-      joueur: "Bravo",
-      date: "2026-11-17 22:10",
-      valeurs: { ...tous(null), tdp: 40 },
-      partages: tous(false),
-    },
+  // réponse de la requête « relevesAnonymes » : pseudos vides sauf celui du
+  // joueur (Bravo), lignes rangées par TdP ; un pseudo rendu quand même est effacé
+  const ANONYMES = [
+    { ...RELEVES[0], joueur: "Alpha" },
+    { ...RELEVES[2], joueur: "" },
+    { ...RELEVES[1], joueur: "bravo" },
   ];
 
-  test("non chef : la requête des seules informations partagées avec les autres, les joueurs qui en partagent au moins une", async () => {
+  test("non chef : relevés sans pseudo sauf le sien, sans TdC, rangés par TdP ; même partage que les chefs", async () => {
     lire(garder(["Alpha"]));
     relus(["Alpha"]);
-    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(PUBLICS)} }`);
+    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(ANONYMES)} }`);
     await ouvrir();
-    expect(demandes()).toEqual([{ relevesPublics: true }]);
-    expect(cellules()).toEqual([
-      ["Alpha", "18/11 08h03", "30", "—", "—", "—", "—", "5", "—", "—", "—", "2 345 678"],
+    expect(demandes()).toEqual([{ relevesAnonymes: { joueur: "Bravo" } }]);
+    expect(lire(`$("#o_statsMembresTable thead th").map((i, th) => $(th).text()).get()`)).toEqual([
+      "Joueur",
+      "Relevé",
+      "TdP",
+      "Ov",
+      "CdF",
+      "FdF HB",
+      "FdF AB",
+      "VA",
+      "VC",
+      "Champi",
+      "Puceron",
     ]);
-    expect(etat()).toMatch(/^1 joueur\(s\) partagent avec les autres membres, fichier lu à/);
-    expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).toContain(
-      "Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance : seulement les joueurs qui partagent au moins une information avec les autres membres, et ces informations-là.",
+    // TdP décroissant ; ni pseudo ni lien sur les autres lignes ; aucun TdC lu
+    expect(cellules()).toEqual([
+      ["bravo", "17/11 22h10", "40", "—", "—", "150\u00a0k", "1", "9", "1", "1", "1"],
+      ["", "16/11", "35", "", "", "1,23\u00a0M", "", "", "", "", ""],
+      ["", "18/11 08h03", "30", "350 000", "1\u00a0k", "50\u00a0k", "1", "5", "1", "1", "1"],
+    ]);
+    expect(lire(`$("#o_statsMembresTable tbody a").map((i, a) => a.textContent).get()`)).toEqual([
+      "bravo",
+    ]);
+    expect(lire(`$("#o_statsMembresTable tr.o_statsMoi").length`)).toBe(1);
+    expect(lire(`APPELS.filter((a) => Array.isArray(a) && a[0] == "tdcMembres").length`)).toBe(0);
+    expect(etat()).toBe("3 joueur(s), fichier lu à 09h30.");
+    const legende = lire<string>(`$("#o_statsMembres > p:last").text()`);
+    expect(legende).toContain(
+      "Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance : pseudos masqués, sauf le tien.",
     );
+    expect(lire(`$("#o_statsMembresLegendeTdc").css("display")`)).toBe("none");
+    // pas de tri par pseudo (il ne mettrait que le sien en tête)
+    lire(`$("#o_statsMembresTable thead th").eq(0).trigger("click")`);
+    expect(cellules().map((l) => l[2])).toEqual(["40", "35", "30"]);
     // ses propres cases du partage restent là, avec la couleur et l'export
     expect(
       lire(
-        `[$("#o_statsMembres input[data-partage-autres]").length, $("#o_statsMembresCouleurs").length, $("#o_statsMembresCsv").prop("disabled")]`,
+        `[$("#o_statsMembres input[data-partage]").length, $("#o_statsMembresCouleurs").length, $("#o_statsMembresCsv").prop("disabled")]`,
       ),
     ).toEqual([CLES.length, 1, false]);
   });
 
-  test("chef (pseudo écrit avec une autre casse) : tout ce qui est partagé avec les chefs", async () => {
+  test("non chef : export CSV sans pseudo sauf le sien, sans TdC", async () => {
+    lire(garder(["Alpha"]));
+    relus(["Alpha"]);
+    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(ANONYMES)} }`);
+    await ouvrir();
+    await lire(`StatsMembres.exporter()`);
+    const { lignes } = exporte();
+    expect(lignes[0]).toBe(
+      "Stats membres OUAF, export du 18/11/2026 à 09h30 (heure du jeu), pseudos masqués sauf le tien",
+    );
+    expect(lignes[2]).toBe("Joueur;Relevé;TdP;Ov;CdF;FdF HB;FdF AB;VA;VC;Champi;Puceron");
+    expect(lignes.slice(3, 6).map((l) => l.split(";")[0])).toEqual(["bravo", "", ""]);
+    expect(lignes.slice(3, 6).every((l) => l.split(";").length == 11)).toBe(true);
+    expect(lire(`APPELS.filter((a) => Array.isArray(a) && a[0] == "tdcMembres").length`)).toBe(0);
+  });
+
+  test("chef (pseudo écrit avec une autre casse) : les pseudos et les TdC", async () => {
     lire(garder(["BRAVO"]));
     relus(["BRAVO"]);
     await ouvrir();
     expect(demandes()).toEqual([{ releves: true }]);
     expect(lire(`$("#o_statsMembresTable tbody tr").length`)).toBe(RELEVES.length);
-    expect(etat()).toMatch(/^3 joueur\(s\), fichier lu à/);
-    expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).not.toContain(
-      "seulement les joueurs qui partagent",
-    );
+    expect(etat()).toMatch(/^3 joueur\(s\), fichier lu à 09h30, TdC lus à/);
+    expect(lire<string>(`$("#o_statsMembres > p:last").text()`)).not.toContain("pseudos masqués");
   });
 
-  test("chef retiré depuis la dernière lecture des réglages : relu à l'affichage, il ne demande que ce qui est partagé avec les autres", async () => {
+  test("chef retiré depuis la dernière lecture des réglages : relu à l'affichage, il demande les relevés sans pseudo", async () => {
     lire(garder(["Bravo"]));
     relus(["Alpha"]);
-    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(PUBLICS)} }`);
+    lire(`REPONSE = { ok: true, releves: ${JSON.stringify(ANONYMES)} }`);
     await ouvrir();
-    expect(demandes()).toEqual([{ relevesPublics: true }]);
-    expect(cellules().map((l) => l[0])).toEqual(["Alpha"]);
+    expect(demandes()).toEqual([{ relevesAnonymes: { joueur: "Bravo" } }]);
+    expect(cellules().map((l) => l[0])).toEqual(["bravo", "", ""]);
   });
 
   test("script pas encore redéployé : il refuse la requête, rien n'est montré au non-chef", async () => {

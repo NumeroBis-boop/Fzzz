@@ -5,11 +5,11 @@
  * son relevé le plus récent, dont la date et l'heure disent de quand datent ses
  * valeurs. Pas d'historique (règle du mainteneur) : un onglet « Suivi » créé
  * par une version précédente n'est plus écrit et peut être supprimé à la main.
- * Le fond d'une case dit si le joueur partage cette information avec les
- * chefs : vert, il la partage ; rouge, il a décoché sa case (la case garde la
- * dernière valeur lue avant, ou reste vide s'il ne l'a jamais partagée). La
- * colonne « Partagé avec les autres » liste celles qu'il partage aussi avec
- * les autres membres.
+ * Le fond d'une case dit si le joueur partage cette information : vert, il la
+ * partage ; rouge, il a décoché sa case (la case garde la dernière valeur lue
+ * avant, ou reste vide s'il ne l'a jamais partagée). Une colonne « Partagé avec
+ * les autres » d'une version précédente n'est plus écrite ni lue : elle peut
+ * être supprimée à la main.
  *
  * Installation, par le propriétaire du fichier :
  *  1. Dans le fichier : Extensions → Apps Script ; remplacer le contenu de
@@ -35,11 +35,19 @@
  *
  * L'extension lit aussi le niveau de champignonnière des colonies d'un
  * seigneur (requête « niveaux », sans écriture), pour calculer ce qu'il pille,
- * et l'onglet pour la vue « Stats membres » du menu Alliance, sans écriture :
- * tout pour un chef (requête « releves »), une information sur fond rouge (non
- * partagée) n'y étant pas rendue ; pour les autres membres (requête
- * « relevesPublics »), seulement les joueurs qui partagent au moins une
- * information avec les autres, et ces informations-là.
+ * et l'onglet pour la vue « Stats membres » du menu Alliance, sans écriture,
+ * une information sur fond rouge (non partagée) n'y étant pas rendue : avec
+ * les pseudos pour un chef (requête « releves »), sans pseudo pour les autres
+ * membres, sauf sur la ligne du joueur qui demande (requête « relevesAnonymes »,
+ * lignes rangées par TdP ; « relevesPublics » des extensions d'avant : aucun
+ * pseudo). Le script ne sait pas qui demande : l'adresse suffit pour lire
+ * les pseudos, comme pour écrire.
+ *
+ * Il range aussi les réglages de l'extension que chaque joueur envoie une fois
+ * par jour depuis chacun de ses appareils (requête « reglages ») dans l'onglet
+ * « Réglages extension » : une ligne par réglage, une colonne par joueur et
+ * appareil, remplacée à chaque envoi ; une colonne d'un appareil qui n'envoie
+ * plus rien (sa ligne « Reçu le » le dit) peut être supprimée à la main.
  *
  * Il reçoit aussi le journal de débug de l'extension d'un joueur, les jours où
  * il contient une erreur (requête « journal ») : une ligne par note dans
@@ -57,8 +65,6 @@ var ONGLET = "Dernier relevé";
 var COLONNE_JOUEUR = "Joueur";
 var COLONNE_DATE = "Date";
 var COLONNE_VERSION = "Version";
-// informations aussi partagées avec les autres membres : leurs titres, séparés par « , »
-var COLONNE_AUTRES = "Partagé avec les autres";
 var FORMAT_DATE = "dd/MM/yyyy HH:mm";
 // l'extension date ses relevés à l'heure du jeu, celle de Paris
 var FUSEAU_JEU = "Europe/Paris";
@@ -123,7 +129,12 @@ var TITRES_NON_TEXTE_JOURNAL = [COLONNE_TRAITEE, "Reçu le", "Note du", "Répét
 var LIMITE_CELLULES_JOURNAL = 9000000;
 
 // rendue par doGet : ouvrir l'adresse du script dans le navigateur montre le code déployé
-var VERSION_SCRIPT = "stats-membres 2026-11-20.2";
+// réglages de l'extension (EnvoiReglages) : une ligne par réglage, une colonne par joueur et appareil
+var ONGLET_REGLAGES = "Réglages extension";
+var TITRES_REGLAGES = ["Groupe", "Réglage", "Clé"];
+var REGLAGES_MAX = 400;
+var LONGUEURS_REGLAGE = { groupe: 80, cle: 80, libelle: 300, valeur: 400 };
+var VERSION_SCRIPT = "stats-membres 2026-11-21.1";
 
 function doGet() {
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
@@ -139,8 +150,10 @@ function doGet() {
     suivi: true,
     niveaux: true,
     releves: true,
+    relevesAnonymes: true,
     relevesPublics: true,
     journal: true,
+    reglages: true,
   });
 }
 
@@ -152,8 +165,24 @@ function doPost(e) {
     return reponseJson({ erreur: "requête illisible" });
   }
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
-  if (d && d.releves === true) return reponseJson(lireReleves(classeur, false));
-  if (d && d.relevesPublics === true) return reponseJson(lireReleves(classeur, true));
+  if (d && d.releves === true) return reponseJson(lireReleves(classeur, false, ""));
+  if (d && d.relevesAnonymes) {
+    var demandeur = d.relevesAnonymes.joueur;
+    return reponseJson(
+      lireReleves(classeur, true, typeof demandeur == "string" ? demandeur.slice(0, 40) : ""),
+    );
+  }
+  // extension d'avant la lecture sans pseudo : aucun pseudo
+  if (d && d.relevesPublics === true) return reponseJson(lireReleves(classeur, true, ""));
+  if (d && d.reglages && typeof d.reglages == "object") {
+    var refusReglages = refusDesReglages(d.reglages);
+    if (refusReglages) return reponseJson({ erreur: refusReglages });
+    return reponseJson(
+      avecVerrou(function () {
+        return enregistrerReglages(classeur, d.reglages);
+      }),
+    );
+  }
   if (d && d.niveaux && typeof d.niveaux == "object") {
     var joueurs = d.niveaux.joueurs;
     if (
@@ -230,12 +259,12 @@ function lireNiveaux(classeur, joueurs) {
  * membres » : [{joueur, date "AAAA-MM-JJ HH:mm" (ou "AAAA-MM-JJ" d'une ligne
  * sans heure), valeurs {clé: nombre ou null}, partages {clé: vrai, faux ou
  * null}}]. Une information sur fond rouge (décochée par le joueur) est rendue
- * sans sa valeur, que la case garde pour le fichier seulement. Avec `publics`
- * (membre qui n'est pas chef) : seulement les informations de la colonne
- * « Partagé avec les autres », les autres rendues non partagées, et seulement
- * les joueurs qui en partagent au moins une. Lecture seule.
+ * sans sa valeur, que la case garde pour le fichier seulement. Avec `anonymes`
+ * (membre qui n'est pas chef) : le pseudo vide, sauf sur la ligne de
+ * `demandeur`, et les lignes rangées par TdP, de la plus élevée à la plus
+ * faible, plutôt que dans l'ordre de l'onglet. Lecture seule.
  */
-function lireReleves(classeur, publics) {
+function lireReleves(classeur, anonymes, demandeur) {
   var feuille = classeur.getSheetByName(ONGLET),
     releves = [];
   if (!feuille || feuille.getLastRow() < 2) return { ok: true, releves: releves };
@@ -255,52 +284,35 @@ function lireReleves(classeur, publics) {
       .trim();
     if (!joueur) return;
     var releve = {
-        joueur: joueur,
-        date:
-          colonnes[COLONNE_DATE] === undefined
-            ? ""
-            : dateCellule(l[colonnes[COLONNE_DATE]], fuseau),
-        valeurs: {},
-        partages: {},
-      },
-      autres =
-        colonnes[COLONNE_AUTRES] === undefined ? [] : titresAutres(l[colonnes[COLONNE_AUTRES]]);
+      joueur: joueur,
+      date:
+        colonnes[COLONNE_DATE] === undefined ? "" : dateCellule(l[colonnes[COLONNE_DATE]], fuseau),
+      valeurs: {},
+      partages: {},
+    };
+    if (anonymes && cleJoueur(joueur) != cleJoueur(demandeur)) releve.joueur = "";
     DONNEES.forEach(function (d) {
       var c = colonnes[d[1]];
       if (c === undefined) {
         releve.valeurs[d[0]] = null;
-        releve.partages[d[0]] = publics ? false : null;
+        releve.partages[d[0]] = null;
         return;
       }
       var fond = String(fonds[n + 1][c] || "").toLowerCase(),
         partage = fond == COULEUR_REFUS ? false : fond == COULEUR_PARTAGE ? true : null;
-      // partagée avec les autres : listée dans leur colonne, et pas décochée pour les chefs
-      if (publics) partage = partage !== false && autres.indexOf(d[1]) >= 0;
       releve.partages[d[0]] = partage;
       releve.valeurs[d[0]] = partage === false ? null : nombreCellule(l[c]);
     });
-    if (
-      publics &&
-      !DONNEES.some(function (d) {
-        return releve.partages[d[0]] === true;
-      })
-    )
-      return;
     releves.push(releve);
   });
-  return { ok: true, releves: releves };
-}
-
-/** Titres de la colonne « Partagé avec les autres » : « TdP, CdF » → ["TdP", "CdF"]. */
-function titresAutres(v) {
-  return String(v == null ? "" : v)
-    .split(",")
-    .map(function (t) {
-      return t.trim();
-    })
-    .filter(function (t) {
-      return t;
+  // l'ordre de l'onglet (souvent par pseudo) dirait qui est qui
+  if (anonymes)
+    releves.sort(function (a, b) {
+      var x = a.valeurs.tdp,
+        y = b.valeurs.tdp;
+      return (y == null ? -1 : y) - (x == null ? -1 : x);
     });
+  return { ok: true, releves: releves };
 }
 
 /** Nombre d'une case : nombre, ou chiffres d'un texte tapé à la main ; null si vide. */
@@ -334,8 +346,8 @@ function reponseJson(o) {
 
 /**
  * Pourquoi un relevé est refusé, ou "" : {joueur, jour "AAAA-MM-JJ", donnees
- * {clé: nombre}, partages {clé: vrai ou faux} (avec les chefs), publics {clé:
- * vrai ou faux} (avec les autres membres ; absent d'une extension d'avant), version}.
+ * {clé: nombre}, partages {clé: vrai ou faux}, version} ; `publics` des
+ * extensions 1.136.0 à 1.147.0 (partage avec les autres membres) est vérifié, puis ignoré.
  */
 function refusDuReleve(s, fuseau) {
   if (
@@ -404,7 +416,7 @@ function preparer(classeur) {
       DONNEES.map(function (d) {
         return d[1];
       }),
-      [COLONNE_AUTRES, COLONNE_VERSION],
+      [COLONNE_VERSION],
     ),
     lignes = feuille.getMaxRows() - 1;
   feuille.getRange(1, 1, 1, titres.length).setValues([titres]).setFontWeight("bold");
@@ -434,8 +446,7 @@ function enregistrer(classeur, s) {
     formats = {},
     refusees = [],
     donnees = s.donnees || {},
-    partages = s.partages || {},
-    publics = s.publics || {};
+    partages = s.partages || {};
   // dans l'ordre des titres : un titre absent de l'onglet y est ajouté dans cet ordre
   valeurs[COLONNE_JOUEUR] = valeurCellule(joueur);
   valeurs[COLONNE_DATE] = dateDuReleve(s.jour, fuseau);
@@ -449,14 +460,6 @@ function enregistrer(classeur, s) {
     // sans valeur ni refus (page du jeu illisible ce jour-là) : pas de couleur
     fonds[d[1]] = refuse ? COULEUR_REFUS : v == null ? null : COULEUR_PARTAGE;
   });
-  // extension d'avant ce partage : rien avec les autres membres
-  valeurs[COLONNE_AUTRES] = DONNEES.filter(function (d) {
-    return publics[d[0]] === true && partages[d[0]] !== false;
-  })
-    .map(function (d) {
-      return d[1];
-    })
-    .join(", ");
   valeurs[COLONNE_VERSION] = s.version == null ? "" : String(s.version);
   var sort = ecrireLigne(
     feuille,
@@ -780,4 +783,129 @@ function enregistrerJournal(classeur, j) {
 /** Une note reçue deux fois (réponse perdue, envoi repris) n'est écrite qu'une fois. */
 function cleNote(joueur, n) {
   return [cleJoueur(joueur), n.t, n.niveau, n.source || ""].join("|");
+}
+
+/**
+ * Pourquoi des réglages sont refusés, ou "" : {joueur, appareil, version,
+ * valeurs [{groupe, cle, libelle, valeur}]}, textes seulement.
+ */
+function refusDesReglages(r) {
+  if (
+    typeof r.joueur != "string" ||
+    r.joueur != r.joueur.trim() ||
+    !/^[^<>&"'|;\\\/\x00-\x1f]{1,30}$/.test(r.joueur)
+  )
+    return "pseudo invalide";
+  if (typeof r.appareil != "string" || !/^[^\x00-\x1f]{1,80}$/.test(r.appareil))
+    return "appareil invalide";
+  if (r.version != null && !/^[\w.-]{1,30}$/.test(String(r.version))) return "version invalide";
+  if (!Array.isArray(r.valeurs) || !r.valeurs.length || r.valeurs.length > REGLAGES_MAX)
+    return "réglages invalides";
+  var vues = {};
+  for (var i = 0; i < r.valeurs.length; i++) {
+    var v = r.valeurs[i];
+    if (!v || typeof v != "object") return "réglage " + (i + 1) + " invalide";
+    for (var c in LONGUEURS_REGLAGE)
+      if (typeof v[c] != "string" || v[c].length > LONGUEURS_REGLAGE[c])
+        return "réglage " + (i + 1) + " invalide (" + c + ")";
+    if (!/^[\w.:-]{1,80}$/.test(v.cle) || v.cle == "releve" || vues[v.cle])
+      return "réglage " + (i + 1) + " invalide (cle)";
+    vues[v.cle] = true;
+  }
+  return "";
+}
+
+/** L'onglet des réglages, créé s'il manque : la colonne des clés cachée. */
+function preparerReglages(classeur) {
+  var feuille = classeur.getSheetByName(ONGLET_REGLAGES);
+  if (feuille) return feuille;
+  feuille = classeur.insertSheet(ONGLET_REGLAGES);
+  feuille
+    .getRange(1, 1, 1, TITRES_REGLAGES.length)
+    .setValues([TITRES_REGLAGES])
+    .setFontWeight("bold");
+  feuille.setFrozenRows(1);
+  feuille.hideColumns(3);
+  return feuille;
+}
+
+/**
+ * Range les réglages d'un appareil dans sa colonne (« pseudo · appareil »),
+ * ajoutée à droite s'il n'en a pas : une ligne par réglage, repéré par sa clé,
+ * un réglage nouveau ajouté en bas ; un réglage connu que l'appareil n'envoie
+ * pas reste vide dans sa colonne. La ligne « Reçu le » date l'envoi (heure du
+ * jeu). Textes seulement, jamais de formule.
+ */
+function enregistrerReglages(classeur, r) {
+  var feuille = preparerReglages(classeur),
+    entete = r.joueur + " · " + r.appareil,
+    largeur = Math.max(feuille.getLastColumn(), TITRES_REGLAGES.length),
+    titres = feuille
+      .getRange(1, 1, 1, largeur)
+      .getValues()[0]
+      .map(function (t) {
+        return String(t == null ? "" : t)
+          .replace(/^'/, "")
+          .trim();
+      }),
+    colonne = titres.indexOf(entete) + 1;
+  if (!colonne) {
+    colonne = largeur + 1;
+    if (colonne > feuille.getMaxColumns())
+      feuille.insertColumnsAfter(feuille.getMaxColumns(), colonne - feuille.getMaxColumns());
+    feuille
+      .getRange(1, colonne)
+      .setNumberFormat("@")
+      .setValue(valeurCellule(entete))
+      .setFontWeight("bold");
+  }
+  var derniere = Math.max(feuille.getLastRow(), 1),
+    lignes = derniere > 1 ? feuille.getRange(2, 1, derniere - 1, 3).getValues() : [],
+    rang = {},
+    parCle = {};
+  lignes.forEach(function (l, i) {
+    var cle = String(l[2] == null ? "" : l[2]);
+    if (cle && rang[cle] === undefined) rang[cle] = i;
+  });
+  [
+    {
+      groupe: "Relevé",
+      cle: "releve",
+      libelle: "Reçu le",
+      valeur: Utilities.formatDate(new Date(), FUSEAU_JEU, "yyyy-MM-dd HH:mm"),
+    },
+  ]
+    .concat(r.valeurs)
+    .forEach(function (v) {
+      parCle[v.cle] = v.valeur;
+      if (rang[v.cle] === undefined) {
+        rang[v.cle] = lignes.length;
+        lignes.push([v.groupe, v.libelle, v.cle]);
+      } else {
+        lignes[rang[v.cle]][0] = v.groupe;
+        lignes[rang[v.cle]][1] = v.libelle;
+      }
+    });
+  var n = lignes.length,
+    manque = 1 + n - feuille.getMaxRows();
+  if (manque > 0) feuille.insertRowsAfter(feuille.getMaxRows(), manque);
+  feuille
+    .getRange(2, 1, n, 3)
+    .setNumberFormat("@")
+    .setValues(
+      lignes.map(function (l) {
+        return l.map(valeurCellule);
+      }),
+    );
+  feuille
+    .getRange(2, colonne, n, 1)
+    .setNumberFormat("@")
+    .setValues(
+      lignes.map(function (l) {
+        var v = parCle[String(l[2])];
+        return [v === undefined ? "" : valeurCellule(v)];
+      }),
+    );
+  feuille.setRowHeightsForced(2, n, 21);
+  return { ok: true, colonne: colonne, lignes: n };
 }

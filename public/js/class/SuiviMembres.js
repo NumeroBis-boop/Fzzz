@@ -50,10 +50,9 @@ const ORDRE_STATS = [
 const TITRES_COURTS_STATS = { ouvrieres: "Ov", champignonniere: "Champi" };
 // toujours partagées avec les chefs (règle du mainteneur, 18/11/2026) : leur case reste cochée
 const DONNEES_OBLIGATOIRES = ["champignonniere", "puceron"];
-// « Partagé avec les chefs » décochée : "0" ; cochée par défaut
+// case « Partagé » décochée : "0" ; cochée par défaut. Les clés
+// fzzz_partageAutres_ du partage à deux niveaux (1.136.0 à 1.147.0) ne sont plus lues
 const CLE_PARTAGE = "fzzz_partage_";
-// « Partagé avec les autres » décochée : "0" ; jamais choisie, comme celle des chefs
-const CLE_PARTAGE_AUTRES = "fzzz_partageAutres_";
 // par pseudo : jour du dernier relevé tenté, s'il est fait (et sans quoi),
 // essais du jour, annonce déjà montrée, dernier envoi, construction suivie en cours
 const CLE_SUIVI_MEMBRES = "fzzz_suiviMembres";
@@ -124,27 +123,13 @@ class SuiviMembres {
   }
   /**
    * @static
-   * @method partageAutres
-   * @param {String} cle clé de DONNEES_PARTAGEES
-   * @return {Boolean} case « Partagé avec les autres » cochée : tous les membres la voient
-   */
-  static partageAutres(cle) {
-    let autres = SuiviMembres._choix(CLE_PARTAGE_AUTRES, cle);
-    // jamais choisie : cochée, sauf pour une information que le joueur ne partageait déjà plus
-    return autres != null ? autres != "0" : SuiviMembres._choix(CLE_PARTAGE, cle) != "0";
-  }
-  /**
-   * @static
    * @method partage
    * @param {String} cle clé de DONNEES_PARTAGEES
-   * @return {Boolean} case « Partagé avec les chefs » cochée : l'information est relevée et envoyée
+   * @return {Boolean} case « Partagé » cochée : l'information est relevée et envoyée ;
+   *   les chefs la voient avec le pseudo du joueur, les autres membres sans
    */
   static partage(cle) {
-    return (
-      DONNEES_OBLIGATOIRES.includes(cle) ||
-      SuiviMembres.partageAutres(cle) ||
-      SuiviMembres._choix(CLE_PARTAGE, cle) != "0"
-    );
+    return DONNEES_OBLIGATOIRES.includes(cle) || SuiviMembres._choix(CLE_PARTAGE, cle) != "0";
   }
   /**
    * @static
@@ -158,18 +143,7 @@ class SuiviMembres {
     return partages;
   }
   /**
-   * @static
-   * @method partagesAutres
-   * @return {Record<String, Boolean>} chaque information : partagée avec les autres membres ou non
-   */
-  static partagesAutres() {
-    /** @type {Record<String, Boolean>} */
-    let publics = {};
-    DONNEES_PARTAGEES.forEach((d) => (publics[d.cle] = SuiviMembres.partageAutres(d.cle)));
-    return publics;
-  }
-  /**
-   * Case « Partagé avec les chefs » cochée ou décochée par le joueur : le
+   * Case « Partagé » cochée ou décochée par le joueur : le
    * fichier le saura à la prochaine page ouverte, sans attendre le lendemain.
    *
    * @static
@@ -180,23 +154,6 @@ class SuiviMembres {
   static choisir(cle, coche) {
     if (DONNEES_OBLIGATOIRES.includes(cle)) return;
     SuiviMembres._garderChoix(CLE_PARTAGE, cle, coche);
-    // plus partagée avec les chefs : plus avec personne
-    if (!coche) SuiviMembres._garderChoix(CLE_PARTAGE_AUTRES, cle, false);
-    SuiviMembres._garder({ ...SuiviMembres.etat(), fait: false, essais: 0, essai: 0, raison: "" });
-  }
-  /**
-   * Case « Partagé avec les autres » cochée ou décochée : envoyée à la page
-   * suivante comme celle des chefs.
-   *
-   * @static
-   * @method choisirAutres
-   * @param {String} cle
-   * @param {Boolean} coche
-   */
-  static choisirAutres(cle, coche) {
-    SuiviMembres._garderChoix(CLE_PARTAGE_AUTRES, cle, coche);
-    // partagée avec les autres membres : aussi avec les chefs
-    if (coche) SuiviMembres._garderChoix(CLE_PARTAGE, cle, true);
     SuiviMembres._garder({ ...SuiviMembres.etat(), fait: false, essais: 0, essai: 0, raison: "" });
   }
   /**
@@ -221,8 +178,8 @@ class SuiviMembres {
     return TITRES_COURTS_STATS[d.cle] || d.titre;
   }
   /**
-   * Les deux lignes de cases du partage, les mêmes dans Préférences → Partage
-   * de données et dans la vue « Stats membres » ; majCases les coche.
+   * La ligne de cases du partage, la même dans Préférences → Partage de
+   * données et dans la vue « Stats membres » ; majCases les coche.
    *
    * @static
    * @method casesPartage
@@ -230,20 +187,16 @@ class SuiviMembres {
    * @return {String} HTML
    */
   static casesPartage(classe) {
-    let ligne = (/** @type {String} */ niveau, /** @type {String} */ intitule) =>
-      `<div class='${classe}'><span class='gras'>${intitule}</span>${SuiviMembres.ordonnees()
-        .map(
-          (d) =>
-            `<label class='o_partageCase'><input type='checkbox' data-partage-${niveau}='${d.cle}'/> ${SuiviMembres.titreCourt(d)}</label>`,
-        )
-        .join("")}</div>`;
-    return (
-      ligne("chefs", "Partagé avec les chefs :") + ligne("autres", "Partagé avec les autres :")
-    );
+    return `<div class='${classe}'><span class='gras'>Partagé :</span>${SuiviMembres.ordonnees()
+      .map(
+        (d) =>
+          `<label class='o_partageCase'><input type='checkbox' data-partage='${d.cle}'/> ${SuiviMembres.titreCourt(d)}</label>`,
+      )
+      .join("")}</div>`;
   }
   /**
    * Coche les cases du partage de la page d'après les choix gardés, et
-   * verrouille celles des chefs qu'on ne peut pas décocher ; l'info-bulle dit
+   * verrouille celles qu'on ne peut pas décocher ; l'info-bulle dit
    * l'information et pourquoi.
    *
    * @static
@@ -252,28 +205,14 @@ class SuiviMembres {
   static majCases() {
     let libelle = (/** @type {String} */ cle) =>
       (DONNEES_PARTAGEES.find((d) => d.cle == cle) || { libelle: cle }).libelle;
-    $("input[data-partage-chefs]").each((/** @type {Number} */ i, /** @type {any} */ c) => {
-      let cle = String(c.dataset.partageChefs),
-        obligatoire = DONNEES_OBLIGATOIRES.includes(cle),
-        parAutres = SuiviMembres.partageAutres(cle);
+    $("input[data-partage]").each((/** @type {Number} */ i, /** @type {any} */ c) => {
+      let cle = String(c.dataset.partage),
+        obligatoire = DONNEES_OBLIGATOIRES.includes(cle);
       c.checked = SuiviMembres.partage(cle);
-      c.disabled = obligatoire || parAutres;
+      c.disabled = obligatoire;
       $(c)
         .parent()
-        .attr(
-          "title",
-          libelle(cle) +
-            (obligatoire
-              ? " (toujours partagé avec les chefs)"
-              : parAutres
-                ? " (partagé avec les chefs puisque partagé avec les autres)"
-                : ""),
-        );
-    });
-    $("input[data-partage-autres]").each((/** @type {Number} */ i, /** @type {any} */ c) => {
-      let cle = String(c.dataset.partageAutres);
-      c.checked = SuiviMembres.partageAutres(cle);
-      $(c).parent().attr("title", libelle(cle));
+        .attr("title", libelle(cle) + (obligatoire ? " (toujours partagé)" : ""));
     });
   }
   /**
@@ -287,17 +226,12 @@ class SuiviMembres {
   static brancherCases() {
     $(document)
       .off("change.o_partage")
-      .on(
-        "change.o_partage",
-        "input[data-partage-chefs], input[data-partage-autres]",
-        (/** @type {any} */ e) => {
-          let c = e.currentTarget;
-          if (c.dataset.partageChefs) SuiviMembres.choisir(c.dataset.partageChefs, c.checked);
-          else SuiviMembres.choisirAutres(String(c.dataset.partageAutres), c.checked);
-          SuiviMembres.majCases();
-          $(document).trigger("o_partageChoisi");
-        },
-      );
+      .on("change.o_partage", "input[data-partage]", (/** @type {any} */ e) => {
+        let c = e.currentTarget;
+        SuiviMembres.choisir(String(c.dataset.partage), c.checked);
+        SuiviMembres.majCases();
+        $(document).trigger("o_partageChoisi");
+      });
   }
   /**
    * @static
@@ -772,13 +706,12 @@ class SuiviMembres {
    * @param {String} url adresse du script du fichier
    * @param {String} jour "AAAA-MM-JJ"
    * @param {Record<String, Number>} donnees
-   * @param {Record<String, Boolean>} partages avec les chefs
-   * @param {Record<String, Boolean>} publics avec les autres membres
+   * @param {Record<String, Boolean>} partages
    * @return {Promise<any>} rejetée avec un message si le fichier refuse ou ne répond pas
    */
-  static envoyer(url, jour, donnees, partages, publics) {
+  static envoyer(url, jour, donnees, partages) {
     return ExportRapports.requete(url, "POST", {
-      suivi: { joueur: monProfil.pseudo, jour, donnees, partages, publics, version: VERSION },
+      suivi: { joueur: monProfil.pseudo, jour, donnees, partages, version: VERSION },
     }).then((r) => {
       if (!r.ok) throw new Error("réponse inattendue du script");
       return r;
@@ -836,7 +769,6 @@ class SuiviMembres {
     };
     SuiviMembres._garder(etat);
     let partages = SuiviMembres.partages(),
-      publics = SuiviMembres.partagesAutres(),
       dernierEssai = etat.essais >= SUIVI_ESSAIS_PAR_JOUR,
       /** @type {Array<String>} informations de l'armée laissées de côté */
       sansArmee = [],
@@ -878,17 +810,14 @@ class SuiviMembres {
             SUIVI_ARMEE.forEach((c) => (reste[c] = false));
             return SuiviMembres.relever(reste, vu);
           })
-          .then((donnees) =>
-            SuiviMembres.envoyer(url, jour, donnees, partages, publics).then(() => donnees),
-          )
+          .then((donnees) => SuiviMembres.envoyer(url, jour, donnees, partages).then(() => donnees))
           .then((donnees) => {
             let cles = DONNEES_PARTAGEES.filter((d) => partages[d.cle]).map((d) => d.cle),
-              autres = cles.filter((c) => publics[c]),
               // ceux qui sont partagés : les autres, absents du relevé, ne sont pas gardés
               niveaux = Object.fromEntries(
                 Object.keys(SUIVI_NIVEAUX_SUIVIS).map((c) => [c, donnees[c]]),
               );
-            let partagees = `${cles.join(", ") || "rien"} ; avec les autres membres : ${autres.join(", ") || "rien"}`;
+            let partagees = cles.join(", ") || "rien";
             if (sansArmee.length)
               Journal.info(
                 JOURNAL_SUIVI,
@@ -900,7 +829,7 @@ class SuiviMembres {
               annonce: true,
               fait: true,
               incomplet: sansArmee.length ? sansArmee : undefined,
-              envoi: { instant: Horloge.maintenant(), cles, autres, niveaux },
+              envoi: { instant: Horloge.maintenant(), cles, niveaux },
               ...(vu && "chantier" in vu ? { chantier: vu.chantier || undefined } : {}),
             });
           });
@@ -939,7 +868,7 @@ class SuiviMembres {
     $.toast({
       ...TOAST_INFO,
       heading: "Partage de données",
-      text: `Une fois par jour, l'extension envoie au Google Sheet des stats membres de ton alliance ${titres ? `tes statistiques : ${titres}` : "le fait que tu ne partages aucune statistique"}.${suivis ? " Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change." : ""} Le premier envoi se fera à ta prochaine page. Tu choisis ce que tu partages avec les chefs et avec les autres membres dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
+      text: `Une fois par jour, l'extension envoie au Google Sheet des stats membres de ton alliance ${titres ? `tes statistiques : ${titres}` : "le fait que tu ne partages aucune statistique"}.${suivis ? " Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change." : ""} Le premier envoi se fera à ta prochaine page. Tu choisis ce que tu partages dans <a href='#' class='o_ouvrirPartage'>Préférences → Partage de données</a>.`,
       hideAfter: false,
       allowToastClose: true,
     });

@@ -1016,7 +1016,7 @@ class BoiteParametre extends Boite {
         "pseudos des joueurs qui exportent leurs RC vers ce Google Sheet sans rien régler, séparés par des virgules",
       feuilleStats: "adresse du script du Google Sheet du relevé quotidien des stats membres",
       chefs:
-        "pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient tout ce que les joueurs partagent avec les chefs ; les autres membres, ce qu'ils partagent avec les autres",
+        "pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient le pseudo de chaque joueur et son TdC ; les autres membres, les mêmes informations sans pseudo, sauf le leur",
       chasseurs: "pseudos des chasseurs : rôle Chasseur par défaut",
       greniers: "pseudos des greniers : rôle Grenier et réglages des greniers par défaut",
       journal:
@@ -1077,7 +1077,7 @@ class BoiteParametre extends Boite {
           "Statistiques des membres",
           this.aide(
             "",
-            `Partager une information avec les autres, c'est aussi la partager avec les chefs. Champignonnière et Puceron sont toujours partagés avec les chefs. Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons. Sans Compte+, la page Reine ne donne ni le total des ouvrières ni l'armée complète : l'extension compte les ouvrières présentes et celles de tes convois en cours (page Convois), et ton armée en garnison (page Armée) avec les troupes parties en chasse ou en attaque depuis ce navigateur ; tant qu'une chasse ou une attaque lancée ailleurs (autre appareil) est en cours, l'armée ne peut pas être relevée et le relevé est réessayé plus tard. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé ; les chefs sont ceux de la ligne « ${REGLAGES_ALLIANCE.chefs.nom} » de ce sujet. ${DONNEES_PARTAGEES.map((d) => d.libelle).join(" ; ")}.`,
+            `Les chefs (ligne « ${REGLAGES_ALLIANCE.chefs.nom} » du sujet « ${TITRE_REGLAGES} ») voient ce que tu partages avec ton pseudo ; les autres membres le voient sans ton pseudo, mêlé à ce que partagent les autres joueurs. Champignonnière et Puceron sont toujours partagés. Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons. Sans Compte+, la page Reine ne donne ni le total des ouvrières ni l'armée complète : l'extension compte les ouvrières présentes et celles de tes convois en cours (page Convois), et ton armée en garnison (page Armée) avec les troupes parties en chasse ou en attaque depuis ce navigateur ; tant qu'une chasse ou une attaque lancée ailleurs (autre appareil) est en cours, l'armée ne peut pas être relevée et le relevé est réessayé plus tard. L'adresse du fichier est lue dans le forum caché de l'alliance (ligne « ${REGLAGES_ALLIANCE.feuilleStats.nom} » du sujet « ${TITRE_REGLAGES} ») : sans elle, rien n'est relevé ni envoyé. Chaque jour, l'extension envoie aussi au même fichier (onglet « Réglages extension ») les réglages de l'extension dans ce navigateur : version, appareil, pages et affichages cochés, choix des Préférences ; jamais d'adresse ni de mot de passe. ${DONNEES_PARTAGEES.map((d) => d.libelle).join(" ; ")}.`,
           ) +
             SuiviMembres.casesPartage("o_partageLigne") +
             `<p id='o_partageEtat' class='left small'></p>

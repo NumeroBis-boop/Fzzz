@@ -420,11 +420,10 @@ describe("Préférences rangées par page : recherche, renvois, aides", () => {
     expect(
       ids.filter((id) => lire<number>(`$("#o_tabsParametre [id='${id}']").length`) != 1),
     ).toEqual([]);
-    // deux cases par information du partage des stats : avec les chefs, avec les autres
-    for (const niveau of ["chefs", "autres"])
-      expect(lire<number>(`$("#o_tabsParametre input[data-partage-${niveau}]").length`)).toBe(
-        lire<number>(`DONNEES_PARTAGEES.length`),
-      );
+    // une case par information du partage des stats (un seul niveau depuis 1.148.0)
+    expect(lire<number>(`$("#o_tabsParametre input[data-partage]").length`)).toBe(
+      lire<number>(`DONNEES_PARTAGEES.length`),
+    );
   });
 
   test("tout renvoi « Préférences → … » des textes de l'extension nomme un onglet qui existe", () => {

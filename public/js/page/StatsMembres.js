@@ -3,8 +3,10 @@
  * StatsMembres.js
  * Vue « Stats membres » de la page Membres (menu Alliance → Stats membres) :
  * le dernier relevé de chaque joueur, lu dans le Google Sheet « Stats membres »
- * de l'alliance, et son TdC actuel, avec en haut les cases du partage du
- * joueur, la mise en couleur au choix et l'export CSV.
+ * de l'alliance, avec en haut les cases du partage du joueur, la mise en
+ * couleur au choix et l'export CSV. Un chef voit les pseudos et le TdC actuel
+ * de chacun ; les autres membres, les mêmes relevés sans pseudo, sauf le leur
+ * (mainteneur, 21/11/2026).
  **********************************************************************/
 
 // mise en couleur du tableau : "1" cochée ; choix gardé dans ce navigateur
@@ -49,7 +51,7 @@ let lectureStatsMembres = null;
 /** @type {Array<any>|null} */
 let relevesStatsMembres = null;
 let fichierLuStats = 0;
-// dernière lecture faite pour un chef (tout) ou un autre membre (partagé avec les autres)
+// dernière lecture faite pour un chef (pseudos et TdC) ou un autre membre (sans pseudo)
 let vueChefStats = true;
 // TdC des membres : {valeurs: {pseudo en minuscules: TdC}, heure: ms à l'horloge du serveur}
 /** @type {{valeurs: Object<string, number>, heure: number}|null} */
@@ -67,10 +69,9 @@ let ajustementStatsActif = false;
  */
 class StatsMembres {
   /**
-   * Un chef voit tout ce qui est partagé avec les chefs, un autre membre
-   * seulement ce que les joueurs partagent avec les autres (règle du
-   * mainteneur, 18/11/2026) : ligne « Chefs » de la dernière lecture des
-   * réglages, sans requête.
+   * Un chef voit les pseudos et les TdC, un autre membre les mêmes relevés
+   * sans pseudo, sauf le sien (mainteneur, 21/11/2026) : ligne « Chefs » de la
+   * dernière lecture des réglages, sans requête.
    *
    * @static
    * @method autorise
@@ -196,17 +197,14 @@ class StatsMembres {
    * @static
    */
   static _construire() {
-    let titres = StatsMembres.donnees()
-      .map((d) => `<th title='${Utils.echapper(d.libelle)}'>${StatsMembres.titre(d)}</th>`)
-      .join("");
     $("#alliance")
       .after(`<div id='o_statsMembres' class='boite_amelioration simulateur centre' style='display:none'>
         <h2>Stats membres</h2>
         ${SuiviMembres.casesPartage("o_statsMembresReglages")}
         <div class='o_statsMembresReglages'><label title='Par colonne : vert clair pour la valeur la plus faible, vert foncé pour la plus élevée'><input type='checkbox' id='o_statsMembresCouleurs' ${StatsMembres.couleurs() ? "checked" : ""}/> Mise en couleur du tableau</label></div>
         <div class='o_statsMembresReglages'><button id='o_statsMembresCsv' class='o_button f_success' disabled title='${Utils.echapper("Le tableau dans un fichier CSV pour Excel, avec la date de l'export")}'>Exporter en CSV</button><span id='o_statsMembresEtat' class='reduce'></span></div>
-        <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead><tr><th>Joueur</th><th>Relevé</th>${titres}<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th></tr></thead><tbody></tbody></table></div>
-        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance<span id='o_statsMembresPortee'></span>. TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). CdF et FdF : k mille, m million, g milliard, t mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas avec toi. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
+        <div class='o_statsMembresTableau'><table id='o_statsMembresTable' cellspacing='0'><thead></thead><tbody></tbody></table></div>
+        <p class='reduce left'>Dernier relevé de chaque joueur dans le Google Sheet « Stats membres » de l'alliance<span id='o_statsMembresPortee'></span>. <span id='o_statsMembresLegendeTdc'>TdC : TdC actuel, lu sur la page Membres (vide pour un joueur qui n'est plus membre). </span>CdF et FdF : k mille, M million, G milliard, T mille milliards, tronqués ; valeur exacte au survol et dans l'export CSV. <span class='o_statsNonPartage o_statsLegende'>—</span> case rouge : information que le joueur ne partage pas. Case vide : information pas relevée ce jour-là (relevé fait avec une version plus ancienne de l'extension, par exemple).</p>
       </div>`);
     // les mêmes cases que Préférences → Partage de données, qui suivent si elles sont ouvertes
     SuiviMembres.majCases();
@@ -221,8 +219,20 @@ class StatsMembres {
     $("#o_statsMembresCsv").on("click", () => StatsMembres.exporter());
   }
   /**
+   * @static
+   * @method entete
+   * @param {Boolean} chef avec la colonne du TdC
+   * @return {String} ligne de titres du tableau
+   */
+  static entete(chef) {
+    let titres = StatsMembres.donnees()
+      .map((d) => `<th title='${Utils.echapper(d.libelle)}'>${StatsMembres.titre(d)}</th>`)
+      .join("");
+    return `<tr><th>Joueur</th><th>Relevé</th>${titres}${chef ? `<th title='${Utils.echapper("TdC actuel, lu sur la page Membres de l'alliance")}'>TdC</th>` : ""}</tr>`;
+  }
+  /**
    * Lit le dernier relevé de chaque joueur dans le fichier de l'alliance
-   * (adresse du forum caché) et remplit le tableau, avec les TdC.
+   * (adresse du forum caché) et remplit le tableau, avec les TdC pour un chef.
    *
    * @static
    * @method charger
@@ -232,40 +242,36 @@ class StatsMembres {
     let $etat = $("#o_statsMembresEtat")
         .removeClass("red")
         .text("Lecture du Google Sheet « Stats membres »…"),
-      tdc = StatsMembres.tdc(),
       chef = false;
     return SuiviMembres.adresse()
       .then(
         ({ url, manque }) => {
           if (!url) throw new Error(SuiviMembres.sansAdresse(manque));
           // réglages relus si la dernière lecture a plus d'une minute : la ligne « Chefs » fait foi ;
-          // un autre membre ne demande que ce que les joueurs partagent avec les autres
+          // un autre membre demande les relevés sans pseudo, le script ne rend que le sien
           chef = StatsMembres.autorise();
-          return ExportRapports.requete(
-            url,
-            "POST",
-            chef ? { releves: true } : { relevesPublics: true },
-          );
+          return Promise.all([
+            ExportRapports.requete(
+              url,
+              "POST",
+              chef ? { releves: true } : { relevesAnonymes: { joueur: monProfil.pseudo } },
+            ),
+            chef ? StatsMembres.tdc() : Promise.resolve(null),
+          ]);
         },
         () => {
           throw new Error("le forum de l'alliance n'a pas pu être lu, réessaie dans un instant");
         },
       )
-      .then((/** @type {any} */ donnees) => {
+      .then(([/** @type {any} */ donnees, tdc]) => {
         if (!donnees || !Array.isArray(donnees.releves))
           throw new Error("réponse inattendue du script du Google Sheet");
         vueChefStats = chef;
-        $("#o_statsMembresPortee").text(
-          chef
-            ? ""
-            : " : seulement les joueurs qui partagent au moins une information avec les autres membres, et ces informations-là",
-        );
+        $("#o_statsMembresPortee").text(chef ? "" : " : pseudos masqués, sauf le tien");
+        $("#o_statsMembresLegendeTdc").toggle(chef);
         fichierLuStats = Horloge.maintenant();
-        let releves = chef ? donnees.releves : StatsMembres.publics(donnees.releves);
-        return tdc.then((t) => {
-          StatsMembres.remplir(releves, t);
-          StatsMembres._etat();
-        });
+        StatsMembres.remplir(chef ? donnees.releves : StatsMembres.anonymes(donnees.releves), tdc);
+        StatsMembres._etat();
       })
       .catch((e) => {
         let message = String((e && e.message) || e);
@@ -277,29 +283,25 @@ class StatsMembres {
       });
   }
   /**
-   * Ce que voit un membre qui n'est pas chef, que le script filtre déjà : les
-   * joueurs qui partagent au moins une information avec les autres membres, et
-   * ces informations-là.
+   * Ce que voit un membre qui n'est pas chef, que le script rend déjà : aucun
+   * pseudo, sauf le sien.
    *
    * @static
-   * @method publics
-   * @param {Array<any>} releves réponse de la requête « relevesPublics »
+   * @method anonymes
+   * @param {Array<any>} releves réponse de la requête « relevesAnonymes »
    * @return {Array<any>}
    */
-  static publics(releves) {
-    return releves
-      .map((r) => {
-        let partages = r.partages || {},
-          valeurs = r.valeurs || {};
-        return {
-          ...r,
-          partages,
-          valeurs: Object.fromEntries(
-            Object.keys(valeurs).map((c) => [c, partages[c] === true ? valeurs[c] : null]),
-          ),
-        };
-      })
-      .filter((r) => Object.values(r.partages).some((p) => p === true));
+  static anonymes(releves) {
+    let moi = String(monProfil.pseudo || "")
+      .trim()
+      .toLowerCase();
+    return releves.map((r) =>
+      String(r.joueur || "")
+        .trim()
+        .toLowerCase() == moi
+        ? r
+        : { ...r, joueur: "" },
+    );
   }
   /**
    * @static
@@ -340,7 +342,7 @@ class StatsMembres {
     $("#o_statsMembresEtat")
       .removeClass("red")
       .text(
-        `${numeral(n).format()} joueur(s)${vueChefStats ? "" : " partagent avec les autres membres"}, fichier lu ${StatsMembres.quand(fichierLuStats)}, ${tdcTableauStats ? `TdC lus ${StatsMembres.quand(tdcTableauStats.heure)}` : "TdC illisibles (page Membres)"}.`,
+        `${numeral(n).format()} joueur(s), fichier lu ${StatsMembres.quand(fichierLuStats)}${vueChefStats ? `, ${tdcTableauStats ? `TdC lus ${StatsMembres.quand(tdcTableauStats.heure)}` : "TdC illisibles (page Membres)"}` : ""}.`,
       );
   }
   /**
@@ -357,7 +359,8 @@ class StatsMembres {
   }
   /**
    * Une ligne par joueur, triable par colonne ; refait (tri gardé) quand les
-   * TdC sont relus.
+   * TdC sont relus. Sans pseudo (membre qui n'est pas chef) : ni TdC, ni tri
+   * par pseudo, rangé par TdP.
    *
    * @static
    * @method remplir
@@ -368,16 +371,21 @@ class StatsMembres {
     relevesStatsMembres = releves;
     tdcTableauStats = tdc;
     let donnees = StatsMembres.donnees(),
+      chef = vueChefStats,
       moi = String(monProfil.pseudo || "")
         .trim()
         .toLowerCase(),
       $table = $("#o_statsMembresTable"),
-      ordre = [[0, "asc"]];
+      colonnes = donnees.length + (chef ? 3 : 2),
+      ordre = chef ? [[0, "asc"]] : [[2, "desc"]];
     if ($.fn.dataTable.isDataTable($table[0])) {
-      let api = $table.DataTable();
-      ordre = api.order();
+      let api = $table.DataTable(),
+        garde = api.order();
+      if (garde.every((/** @type {Array<any>} */ o) => o[0] < colonnes && (chef || o[0] > 0)))
+        ordre = garde;
       api.destroy();
     }
+    $table.find("thead").html(StatsMembres.entete(chef));
     let lignes = releves.map((r) => {
       let joueur = String(r.joueur || ""),
         cle = joueur.trim().toLowerCase(),
@@ -385,9 +393,9 @@ class StatsMembres {
         m = moment(jour, "YYYY-MM-DD", true),
         date = m.isValid() ? m.format("DD/MM") + (heure ? " " + heure.replace(":", "h") : "") : "",
         cellules = donnees.map((d) => StatsMembres.cellule(d.cle, r)).join("");
-      return `<tr data-joueur='${Utils.echapper(joueur)}' data-releve='${Utils.echapper(String(r.date || ""))}'${cle == moi ? " class='o_statsMoi'" : ""}>
-          <td data-order='${Utils.echapper(cle)}'><a href='Membre.php?Pseudo=${encodeURIComponent(joueur)}'>${Utils.echapper(joueur)}</a></td>
-          <td data-order='${Utils.echapper(String(r.date || ""))}'>${date}</td>${cellules}${StatsMembres.celluleNombre("tdc", tdc ? tdc.valeurs[cle] : undefined)}</tr>`;
+      return `<tr data-joueur='${Utils.echapper(joueur)}' data-releve='${Utils.echapper(String(r.date || ""))}'${cle && cle == moi ? " class='o_statsMoi'" : ""}>
+          <td data-order='${Utils.echapper(cle)}'>${joueur ? `<a href='Membre.php?Pseudo=${encodeURIComponent(joueur)}'>${Utils.echapper(joueur)}</a>` : ""}</td>
+          <td data-order='${Utils.echapper(String(r.date || ""))}'>${date}</td>${cellules}${chef ? StatsMembres.celluleNombre("tdc", tdc ? tdc.valeurs[cle] : undefined) : ""}</tr>`;
     });
     $table.find("tbody").html(lignes.join(""));
     let couleur2 = monProfil.parametre && monProfil.parametre["couleur2"];
@@ -401,9 +409,11 @@ class StatsMembres {
       // une statistique se trie d'abord de la plus élevée à la plus faible
       columnDefs: [
         {
-          targets: [...donnees.map((d, i) => i + 2), donnees.length + 2],
+          targets: [...donnees.map((d, i) => i + 2), ...(chef ? [donnees.length + 2] : [])],
           orderSequence: ["desc", "asc"],
         },
+        // sans pseudo, un tri par pseudo ne mettrait que le sien en tête
+        ...(chef ? [] : [{ targets: [0], orderable: false }]),
       ],
       rowCallback: (
         /** @type {Element} */ ligne,
@@ -521,7 +531,7 @@ class StatsMembres {
    */
   static exporter() {
     let $bouton = $("#o_statsMembresCsv").prop("disabled", true);
-    return StatsMembres.tdc()
+    return (vueChefStats ? StatsMembres.tdc() : Promise.resolve(tdcTableauStats))
       .then((tdc) => {
         if (tdc !== tdcTableauStats && relevesStatsMembres) {
           StatsMembres.remplir(relevesStatsMembres, tdc);
@@ -557,8 +567,13 @@ class StatsMembres {
       // un texte qu'Excel lirait comme une formule (= + - @ en tête) reste du texte
       texte = (/** @type {String} */ s) => champ(/^[=+\-@]/.test(s) ? "'" + s : s),
       jour = (/** @type {Number} */ ms) => moment(ms).format("DD/MM/YYYY [à] HH[h]mm"),
-      titre = `Stats membres${Utils.alliance ? " " + Utils.alliance : ""}, export du ${maintenant.format("DD/MM/YYYY [à] HH[h]mm")} (heure du jeu), ${tdcTableauStats ? "TdC lus le " + jour(tdcTableauStats.heure) : "TdC non lus"}`,
-      entete = ["Joueur", "Relevé", ...StatsMembres.donnees().map(StatsMembres.titre), "TdC"],
+      titre = `Stats membres${Utils.alliance ? " " + Utils.alliance : ""}, export du ${maintenant.format("DD/MM/YYYY [à] HH[h]mm")} (heure du jeu)${vueChefStats ? (tdcTableauStats ? ", TdC lus le " + jour(tdcTableauStats.heure) : ", TdC non lus") : ", pseudos masqués sauf le tien"}`,
+      entete = [
+        "Joueur",
+        "Relevé",
+        ...StatsMembres.donnees().map(StatsMembres.titre),
+        ...(vueChefStats ? ["TdC"] : []),
+      ],
       lignes = $("#o_statsMembresTable tbody tr[data-joueur]")
         .map((i, tr) =>
           [

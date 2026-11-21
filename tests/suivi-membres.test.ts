@@ -229,7 +229,6 @@ describe("première page du jour", () => {
             jour: "2026-11-12",
             donnees: DONNEES,
             partages: TOUT,
-            publics: TOUT,
             version: "1.104.0",
           },
         },
@@ -500,7 +499,7 @@ describe("cases de Préférences → Partage de données", () => {
     });
   });
 
-  test("tout décoché : seules Champignonnière et Puceron, toujours partagés avec les chefs, sont relevés ; rien avec les autres membres", async () => {
+  test("tout décoché : seules Champignonnière et Puceron, toujours partagés, sont relevés", async () => {
     annonceVue();
     decocher(...CLES);
     expect(await ouvrirPage()).toBe("envoyé");
@@ -508,7 +507,8 @@ describe("cases de Préférences → Partage de données", () => {
     const s = recus()[0].corps.suivi;
     expect(s.donnees).toEqual({ puceron: 2, champignonniere: 17 });
     expect(s.partages).toEqual({ ...AUCUN, puceron: true, champignonniere: true });
-    expect(s.publics).toEqual(AUCUN);
+    // un seul niveau de partage depuis 1.148.0 : plus de « publics »
+    expect(s.publics).toBeUndefined();
   });
 
   test("case changée dans la journée : le fichier le sait à la page suivante, sans attendre le lendemain", async () => {
@@ -666,14 +666,10 @@ describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : re
     expect(recus()[1].corps.suivi.donnees).toMatchObject({ champignonniere: 18 });
   });
 
-  test("Champignonnière et Puceron décochés avant cette règle : toujours partagés avec les chefs (pas avec les autres), leur changement de niveau refait le relevé", async () => {
+  test("Champignonnière et Puceron décochés avant cette règle : toujours partagés, leur changement de niveau refait le relevé", async () => {
     decocher("puceron", "champignonniere");
     await releveDuJour();
     expect(recus()[0].corps.suivi.partages).toMatchObject({ puceron: true, champignonniere: true });
-    expect(recus()[0].corps.suivi.publics).toMatchObject({
-      puceron: false,
-      champignonniere: false,
-    });
     avancer(60);
     expect(await visiter("/construction.php", pageConstruction({ "Etable à pucerons": 3 }))).toBe(
       "envoyé",
@@ -1025,9 +1021,7 @@ describe("niveau de la Champignonnière ou de l'Étable à pucerons changé : re
     expect(lire<string>(`TOASTS[0].text`)).toContain(
       "tes statistiques : TdP, CdF, FdF HB, FdF AB, VA, VC, Puceron, Champignonnière et Ouvrières. Elle les renvoie quand le niveau de ta Champignonnière ou de ton Étable à pucerons change.",
     );
-    expect(lire<string>(`TOASTS[0].text`)).toContain(
-      "Tu choisis ce que tu partages avec les chefs et avec les autres membres dans",
-    );
+    expect(lire<string>(`TOASTS[0].text`)).toContain("Tu choisis ce que tu partages dans");
   });
 });
 
@@ -1153,15 +1147,14 @@ describe("Préférences → Partage de données", () => {
       boite.ajusterTaille = () => boite;
       boite.ongletPartage();
     })()`);
-  // chaque information, dans l'ordre de la vue : [clé, avec les chefs, verrouillée, avec les autres]
+  // chaque information, dans l'ordre de la vue : [clé, cochée, verrouillée]
   const cases = () =>
-    preferences.lire<[string, boolean, boolean, boolean][]>(
-      `$("#o_tabsParametrePartage input[data-partage-chefs]").map((i, c) => [[c.dataset.partageChefs, c.checked, c.disabled,
-        $("#o_tabsParametrePartage input[data-partage-autres='" + c.dataset.partageChefs + "']").prop("checked")]]).get()`,
+    preferences.lire<[string, boolean, boolean][]>(
+      `$("#o_tabsParametrePartage input[data-partage]").map((i, c) => [[c.dataset.partage, c.checked, c.disabled]]).get()`,
     );
-  const cocher = (niveau: string, cle: string, coche: boolean) =>
+  const cocher = (cle: string, coche: boolean) =>
     preferences.lire(
-      `$("#o_tabsParametrePartage input[data-partage-${niveau}='${cle}']").prop("checked", ${coche}).trigger("change")`,
+      `$("#o_tabsParametrePartage input[data-partage='${cle}']").prop("checked", ${coche}).trigger("change")`,
     );
   const ORDRE = [
     "tdp",
@@ -1181,35 +1174,33 @@ describe("Préférences → Partage de données", () => {
     expect(
       preferences.lire(`ONGLETS_PARAMETRE.filter((o) => o.id == "Partage").map((o) => o.titre)`),
     ).toEqual(["Partage de données"]);
-    // tout partagé avec les autres par défaut : les cases des chefs, cochées, en sont verrouillées
-    expect(cases()).toEqual(ORDRE.map((c) => [c, true, true, true]));
+    // tout partagé par défaut ; Champignonnière et Puceron verrouillées
+    expect(cases()).toEqual(ORDRE.map((c) => [c, true, c == "champignonniere" || c == "puceron"]));
     expect(
       preferences.lire<string[]>(
         `$("#o_tabsParametrePartage .o_partageLigne").map((i, l) => l.textContent.replace(/\\s+/g, " ").trim()).get()`,
       ),
-    ).toEqual([
-      "Partagé avec les chefs : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
-      "Partagé avec les autres : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron",
-    ]);
-    // l'info-bulle dit l'information, et pourquoi une case des chefs est verrouillée
+    ).toEqual(["Partagé : TdP Ov CdF FdF HB FdF AB VA VC Champi Puceron"]);
+    // l'info-bulle dit l'information, et pourquoi une case est verrouillée
     expect(
       preferences.lire<string[]>(
-        `["cdf", "champignonniere"].map((c) => $("#o_tabsParametrePartage input[data-partage-chefs='" + c + "']").parent().attr("title"))`,
+        `["cdf", "champignonniere"].map((c) => $("#o_tabsParametrePartage input[data-partage='" + c + "']").parent().attr("title"))`,
       ),
     ).toEqual([
-      "CdF : nombre total d'unités de ton armée, ouvrières non comptées (partagé avec les chefs puisque partagé avec les autres)",
-      "Champignonnière : niveau (toujours partagé avec les chefs)",
+      "CdF : nombre total d'unités de ton armée, ouvrières non comptées",
+      "Champignonnière : niveau (toujours partagé)",
     ]);
     // le détail, replié sous « En savoir plus »
     const texte = preferences.lire<string>(`$("#o_tabsParametrePartage").text()`);
     for (const dit of [
-      "Partager une information avec les autres, c'est aussi la partager avec les chefs.",
-      "Champignonnière et Puceron sont toujours partagés avec les chefs.",
+      "Les chefs (ligne « Chefs » du sujet « Réglages de l'extension ») voient ce que tu partages avec ton pseudo ; les autres membres le voient sans ton pseudo, mêlé à ce que partagent les autres joueurs.",
+      "Champignonnière et Puceron sont toujours partagés.",
       "Elle refait le relevé à la première page ouverte après un changement de niveau de ta Champignonnière ou de ton Étable à pucerons.",
       "ligne « Google Sheet des stats membres » du sujet « Réglages de l'extension »",
-      "sans elle, rien n'est relevé ni envoyé ; les chefs sont ceux de la ligne « Chefs » de ce sujet.",
+      "sans elle, rien n'est relevé ni envoyé.",
+      "Chaque jour, l'extension envoie aussi au même fichier (onglet « Réglages extension ») les réglages de l'extension dans ce navigateur : version, appareil, pages et affichages cochés, choix des Préférences ; jamais d'adresse ni de mot de passe.",
       "TdP : Couveuse + Solarium + Technique de ponte ; CdF : nombre total d'unités de ton armée, ouvrières non comptées",
-      "« Chefs : … » : pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient tout ce que les joueurs partagent avec les chefs ; les autres membres, ce qu'ils partagent avec les autres",
+      "« Chefs : … » : pseudos des chefs : dans la vue « Stats membres » (menu Alliance), ils voient le pseudo de chaque joueur et son TdC ; les autres membres, les mêmes informations sans pseudo, sauf le leur",
     ])
       expect(texte).toContain(dit);
     // retirés à la demande du mainteneur (1.143.2) : l'annonce du premier envoi le dit
@@ -1239,50 +1230,39 @@ describe("Préférences → Partage de données", () => {
     );
     // vue « Stats membres » construite ensuite, qui rebranche les cases : l'état de l'onglet suit quand même
     preferences.lire(`SuiviMembres.brancherCases()`);
-    // plus partagée avec les autres : la case des chefs se déverrouille, toujours cochée
-    cocher("autres", "fdfAB", false);
-    expect(preferences.lire(`localStorage.getItem("fzzz_partageAutres_fdfAB")`)).toBe("0");
-    expect(cases().find(([c]) => c == "fdfAB")).toEqual(["fdfAB", true, false, false]);
+    // plus partagée : gardé, relevé à refaire, relu à la réouverture
+    cocher("fdfAB", false);
+    expect(preferences.lire(`localStorage.getItem("fzzz_partage_fdfAB")`)).toBe("0");
     expect(preferences.lire(`SuiviMembres.etat()`)).toMatchObject({ fait: false, essais: 0 });
     // relevé à refaire à la page suivante : plus rien à signaler
     expect(preferences.lire(`$("#o_partageEtat").text()`)).toBe("");
-    // plus partagée avec les chefs non plus : gardé, relu à la réouverture
-    cocher("chefs", "fdfAB", false);
-    expect(preferences.lire(`localStorage.getItem("fzzz_partage_fdfAB")`)).toBe("0");
     ouvrir();
-    expect(cases().filter(([, chefs, , autres]) => !chefs || !autres)).toEqual([
-      ["fdfAB", false, false, false],
-    ]);
-    // de nouveau partagée avec les autres : aussi avec les chefs, case verrouillée
-    cocher("autres", "fdfAB", true);
-    expect(cases().find(([c]) => c == "fdfAB")).toEqual(["fdfAB", true, true, true]);
+    expect(cases().filter(([, coche]) => !coche)).toEqual([["fdfAB", false, false]]);
+    cocher("fdfAB", true);
     expect(
       preferences.lire(
         `[SuiviMembres.partage("fdfAB"), localStorage.getItem("fzzz_partage_fdfAB")]`,
       ),
     ).toEqual([true, "1"]);
+    // un choix « avec les autres » des versions 1.136.0 à 1.147.0 n'est plus lu
+    preferences.lire(
+      `localStorage.setItem("fzzz_partageAutres_fdfAB", "1"); localStorage.setItem("fzzz_partage_fdfAB", "0")`,
+    );
+    expect(preferences.lire(`SuiviMembres.partage("fdfAB")`)).toBe(false);
   });
 
-  test("Champignonnière et Puceron : case des chefs toujours cochée et verrouillée, même décochée avant ; celle des autres au choix", () => {
+  test("Champignonnière et Puceron : case toujours cochée et verrouillée, même décochée avant", () => {
     preferences.lire(`(() => {
       localStorage.clear();
       localStorage.setItem("fzzz_partage_puceron", "0");
     })()`);
     ouvrir();
     expect(cases().filter(([c]) => c == "champignonniere" || c == "puceron")).toEqual([
-      ["champignonniere", true, true, true],
-      // décoché avant : partagé avec les chefs, pas avec les autres
-      ["puceron", true, true, false],
-    ]);
-    cocher("autres", "champignonniere", false);
-    expect(cases().find(([c]) => c == "champignonniere")).toEqual([
-      "champignonniere",
-      true,
-      true,
-      false,
+      ["champignonniere", true, true],
+      ["puceron", true, true],
     ]);
     // une case verrouillée qu'on ferait changer quand même : rien n'est gardé
-    cocher("chefs", "champignonniere", false);
+    cocher("champignonniere", false);
     expect(preferences.lire(`SuiviMembres.partage("champignonniere")`)).toBe(true);
     expect(cases().find(([c]) => c == "champignonniere")?.[1]).toBe(true);
   });
@@ -1340,7 +1320,7 @@ describe("Préférences → Partage de données", () => {
     preferences.lire(`$("#o_partageChasses").prop("checked", true).trigger("change")`);
     expect(preferences.lire(`ExportAuto.actif()`)).toBe(true);
     // les cases des statistiques ne sont pas touchées par celle des chasses
-    expect(cases()).toEqual(ORDRE.map((c) => [c, true, true, true]));
+    expect(cases()).toEqual(ORDRE.map((c) => [c, true, c == "champignonniere" || c == "puceron"]));
   });
 
   test("bouton « Envoyer maintenant » : un relevé forcé, l'état mis à jour", async () => {

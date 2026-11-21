@@ -236,41 +236,44 @@ describe("plus de simulation pour le mainteneur (retirée en 1.143.2)", () => {
   });
 });
 
-describe("choix unique de 1.142.0 et 1.142.1 repris dans les cases", () => {
-  const reprendre = (sauve: Record<string, unknown>, cases: Record<string, string> = {}) =>
+describe("les trois marques recochées une fois par navigateur (mainteneur, 21/11/2026)", () => {
+  const charger = (
+    sauve: Record<string, unknown>,
+    cases: Record<string, string> = {},
+    vider = true,
+  ) =>
     lire<Record<string, string | null>>(`(() => {
-      localStorage.clear();
+      if (${vider}) localStorage.clear();
       localStorage.setItem("outiiil_parametre", JSON.stringify(${JSON.stringify(sauve)}));
       Object.entries(${JSON.stringify(cases)}).forEach(([k, v]) => localStorage.setItem(k, v));
       new Joueur({ pseudo: "Moi" }).getParametre();
       return Object.fromEntries(MARQUES_SANS_RECEPTION.map((c) => [c, localStorage.getItem("fzzz_affichage_" + c)]));
     })()`);
+  const TOUTES = {
+    convoisSansReceptionBarree: "1",
+    convoisSansReceptionRouge: "1",
+    convoisSansReceptionColonne: "1",
+  };
 
-  test("ligne en rouge (1) ou colonne (2) choisie : cette case seule cochée, les deux autres décochées ; barrée (0) : rien à reprendre, les trois par défaut", () => {
-    expect(reprendre({ convoisSansReception: "1" })).toEqual({
-      convoisSansReceptionBarree: "0",
-      convoisSansReceptionRouge: "1",
-      convoisSansReceptionColonne: "0",
-    });
-    expect(reprendre({ convoisSansReception: 2 })).toEqual({
-      convoisSansReceptionBarree: "0",
-      convoisSansReceptionRouge: "0",
-      convoisSansReceptionColonne: "1",
-    });
-    expect(reprendre({ convoisSansReception: "0" })).toEqual({
-      convoisSansReceptionBarree: null,
-      convoisSansReceptionRouge: null,
-      convoisSansReceptionColonne: null,
-    });
+  test("décochées par la reprise de la 1.142 ou par le joueur : toutes recochées au premier chargement", () => {
+    expect(
+      charger(
+        { convoisSansReception: "1" },
+        {
+          fzzz_affichage_convoisSansReceptionBarree: "0",
+          fzzz_affichage_convoisSansReceptionRouge: "1",
+          fzzz_affichage_convoisSansReceptionColonne: "0",
+        },
+      ),
+    ).toEqual(TOUTES);
+    expect(charger({})).toEqual(TOUTES);
   });
 
-  test("une case déjà réglée dans les nouvelles cases : rien n'est repris", () => {
-    expect(
-      reprendre({ convoisSansReception: "2" }, { fzzz_affichage_convoisSansReceptionRouge: "1" }),
-    ).toEqual({
-      convoisSansReceptionBarree: null,
-      convoisSansReceptionRouge: "1",
-      convoisSansReceptionColonne: null,
+  test("une seule fois : une marque décochée ensuite le reste", () => {
+    charger({});
+    expect(charger({}, { fzzz_affichage_convoisSansReceptionColonne: "0" }, false)).toEqual({
+      ...TOUTES,
+      convoisSansReceptionColonne: "0",
     });
   });
 });

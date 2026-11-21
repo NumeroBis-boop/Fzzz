@@ -17,14 +17,9 @@ const ROLES = ["Aucun", "Passeur", "Grenier", "Chasseur"];
 // le paramètre alerteFloods garde le rang du choix, 1 h par défaut
 const ALERTE_FLOODS_HEURES = [0.5, 1, 2, 3, 4, 6, 8, 12, 24];
 const ALERTE_FLOODS_DEFAUT = 1;
-// 1.142.0 et 1.142.1 : une seule marque au choix pour un joueur qui ne veut pas de
-// convois (paramètre convoisSansReception : 0 barrée, 1 rouge, 2 colonne),
-// reprise seule dans les cases MARQUES_SANS_RECEPTION (les autres décochées, toutes
-// étant cochées par défaut) tant qu'aucune n'a été réglée
-const ANCIENNES_MARQUES_SANS_RECEPTION = {
-  1: "convoisSansReceptionRouge",
-  2: "convoisSansReceptionColonne",
-};
+// les trois marques du Récapitulatif recochées une fois par navigateur (mainteneur,
+// 21/11/2026) : la reprise du choix unique de la 1.142 en avait décoché deux
+const CLE_MARQUES_RECOCHEES = "fzzz_marquesSansReceptionRecochees";
 const ROLE_CHASSEUR = 3;
 const ROLE_GRENIER = 2;
 // rôle Chasseur posé une fois par navigateur (liste « Chasseurs » des réglages de l'alliance)
@@ -659,14 +654,9 @@ class Joueur {
         }
         localStorage.setItem(CLE_METHODE_DEGRESSIVE, "1");
       }
-      let marque = data && ANCIENNES_MARQUES_SANS_RECEPTION[data.convoisSansReception];
-      if (
-        marque &&
-        MARQUES_SANS_RECEPTION.every((cle) => localStorage.getItem("fzzz_affichage_" + cle) == null)
-      ) {
-        MARQUES_SANS_RECEPTION.forEach((cle) =>
-          localStorage.setItem("fzzz_affichage_" + cle, cle == marque ? "1" : "0"),
-        );
+      if (!localStorage.getItem(CLE_MARQUES_RECOCHEES)) {
+        MARQUES_SANS_RECEPTION.forEach((cle) => localStorage.setItem("fzzz_affichage_" + cle, "1"));
+        localStorage.setItem(CLE_MARQUES_RECOCHEES, "1");
       }
       // « Aucun », le rôle par défaut, est enregistré avec les autres réglages
       // sans avoir été choisi : pour un chasseur de la liste, il passe en

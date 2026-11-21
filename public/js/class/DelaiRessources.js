@@ -427,12 +427,25 @@ class DelaiRessources {
             : (e && e.message) || "forum illisible",
         );
       });
-    return Promise.resolve($.ajax({ url: "/commerce.php", timeout: MS_LECTURE_CONVOIS })).then(
+    return DelaiRessources._lirePageConvois().then(($page) =>
+      Entrepots.lireConvois($page, Horloge.maintenant()),
+    );
+  }
+  /**
+   * @private
+   * @static
+   * @method _lirePageConvois
+   * @return {Promise<any>} la page Convois (jQuery) ; rejetée si elle est illisible
+   */
+  static _lirePageConvois() {
+    DelaiRessources._pageConvois = Promise.resolve(
+      $.ajax({ url: "/commerce.php", timeout: MS_LECTURE_CONVOIS }),
+    ).then(
       (html) => {
         let $page = Utils.parseHtml(String(html));
         if (!$page.find("#centre").length || !$page.find("#quantite_tdc").length)
           throw new Error("la réponse n'est pas la page Convois");
-        return Entrepots.lireConvois($page, Horloge.maintenant());
+        return $page;
       },
       (/** @type {any} */ jqXHR) => {
         throw new Error(
@@ -442,6 +455,18 @@ class DelaiRessources {
         );
       },
     );
+    return DelaiRessources._pageConvois;
+  }
+  /**
+   * Page Convois de cette page : celle que chargerConvois a lue à l'ouverture
+   * de Construction ou Laboratoire (avec le Compte+), sinon lue maintenant.
+   *
+   * @static
+   * @method pageConvois
+   * @return {Promise<any>} la page (jQuery) ; rejetée si elle est illisible
+   */
+  static pageConvois() {
+    return DelaiRessources._pageConvois || DelaiRessources._lirePageConvois();
   }
   /**
    * Relit la page Convois et pose l'info-bulle sur le coût de chaque bâtiment
@@ -574,3 +599,5 @@ class DelaiRessources {
 DelaiRessources._ouverture = /** @type {Number|null} */ (null);
 /** lecture des convois qui arrivent : lecture, lu ou echec (raison) ; forum : sans Compte+ */
 DelaiRessources._convois = { etat: "lecture", raison: "", forum: false };
+/** page Convois lue à l'ouverture (jQuery), partagée avec le bloc de rentabilité de l'étable */
+DelaiRessources._pageConvois = /** @type {Promise<any>|null} */ (null);

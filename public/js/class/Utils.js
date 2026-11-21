@@ -1047,20 +1047,50 @@ class Utils {
     return unites;
   }
   /**
+   * Sans Compte+, aucune page ne donne le total des ouvrières : celles de
+   * l'en-tête de la page Convois (présentes) et celles de ses convois en cours,
+   * (nourriture + matériaux) ÷ ce que porte une ouvrière, arrondi au-dessus
+   * comme pour « Convoi avant la récolte ».
+   *
+   * @static
+   * @method ouvrieresAvecConvois
+   * @param {Object} $page page Convois (jQuery)
+   * @param {Number} parOuvriere ressources portées par une ouvrière
+   * @return {Number} NaN si l'en-tête n'a pas les ouvrières présentes
+   */
+  static ouvrieresAvecConvois($page, parOuvriere) {
+    return CommerceFzzz.montantsEnvoyes($page).reduce(
+      (total, montant) => total + Math.ceil(montant / parOuvriere),
+      parseInt($page.find("#nb_ouvrieres").text().replace(/\D/g, "")),
+    );
+  }
+  /**
    * Nombre total d'ouvrières, y compris celles parties en convoi, que le
-   * compteur de l'en-tête ne compte pas : lu dans la page Reine. À défaut,
-   * compteur de l'en-tête, avec la raison de l'échec.
+   * compteur de l'en-tête ne compte pas : lu dans la page Reine ; sans
+   * Compte+, reconstitué avec la page Convois (ouvrieresAvecConvois). À
+   * défaut, compteur de l'en-tête, avec la raison de l'échec.
    *
    * @static
    * @method ouvrieresTotales
-   * @return {Promise} {total, reine, raison}
+   * @return {Promise} {total, reine, convois, raison}
    */
   static ouvrieresTotales() {
-    return Utils.lireReine().then((r) =>
-      r.reine
-        ? { total: r.ouvrieres, reine: true }
-        : { total: Utils.ouvrieres || 0, reine: false, raison: r.raison },
-    );
+    return Utils.lireReine().then((r) => {
+      if (r.reine) return { total: r.ouvrieres, reine: true };
+      let entete = { total: Utils.ouvrieres || 0, reine: false, raison: r.raison },
+        etable = Utils.niveauEtable();
+      if (!r.sansComptePlus) return entete;
+      if (etable == null) return { ...entete, raison: "niveau d'étable inconnu" };
+      return DelaiRessources.pageConvois().then(
+        ($page) => {
+          let total = Utils.ouvrieresAvecConvois($page, Utils.parOuvriere(etable));
+          return isNaN(total)
+            ? { ...entete, raison: "page Convois sans ouvrières présentes" }
+            : { total, reine: false, convois: true };
+        },
+        (e) => ({ ...entete, raison: `page Convois illisible : ${e.message}` }),
+      );
+    });
   }
   /**
    * Bandeau de rentabilité de l'Étable : la page Reine est lue au chargement,
@@ -1094,7 +1124,7 @@ class Utils {
    * @param {Object} ouvrieres {total, reine} (voir ouvrieresTotales)
    * @return {String} HTML
    */
-  static htmlRentabiliteEtable({ total, reine, raison = "" }) {
+  static htmlRentabiliteEtable({ total, reine, convois = false, raison = "" }) {
     let tdc = Math.min(total, Utils.terrain || 0),
       dispo = total - tdc,
       niveau = Utils.niveauEtable() || 0,
@@ -1125,7 +1155,9 @@ class Utils {
     return `<p><strong>Ouvrières : ${fmt(total)}</strong>${
       reine
         ? ""
-        : ` <span class='small red'>(Reine.php illisible${raison ? ` : ${Utils.echapper(raison)}` : ""} ; ouvrières en convoi non comptées)</span>`
+        : convois
+          ? " <span class='small'>(sans Compte+ : présentes et parties en convoi)</span>"
+          : ` <span class='small red'>(Reine.php illisible${raison ? ` : ${Utils.echapper(raison)}` : ""} ; ouvrières en convoi non comptées)</span>`
     } · exploitées sur le TdC : ${fmt(tdc)} ·
         <strong>disponibles pour les convois : ${fmt(dispo)}</strong></p>
       <p class='small'>Capacité de convoi actuelle (étable ${niveau}) : ${fmt(capacite(dispo, niveau))} ressources par convoi.</p>

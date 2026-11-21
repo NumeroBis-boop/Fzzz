@@ -51,6 +51,9 @@ beforeEach(() => {
     monProfil.parametre = {};
     document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>100000</span><div id='boite_tdc'></div>" + ${JSON.stringify(BOUTONS)};
     window.JEU = { lues: [], chargements: 0, illisible: false };
+    // essais du mainteneur : joueur de la ligne « Journal » des réglages ou non
+    window.ESSAI = false;
+    Journal.pourCeJoueur = () => ESSAI;
     window.FORUM = { chasses: {}, floods: [] };
     PartageChasses.charger = (de = null, avecFloods = true) => {
       JEU.chargements++;
@@ -153,6 +156,31 @@ describe("floods sur moi d'ici le délai : à droite des boutons d'envoi", () =>
     expect(alerte()).toBe("");
     expect(lire(`$("#o_alerteFloods").prop("hidden")`)).toBe(true);
     expect(lire<number>(`JEU.chargements + JEU.lues.length`)).toBe(lectures);
+  });
+});
+
+describe("essais du mainteneur (ligne « Journal » des réglages)", () => {
+  test("sans flood dans le délai : un flood fictif, signalé, sans lien vers un joueur", async () => {
+    lire(`ESSAI = true`);
+    await installer([flood(700, "11:30", "Autre", "Moi", 30000)]);
+    expect(alerte()).toBe(
+      "⚠️ 1 flood arrive sur toi d'ici 1 h (test : flood fictif) Exemple à 10h20 (dans 20 min) : −12 345 cm²",
+    );
+    expect(lire(`$("#o_alerteFloods a").length`)).toBe(0);
+  });
+
+  test("un vrai flood dans le délai : lui seul, sans flood fictif", async () => {
+    lire(`ESSAI = true`);
+    await installer([flood(700, "10:25", "Autre", "Moi", 30000)]);
+    expect(alerte()).toBe(
+      "⚠️ 1 flood arrive sur toi d'ici 1 h Autre à 10h25 (dans 25 min) : −20 600 cm² (20 %)",
+    );
+  });
+
+  test("un autre joueur : pas de flood fictif, la page ne change pas", async () => {
+    const avant = lire<string>(`document.body.innerHTML`);
+    await installer([]);
+    expect(lire<string>(`document.body.innerHTML`)).toBe(avant);
   });
 });
 

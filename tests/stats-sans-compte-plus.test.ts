@@ -14,6 +14,7 @@ import { creerPage } from "./harnais";
 const page = creerPage(
   [
     "js/class/Utils.js",
+    "js/class/DelaiRessources.js",
     "js/class/ExportRapports.js",
     "js/class/Armee.js",
     "js/class/TroupesDehors.js",
@@ -94,11 +95,19 @@ beforeEach(() => {
   lire(`(() => {
     localStorage.clear();
     history.replaceState(null, "", "/Messagerie.php");
-    Utils._reine = null; Utils._pageReine = null; SuiviMembres._lues = {};
+    Utils._reine = null; Utils._pageReine = null; SuiviMembres._lues = {}; DelaiRessources._pageConvois = null;
+    monProfil.niveauConstruction = Object.assign([], { 11: 2 });
+    monProfil.niveauRecherche = Object.assign([], { 4: 4 });
     window.JEU = { lues: [], pages: { "/construction.php": ${JSON.stringify(CONSTRUCTION)}, "/Reine.php": ${JSON.stringify(REINE_SANS)},
       "/commerce.php": ${JSON.stringify(COMMERCE)}, "/Armee.php": ${JSON.stringify(garnison())}, "/Ressources.php": ${JSON.stringify(ressources())} } };
     $.get = (url) => {
       let chemin = new URL(url).pathname;
+      JEU.lues.push(chemin);
+      return Promise.resolve(JEU.pages[chemin]);
+    };
+    // lecture de la page Convois à l'ouverture de Construction (DelaiRessources)
+    $.ajax = (o) => {
+      let chemin = new URL(o.url, location.origin).pathname;
       JEU.lues.push(chemin);
       return Promise.resolve(JEU.pages[chemin]);
     };
@@ -299,5 +308,41 @@ describe("dernier essai du jour : une chasse lancée ailleurs n'empêche plus le
     expect(await essai()).toBe("envoyé");
     expect(etat().incomplet).toBeUndefined();
     expect(lire(`SuiviMembres.probleme()`)).toBe("");
+  });
+});
+
+describe("bloc « rentabilité de l'étable » sans Compte+ (mainteneur, 21/11/2026)", () => {
+  // capture d'un joueur sans Compte+ : « Reine.php illisible … ouvrières en convoi non comptées »
+  test("ouvrières présentes + celles des convois en cours ÷ ce que porte une ouvrière, avec la page Convois lue à l'ouverture", async () => {
+    lire(
+      `history.replaceState(null, "", "/construction.php"); DelaiRessources.pageConvois().catch(() => {})`,
+    );
+    const o = await lire(`Utils.ouvrieresTotales()`);
+    expect(o).toEqual({ total: OUVRIERES, reine: false, convois: true });
+    // une seule lecture de la page Convois pour les deux
+    expect(lues().filter((c) => c == "/commerce.php")).toHaveLength(1);
+    const texte = lire<string>(`Utils.htmlRentabiliteEtable(${JSON.stringify(o)})`).replace(
+      /<[^>]+>/g,
+      " ",
+    );
+    expect(texte).toContain("(sans Compte+ : présentes et parties en convoi)");
+    expect(texte).not.toContain("non comptées");
+  });
+
+  test("niveau d'étable inconnu ou page Convois illisible : l'en-tête, avec la raison", async () => {
+    lire(
+      `monProfil.niveauConstruction = []; document.body.insertAdjacentHTML("beforeend", "<div id='nb_ouvrieres'>1 000</div>")`,
+    );
+    expect(await lire(`Utils.ouvrieresTotales()`)).toMatchObject({
+      reine: false,
+      raison: "niveau d'étable inconnu",
+    });
+    lire(
+      `Utils._reine = null; Utils._pageReine = null; monProfil.niveauConstruction = Object.assign([], { 11: 2 }); JEU.pages["/commerce.php"] = "<form>Connexion</form>"`,
+    );
+    expect(await lire(`Utils.ouvrieresTotales()`)).toMatchObject({
+      reine: false,
+      raison: "page Convois illisible : la réponse n'est pas la page Convois",
+    });
   });
 });

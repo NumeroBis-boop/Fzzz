@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.147.0",
+    notes: [
+      "Construction et Laboratoire : sans Compte+, la rentabilité de l'étable compte aussi les ouvrières parties en convoi. Convois : les trois marques des joueurs qui ne veulent pas de convois (ligne barrée, rouge, colonne) sont recochées une fois.",
+    ],
+  },
+  {
     version: "1.146.0",
     notes: [
       "Page Ressources : à droite des boutons « Envoyer » du lanceur de chasses, une alerte signale les floods partagés sur toi qui arrivent dans l'heure. Le délai se règle dans Préférences → Ressources.",

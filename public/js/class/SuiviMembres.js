@@ -652,10 +652,8 @@ class SuiviMembres {
     return SuiviMembres._lues[cle];
   }
   /**
-   * Sans Compte+, aucune page ne donne le total des ouvrières : celles de
-   * l'en-tête de la page Convois (présentes) et celles de ses convois en cours,
-   * (nourriture + matériaux) ÷ ce que porte une ouvrière, arrondi au-dessus
-   * comme pour « Convoi avant la récolte ».
+   * Sans Compte+ : Utils.ouvrieresAvecConvois sur la page Convois, avec le
+   * niveau d'étable de la page Construction.
    *
    * @private
    * @static
@@ -667,16 +665,12 @@ class SuiviMembres {
       SuiviMembres._html("/commerce.php"),
     ]).then(([niveaux, html]) => {
       let $page = Utils.parseHtml(html),
-        presentes = parseInt($page.find("#nb_ouvrieres").text().replace(/\D/g, "")),
         etable = niveaux[SUIVI_NIVEAUX_SUIVIS.puceron];
-      if (!$page.find("#centre").length || isNaN(presentes))
-        throw new Error("page Convois illisible (ouvrières sans Compte+)");
       if (etable == null) throw new Error(`niveau introuvable : ${SUIVI_NIVEAUX_SUIVIS.puceron}`);
-      let parOuvriere = Utils.parOuvriere(etable);
-      return CommerceFzzz.montantsEnvoyes($page).reduce(
-        (total, montant) => total + Math.ceil(montant / parOuvriere),
-        presentes,
-      );
+      let total = Utils.ouvrieresAvecConvois($page, Utils.parOuvriere(etable));
+      if (!$page.find("#centre").length || isNaN(total))
+        throw new Error("page Convois illisible (ouvrières sans Compte+)");
+      return total;
     });
   }
   /**

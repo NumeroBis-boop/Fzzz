@@ -57,9 +57,11 @@ class Dock {
     let $cplus = $("#boiteComptePlus").length ? $("#boiteComptePlus") : $("#boiteInfo"),
       $boite = $(this._html);
     if ($cplus.length) {
-      // désactivée : les encadrés du jeu restent à leur place d'origine
+      // désactivée : les encadrés du jeu restent à leur place d'origine ;
+      // l'encadré recréé hors C+ suit déjà « S5 pseudo » (Dock.suivre)
       if (
         $cplus.is("#boiteComptePlus") &&
+        !$cplus.hasClass("o_encadreSuivi") &&
         !this._desactivee &&
         Utils.affichage("rapprocherEncadres")
       )
@@ -200,10 +202,11 @@ class Dock {
     );
   }
   /**
-   * Remonte visuellement l'encadré Compte+ (translation, sans toucher à la
-   * mise en page du jeu) pour ne laisser que ECART_ENCADRES sous « S5
-   * pseudo ». Refait au chargement complet, si le jeu place ses encadrés
-   * tardivement.
+   * Place l'encadré Compte+ du jeu à ECART_ENCADRES sous « S5 pseudo »
+   * (translation, sans toucher à la mise en page du jeu), plus haut quand il
+   * reste de la place, plus bas quand « S5 pseudo » déborde sur lui (lignes
+   * « Plein dans … », texte plus grand d'un téléphone). Refait à chaque
+   * changement de « S5 pseudo ».
    *
    * @static
    * @method rapprocher
@@ -212,16 +215,66 @@ class Dock {
    */
   static rapprocher(haut, bas) {
     if (!haut || !bas) return;
-    let ajuster = () => {
-      bas.style.transform = "";
-      let e = Dock.emprise(bas).top - Dock.emprise(haut).bottom;
-      // écart inattendu (encadrés déplacés, colonnes différentes) : on n'y touche pas
-      if (e > ECART_ENCADRES && e < 200)
-        bas.style.transform = `translateY(${ECART_ENCADRES - Math.round(e)}px)`;
-    };
+    let attente = null,
+      ajuster = () => {
+        let h = Dock.emprise(haut),
+          b = Dock.emprise(bas);
+        if (!h.height || !b.height) return;
+        let applique = Number(
+            (/translateY\((-?[\d.]+)px\)/.exec(bas.style.transform) || [])[1] || 0,
+          ),
+          e = b.top - applique - h.bottom,
+          // écart inattendu (encadrés déplacés, colonnes différentes) : on n'y touche pas
+          voulu =
+            Math.abs(e) < 200 && b.left < h.right && b.right > h.left
+              ? ECART_ENCADRES - Math.round(e)
+              : 0;
+        if (voulu != applique) bas.style.transform = voulu ? `translateY(${voulu}px)` : "";
+      };
     ajuster();
-    $(window).on("load resize", ajuster);
-    setTimeout(ajuster, 300);
+    Dock.observer(haut, () => {
+      cancelAnimationFrame(attente);
+      attente = requestAnimationFrame(ajuster);
+    });
+  }
+  /**
+   * Appelle `rappel` quand `ref` change de taille, de contenu ou de style,
+   * quand son conteneur change (panneau ouvert sur téléphone), au
+   * redimensionnement et un peu après le chargement, le jeu pouvant finir de
+   * placer ses encadrés plus tard. Mesures dans la page seulement.
+   *
+   * @static
+   * @method observer
+   * @param {HTMLElement} ref
+   * @param {Function} rappel
+   */
+  static observer(ref, rappel) {
+    let appeler = () => rappel(),
+      tailles = window.ResizeObserver ? new ResizeObserver(appeler) : null,
+      // le cadre visible est dessiné par les éléments intérieurs, dont ceux
+      // ajoutés après coup (lignes « Plein dans … », contenu refait par le jeu)
+      suivreTailles = (/** @type {Element} */ e) =>
+        tailles && [e, ...e.querySelectorAll("*")].forEach((x) => tailles.observe(x));
+    suivreTailles(ref);
+    new MutationObserver((changements) => {
+      changements.forEach((c) =>
+        c.addedNodes.forEach((n) => n.nodeType == 1 && suivreTailles(/** @type {Element} */ (n))),
+      );
+      appeler();
+    }).observe(ref, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    if (ref.parentElement)
+      new MutationObserver(appeler).observe(ref.parentElement, {
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    $(window).on("load resize", appeler);
+    [300, 1000, 3000].forEach((ms) => setTimeout(appeler, ms));
   }
   /**
    * Emprise visible d'un encadré du jeu : son cadre est dessiné par ses
@@ -264,6 +317,7 @@ class Dock {
    */
   static suivre(ref, boite, ecart) {
     Dock.copierStyle(ref, boite);
+    boite.classList.add("o_encadreSuivi");
     document.body.appendChild(boite);
     let attente = null,
       // position de `ref` dans le repère de `boite` (fenêtre si fixe, document sinon)
@@ -286,25 +340,9 @@ class Dock {
         });
       };
     caler();
-    // le cadre visible est dessiné par les enfants : on les suit aussi
-    if (window.ResizeObserver) {
-      let o = new ResizeObserver(caler);
-      [ref, ...ref.children].forEach((e) => o.observe(e));
-    }
-    new MutationObserver(caler).observe(ref, {
-      attributes: true,
-      attributeFilter: ["style", "class"],
-    });
-    if (ref.parentElement)
-      new MutationObserver(caler).observe(ref.parentElement, {
-        attributes: true,
-        attributeFilter: ["style", "class"],
-      });
-    $(window).on("load resize", caler);
+    Dock.observer(ref, caler);
     // au défilement, recalage complet seulement si `ref` a bougé dans ce repère
     $(window).on("scroll", () => repere() != dernier && caler());
-    // placements du jeu terminés après le chargement
-    [300, 1000, 3000].forEach((ms) => setTimeout(caler, ms));
   }
   /**
    * Même apparence que l'encadré de référence (fond, bordure, ombre, titre),

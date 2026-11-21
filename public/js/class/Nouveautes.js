@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.148.3",
+    notes: [
+      "Colonne de gauche : l'encart sous « S5 pseudo » (Compte+ ou « Synthèse ») suit sa taille et ne recouvre plus la ligne du TdC, sur téléphone notamment.",
+    ],
+  },
+  {
     version: "1.148.2",
     notes: [
       "Page Ressources : l'alerte des floods qui arrivent sur toi s'affiche sous le bouton « Envoyer », sur toute la largeur du lanceur.",

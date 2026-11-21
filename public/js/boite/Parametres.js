@@ -154,6 +154,8 @@ class BoiteParametre extends Boite {
       "ratioPlancher",
       "alerteFloods",
       "convoisAvantRecolte",
+      "decalageChasses",
+      "decalageFloods",
     ];
   }
   /**
@@ -544,6 +546,15 @@ class BoiteParametre extends Boite {
         ${this.section("Horloge et nouveautés", this.cases("General"))}
         ${this.section("Alerte de ponte", p["alertePonte"].getForm("Alerte si la ponte finit dans moins de"))}
         ${this.section("Rôle", p["role"].getForm("Ton rôle dans l'alliance"))}
+        ${this.section(
+          "Heures partagées dans le forum",
+          p["decalageChasses"].getForm("Retard de mes chasses, au plus") +
+            p["decalageFloods"].getForm("Retard de mes floods, au plus") +
+            this.aide(
+              "L'heure de chaque chasse ou flood que tu partages est retardée d'un délai tiré au hasard, de 0 à ce maximum : une fuite du forum ne donne pas l'heure exacte où ton armée est dehors. 0 : heure exacte.",
+              "Le délai est tiré une fois par chasse ou flood et gardé dans ce navigateur ; la ligne reste dans le forum jusqu'à son heure publiée, même si la chasse ou le flood est déjà arrivé. Les autres membres calculent avec l'heure publiée : leur TdC à l'impact, « à portée le … », la colonne « Synchro » et l'alerte des floods peuvent être décalés d'autant. Tes propres affichages gardent l'heure exacte.",
+            ),
+        )}
       </form>
       ${this.section(
         `Mise à jour (v${VERSION})`,
@@ -603,7 +614,7 @@ class BoiteParametre extends Boite {
             ) +
             p["alerteFloods"].getForm() +
             this.aide(
-              "À droite des boutons « Envoyer » du lanceur, les floods sur toi qui arrivent dans ce délai, avec leur prise estimée.",
+              "Sous le bouton « Envoyer » du lanceur, les floods sur toi qui arrivent dans ce délai, avec leur prise estimée.",
               "Seuls les floods partagés dans le forum de l'alliance par ses membres sont connus : une attaque ennemie ne l'est pas. Ils sont lus à l'ouverture de la page Ressources (forum, et la page Membres quand un autre joueur est concerné) ; le texte se met à jour chaque minute, sans autre lecture. Sans flood dans ce délai, rien ne s'affiche.",
             ),
         )}

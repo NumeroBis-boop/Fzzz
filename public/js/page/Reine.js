@@ -34,6 +34,57 @@ class PageReine {
     return this;
   }
   /**
+   * Tableau « Pontes en cours » : date et heure de fin de chaque ponte, dans
+   * la colonne « Ponte finie » du jeu (Compte+ : heure seule, gardée) ou dans
+   * cette colonne ajoutée après « Temps total restant » (sans Compte+).
+   *
+   * @static
+   * @method finPontes
+   * @param {any} [$racine]
+   */
+  static finPontes($racine = $(document)) {
+    let $table = $racine.find(".tableau_leger").first(),
+      scripts = $table.text(),
+      $entete = $table.find("tr:eq(0)").children("td"),
+      colonne = $entete.toArray().findIndex((td) => /ponte finie/i.test($(td).text())),
+      ajoutee = colonne == -1;
+    if ($entete.length < 4) return;
+    if (ajoutee) $entete.eq(3).after("<td><strong>Ponte finie</strong></td>");
+    $table.find("tr:gt(0)").each((i, tr) => {
+      let $cases = $(tr).children("td"),
+        id = $cases.eq(3).find("span[id]").attr("id"),
+        m = id && new RegExp(`\\(\\s*(\\d+)\\s*,\\s*["']${id}["']`).exec(scripts),
+        fin = m ? Horloge.serveur().add(parseInt(m[1]), "s") : null;
+      if (ajoutee) {
+        $cases.eq(3).after(`<td class="o_ponteFinie">${fin ? PageReine.libelleFin(fin) : ""}</td>`);
+        return;
+      }
+      if (!fin) return;
+      // heure du jeu gardée, au jour le plus proche de la fin calculée
+      let h = $cases
+        .eq(colonne)
+        .text()
+        .match(/(\d{1,2})\s*h\s*(\d{2})/i);
+      if (h) {
+        let jeu = fin.clone().hours(parseInt(h[1])).minutes(parseInt(h[2])).startOf("minute"),
+          ecart = jeu.diff(fin, "hours", true);
+        if (ecart > 12) jeu.subtract(1, "day");
+        else if (ecart < -12) jeu.add(1, "day");
+        fin = jeu;
+      }
+      $cases.eq(colonne).text(PageReine.libelleFin(fin));
+    });
+  }
+  /**
+   * @static
+   * @method libelleFin
+   * @param {any} fin moment
+   * @return {String} « 22 nov. à 15h00 »
+   */
+  static libelleFin(fin) {
+    return fin.format("D MMM [à] HH[h]mm");
+  }
+  /**
    * Vie et dégâts « Avec bonus » de chaque unité, au clic sur son icône.
    *
    * @private

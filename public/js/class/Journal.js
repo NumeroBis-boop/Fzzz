@@ -16,6 +16,8 @@ const NIVEAUX_JOURNAL = { erreur: "ERREUR", alerte: "ALERTE", succes: "OK", info
 const TITRES_NOTIFICATION = ["Erreur", "Succès", "Attention", "Information"];
 // installé au début de chaque page (content.js), pour tous les joueurs : avant, les notes sont ignorées
 let journalInstalle = false;
+// jour du dernier relevé du haut de page (Journal.noterHautDePage)
+const CLE_RELEVE_HAUT_PAGE = "fzzz_releveHautPage";
 
 /**
  * Journal de l'extension : ce qu'elle fait et ses erreurs, à copier pour les
@@ -82,6 +84,49 @@ class Journal {
    */
   static erreur(source, message, detail) {
     Journal.noter("erreur", source, message, detail);
+  }
+  /**
+   * Relevé du haut de page, une fois par jour et par navigateur : les
+   * éléments placés avant le menu du jeu, avec leur taille, pour identifier la
+   * bande vide au-dessus du menu sur téléphone (bandeau de pub bloqué, d'après
+   * le mainteneur, 21/11/2026 ; son code HTML n'est pas connu). Rien n'est lu
+   * ni envoyé au jeu ; le joueur copie son journal.
+   *
+   * @static
+   * @method noterHautDePage
+   */
+  static noterHautDePage() {
+    let jour = Horloge.serveur().format("YYYY-MM-DD"),
+      menu = document.getElementById("menu");
+    try {
+      if (!menu || localStorage.getItem(CLE_RELEVE_HAUT_PAGE) == jour) return;
+      localStorage.setItem(CLE_RELEVE_HAUT_PAGE, jour);
+    } catch (e) {
+      return;
+    }
+    let decrire = (/** @type {Element} */ e) => {
+        let r = e.getBoundingClientRect(),
+          cadres = [...e.querySelectorAll("iframe")].map((f) => {
+            try {
+              return new URL(f.getAttribute("src") || "", location.href).host || "(vide)";
+            } catch (x) {
+              return "?";
+            }
+          });
+        return `${e.tagName.toLowerCase()}${e.id ? "#" + e.id : ""}${e.classList.length ? "." + [...e.classList].join(".") : ""} ${Math.round(r.width)}×${Math.round(r.height)} à ${Math.round(r.top + scrollY)} px, texte ${(e.textContent || "").trim().length} car.${cadres.length ? ", iframes " + cadres.join(" ") : ""}`;
+      },
+      avant = [...document.body.querySelectorAll("*")].filter((e) => {
+        if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|BR)$/.test(e.tagName)) return false;
+        if (!(menu.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_PRECEDING)) return false;
+        if (e.closest("#menuBoite, #gauche, [id^='o_'], [class^='o_']")) return false;
+        let r = e.getBoundingClientRect();
+        return r.height >= 8 && r.width >= 50;
+      });
+    Journal.info(
+      "Haut de page",
+      `${avant.length} élément(s) avant le menu, menu à ${Math.round(menu.getBoundingClientRect().top + scrollY)} px, fenêtre ${innerWidth} px, ${Utils.comptePlus ? "Compte+" : "sans Compte+"}`,
+      avant.slice(0, 15).map(decrire).join("\n"),
+    );
   }
   /**
    * @static

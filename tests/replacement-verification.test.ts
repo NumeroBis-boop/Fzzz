@@ -399,6 +399,7 @@ describe("le replacement est annoncé au bloc « Mes attaques en cours », qui a
         partageEnCours: null,
         laisserPasser: (replacement) => { etape("annoncé"); replacement.then(() => etape("fini")); },
         afficherTableaux: () => { etape("bloc affiché"); if (${flood}) AttaqueLancee.partageEnCours = new Promise((r) => (window.PARTAGE_FINI = r)); },
+        afficherRetours: () => {},
       };
       window.p = Object.create(PageArmee.prototype);
       p.executer();

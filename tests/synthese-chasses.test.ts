@@ -238,11 +238,11 @@ describe("heure d'une chasse : minute du RC, où le TdC change", () => {
 describe("chasses partagées avant 1.101.6 (minute affichée par le jeu)", () => {
   test("relues par le chasseur à jour : recalées sur la minute du RC et réécrites", () => {
     const r = lire<{ lignes: { date: string; terrain: number }[]; change: boolean }>(
-      `PartageChasses.recalerListeChasses(
+      `(({ lignes, change }) => ({ lignes: lignes.map(({ reel, ...l }) => l), change }))(PartageChasses.recalerListeChasses(
         [{ date: "2026-11-11 23:39", terrain: 50000 }, { date: "2026-11-12 00:30", terrain: 50000 }],
         [{ debut: "2026-11-11 23:40", fin: "2026-11-11 23:40", terrain: 50000 }, { debut: "2026-11-12 00:31", fin: "2026-11-12 00:31", terrain: 50000 }],
         "2026-11-11 22:00",
-      )`,
+      ))`,
     );
     expect(r).toEqual({
       lignes: [

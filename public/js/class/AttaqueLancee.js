@@ -454,6 +454,34 @@ class AttaqueLancee {
     return `${minute.isSame(Horloge.serveur(), "day") ? "à" : "le " + minute.format("D MMM à")} ${minute.format("HH[h]mm")}`;
   }
   /**
+   * Liste du jeu (page Armée) : date et heure de retour de chaque attaque,
+   * celles de son arrivée (les survivantes sont alors de nouveau en garnison) :
+   * Compte+, sous « Arrivée à … » du détail ; sans Compte+, sous la ligne, qui
+   * n'a qu'un compte à rebours.
+   *
+   * @static
+   * @method afficherRetours
+   * @param {any} [racine]
+   */
+  static afficherRetours(racine = $(document)) {
+    AttaqueLancee.extraireLignes(racine)
+      .filter((l) => l.cible)
+      .forEach((l) => {
+        let texte = `Retour le ${l.arrivee.format("D MMM [à] HH[h]mm")}`,
+          fin = l.elt.nextSibling;
+        // fin de la ligne : son saut de ligne, après le lien Annuler
+        while (fin && !(fin.nodeType == 1 && fin.nodeName == "BR")) fin = fin.nextSibling;
+        if (!fin) return;
+        let detail = fin.nextSibling;
+        if (detail && detail.nodeType == 1 && detail.nodeName == "SMALL") {
+          let $em = $(detail).find("em").last();
+          ($em.length ? $em : $(detail)).append(
+            `<br/><span class="o_retourAttaque">${texte}</span>`,
+          );
+        } else $(fin).after(`<small><em class="o_retourAttaque">${texte}</em></small><br/>`);
+      });
+  }
+  /**
    * Non-C+ : ajoute l'heure d'arrivée sous chaque ligne « Des renforts
    * arrivent » (les attaques, elles, passent dans les tableaux par cible).
    *
@@ -593,7 +621,8 @@ class AttaqueLancee {
                       partagees,
                       [{ debut: minute(g.chasses[0].impact), fin: e.date, terrain: e.terrain }],
                       maintenant,
-                    ).lignes.length > 0
+                      PartageChasses.decalageMax("Chasses"),
+                    ).lignes.some((l) => l.reel == e.date)
                   : true,
               });
             } else if (String(e.lanceur).toLowerCase() == m) {

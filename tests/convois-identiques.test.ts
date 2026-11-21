@@ -148,6 +148,18 @@ describe("page Convois : état d'après le forum seul", () => {
     expect(page.lire(`notes`)).toEqual([102]);
   });
 
+  test("convoi transmis au site : le Récapitulatif en est prévenu, pour relire « Mes convois »", async () => {
+    ouvrir(forumAvecA);
+    await attendre();
+    page.lire(
+      `(() => { window.prevenus = 0; $(document).on(EVENEMENT_CONVOI_ENREGISTRE + ".test", () => prevenus++); })()`,
+    );
+    page.lire(`$(".o_ouafEnvoyer").eq(1).trigger("click")`);
+    await attendre();
+    expect(page.lire(`prevenus`)).toBe(1);
+    page.lire(`$(document).off(EVENEMENT_CONVOI_ENREGISTRE + ".test")`);
+  });
+
   test("forum en échec après l'envoi : « 📝 Noter dans le forum », qui ne renvoie rien au site", async () => {
     ouvrir(`Promise.resolve([])`, 1);
     await attendre();

@@ -338,6 +338,22 @@ class Joueur {
       ALERTE_FLOODS_DEFAUT,
       ALERTE_FLOODS_HEURES.map((h) => (h < 1 ? `${h * 60} min` : `${h} h`)),
     );
+    // heures de mes chasses et floods publiées dans le forum, retardées au
+    // hasard de 0 à ce maximum (PartageChasses.decaler, DECALAGE_MAX = 59)
+    this._parametre["decalageChasses"] = new Parametre(
+      "decalageChasses",
+      "Retard de l'heure de mes chasses partagées, au plus",
+      "slider",
+      5,
+      { min: 0, max: 59, step: 1, unite: " min" },
+    );
+    this._parametre["decalageFloods"] = new Parametre(
+      "decalageFloods",
+      "Retard de l'heure de mes floods partagés, au plus",
+      "slider",
+      0,
+      { min: 0, max: 59, step: 1, unite: " min" },
+    );
     return this;
   }
   /**

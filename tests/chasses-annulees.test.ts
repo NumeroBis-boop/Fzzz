@@ -10,7 +10,8 @@ const page = creerPage(
 );
 const recaler = (anciennes: object[], groupes: object[]) =>
   page.lire(
-    `PartageChasses.recalerListeChasses(${JSON.stringify(anciennes)}, ${JSON.stringify(groupes)}, "2026-10-29 10:00")`,
+    // heure réelle de chaque ligne (`reel`) : vérifiée par tests/heures-retardees.test.ts
+    `(({ lignes, change }) => ({ lignes: lignes.map(({ reel, ...l }) => l), change }))(PartageChasses.recalerListeChasses(${JSON.stringify(anciennes)}, ${JSON.stringify(groupes)}, "2026-10-29 10:00"))`,
   );
 
 describe("chasses annulées : ma réponse du sujet commun des chasses recalée", () => {

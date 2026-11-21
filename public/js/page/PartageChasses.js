@@ -27,6 +27,14 @@ const CLE_FLOODS_A_RETIRER = "fzzz_floodsARetirer";
 const CLE_FIN_CHASSES_PARTAGEES = "fzzz_finChassesPartagees";
 // échéance (ms) du partage des chasses demandé par « Envoyer + partager »
 const CLE_PARTAGE_CHASSES_APRES = "fzzz_partageChassesApres";
+// Heures de mes chasses et floods publiées dans le forum retardées d'un délai
+// tiré au hasard, de 0 au réglage du joueur : une fuite du forum ne donne pas
+// l'heure exacte où son armée est dehors (règle du mainteneur, 21/11/2026).
+// Le délai est tiré une fois par chasse ou flood et gardé ici ; tiré à chaque
+// écriture, les versions successives de la réponse laisseraient retrouver l'heure.
+const CLE_DECALAGES = "fzzz_decalagesPartage";
+const DECALAGE_MAX = 59;
+const PARAMETRE_DECALAGE = { Chasses: "decalageChasses", Floods: "decalageFloods" };
 // lectures et écritures de mes partages d'une page, l'une après l'autre :
 // une lecture partie avant une écriture rendrait un état périmé
 let fileFloodsForum = Promise.resolve();
@@ -727,11 +735,28 @@ class PartageChasses {
     // envoie plusieurs attaques sur la même cible à la même minute)
     let cle = (/** @type {any} */ e) =>
         e.date + "|" + (e.cible || "") + "|" + (e.cible ? e.terrain : ""),
+      fenetre = PartageChasses.decalageMax(type),
       ajoutees = 0;
+    entrees = PartageChasses.decaler(type, entrees);
     return PartageChasses._modifierMessage(type, (anciennes) => {
       let ids = anciennes.filter((e) => e.id).map((e) => e.id),
         // anciennes lignes sans numéro d'attaque : chacune ne couvre qu'un envoi
         sansId = anciennes.filter((e) => !e.id).map(cle),
+        // chasses publiées depuis un autre appareil (ou avant le retard des
+        // heures) : leur heure réelle, inconnue ici, est de 0 à `fenetre` min
+        // avant l'heure publiée ; chacune couvre une seule de mes chasses
+        fiches = PartageChasses._decalages().Chasses,
+        inconnues =
+          type == "Chasses"
+            ? anciennes.filter((e) => PartageChasses.reel("Chasses", e, fiches) == null)
+            : [],
+        dejaPubliee = (/** @type {any} */ e) => {
+          let fin = PartageChasses.decalerDate(e.reel, fenetre),
+            k = inconnues.findIndex((a) => a.date >= e.reel && a.date <= fin);
+          if (k == -1) return false;
+          inconnues.splice(k, 1);
+          return true;
+        },
         nouvelles = entrees.filter((e) => {
           if (e.id && ids.includes(e.id)) return false;
           let k = sansId.indexOf(cle(e));
@@ -740,6 +765,7 @@ class PartageChasses {
             sansId.splice(k, 1);
             return false;
           }
+          if (type == "Chasses" && dejaPubliee(e)) return false;
           return true;
         });
       if (type == "Chasses") PartageChasses.noterFinChasses(entrees.map((e) => e.date));
@@ -777,25 +803,54 @@ class PartageChasses {
   /**
    * Chasses du sujet à garder d'après les chasses en cours : une entrée est
    * gardée si un groupe de chasses (minutes d'impact consécutives) couvre sa
-   * minute, à une minute près, avec la minute et le TdC actuels du groupe
-   * (une chasse du groupe a pu être annulée) ; sinon elle est retirée.
+   * minute réelle, à une minute près, avec la minute et le TdC actuels du
+   * groupe (une chasse du groupe a pu être annulée), son retard gardé ; une
+   * entrée retardée arrivée reste jusqu'à son heure publiée ; les autres sont
+   * retirées.
    *
    * @static
    * @method recalerListeChasses
-   * @param {Array} anciennes entrées du sujet {date, terrain}
+   * @param {Array} anciennes entrées du sujet {date publiée, terrain, reel?}
+   *   (reel : heure réelle connue de ce navigateur)
    * @param {Array} groupes {debut, fin, terrain}, dates "AAAA-MM-JJ HH:mm"
    * @param {String} maintenant "AAAA-MM-JJ HH:mm"
-   * @return {Object} {lignes, change}
+   * @param {Number} [fenetre] retard maximal (min) d'une entrée sans heure réelle connue
+   * @return {Object} {lignes {date, terrain, reel}, change}
    */
-  static recalerListeChasses(anciennes, groupes, maintenant) {
+  static recalerListeChasses(anciennes, groupes, maintenant, fenetre = 0) {
     let minute = (d) => moment(d, "YYYY-MM-DD HH:mm").valueOf() / 60000,
       aVenir = anciennes.filter((e) => e.date >= maintenant),
       lignes = [];
     aVenir.forEach((e) => {
-      let m = minute(e.date),
-        g = groupes.find((g) => m >= minute(g.debut) - 1 && m <= minute(g.fin) + 1);
-      if (g && !lignes.some((l) => l.date == g.fin))
-        lignes.push({ date: g.fin, terrain: g.terrain });
+      let connue = e.reel != null,
+        m = minute(connue ? e.reel : e.date),
+        // heure réelle inconnue ici : de 0 à `fenetre` min avant l'heure publiée
+        avant = connue ? 0 : fenetre,
+        // groupe pas encore repris par une autre ligne, le plus proche
+        g = groupes
+          .filter(
+            (g) =>
+              m >= minute(g.debut) - 1 &&
+              m - avant <= minute(g.fin) + 1 &&
+              !lignes.some((l) => l.reel == g.fin),
+          )
+          .sort((a, b) => Math.abs(m - minute(a.fin)) - Math.abs(m - minute(b.fin)))[0];
+      if (g) {
+        // le retard tiré reste : la ligne suit la dernière minute du groupe
+        let date = connue
+          ? PartageChasses.decalerDate(g.fin, minute(e.date) - m)
+          : avant
+            ? e.date
+            : g.fin;
+        lignes.push({ date, terrain: g.terrain, reel: g.fin });
+        return;
+      }
+      // plus en cours : annulée, ou arrivée avant son heure publiée, gardée
+      // jusqu'à elle (la retirer plus tôt donnerait l'heure réelle)
+      let retardee = connue ? e.reel != e.date : avant > 0,
+        arrivee = m - avant < minute(maintenant);
+      if (retardee && arrivee)
+        lignes.push({ date: e.date, terrain: e.terrain, reel: connue ? e.reel : null });
     });
     let change =
       lignes.length != aVenir.length ||
@@ -834,7 +889,14 @@ class PartageChasses {
     };
     return PartageChasses.enFile(() =>
       PartageChasses._modifierMessage("Chasses", (anciennes) => {
-        let r = PartageChasses.recalerListeChasses(anciennes, groupes, maintenant);
+        let fiches = PartageChasses._decalages().Chasses,
+          r = PartageChasses.recalerListeChasses(
+            anciennes.map((e) => ({ ...e, reel: PartageChasses.reel("Chasses", e, fiches) })),
+            groupes,
+            maintenant,
+            PartageChasses.decalageMax("Chasses"),
+          );
+        PartageChasses.noterDecalages("Chasses", r.lignes);
         retenir(r.lignes);
         // passées et annulées : retirées
         return r.change ? r.lignes : null;
@@ -852,6 +914,147 @@ class PartageChasses {
           localStorage.setItem(CLE_FIN_CHASSES_PARTAGEES, "-");
         } catch (err) {}
     });
+  }
+  /**
+   * Retard maximal (minutes) que le joueur a choisi pour les heures publiées
+   * de ce type, de 0 à DECALAGE_MAX.
+   *
+   * @static
+   * @method decalageMax
+   * @param {String} type "Chasses" ou "Floods"
+   * @return {Number}
+   */
+  static decalageMax(type) {
+    let p =
+        typeof monProfil != "undefined" && monProfil.parametre
+          ? monProfil.parametre[PARAMETRE_DECALAGE[type]]
+          : null,
+      n = parseInt(p ? p.valeur : 0);
+    return isNaN(n) ? 0 : Math.min(DECALAGE_MAX, Math.max(0, n));
+  }
+  /**
+   * @static
+   * @method decalerDate
+   * @param {String} date "AAAA-MM-JJ HH:mm"
+   * @param {Number} minutes
+   * @return {String}
+   */
+  static decalerDate(date, minutes) {
+    return moment(date, "YYYY-MM-DD HH:mm").add(minutes, "minutes").format("YYYY-MM-DD HH:mm");
+  }
+  /**
+   * Retards tirés dans ce navigateur : heure réelle et heure publiée de mes
+   * chasses ({reel, affiche}) et de mes floods ({id, cible, reel, affiche}),
+   * oubliés un jour après leur heure publiée.
+   *
+   * @private
+   * @static
+   * @return {{Chasses: Array<any>, Floods: Array<any>}}
+   */
+  static _decalages() {
+    let tout = Utils.lireStockage(CLE_DECALAGES, {});
+    if (!(tout.Chasses || []).length && !(tout.Floods || []).length)
+      return { Chasses: [], Floods: [] };
+    let limite = Horloge.serveur().subtract(1, "day").format("YYYY-MM-DD HH:mm");
+    return {
+      Chasses: (tout.Chasses || []).filter((/** @type {any} */ r) => r.affiche >= limite),
+      Floods: (tout.Floods || []).filter((/** @type {any} */ r) => r.affiche >= limite),
+    };
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _garderDecalages(tout) {
+    try {
+      localStorage.setItem(CLE_DECALAGES, JSON.stringify(tout));
+    } catch (e) {}
+  }
+  /**
+   * Heure réelle d'une de mes entrées publiées que ce navigateur a retardée,
+   * sinon null (publiée sans retard, ou depuis un autre appareil).
+   *
+   * @static
+   * @method reel
+   * @param {String} type "Chasses" ou "Floods"
+   * @param {any} e entrée lue au forum (date publiée)
+   * @param {Array<any>} [fiches] PartageChasses._decalages()[type]
+   * @return {String|null}
+   */
+  static reel(type, e, fiches = PartageChasses._decalages()[type]) {
+    let r = fiches.find((/** @type {any} */ x) =>
+      type == "Floods"
+        ? e.id
+          ? x.id == e.id
+          : !x.id && x.cible == e.cible && x.affiche == e.date
+        : x.affiche == e.date,
+    );
+    return r ? r.reel : null;
+  }
+  /**
+   * Mes entrées à publier, à leur heure retardée : le retard déjà tiré pour
+   * cette chasse (heure réelle) ou ce flood (numéro d'attaque) est repris,
+   * sinon un retard de 0 au réglage est tiré et gardé. `reel` garde l'heure réelle.
+   *
+   * @static
+   * @method decaler
+   * @param {String} type "Chasses" ou "Floods"
+   * @param {Array<any>} entrees à leur heure réelle
+   * @return {Array<any>}
+   */
+  static decaler(type, entrees) {
+    let max = PartageChasses.decalageMax(type),
+      tout = PartageChasses._decalages(),
+      fiches = tout[type],
+      prises = new Set(fiches.map((r) => r.affiche)),
+      meme = (/** @type {any} */ r, /** @type {any} */ e) =>
+        type == "Floods"
+          ? e.id
+            ? r.id == e.id
+            : !r.id && r.cible == e.cible && r.reel == e.date
+          : r.reel == e.date,
+      sorties = entrees.map((e) => {
+        let r = fiches.find((x) => meme(x, e));
+        if (!r) {
+          if (!max) return { ...e, reel: e.date };
+          let affiche = e.date;
+          // une chasse par minute dans ma réponse : deux chasses à la même heure publiée se confondraient
+          for (let essai = 0; essai < 10; essai++) {
+            affiche = PartageChasses.decalerDate(e.date, Math.floor(Math.random() * (max + 1)));
+            if (type == "Floods" || !prises.has(affiche)) break;
+          }
+          r =
+            type == "Floods"
+              ? { id: e.id || null, cible: e.cible, reel: e.date, affiche }
+              : { reel: e.date, affiche };
+          fiches.push(r);
+          prises.add(affiche);
+        }
+        return { ...e, date: r.affiche, reel: e.date };
+      });
+    PartageChasses._garderDecalages(tout);
+    return sorties;
+  }
+  /**
+   * Garde l'heure réelle des lignes de chasses recalées (dernière minute du
+   * groupe, même retard qu'avant).
+   *
+   * @static
+   * @method noterDecalages
+   * @param {String} type
+   * @param {Array<any>} lignes {date publiée, reel}
+   */
+  static noterDecalages(type, lignes) {
+    let tout = PartageChasses._decalages(),
+      fiches = tout[type];
+    lignes
+      .filter((l) => l.reel && l.reel != l.date)
+      .forEach((l) => {
+        let r = fiches.find((x) => x.affiche == l.date);
+        if (r) r.reel = l.reel;
+        else fiches.push({ reel: l.reel, affiche: l.date });
+      });
+    PartageChasses._garderDecalages(tout);
   }
   /**
    * @private
@@ -994,10 +1197,19 @@ class PartageChasses {
       retires = 0;
     return PartageChasses._modifierMessage("Floods", (anciennes) => {
       let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
-        gardes = anciennes.filter((e) => e.date >= maintenant && !ids.includes(e.id)),
+        fiches = PartageChasses._decalages().Floods,
+        // arrivé avant son heure publiée (retardée) : gardé jusqu'à elle, le
+        // retirer plus tôt donnerait l'heure réelle
+        arriveRetarde = (/** @type {any} */ e) => {
+          let reel = PartageChasses.reel("Floods", e, fiches);
+          return reel != null && reel < maintenant;
+        },
+        gardes = anciennes.filter(
+          (e) => e.date >= maintenant && (!ids.includes(e.id) || arriveRetarde(e)),
+        ),
         presents = anciennes.filter((e) => ids.includes(e.id));
       // un flood arrivé n'est plus « retiré » : il serait purgé de toute façon
-      retires = presents.filter((e) => e.date >= maintenant).length;
+      retires = presents.filter((e) => e.date >= maintenant && !gardes.includes(e)).length;
       if (!presents.length) return null;
       // arrivés (minute passée) et annulés : retirés, sans historique des floods
       return gardes;
@@ -1070,6 +1282,15 @@ class PartageChasses {
    * @param {Array<Number>} affiches numéros des attaques affichées
    */
   static recalerFloods(publies, affiches) {
+    // arrivés, gardés au forum jusqu'à leur heure publiée : plus à retirer
+    let fiches = PartageChasses._decalages().Floods;
+    if (fiches.length) {
+      let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm");
+      publies = publies.filter((id) => {
+        let reel = PartageChasses.reel("Floods", { id }, fiches);
+        return reel == null || reel >= maintenant;
+      });
+    }
     PartageChasses.marquerFloodsPartages(publies);
     PartageChasses.oublierFloodsPartages(affiches.filter((id) => !publies.includes(id)));
   }
@@ -1194,6 +1415,16 @@ class PartageChasses {
           PartageChasses._lireCommun(sujets.communs[type], suivi).then((v) => [type, v]),
         ),
       ).then((lus) => {
+        let moi =
+            typeof monProfil != "undefined" && monProfil.pseudo
+              ? PartageChasses.nettoyer(monProfil.pseudo).toLowerCase()
+              : "",
+          fiches = PartageChasses._decalages(),
+          // mes entrées à leur heure réelle quand ce navigateur l'a retardée
+          reelle = (/** @type {String} */ type, /** @type {any} */ e) => {
+            let reel = PartageChasses.reel(type, e, fiches[type]);
+            return reel == null ? e : { ...e, date: reel, reel };
+          };
         // floods de tous les joueurs ; chasses des joueurs demandés
         lus.forEach(([type, joueurs]) => {
           Object.keys(joueurs)
@@ -1202,9 +1433,10 @@ class PartageChasses {
               let r = joueurs[k];
               if (type == "Floods")
                 r.floods.forEach((/** @type {any} */ e) =>
-                  d.floods.push({ ...e, lanceur: r.pseudo }),
+                  d.floods.push({ ...(k == moi ? reelle(type, e) : e), lanceur: r.pseudo }),
                 );
-              else if (!voulus || voulus.includes(k)) d.chasses[k] = r.chasses;
+              else if (!voulus || voulus.includes(k))
+                d.chasses[k] = k == moi ? r.chasses.map((e) => reelle(type, e)) : r.chasses;
             });
         });
         return d;

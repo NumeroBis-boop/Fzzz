@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.149.0",
+    notes: [
+      "L'heure de tes chasses partagées dans le forum est retardée de 0 à 5 min au hasard, et celle de tes floods si tu le choisis (Préférences → Général), pour qu'une fuite ne donne pas l'heure exacte où ton armée est dehors. Page Reine : date de fin de chaque ponte ; page Armée : date et heure de retour sous chaque attaque ; page Convois : le Récapitulatif se met à jour quand tu enregistres un convoi.",
+    ],
+  },
+  {
     version: "1.148.3",
     notes: [
       "Colonne de gauche : l'encart sous « S5 pseudo » (Compte+ ou « Synthèse ») suit sa taille et ne recouvre plus la ligne du TdC, sur téléphone notamment.",

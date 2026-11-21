@@ -90,6 +90,7 @@ class PageArmee {
     }
 
     if (!Utils.comptePlus) this.plus();
+    AttaqueLancee.afficherRetours();
     // Fin de flood : le replacement fait partie de l'enchaînement lancé par le
     // clic du joueur. Il attend que le partage des floods (« Flooder +
     // partager », posé par afficherTableaux) soit écrit dans le forum, et passe

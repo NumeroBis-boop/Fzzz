@@ -29,6 +29,8 @@ const RECOLTES_EXAMINEES_MAX = 48 * 14;
 const RECOLTE_VALIDITE_LECTURE = 60000;
 // convoi en cours du joueur : quantités de nourriture et de matériaux
 const LIGNE_CONVOI_ENVOYE = /Vous allez livrer\s+([\d\s  ]+)\D+?et\s+([\d\s  ]+)\D+?à\s/i;
+// convoi enregistré sur le site de suivi : le Récapitulatif relit « Mes convois »
+const EVENEMENT_CONVOI_ENREGISTRE = "o_convoiEnregistre";
 // Récapitulatif : info-bulle d'un destinataire qui ne veut pas de convois
 const TITRE_SANS_RECEPTION =
   "Ne veut pas de convois : case « Je ne souhaite pas recevoir de convois » cochée sur le site de suivi";
@@ -371,6 +373,8 @@ class CommerceFzzz {
           if (statut == "envoye") {
             $("#centre .o_convoisOuafPanne").remove();
             noter(x, detail);
+            // « Convoi à faire » du Récapitulatif, relu sur le site
+            $(document).trigger(EVENEMENT_CONVOI_ENREGISTRE);
           } else etatLigne(x, statut, detail);
         }).then(
           (b) => {
@@ -1295,37 +1299,41 @@ class CommerceFzzz {
             .text(Horloge.clic().add(t, "s").format("DD/MM HH:mm"));
       });
     }, 30000);
-    // reste à livrer : une lecture du site à l'ouverture de la page
-    OuafSuivi.lireCode().then((code) => {
-      if (!code) {
-        ouaf.etat = "code";
-        return afficher();
-      }
-      OuafSuivi.mesConvois().then(
-        (r) => {
-          Object.assign(ouaf, {
-            etat: "ok",
-            restes: r.restes,
-            membres: r.membres,
-            sansReception: r.sansReception,
-          });
-          afficher();
-        },
-        (e) => {
-          Object.assign(ouaf, {
-            etat: "erreur",
-            erreur:
-              e.name == "permission"
-                ? "Accès au site de suivi non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
-                : e.name == "reseau"
-                  ? OUAF_PANNE
-                  : "Site de suivi des convois : " + e.message,
-          });
-          afficher();
-          CommerceFzzz.signalerSuiviOuaf(ouaf.erreur);
-        },
-      );
-    });
+    // reste à livrer : une lecture du site à l'ouverture de la page, puis
+    // après chaque convoi que le joueur y enregistre (EVENEMENT_CONVOI_ENREGISTRE)
+    let lireSite = () =>
+      OuafSuivi.lireCode().then((code) => {
+        if (!code) {
+          ouaf.etat = "code";
+          return afficher();
+        }
+        return OuafSuivi.mesConvois().then(
+          (r) => {
+            Object.assign(ouaf, {
+              etat: "ok",
+              restes: r.restes,
+              membres: r.membres,
+              sansReception: r.sansReception,
+            });
+            afficher();
+          },
+          (e) => {
+            Object.assign(ouaf, {
+              etat: "erreur",
+              erreur:
+                e.name == "permission"
+                  ? "Accès au site de suivi non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
+                  : e.name == "reseau"
+                    ? OUAF_PANNE
+                    : "Site de suivi des convois : " + e.message,
+            });
+            afficher();
+            CommerceFzzz.signalerSuiviOuaf(ouaf.erreur);
+          },
+        );
+      });
+    lireSite();
+    $(document).on(EVENEMENT_CONVOI_ENREGISTRE, () => lireSite());
   }
   /**
    * Premier envoi sans mot de passe : ouvre Préférences → Convois, sur le champ

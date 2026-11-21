@@ -277,3 +277,21 @@ describe("les trois marques recochées une fois par navigateur (mainteneur, 21/1
     });
   });
 });
+
+describe("Récapitulatif mis à jour après un convoi enregistré sur le site", () => {
+  test("« Convoi à faire » relu sans recharger la page", async () => {
+    await ouvrir();
+    expect(cellules("Alpha")[1]).toBe("6 452 503");
+    // le site compte le convoi qui vient d'être enregistré
+    lire(`(() => {
+      let mes = ${JSON.stringify(MES)};
+      mes.lignes[0].envoye = 452503;
+      mes.lignes[0].restant = 6000000;
+      OuafSuivi.requete = (methode, chemin) => Promise.resolve(chemin == "/api/mes" ? mes : {});
+      $(document).trigger(EVENEMENT_CONVOI_ENREGISTRE);
+    })()`);
+    for (let i = 0; i < 100 && cellules("Alpha")[1] != "6 000 000"; i++)
+      await new Promise((r) => setTimeout(r, 5));
+    expect(cellules("Alpha")[1]).toBe("6 000 000");
+  });
+});

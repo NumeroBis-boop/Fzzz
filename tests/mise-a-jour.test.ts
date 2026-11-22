@@ -7,8 +7,14 @@ const FINALE = "https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/main/fzzz.
 const TEST = "https://raw.githubusercontent.com/NumeroBis-boop/Fzzz/test/fzzz-test.user.js";
 
 const page = creerPage(
-  ["js/class/Utils.js", "js/class/MiseAJour.js", "js/boite/Dock.js"],
-  `var VERSION = "1.85.1";
+  [
+    "js/class/Utils.js",
+    "js/class/MiseAJour.js",
+    "js/boite/Boite.js",
+    "js/boite/Dock.js",
+    "js/boite/Parametres.js",
+  ],
+  `var VERSION = "1.85.1", NOM_EXTENSION = "Extension OUAF";
    // GitHub simulé : version publiée, lectures comptées
    var publiee = "1.85.2", lectures = 0, enPanne = false;
    window.fetch = (url) => {
@@ -119,17 +125,95 @@ describe("encadré « Extension OUAF »", () => {
 
   const cible = () => page.lire<string | undefined>(`$(".o_majDisponible a").attr("target")`);
 
-  test("Violentmonkey : le lien s'ouvre dans l'onglet du jeu, sa page d'installation dans un nouvel onglet (sinon un onglet vide de plus sur Firefox Android)", async () => {
+  /**
+   * Clic sur le lien, onglet ouvert simulé (`onglet` : expression de l'onglet
+   * que window.open rend) ; minuteries relevées puis exécutées.
+   */
+  const cliquer = (onglet = `{ location: { href: "about:blank" } }`) =>
+    page.lire<{
+      empeche: boolean;
+      ouverts: string[][];
+      delais: number[];
+      ferme: boolean;
+      opener: unknown;
+    }>(`(() => {
+      let decrit = ${onglet},
+        ongletOuvert = decrit && Object.assign(decrit, { closed: false, opener: window, close() { this.closed = true; } }),
+        ouverts = [], minuteries = [], minuterie = window.setTimeout, ouvrir = window.open, empeche;
+      window.open = (url, cible) => { ouverts.push([url, cible]); return ongletOuvert; };
+      window.setTimeout = (f, ms) => minuteries.push([f, ms]);
+      // après le gestionnaire du lien : le clic n'ouvre rien dans la page de test
+      document.addEventListener("click", (e) => { empeche = e.defaultPrevented; e.preventDefault(); }, { once: true });
+      try {
+        $(".o_majDisponible a")[0].click();
+      } finally {
+        window.setTimeout = minuterie;
+        window.open = ouvrir;
+      }
+      minuteries.forEach(([f]) => f());
+      return { empeche, ouverts, delais: minuteries.map(([, ms]) => ms), ferme: !!ongletOuvert && ongletOuvert.closed, opener: ongletOuvert && ongletOuvert.opener };
+    })()`);
+
+  test("Violentmonkey : nouvel onglet au premier plan, que sa page d'installation remplace ; resté vide, il est refermé (Firefox Android, 22/11/2026)", async () => {
     remettre("1.85.2");
     expect((await encadre(true, "Violentmonkey")).lien).toBe(FINALE);
-    expect(cible()).toBeUndefined();
+    expect(cible()).toBe("_blank");
+    expect(cliquer()).toEqual({
+      empeche: true,
+      ouverts: [[FINALE, "_blank"]],
+      delais: [3000],
+      ferme: true,
+      opener: null,
+    });
   });
 
-  test("Tampermonkey, Userscripts (iPhone) ou gestionnaire inconnu : nouvel onglet, le jeu garde le sien", async () => {
+  test("Violentmonkey : onglet passé sur une autre page (gestionnaire, script) gardé ; ouverture refusée : le lien s'ouvre seul", async () => {
+    remettre("1.85.2");
+    await encadre(true, "Violentmonkey");
+    // une page d'une autre origine refuse la lecture de son adresse
+    const autre = cliquer(`{ location: { get href() { throw new Error("SecurityError"); } } }`);
+    expect([autre.empeche, autre.ferme]).toEqual([true, false]);
+    expect(cliquer(`{ location: { href: "moz-extension://vm/confirm/index.html#1" } }`).ferme).toBe(
+      false,
+    );
+    const refuse = cliquer(`null`);
+    expect([refuse.empeche, refuse.delais]).toEqual([false, []]);
+  });
+
+  test("Tampermonkey, Userscripts (iPhone) ou gestionnaire inconnu : le lien ouvre un nouvel onglet, rien n'est refermé", async () => {
     for (const gestionnaire of ["Tampermonkey", "Userscripts", null]) {
       remettre("1.85.2");
       await encadre(true, gestionnaire);
       expect(cible()).toBe("_blank");
+      const r = cliquer();
+      expect([r.empeche, r.ouverts, r.delais]).toEqual([false, [], []]);
+    }
+  });
+
+  test("Préférences → Général, « Mettre à jour l'extension » : même ouverture, l'onglet vide refermé seulement avec Violentmonkey", async () => {
+    for (const [gestionnaire, delais] of [
+      ["Violentmonkey", [3000]],
+      ["Tampermonkey", []],
+    ] as [string, number[]][]) {
+      const r = await page.lire<
+        Promise<{ ouverts: string[][]; delais: number[]; etat: string }>
+      >(`(() => {
+        window.GM_info = { scriptHandler: ${JSON.stringify(gestionnaire)} };
+        window.chrome = { runtime: { sendMessage: () => Promise.resolve({ statut: "userscript", url: ${JSON.stringify(FINALE)} }) } };
+        document.body.innerHTML = "<button id='b'></button><p id='e'></p>";
+        let ouverts = [], minuteries = [], minuterie = window.setTimeout, ouvrir = window.open;
+        window.open = (url, cible) => { ouverts.push([url, cible]); return { closed: false, location: { href: "about:blank" }, close() {} }; };
+        window.setTimeout = (f, ms) => minuteries.push(ms);
+        BoiteParametre.mettreAJour($("#b"), $("#e"));
+        return Promise.resolve().then(() => new Promise((r) => minuterie(r, 0))).then(() => {
+          window.setTimeout = minuterie;
+          window.open = ouvrir;
+          return { ouverts, delais: minuteries, etat: $("#e").text() };
+        });
+      })()`);
+      expect(r.ouverts).toEqual([[FINALE, "_blank"]]);
+      expect(r.delais).toEqual(delais);
+      expect(r.etat).toContain("La dernière version du script s'ouvre");
     }
   });
 

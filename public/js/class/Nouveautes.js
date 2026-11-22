@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.150.3",
+    notes: [
+      "Mise à jour avec Violentmonkey : le lien « mettre à jour » de la boîte « Extension OUAF » et le bouton des Préférences ouvrent la page d'installation au premier plan, et l'onglet vide qui restait est refermé.",
+    ],
+  },
+  {
     version: "1.150.2",
     notes: [
       "Page Armée sans Compte+ : « Replacer l'armée » ne se termine plus par « le jeu n'a pas répondu » alors que l'armée a bien été replacée.",

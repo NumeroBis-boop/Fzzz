@@ -7,6 +7,9 @@
 // au plus une lecture par 24 h (règle du mainteneur, 18/11/2026), sur GitHub, jamais le jeu
 const DELAI_VERIFICATION_MAJ = 24 * 3600000;
 const CLE_VERIFICATION_MAJ = "fzzz_majVerification";
+// Violentmonkey annule le chargement du .user.js dès la demande : passé ce délai,
+// l'onglet ouvert pour lui est resté vide
+const MS_ONGLET_VIDE = 3000;
 
 /**
  * Violentmonkey et Tampermonkey ne cherchent les mises à jour qu'environ une
@@ -85,5 +88,37 @@ class MiseAJour {
     return MiseAJour.publiee(adresse).then((v) =>
       v && MiseAJour.comparer(v, installee) > 0 ? v : null,
     );
+  }
+  /**
+   * Ouvre le script publié dans un nouvel onglet, au premier plan : le
+   * gestionnaire de scripts propose de l'installer. Violentmonkey annule ce
+   * chargement et ouvre sa page d'installation dans un autre onglet, au premier
+   * plan puisque celui-ci l'est ; il ne remplace l'onglet de départ que pour une
+   * page « nouvel onglet », pas about:blank (son confirmInstall) : l'onglet
+   * resté vide est fermé (Firefox Android, 22/11/2026).
+   *
+   * @static
+   * @method ouvrir
+   * @param {String} adresse adresse du .user.js
+   * @param {Boolean} violentmonkey script installé avec Violentmonkey
+   * @return {Boolean} false si le navigateur a refusé d'ouvrir l'onglet
+   */
+  static ouvrir(adresse, violentmonkey) {
+    let onglet = window.open(adresse, "_blank");
+    if (!onglet) return false;
+    try {
+      onglet.opener = null;
+    } catch (e) {
+      /* sans effet sur l'ouverture */
+    }
+    if (violentmonkey)
+      setTimeout(() => {
+        try {
+          if (!onglet.closed && onglet.location.href == "about:blank") onglet.close();
+        } catch (e) {
+          // page d'une autre origine (script ou gestionnaire) : gardée
+        }
+      }, MS_ONGLET_VIDE);
+    return true;
   }
 }

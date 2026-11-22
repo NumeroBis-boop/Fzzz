@@ -176,11 +176,11 @@ class Dock {
             $("<a rel='noopener'></a>")
               .text(`Nouvelle version v${maj.version} : mettre à jour`)
               .attr("href", maj.url)
-              // Violentmonkey ouvre sa page d'installation dans un nouvel onglet ;
-              // un lien vers un nouvel onglet en laissait un vide de plus (Firefox
-              // Android, 14/11/2026). Ailleurs (Userscripts sur iPhone : le script
-              // s'affiche dans l'onglet ouvert), le jeu garde le sien
-              .attr("target", Dock.violentmonkey() ? null : "_blank")
+              .attr("target", "_blank")
+              // Violentmonkey : onglet resté vide refermé (MiseAJour.ouvrir)
+              .on("click", (e) => {
+                if (Dock.violentmonkey() && MiseAJour.ouvrir(maj.url, true)) e.preventDefault();
+              })
               .attr(
                 "title",
                 "Ouvre la nouvelle version : « Mettre à jour » dans Violentmonkey ou Tampermonkey, puis recharge la page.",

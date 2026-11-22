@@ -1255,7 +1255,7 @@ class BoiteParametre extends Boite {
         else if (r.statut == "userscript") {
           // le gestionnaire de scripts intercepte l'ouverture d'un .user.js et
           // propose d'installer la version publiée
-          window.open(r.url || SCRIPT_UTILISATEUR, "_blank", "noopener");
+          MiseAJour.ouvrir(r.url || SCRIPT_UTILISATEUR, Dock.violentmonkey());
           $etat.text(
             "La dernière version du script s'ouvre : clique sur « Installer » (ou « Mettre à jour ») dans Violentmonkey ou Tampermonkey, puis recharge la page du jeu.",
           );

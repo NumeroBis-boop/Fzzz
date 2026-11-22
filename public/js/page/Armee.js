@@ -346,17 +346,27 @@ class PageArmee {
     return Math.round(max * 0.9 + Math.random() * max * 0.1);
   }
   /**
-   * Un transfert du replacement n'a pas eu de réponse (réseau, jeu occupé) :
-   * on s'arrête et on recharge la page Armée pour afficher l'état réel.
+   * Replacement arrêté : un transfert sans réponse (réseau, jeu occupé), ou une
+   * erreur de l'extension (les déplacements déjà faits restent faits). Noté au
+   * journal ; la page Armée est rechargée pour afficher l'état réel.
    *
    * @method echecReplacement
+   * @param {any} [e] requête de jQuery refusée, ou erreur JavaScript
    */
-  echecReplacement() {
+  echecReplacement(e) {
     if (this._echecReplacement) return;
     this._echecReplacement = true;
+    let requete = !!e && typeof e.status == "number" && typeof e.readyState == "number";
+    Journal.erreur(
+      "Replacement de l'armée",
+      requete ? "le jeu n'a pas répondu" : "erreur de l'extension",
+      requete ? `HTTP ${e.status}` : String((e && (e.stack || e.message)) || e),
+    );
     $.toast({
       ...TOAST_ERROR,
-      text: "Replacement interrompu : le jeu n'a pas répondu. La page Armée va être rechargée.",
+      text: requete
+        ? "Replacement interrompu : le jeu n'a pas répondu. La page Armée va être rechargée."
+        : "Replacement interrompu par une erreur de l'extension (notée dans le journal de débug). La page Armée va être rechargée.",
     });
     setTimeout(() => (location = "/Armee.php"), 2500);
   }
@@ -489,7 +499,7 @@ class PageArmee {
           Journal.info("Replacement de l'armée", "Armée placée après relecture de la page", detail);
         return this.finReplacement(r.html, iT, terrain, iD, dome, ecarts);
       })
-      .catch(() => this.echecReplacement());
+      .catch((e) => this.echecReplacement(e));
   }
   /**
    * @static
@@ -792,11 +802,13 @@ class PageArmee {
    */
   fleches() {
     $(".simulateur:not(.o_blocAttaques) td").each((i, elt) => {
-      if (/^[0-9,]+$/.test($(elt).text().replace(/ /g, ""))) {
-        let info = $(elt).find("span").attr("id").replace(/\(|\)/g, "");
-        let nbUnit = info.split(",")[0],
-          nomUnit = info.split(",")[1].replace(/\'/g, ""),
-          lieuDep = info.split(",")[2];
+      // cases des troupes seulement, « (282,'unite1',3) » hors Compte+ : le dépliant
+      // « Statistiques », remis dans le tableau après un replacement, a des nombres sans span
+      let troupe = /^\(\s*(\d+)\s*,\s*['"]?([^'",]+)['"]?\s*,\s*(\d)/.exec(
+        $(elt).find("span").attr("id") || "",
+      );
+      if (troupe && /^[0-9,]+$/.test($(elt).text().replace(/ /g, ""))) {
+        let [, nbUnit, nomUnit, lieuDep] = troupe;
         if (lieuDep != 3) {
           let lien =
             "Armee.php?Transferer&nbTroupes=" +

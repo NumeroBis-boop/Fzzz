@@ -1460,8 +1460,12 @@ h2:has(+ .o_nbUnite) {
   padding: 0 5px;
   line-height: 1.35;
 }
-.o_attaquesLancees td.o_troupesCourtes {
+.o_attaquesLancees td.o_troupesCourtes,
+.o_attaquesLancees td.o_lieuAttaque[title] {
   cursor: help;
+}
+.o_attaquesLancees td.o_lieuAttaque {
+  white-space: nowrap;
 }
 .o_attaquesNote td {
   font-size: var(--fzzz-petit);

@@ -93,7 +93,7 @@ async function armee(forum: object = FORUM, membres = MEMBRES, classement = ILLI
   await attendre();
   return page
     .lire<string[]>(
-      `$("#o_attaquesLancees tr.o_ligneRecue").map((i, tr) => $(tr).children().eq(4).text() + " | " + $(tr).children().eq(5).text()).get()`,
+      `$("#o_attaquesLancees tr.o_ligneRecue").map((i, tr) => $(tr).find(".o_priseAttaque").text() + " | " + $(tr).find(".o_tdcApres").text()).get()`,
     )
     .map(espaces);
 }

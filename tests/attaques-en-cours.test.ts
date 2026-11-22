@@ -56,13 +56,28 @@ const armee = (...attaques: string[]) =>
   `<span id='tag_alliance'>OUAF</span><span id='quantite_tdc'>100000</span><div id='centre'><h3>Attaque(s) en cours</h3>${attaques.join("")}</div>`;
 // attaque lancée d'ici il y a 5 min (délai d'annulation du jeu passé) : sa capture,
 // datée dans la page sur l'horloge simulée
-type Capture = { id: number; cible: string; secondes: number; jsn: number; terrain: number };
-const capture = (id: number, cible: string, secondes: number, jsn: number, terrain: number) => ({
+type Capture = {
+  id: number;
+  cible: string;
+  secondes: number;
+  jsn: number;
+  terrain: number;
+  lieu?: string;
+};
+const capture = (
+  id: number,
+  cible: string,
+  secondes: number,
+  jsn: number,
+  terrain: number,
+  lieu = "Terrain de chasse",
+) => ({
   id,
   cible,
   secondes,
   jsn,
   terrain,
+  lieu,
 });
 const ligneMembre = (pseudo: string, terrain: string) =>
   `<tr><td></td><td>1</td><td>Membre</td><td><a href="Membre.php?Pseudo=${pseudo}">${pseudo}</a></td><td></td><td>${terrain}</td></tr>`;
@@ -151,7 +166,7 @@ const CAPTURES = [
 const ouvrir = async (attaques = DEUX, captures: Capture[] = CAPTURES) => {
   lire(`(() => {
     localStorage.setItem("outiiil_attaquesLancees", JSON.stringify(${JSON.stringify(captures)}.map((c) => ({
-      id: c.id, cible: c.cible, lieu: "Terrain de chasse", unite: { "Jeune Soldate Naine": c.jsn },
+      id: c.id, cible: c.cible, lieu: c.lieu, unite: { "Jeune Soldate Naine": c.jsn },
       lancee: heure - 300000, arrivee: heure + c.secondes * 1000,
       terrainDepart: c.terrain, terrainCible: c.terrain - c.jsn, terrainConnu: c.terrain,
     }))));
@@ -160,23 +175,58 @@ const ouvrir = async (attaques = DEUX, captures: Capture[] = CAPTURES) => {
   })()`);
   await attendre();
 };
-// cases du bloc : # | arrivée | lanceur → cible | unités | variation | TdC après | actions
+// cases du bloc : # | arrivée | lanceur → cible | unités | lieu | variation | TdC après | actions
 const cases = () =>
   lire<string[][]>(
     `$("#o_attaquesLancees tbody tr").map((i, tr) => [$(tr).children().map((k, c) => $(c).text()).get()]).get()`,
   ).map((ligne) => ligne.map(espaces));
 const lignes = () => cases().map((ligne) => ligne.join(" | ").trim());
 
+describe("colonne « Lieu » (retirée en 1.105.0, remise en 1.150.4 à la demande du mainteneur)", () => {
+  const lieux = () =>
+    lire<string[][]>(
+      `$("#o_attaquesLancees tbody tr .o_lieuAttaque").map((i, td) => [[td.textContent, td.title || ""]]).get()`,
+    );
+
+  test("TdC, Dôme ou Loge de chaque attaque, flood reçu compris, le libellé du jeu au survol ; rien pour une chasse", async () => {
+    lire(`FORUM.floods[0].lieu = "Loge"`);
+    await ouvrir(DEUX, [
+      capture(501, "Cible", 1830, 5000, 60000, "Fourmilière"),
+      capture(502, "Cible", 1832, 4000, 60000, "Loge Impériale"),
+    ]);
+    expect(lieux()).toEqual([
+      ["", ""],
+      ["Loge", "Loge : TdC pris comme au terrain de chasse"],
+      ["Dôme", "Fourmilière : TdC pris comme au terrain de chasse"],
+      ["Loge", "Loge Impériale : TdC pris comme au terrain de chasse"],
+      ["", ""],
+    ]);
+    // le lieu a sa colonne : plus de note « (dôme) » / « (loge) » après la variation
+    expect(lire(`$("#o_attaquesLancees .o_priseAttaque").text()`)).not.toMatch(/\((dôme|loge)\)/);
+  });
+
+  test("terrain de chasse : « TdC » ; flood reçu sans zone dans sa ligne du forum : au terrain", async () => {
+    await ouvrir();
+    expect(lieux()).toEqual([
+      ["", ""],
+      ["TdC", "Terrain de chasse"],
+      ["TdC", "Terrain de chasse"],
+      ["TdC", "Terrain de chasse"],
+      ["", ""],
+    ]);
+  });
+});
+
 describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, dans l'ordre", () => {
   test("variation et TdC après chaque mouvement, comme sur la page d'un membre", async () => {
     await ouvrir();
     // 100 000 + 3 000 (chasses), − 20 600 (Autre : 20 % de 103 000), + 5 000, + 4 000, + 1 000
     expect(lignes()).toEqual([
-      "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | CopierPartagée ✓",
-      "2 | 12/11 10h25 | Autre → moi | 30 000 | −20 600 (20 %) | 82 400 |",
-      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓",
-      "4 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 91 400 | CopierPartager",
-      "5 | 12/11 11h00 | Chasse | 500 | +1 000 | 92 400 | CopierPartager",
+      "1 | 12/11 10h21 | Chasse × 2 | 1 000 |  | +3 000 | 103 000 | CopierPartagée ✓",
+      "2 | 12/11 10h25 | Autre → moi | 30 000 | TdC | −20 600 (20 %) | 82 400 |",
+      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | TdC | +5 000 | 87 400 | CopierPartagé ✓",
+      "4 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | TdC | +4 000 | 91 400 | CopierPartager",
+      "5 | 12/11 11h00 | Chasse | 500 |  | +1 000 | 92 400 | CopierPartager",
     ]);
     expect(lire(`$("#o_attaquesLancees .o_attaquesCompte").text()`)).toBe("(5)");
     expect(lire(`$("#o_attaquesLancees thead th").map((i, th) => th.textContent).get()`)).toEqual([
@@ -184,6 +234,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
       "Arrivée",
       "Lanceur → cible",
       "Unités",
+      "Lieu",
       "Variation",
       "TdC après",
       "",
@@ -195,9 +246,9 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     expect(lire(`JEU.lues`)).toEqual(["/Ressources.php", "/alliance.php?Membres"]);
   });
 
-  test("unités d'une attaque et d'une chasse : détail au survol ; plus de colonne ni de bloc « Floods en cours sur … »", async () => {
+  test("unités d'une attaque et d'une chasse : détail au survol ; plus de bloc « Floods en cours sur … »", async () => {
     await ouvrir();
-    // troupes et lieu attaqué (il n'a plus de colonne)
+    // troupes et lieu attaqué
     expect(
       lire(`$("#o_attaquesLancees tr.o_ligneAttaque .o_troupesCourtes").first().attr("title")`),
     ).toBe("Terrain de chasse : 5 000 Jeunes Soldates Naines.");
@@ -212,7 +263,9 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
 
   test("aucune attaque à moi : le bloc montre quand même mes chasses et les floods sur moi", async () => {
     await ouvrir([], []);
-    expect(cases().map((ligne) => ligne.slice(1, 6).join(" | "))).toEqual([
+    expect(
+      cases().map((ligne) => [...ligne.slice(1, 4), ...ligne.slice(5, 7)].join(" | ")),
+    ).toEqual([
       "12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000",
       "12/11 10h25 | Autre → moi | 30 000 | −20 600 (20 %) | 82 400",
       "12/11 11h00 | Chasse | 500 | +1 000 | 83 400",
@@ -238,7 +291,9 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
       FORUM.chasses = {};
     })()`);
     await ouvrir();
-    expect(cases().map((ligne) => ligne.slice(1, 6).join(" | "))).toEqual([
+    expect(
+      cases().map((ligne) => [...ligne.slice(1, 4), ...ligne.slice(5, 7)].join(" | ")),
+    ).toEqual([
       "12/11 10h25 | Autre → moi | 30 000 | −20 000 (20 %) | 80 000",
       // chasse sans détail des troupes (compte sans Compte+) : unités inconnues
       "12/11 10h31 | Chasse | — | +2 000 | 82 000",
@@ -255,7 +310,9 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     // capture : 10h30:00 pile (rapport à 10h30) ; page : 10h30:01 (rapport à 10h31)
     lire(`FORUM.floods.push(${JSON.stringify(flood(900, "10:30", "Autre", "Moi", 1000))})`);
     await ouvrir([attaque(501, "Cible", 1801)], [capture(501, "Cible", 1800, 5000, 60000)]);
-    expect(cases().map((ligne) => ligne.slice(1, 6).join(" | "))).toEqual([
+    expect(
+      cases().map((ligne) => [...ligne.slice(1, 4), ...ligne.slice(5, 7)].join(" | ")),
+    ).toEqual([
       "12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000",
       "12/11 10h25 | Autre → moi | 30 000 | −20 600 (20 %) | 82 400",
       "12/11 10h30:01 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400",
@@ -279,7 +336,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     ]);
     // Cible a perdu 7 777 avant mes floods : 60 000 − 7 777 = 52 223, mes 5 000 et 4 000 passent
     expect(lignes()[2]).toBe(
-      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 87 400 | CopierPartagé ✓",
+      "3 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | TdC | +5 000 | 87 400 | CopierPartagé ✓",
     );
   });
 
@@ -289,8 +346,8 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     );
     await ouvrir();
     expect(lignes()).toEqual([
-      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 105 000 | CopierPartager",
-      "2 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 109 000 | CopierPartager",
+      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | TdC | +5 000 | 105 000 | CopierPartager",
+      "2 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | TdC | +4 000 | 109 000 | CopierPartager",
     ]);
   });
 
@@ -306,7 +363,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     lire(`JEU.ressources = false`);
     await ouvrir();
     expect(lignes().filter((l) => l.includes("Chasse"))).toEqual([
-      "1 | 12/11 10h21 | Chasse | — | +3 000 | 103 000 | CopierPartagée ✓",
+      "1 | 12/11 10h21 | Chasse | — |  | +3 000 | 103 000 | CopierPartagée ✓",
     ]);
   });
 
@@ -328,17 +385,17 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     lire(`ECRITS.illisible = true`);
     await ouvrir();
     expect(lignes()).toEqual([
-      "1 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 103 000 | CopierPartager",
-      "2 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | +5 000 | 108 000 | CopierPartager",
-      "3 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | +4 000 | 112 000 | CopierPartager",
-      "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 113 000 | CopierPartager",
+      "1 | 12/11 10h21 | Chasse × 2 | 1 000 |  | +3 000 | 103 000 | CopierPartager",
+      "2 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | TdC | +5 000 | 108 000 | CopierPartager",
+      "3 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | TdC | +4 000 | 112 000 | CopierPartager",
+      "4 | 12/11 11h00 | Chasse | 500 |  | +1 000 | 113 000 | CopierPartager",
     ]);
   });
 
   test("attaque lancée ailleurs, sans détail du jeu ni partage : listée, variation et TdC inconnus, annulable", async () => {
     await ouvrir([attaque(503, "Cible", 600)], []);
     expect(lignes().find((l) => l.includes("moi → Cible"))).toBe(
-      "1 | 12/11 10h10:00 | moi → Cible(OUAF) | ? | — | ? | CopierPartagerAnnuler",
+      "1 | 12/11 10h10:00 | moi → Cible(OUAF) | ? | ? | — | ? | CopierPartagerAnnuler",
     );
   });
 
@@ -347,10 +404,10 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     await ouvrir([attaque(503, "Cible", 600)], []);
     // mon flood 501 du forum n'est plus dans la liste du jeu : il ne compte pas
     expect(lignes()).toEqual([
-      "1 | 12/11 10h10:00 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓Annuler",
-      "2 | 12/11 10h21 | Chasse × 2 | 1 000 | +3 000 | 105 000 | CopierPartagée ✓",
-      "3 | 12/11 10h25 | Autre → moi | 30 000 | −21 000 (20 %) | 84 000 |",
-      "4 | 12/11 11h00 | Chasse | 500 | +1 000 | 85 000 | CopierPartager",
+      "1 | 12/11 10h10:00 | moi → Cible(OUAF) | 2 000 | TdC | +2 000 | 102 000 | CopierPartagé ✓Annuler",
+      "2 | 12/11 10h21 | Chasse × 2 | 1 000 |  | +3 000 | 105 000 | CopierPartagée ✓",
+      "3 | 12/11 10h25 | Autre → moi | 30 000 | TdC | −21 000 (20 %) | 84 000 |",
+      "4 | 12/11 11h00 | Chasse | 500 |  | +1 000 | 85 000 | CopierPartager",
     ]);
   });
 
@@ -373,7 +430,7 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     ]);
     // 20 % de 55 000 : la cible, hors alliance, n'est connue que par sa page
     expect(lignes().find((l) => l.includes("moi → Dehors"))).toBe(
-      "1 | 12/11 10h10:00 | moi → Dehors(OUAF) | 12 000 | +11 000 (20 %) | 111 000 | CopierPartagerAnnuler",
+      "1 | 12/11 10h10:00 | moi → Dehors(OUAF) | 12 000 | TdC | +11 000 (20 %) | 111 000 | CopierPartagerAnnuler",
     );
     expect(lire(`$("#o_attaquesLancees tr.o_ligneAttaque .o_troupesCourtes").attr("title")`)).toBe(
       "Terrain de chasse : 12 000 Jeunes Soldates Naines.",
@@ -386,8 +443,8 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
     );
     await ouvrir();
     expect(lignes()).toEqual([
-      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | 5 000 | ? | CopierPartagé ✓",
-      "2 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | 4 000 | ? | CopierPartager",
+      "1 | 12/11 10h30:30 | moi → Cible(OUAF) | 5 000 | TdC | 5 000 | ? | CopierPartagé ✓",
+      "2 | 12/11 10h30:32 | moi → Cible(OUAF) | 4 000 | TdC | 4 000 | ? | CopierPartager",
     ]);
     expect(lire(`ERREURS.length`)).toBe(1);
   });
@@ -576,12 +633,12 @@ describe("un flood ne quitte le forum que s'il est réellement annulé : pas de 
       AttaqueLancee.afficherTableaux();
     })()`);
     // avant la lecture du forum : l'état noté dans ce navigateur
-    expect(cases().map((l) => l[6])).toEqual(["CopierPartagerAnnuler", "CopierPartagé ✓Annuler"]);
+    expect(cases().map((l) => l[7])).toEqual(["CopierPartagerAnnuler", "CopierPartagé ✓Annuler"]);
     await attendre();
     expect(
       cases()
         .filter((l) => String(l[2]).startsWith("moi"))
-        .map((l) => l[6]),
+        .map((l) => l[7]),
     ).toEqual(["CopierPartagé ✓Annuler", "CopierPartagerAnnuler"]);
   });
 });
@@ -618,7 +675,7 @@ describe("chargement : avancement dans le titre du bloc", () => {
     // page Ressources et liste des sujets du forum
     expect(etat()).toBe("chargement 0 / 2");
     // « TdC après » de mes attaques en attente
-    expect(cases().map((l) => l[5])).toEqual(["…", "…"]);
+    expect(cases().map((l) => l[6])).toEqual(["…", "…"]);
     await finir("liste", 1000);
     // 2 sujets à lire : le sujet commun des floods et celui des chasses
     expect(etat()).toBe("chargement 1 / 4");
@@ -632,7 +689,7 @@ describe("chargement : avancement dans le titre du bloc", () => {
     expect(etat()).toBe("chargement 5 / 6, encore ≈ 1 s");
     await finir("liste", 4000);
     expect(lire(`$("#o_attaquesLancees .o_attaquesChargement").length`)).toBe(0);
-    expect(cases().map((l) => l[5])).toEqual(["103 000", "82 400", "87 400", "91 400", "92 400"]);
+    expect(cases().map((l) => l[6])).toEqual(["103 000", "82 400", "87 400", "91 400", "92 400"]);
     expect(lire(`$("#o_attaquesLancees .o_attaquesCompte").text()`)).toBe("(5)");
   });
 
@@ -753,7 +810,7 @@ describe("le replacement de l'armée passe avant les lectures du bloc", () => {
     expect(lire(`[JEU.lues, FORUM_LU]`)).toEqual([[], 0]);
     expect(etat()).toBe("en attente : le replacement de l'armée passe d'abord");
     // mes attaques sont déjà listées, d'après la page
-    expect(cases().map((l) => l.slice(2, 6).join(" | "))).toEqual([
+    expect(cases().map((l) => [...l.slice(2, 4), ...l.slice(5, 7)].join(" | "))).toEqual([
       "moi → Cible(OUAF) | 5 000 | 5 000 | …",
       "moi → Cible(OUAF) | 4 000 | 4 000 | …",
     ]);
@@ -905,7 +962,7 @@ describe("« Annuler » : l'ordre du jeu d'abord, le partage du forum ensuite", 
     await ouvrir(ANNULEES.slice(1), []);
     expect(lire(`ECRITS.retraits`)).toEqual([[503]]);
     expect(lignes()).toEqual([
-      "1 | 12/11 10h11:40 | moi → Cible(OUAF) | 2 000 | +2 000 | 102 000 | CopierPartagé ✓Annuler",
+      "1 | 12/11 10h11:40 | moi → Cible(OUAF) | 2 000 | TdC | +2 000 | 102 000 | CopierPartagé ✓Annuler",
     ]);
   });
 

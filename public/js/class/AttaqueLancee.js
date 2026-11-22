@@ -506,7 +506,7 @@ class AttaqueLancee {
     return listeAttaque;
   }
   static get ENTETE() {
-    return `<thead><tr><th>#</th><th>Arrivée</th><th>Lanceur → cible</th><th>Unités</th><th title="Chasse : TdC conquis. Flood : estimé à l'impact, au plus 20 % du TdC de la cible à ce moment, rien hors de portée, d'après les TdC actuels et les mouvements en cours">Variation</th><th title="Mon TdC après ce mouvement">TdC après</th><th></th></tr></thead>`;
+    return `<thead><tr><th>#</th><th>Arrivée</th><th>Lanceur → cible</th><th>Unités</th><th title="Lieu attaqué ; au dôme et en loge, le TdC est pris comme au terrain de chasse">Lieu</th><th title="Chasse : TdC conquis. Flood : estimé à l'impact, au plus 20 % du TdC de la cible à ce moment, rien hors de portée, d'après les TdC actuels et les mouvements en cours">Variation</th><th title="Mon TdC après ce mouvement">TdC après</th><th></th></tr></thead>`;
   }
   /**
    * Bloc « Mes attaques en cours » en haut de la page : sous le menu du jeu
@@ -806,14 +806,19 @@ class AttaqueLancee {
       if (e) {
         // même minute que la simulation : la ligne est rangée où son TdC a été calculé
         tr.dataset.date = e.date;
-        // attaque que cette page ne sait pas décrire : unités de sa ligne du forum
-        let $unites = $(tr).find(".o_troupesCourtes");
+        // attaque que cette page ne sait pas décrire : unités et lieu de sa ligne
+        // du forum (sans zone, une ligne de flood est au terrain de chasse)
+        let $unites = $(tr).find(".o_troupesCourtes"),
+          $lieu = $(tr).find(".o_lieuAttaque");
         if ($unites.text() == "?" && e.unites != null) $unites.text(numeral(e.unites).format());
+        if ($lieu.text() == "?")
+          $lieu.replaceWith(AttaqueLancee.celluleLieu(e.lieu || "Terrain de chasse"));
         $(tr)
           .find(".o_priseAttaque")
           .html(
             PartageChasses.libellePrise(
-              { delta: e.prise, statut: e.statut, lieu: e.lieu || null },
+              // le lieu a sa colonne : pas de note « (dôme) » / « (loge) »
+              { delta: e.prise, statut: e.statut },
               "",
             ),
           );
@@ -834,6 +839,7 @@ class AttaqueLancee {
           `<tr class="o_ligneChasse" data-date="${e.date}" data-id="0" title="Chasse en cours : heure du rapport, à la minute"><td></td>
           <td>${heure(e.date)}</td><td>Chasse${nb > 1 ? ` <small>× ${numeral(nb).format()}</small>` : ""}</td>
           <td class="o_troupesCourtes">${s && s.total ? numeral(s.total).format() : "—"}</td>
+          <td class="o_lieuAttaque"></td>
           <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: e.prise }, "")}</td>
           <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcApres)}</td>
           <td class="o_attaqueActions"><button type="button" class="o_button o_chasseCopier" title="Copier le détail ${nb > 1 ? "des chasses" : "de la chasse"}">Copier</button>${
@@ -857,7 +863,8 @@ class AttaqueLancee {
         <td>${heure(e.date)}</td>
         <td class="o_cibleAttaque"><a href="Membre.php?Pseudo=${encodeURIComponent(e.lanceur)}">${Utils.echapper(e.lanceur)}</a> → moi</td>
         <td class="o_troupesCourtes">${e.unites != null ? numeral(e.unites).format() : "?"}</td>
-        <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: -e.prise, statut: e.statut, lieu: e.lieu || null }, "")}</td>
+        ${AttaqueLancee.celluleLieu(e.lieu || "Terrain de chasse")}
+        <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: -e.prise, statut: e.statut }, "")}</td>
         <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcCibleApres)}</td>
         <td class="o_attaqueActions"></td></tr>`,
       );
@@ -1023,7 +1030,7 @@ class AttaqueLancee {
     // les captures restent synchronisées (partage des floods) même sans la liste
     if (!afficher || !Utils.affichage("listeAttaques")) return;
     // une seule liste, dans l'ordre d'arrivée : # | Arrivée | moi → cible (tag
-    // coloré) | Unités (détail et lieu au survol) | Variation | TdC après | boutons
+    // coloré) | Unités (détail au survol) | Lieu | Variation | TdC après | boutons
     let id = "o_attaquesLancees",
       tag = Utils.alliance || "l'alliance";
     attaques.sort((a, b) => a.ligne.arrivee - b.ligne.arrivee);
@@ -1042,6 +1049,7 @@ class AttaqueLancee {
         }
         <td class="o_cibleAttaque">moi → ${a.ligne.cibleHtml || a.ligne.cible}</td>
         <td class="o_troupesCourtes" title="${AttaqueLancee.detail(a)}">${AttaqueLancee.quantite(a)}</td>
+        ${AttaqueLancee.celluleLieu(AttaqueLancee.lieu(a))}
         <td class="o_priseAttaque">${AttaqueLancee.priseEstimee(a)}</td>
         <td class="o_tdcApres">…</td>
         <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button><button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager cette attaque avec la ${tag}">Partager</button><span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span></td></tr>`;
@@ -1594,6 +1602,24 @@ class AttaqueLancee {
     if (/d[ôo]me|fourmili/i.test(lieu)) return "Dôme";
     if (/loge/i.test(lieu)) return "Loge";
     return null;
+  }
+  /**
+   * Cellule « Lieu » du bloc « Mes attaques en cours » : TdC, Dôme ou Loge, le
+   * libellé du jeu au survol.
+   *
+   * @static
+   * @method celluleLieu
+   * @param {String|null|undefined} lieu libellé du jeu (« Loge Impériale »), ou zone d'une ligne du forum
+   * @return {String}
+   */
+  static celluleLieu(lieu) {
+    let zone = AttaqueLancee.zoneLieu(lieu),
+      titre = !lieu
+        ? "Lieu inconnu"
+        : zone == "Dôme" || zone == "Loge"
+          ? `${lieu} : TdC pris comme au terrain de chasse`
+          : lieu;
+    return `<td class="o_lieuAttaque" title="${Utils.echapper(titre)}">${Utils.echapper(zone || lieu || "?")}</td>`;
   }
   /**
    * Info-bulle des unités d'une attaque : ses troupes et le lieu attaqué.

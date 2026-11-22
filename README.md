@@ -43,7 +43,7 @@ Fzzz est un fork de [Toolzzz](https://github.com/GuiEpi/toolzzz) (GuiEpi), lui-m
   - Ressources : sous les boutons « Envoyer » du lanceur de chasses, sur toute sa largeur, les floods partagés sur le joueur dans le forum de l'alliance qui arrivent d'ici le délai choisi (Préférences → Ressources, 1 h par défaut), avec leur prise estimée à l'impact ; rien sans flood dans ce délai ;
   - lanceur de chasses : les difficultés que l'armée ne peut pas tenir sont grisées, avec le maximum possible.
 
-- **Mises à jour** : Firefox (version signée) se met à jour seul chaque jour ; bouton « Mettre à jour Fzzz » dans Préférences → Général (Chrome Web Store : mise à jour immédiate en un clic ; Firefox : installation du dernier .xpi signé).
+- **Mises à jour** : Violentmonkey cherche les mises à jour une fois par jour (Tampermonkey selon son réglage). La boîte « Extension OUAF » signale plus tôt une version publiée sur GitHub (lue au plus une fois par 24 h) : numéro de version en rouge et lien « Nouvelle version vX : mettre à jour » ; le bouton « Mettre à jour l'extension » de Préférences → Général ouvre aussi la dernière version. Le gestionnaire de scripts propose alors de l'installer ; avec Violentmonkey, l'onglet resté vide est refermé. La version Firefox signée (.xpi) n'est plus publiée depuis la 1.83.0 : le script utilisateur est la seule version tenue à jour.
 - **Mobile** (Firefox pour Android) : sur écran étroit, les tableaux et encarts ajoutés défilent horizontalement dans leur cadre au lieu d'élargir la page, les rangées de boutons passent à la ligne, la largeur fixe du tableau des membres est désactivée et l'infobulle d'évolution du TdC s'ouvre au toucher d'une ligne (second toucher ou toucher ailleurs pour la fermer).
 
 ## Installer

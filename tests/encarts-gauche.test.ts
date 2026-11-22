@@ -137,6 +137,17 @@ describe("encadré « Synthèse » recréé hors Compte+", () => {
     expect(appels).toBe(1);
   });
 
+  test("page sans colonne de gauche (accueil) : rien à suivre, pas d'erreur (journal du 21/11/2026)", () => {
+    expect(
+      page.lire<number>(`(() => {
+        document.body.innerHTML = "<div id='centre'></div>";
+        Dock.suivre(undefined, undefined, () => ECART_ENCADRES);
+        Dock.suivre(undefined, document.querySelector("#centre"), () => ECART_ENCADRES);
+        return document.querySelectorAll(".o_encadreSuivi").length;
+      })()`),
+    ).toBe(0);
+  });
+
   test("Dock.suivre suit aussi les lignes ajoutées dans « S5 pseudo »", async () => {
     const haut = await page.lire<Promise<string>>(`(() => {
       document.body.innerHTML = "<div id='menuBoite'><div id='boiteInfo'><div class='contenu_boite_info'><table><tr><td class='nourriture'></td></tr></table></div></div></div><div id='o_suivie'></div>";

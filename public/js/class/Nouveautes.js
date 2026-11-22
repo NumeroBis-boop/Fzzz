@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.150.1",
+    notes: [
+      "Site de suivi des convois : sur un navigateur qui ne garde pas la connexion au site (Userscripts sur iPhone), un message clair le dit, au lieu d'erreurs à chaque page. Corrections d'erreurs vues dans les journaux de débug.",
+    ],
+  },
+  {
     version: "1.150.0",
     notes: [
       "Page Armée, bloc « Mes attaques en cours » : « Annuler » sur tes chasses que le jeu permet encore d'annuler ; la chasse est annulée et son partage retiré du forum.",

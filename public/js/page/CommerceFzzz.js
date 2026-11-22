@@ -327,6 +327,8 @@ class CommerceFzzz {
             .on("click.ouafAcces", "#o_ouafAcces", () => OuafSuivi.demanderAcces());
         } else if (e.name == "code") CommerceFzzz.ouvrirParametresOuaf();
         else if (e.name == "site") toast(Utils.echapper(e.message), TOAST_WARNING);
+        else if (e.name == "session")
+          toast(`${Utils.echapper(e.message)}. Rien n'a été envoyé.`, TOAST_WARNING);
         else if (e.name == "reseau") {
           let site = OuafSuivi.site() || { url: "", hote: "" };
           CommerceFzzz.signalerSuiviOuaf(OUAF_PANNE);
@@ -1329,7 +1331,9 @@ class CommerceFzzz {
                   ? "Accès au site de suivi non accordé (bouton « Autoriser l'accès » en envoyant un convoi au suivi)"
                   : e.name == "reseau"
                     ? OUAF_PANNE
-                    : "Site de suivi des convois : " + e.message,
+                    : e.name == "session"
+                      ? e.message
+                      : "Site de suivi des convois : " + e.message,
             });
             afficher();
             CommerceFzzz.signalerSuiviOuaf(ouaf.erreur);

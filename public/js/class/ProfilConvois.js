@@ -188,8 +188,14 @@ class ProfilConvois {
                 : e && e.status != null
                   ? `page du jeu sans réponse (erreur ${e.status || "réseau"})`
                   : String(e || "erreur inconnue");
-            Journal.erreur(JOURNAL_PROFIL, "profil du site non mis à jour", raison);
+            Journal[e && e.name == "session" ? "info" : "erreur"](
+              JOURNAL_PROFIL,
+              "profil du site non mis à jour",
+              raison,
+            );
             etat = { ...etat, raison };
+            // session non gardée par ce navigateur : un nouvel essai dans l'heure n'y changerait rien
+            if (e && e.name == "session") etat.essais = SUIVI_ESSAIS_PAR_JOUR;
             if (e && (e.name == "refuse" || e.name == "identite"))
               etat = ProfilConvois._prevenir(etat, e.name, site, raison);
             ProfilConvois._garder(etat);

@@ -120,6 +120,8 @@ beforeEach(() => {
       const ok = (d) => Promise.resolve({ ok: true, statut: 200, donnees: d });
       if (m.chemin == "/api/session")
         return ok(m.corps.mot_de_passe == SITE.mdp ? { connecte: true, pseudo: SITE.profil.pseudo } : { connecte: false, erreur: "Ce mot de passe ne correspond à personne." });
+      // navigateur qui ne garde pas le cookie de session (Userscripts sur iPhone)
+      if (SITE.sansSession) return Promise.resolve({ ok: false, statut: 401, donnees: { detail: "Entre ton mot de passe pour continuer." } });
       if (m.chemin == "/api/profil" && m.methode == "GET")
         return SITE.refus ? Promise.resolve({ ok: false, statut: 403, donnees: { detail: SITE.refus } }) : ok({ ...SITE.profil });
       if (m.chemin == "/api/profil" && m.methode == "PUT") {
@@ -141,7 +143,7 @@ const ouvrirPage = async (chemin = "/Ressources.php", html = "") => {
     history.replaceState(null, "", ${JSON.stringify(chemin)});
     document.body.innerHTML = "<span id='tag_alliance'>OUAF</span>" + ${JSON.stringify(html)};
     Utils._reine = null; Utils._pageReine = null; SuiviMembres._lues = {};
-    connexionOuaf = null; ouafPanne = 0;
+    connexionOuaf = null; sessionOuaf = false; ouafPanne = 0;
     ProfilConvois.observer();
     SuiviMembres.observer();
   })()`);
@@ -419,6 +421,29 @@ describe("le site n'est modifié que s'il le faut, et jamais à tort", () => {
     lire(`SITE.panne = false`);
     avancer(61);
     expect((await ouvrirPage()).profil).toBe("envoyé");
+  });
+
+  test("session non gardée par le navigateur : échec sans autre essai ce jour-là, le lendemain de nouveau", async () => {
+    lire(`SITE.sansSession = true; window.ERREURS = 0; Journal.erreur = () => ERREURS++;`);
+    expect((await ouvrirPage()).profil).toBe("échec");
+    expect(lire(`ERREURS`)).toBe(0);
+    expect(requetes()).toEqual([
+      "POST /api/session",
+      "GET /api/profil",
+      "POST /api/session",
+      "GET /api/profil",
+    ]);
+    expect(etat()).toMatchObject({ fait: false, essais: 3 });
+    expect(etat().raison).toContain("ne garde pas ta connexion");
+    expect(toasts()).toHaveLength(1);
+    avancer(61);
+    expect((await ouvrirPage()).profil).toBe("attente");
+    expect(requetes()).toEqual([]);
+    lire(`SITE.sansSession = false`);
+    avancer(24 * 60);
+    expect((await ouvrirPage()).profil).toBe("envoyé");
+    // déjà prévenu dans ce navigateur
+    expect(toasts()).toHaveLength(1);
   });
 
   test("page Construction illisible : rien n'est écrit (jamais un niveau inventé)", async () => {

@@ -1530,18 +1530,33 @@ class PartageChasses {
           return tdc;
         },
         (xhr) => {
-          throw new Error(`${adresse} : HTTP ${xhr && xhr.status}`);
+          throw Object.assign(new Error(`${adresse} : HTTP ${xhr && xhr.status}`), {
+            statut: xhr && xhr.status,
+          });
         },
       );
     return PartageChasses._enCache("tdcMembres", !frais, () =>
       lire("/alliance.php?Membres", 3, 5).catch((e) =>
         Utils.alliance
-          ? lire("/classementAlliance.php?alliance=" + encodeURIComponent(Utils.alliance), 2, 4)
+          ? lire(
+              "/classementAlliance.php?alliance=" + encodeURIComponent(Utils.alliance),
+              2,
+              4,
+            ).catch((e2) => {
+              throw Object.assign(e2, { avant: e });
+            })
           : Promise.reject(e),
       ),
     ).catch((e) => {
-      if (typeof Journal != "undefined")
-        Journal.erreur("TdC des membres", String((e && e.message) || e));
+      if (typeof Journal == "undefined") return {};
+      let message = [e && e.avant && e.avant.message, String((e && e.message) || e)]
+        .filter(Boolean)
+        .join(" ; ");
+      // HTTP 0 : lecture coupée, le plus souvent par le joueur qui change de page
+      // (journal du 19 au 21/11/2026) ; une panne du jeu répond autrement
+      if (e && e.statut === 0 && (!e.avant || e.avant.statut === 0))
+        Journal.info("TdC des membres", "lecture interrompue (page quittée ?)", message);
+      else Journal.erreur("TdC des membres", message);
       return {};
     });
   }

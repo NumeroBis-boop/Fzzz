@@ -111,6 +111,7 @@ async function requeteOuaf(m: RequeteOuaf): Promise<{
   statut?: number;
   donnees?: unknown;
   erreur?: "permission" | "requete" | "reseau";
+  detail?: string;
 }> {
   if (
     !ORIGINE_SITE.test(String(m.site || "")) ||
@@ -130,7 +131,8 @@ async function requeteOuaf(m: RequeteOuaf): Promise<{
     const donnees = await r.json().catch(() => ({}));
     return { ok: r.ok, statut: r.status, donnees };
   } catch (e) {
-    return { erreur: "reseau" };
+    // noté au journal : site bloqué, adresse introuvable, connexion refusée…
+    return { erreur: "reseau", detail: String((e as Error)?.message || e) };
   }
 }
 

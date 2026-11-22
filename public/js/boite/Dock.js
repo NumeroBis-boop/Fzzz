@@ -316,6 +316,8 @@ class Dock {
    * @method suivre
    */
   static suivre(ref, boite, ecart) {
+    // page sans encart « S5 pseudo » (accueil) : rien à suivre
+    if (!ref || !boite) return;
     Dock.copierStyle(ref, boite);
     boite.classList.add("o_encadreSuivi");
     document.body.appendChild(boite);

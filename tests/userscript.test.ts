@@ -484,6 +484,26 @@ describe("export des RC : script du Google Sheet de l'alliance", () => {
     ).toEqual({ erreur: "reseau" });
   });
 
+  test("site de suivi injoignable : ce que le gestionnaire dit de l'échec est gardé pour le journal ; délai dépassé : sans réponse", async () => {
+    const OUAF = {
+      type: "fzzz_ouaf",
+      site: "http://convois.example.org",
+      methode: "GET",
+      chemin: "/api/mes",
+    };
+    const echec = (r: unknown) =>
+      charger({ GM_xmlhttpRequest: (d: any) => d.onerror(r) }).runtime.sendMessage(OUAF);
+    expect(
+      await echec({ status: 0, statusText: "", error: "net::ERR_CONNECTION_REFUSED" }),
+    ).toEqual({ erreur: "reseau", detail: "statut 0, net::ERR_CONNECTION_REFUSED" });
+    expect(await echec(undefined)).toEqual({ erreur: "reseau", detail: "" });
+    expect(
+      await charger({ GM: { xmlHttpRequest: (d: any) => d.ontimeout() } }).runtime.sendMessage(
+        OUAF,
+      ),
+    ).toEqual({ erreur: "delai" });
+  });
+
   test("Userscripts (Safari iOS) : GM.xmlHttpRequest ; script injoignable : erreur réseau", async () => {
     const chrome = charger({
       GM: { xmlHttpRequest: (d: any) => d.onerror() },

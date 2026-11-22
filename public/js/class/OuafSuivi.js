@@ -33,6 +33,13 @@ let fileEnvoisOuaf = Promise.resolve();
 const OUAF_DELAI_LECTURE = 10000;
 const OUAF_PAUSE_PANNE = 60000;
 let ouafPanne = 0;
+// connexion acceptée par le site sur cette page : un refus « mot de passe » qui
+// suit vient d'une session perdue (site redémarré) ou non gardée par ce
+// navigateur (Userscripts sur iPhone, journal du 20 au 22/11/2026)
+let sessionOuaf = false;
+const SESSION_NON_GARDEE =
+  "Le site de suivi ne garde pas ta connexion dans ce navigateur (cela arrive avec Userscripts sur iPhone) : le Récapitulatif et ton profil du site n'y fonctionnent pas";
+const CLE_SESSION_PREVENU = "fzzz_ouafSessionPrevenu";
 
 /**
  * Envoi des convois au site de suivi de l'alliance, au clic du joueur.
@@ -182,9 +189,12 @@ class OuafSuivi {
    * @param {String} chemin
    * @param {Object} [corps]
    * @param {Number} [delai] attente maximale d'une lecture (ms)
+   * @param {Boolean} [reessai] nouvel essai après une reconnexion
    * @return {Promise<Object>} réponse JSON du site
    */
-  static requete(methode, chemin, corps = undefined, delai = OUAF_DELAI_LECTURE) {
+  static requete(methode, chemin, corps = undefined, delai = OUAF_DELAI_LECTURE, reessai = false) {
+    // lectures en parallèle refusées ensemble : une seule reconnexion
+    let connexionVue = connexionOuaf;
     let panne = (texte) => {
       let e = new Error(texte);
       e.name = "reseau";
@@ -218,11 +228,20 @@ class OuafSuivi {
         new Promise((r) => setTimeout(() => r({ erreur: "delai" }), delai)),
       ]);
     return envoi.then((r) => {
+      let sessionPerdue = !!r && r.statut == 401 && chemin != "/api/session" && sessionOuaf;
+      if (sessionPerdue && !reessai) {
+        Journal.info("Suivi des convois", `${methode} ${chemin} : erreur 401, reconnexion`);
+        if (connexionOuaf === connexionVue) connexionOuaf = null;
+        return OuafSuivi.connecter().then(() =>
+          OuafSuivi.requete(methode, chemin, corps, delai, true),
+        );
+      }
+      // session non gardée : cause connue, joueur prévenu, pas d'envoi du journal pour elle
       if (!r || r.erreur || !r.ok)
-        Journal.erreur(
+        Journal[sessionPerdue && r && !r.erreur ? "info" : "erreur"](
           "Suivi des convois",
-          `${methode} ${chemin} : ${!r ? "pas de réponse du script d'arrière-plan" : r.erreur || `erreur ${r.statut}`}`,
-          r && r.donnees,
+          `${methode} ${chemin} : ${!r ? "pas de réponse du script d'arrière-plan" : r.erreur || `erreur ${r.statut}`}${sessionPerdue ? " après reconnexion : session non gardée par ce navigateur" : ""}`,
+          r && (r.detail || r.donnees),
         );
       if (!r) throw new Error("le script d'arrière-plan n'a pas répondu");
       if (r.erreur == "permission") {
@@ -240,8 +259,39 @@ class OuafSuivi {
               : `site de suivi en panne (erreur ${r.statut})`,
         );
       }
+      if (sessionPerdue) {
+        OuafSuivi.prevenirSession();
+        let e = new Error(SESSION_NON_GARDEE);
+        e.name = "session";
+        throw e;
+      }
       if (!r.ok) throw new Error((r.donnees && r.donnees.detail) || `erreur ${r.statut}`);
       return r.donnees || {};
+    });
+  }
+  /**
+   * Session du site non gardée par ce navigateur : le joueur est prévenu une
+   * fois, dans ce navigateur (il n'y peut rien ; le site devrait accepter un
+   * jeton à la place du cookie).
+   *
+   * @static
+   * @method prevenirSession
+   */
+  static prevenirSession() {
+    try {
+      if (localStorage.getItem(CLE_SESSION_PREVENU)) return;
+      localStorage.setItem(CLE_SESSION_PREVENU, "1");
+    } catch (e) {
+      return;
+    }
+    if (document.documentElement.classList.contains("o_origineGenerale")) return;
+    Journal.info("Suivi des convois", "joueur prévenu : session non gardée par ce navigateur");
+    $.toast({
+      ...TOAST_WARNING,
+      heading: "Site de suivi des convois",
+      text: `${Utils.echapper(SESSION_NON_GARDEE)}. Note tes convois directement sur le site, ou utilise un autre navigateur (Firefox sur Android, ou un ordinateur).`,
+      hideAfter: false,
+      allowToastClose: true,
     });
   }
   /**
@@ -276,6 +326,7 @@ class OuafSuivi {
           e.name = "refuse";
           throw e;
         }
+        sessionOuaf = true;
         return s;
       });
     });

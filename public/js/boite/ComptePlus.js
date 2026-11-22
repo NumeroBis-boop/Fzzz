@@ -393,8 +393,10 @@ class BoiteComptePlus {
           this._htmlRaccourcisMenuRapide() +
           "</div></div>",
       );
-      // encadré créé par Fzzz : placé sous l'encadré « S5 pseudo »
-      if (cree) Dock.suivre($("#boiteInfo")[0], $("#boiteComptePlus")[0], () => ECART_ENCADRES);
+      // encadré créé par Fzzz : placé sous l'encadré « S5 pseudo » (aucun des deux
+      // sur une page sans colonne de gauche, comme l'accueil : rien n'est créé)
+      if (cree && $("#boiteComptePlus").length)
+        Dock.suivre($("#boiteInfo")[0], $("#boiteComptePlus")[0], () => ECART_ENCADRES);
       // Remplissage des champs
       this.verifierDonnees()
         .majPonte()

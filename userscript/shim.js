@@ -178,8 +178,17 @@ var chrome = (function () {
           }
           resoudre({ ok: r.status >= 200 && r.status < 300, statut: r.status, donnees });
         },
-        onerror: () => resoudre({ erreur: "reseau" }),
-        ontimeout: () => resoudre({ erreur: "reseau" }),
+        // noté au journal : ce que le gestionnaire dit de l'échec
+        onerror: (r) =>
+          resoudre({
+            erreur: "reseau",
+            detail: r
+              ? [r.status != null ? "statut " + r.status : "", r.statusText, r.error]
+                  .filter(Boolean)
+                  .join(", ")
+              : "",
+          }),
+        ontimeout: () => resoudre({ erreur: "delai" }),
       });
     });
   }

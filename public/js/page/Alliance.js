@@ -54,6 +54,8 @@ const COULEUR_CARTE_MOI = "#27ae60";
 const CLE_CARTE_STYLE_MEMBRES = "fzzz_carteStyleMembres";
 // membres de mon alliance retirés de la carte, pour regarder les autres seuls
 const CLE_CARTE_MEMBRES_MASQUES = "fzzz_carteMembresMasques";
+/** Joueur de départ des « Temps de trajet depuis un joueur » (localStorage du jeu, donc par serveur). */
+const CLE_CARTE_DEPART_TRAJETS = "fzzz_carteDepartTrajets";
 const STYLE_CARTE_MEMBRES = { couleur: "#c0392b", forme: "rond", taille: "moyenne" };
 const STYLE_CARTE_AUTRE = { couleur: "#2a78d6", forme: "losange", taille: "moyenne" };
 /** Suggestions proposées au plus pendant la saisie d'un pseudo ou d'un tag. */
@@ -351,6 +353,15 @@ class PageAlliance {
         </div>
         <div id='o_carteAllianceChart' style='margin-top:15px;display:none;'></div>
         <p id='o_carteLegende' class='reduce' style='display:none;'></p>
+        <div id='o_carteTrajets' class='o_marginT15' style='display:none;'>
+          <div class='centre gras'>Temps de trajet depuis un joueur</div>
+          <p class='reduce'>Vers chacun des joueurs affichés sur la carte (membres selon les filtres, joueurs et alliances ajoutés), du plus proche au plus loin. Le temps dépend de la Vitesse d'attaque de celui qui attaque : la tienne par défaut.</p>
+          <div class='o_carteTrajetsChoix'>
+            <label>Depuis <select id='o_trajetsDepart'></select></label>
+            <label>Vitesse d'attaque <input type='number' id='o_trajetsVa' min='0' max='99' step='1' inputmode='numeric' /></label>
+          </div>
+          <table id='o_trajetsListe' class='o_maxWidth centre o_marginT15' cellspacing='0'></table>
+        </div>
         <div id='o_carteChaine' class='o_marginT15' style='display:none;'>
           <div class='centre gras'>Chaîne entre plus proches voisins</div>
           <p class='reduce'>Ordre de passage qui minimise le temps de trajet total entre les membres affichés : chacun envoie au suivant. Les joueurs décochés dans les filtres et les autres joueurs ajoutés sont exclus. Temps sans amélioration de Vitesse d'attaque.</p>
@@ -373,6 +384,13 @@ class PageAlliance {
     $("#o_carteAllianceExportExcel").click(() => this._exporterCarteExcel());
     this._evenementsChaine();
     this._evenementsAutres();
+    $("#o_trajetsDepart").on("change", () => {
+      try {
+        localStorage.setItem(CLE_CARTE_DEPART_TRAJETS, JSON.stringify($("#o_trajetsDepart").val()));
+      } catch (e) {}
+      this._trajets();
+    });
+    $("#o_trajetsVa").on("input change", () => this._trajets());
     // la carte garde la même échelle sur ses deux axes : redessinée à sa nouvelle largeur
     let attente = 0;
     $(window).on("resize", () => {
@@ -2061,6 +2079,91 @@ class PageAlliance {
       });
   }
   /**
+   * Vitesse d'attaque saisie : un niveau entier de 0 à 99.
+   *
+   * @static
+   * @method vaTrajets
+   * @param {any} saisie
+   * @return {Number}
+   */
+  static vaTrajets(saisie) {
+    let n = Math.floor(Number(String(saisie ?? "").replace(",", ".")));
+    return Number.isFinite(n) ? Math.min(99, Math.max(0, n)) : 0;
+  }
+  /**
+   * Temps de trajet du départ vers chaque cible, du plus court au plus long
+   * (puis par pseudo) ; le départ lui-même retiré.
+   *
+   * @static
+   * @method trajetsDepuis
+   * @param {{pseudo: String, x: Number, y: Number}} depart
+   * @param {Array<{pseudo: String, x: Number, y: Number}>} cibles
+   * @param {Number} va Vitesse d'attaque de l'attaquant
+   * @return {Array<any>} les cibles avec leur `temps` en secondes
+   */
+  static trajetsDepuis(depart, cibles, va) {
+    let cle = (/** @type {String} */ p) => String(p || "").toLowerCase();
+    return cibles
+      .filter((c) => cle(c.pseudo) != cle(depart.pseudo))
+      .map((c) => ({ ...c, temps: Joueur.tempsTrajet(depart, c, va) }))
+      .sort((a, b) => a.temps - b.temps || a.pseudo.localeCompare(b.pseudo, "fr"));
+  }
+  /**
+   * Tableau « Temps de trajet depuis un joueur » : le départ choisi (gardé),
+   * vers les joueurs affichés sur la carte au dernier dessin.
+   *
+   * @private
+   * @method _trajets
+   */
+  _trajets() {
+    let p = this._pointsTrajets;
+    if (!p) return;
+    let echapper = (/** @type {String} */ t) => $("<div>").text(t).html(),
+      cle = (/** @type {String} */ t) => String(t || "").toLowerCase(),
+      tri = (/** @type {any} */ a, /** @type {any} */ b) => a.pseudo.localeCompare(b.pseudo, "fr"),
+      membres = p.cibles.filter((c) => !c.ajoute && !c.moi).sort(tri),
+      ajoutes = p.cibles.filter((c) => c.ajoute).sort(tri),
+      voulu = $("#o_trajetsDepart").val() || Utils.lireStockage(CLE_CARTE_DEPART_TRAJETS, ""),
+      depart = [p.moi, ...membres, ...ajoutes].find((c) => cle(c.pseudo) == cle(voulu)) || p.moi,
+      option = (/** @type {any} */ c) =>
+        $("<option>")
+          .val(c.pseudo)
+          .text(c.ajoute && c.alliance ? `${c.pseudo} [${c.alliance}]` : c.pseudo),
+      groupe = (/** @type {String} */ nom, /** @type {Array<any>} */ liste) =>
+        liste.length ? $("<optgroup>").attr("label", nom).append(liste.map(option)) : null;
+    $("#o_trajetsDepart")
+      .empty()
+      .append(
+        $("<option>").val(p.moi.pseudo).text(`Toi (${p.moi.pseudo})`),
+        groupe(`Ton alliance (${Utils.alliance})`, membres),
+        groupe("Joueurs et alliances ajoutés", ajoutes),
+      )
+      .val(depart.pseudo);
+    let va = PageAlliance.vaTrajets($("#o_trajetsVa").val()),
+      lignes = PageAlliance.trajetsDepuis(depart, p.cibles, va);
+    if (!lignes.length) {
+      $("#o_trajetsListe").html(
+        "<tr><td><em>Aucun autre joueur affiché sur la carte.</em></td></tr>",
+      );
+      return;
+    }
+    $("#o_trajetsListe").html(
+      `<thead><tr><th>Joueur</th><th>Alliance</th><th>Temps de trajet</th></tr></thead>
+      <tbody>${lignes
+        .map(
+          (c) =>
+            `<tr><td><a href='Membre.php?Pseudo=${encodeURIComponent(c.pseudo)}'>${echapper(c.pseudo)}</a>${c.moi ? " <em>(toi)</em>" : ""}</td><td>${c.alliance ? echapper(c.alliance) : "—"}</td><td>${Utils.intToTime(c.temps)}</td></tr>`,
+        )
+        .join("")}
+        <tr class='reduce'><td colspan='3'><em>Depuis ${echapper(depart.pseudo)} (${depart.x} / ${depart.y}), Vitesse d'attaque ${va} · ${lignes.length} joueur${lignes.length > 1 ? "s" : ""}</em></td></tr>
+      </tbody>`,
+    );
+    $("#o_trajetsListe tbody tr:even").css(
+      "background-color",
+      monProfil.parametre["couleur2"].valeur,
+    );
+  }
+  /**
    * Render Highcharts dans #o_carteAllianceChart, à la même échelle sur les
    * deux axes. Regroupe les membres par case (x,y), relie chaque case à ses
    * plus proches voisines, affiche le temps de trajet au survol ; les joueurs
@@ -2099,12 +2202,7 @@ class PageAlliance {
     );
     const tracer = !masques && !!(chaine && this._optionsChaine.tracer);
     const rangs = new Map(tracer ? chaine.ordre.map((m, k) => [m.pseudo, k + 1]) : []);
-    const tempsParcours = (target, niveauVit) =>
-      Math.ceil(
-        Math.pow(0.9, niveauVit) *
-          637200 *
-          (1 - Math.exp(-Math.hypot(target.x - me.x, target.y - me.y) / 350)),
-      );
+    const tempsParcours = (target, niveauVit) => Joueur.tempsTrajet(me, target, niveauVit);
     // Regroupement par case (x, y)
     const parCase = (liste) => {
       const cases = new Map();
@@ -2121,6 +2219,32 @@ class PageAlliance {
       isMyGroup: s.members.some((m) => m.isMe),
     }));
     const autres = parCase(this._autres ? this._autres.points : []);
+    this._pointsTrajets = {
+      moi: { pseudo: monProfil.pseudo, x: me.x, y: me.y, alliance: Utils.alliance },
+      cibles: [
+        ...(masques ? [] : members).map((m) => ({
+          pseudo: m.pseudo,
+          x: m.x,
+          y: m.y,
+          alliance: Utils.alliance,
+          moi: !!m.isMe,
+        })),
+        ...(this._autres ? this._autres.points : []).map((a) => ({
+          pseudo: a.pseudo,
+          x: a.x,
+          y: a.y,
+          alliance: a.alliance,
+          ajoute: true,
+        })),
+      ],
+    };
+    // ma Vitesse d'attaque proposée au premier dessin, puis celle saisie
+    if (!this._vaTrajetsPosee) {
+      $("#o_trajetsVa").val(niveauVitesseAttaque);
+      this._vaTrajetsPosee = true;
+    }
+    $("#o_carteTrajets").show();
+    this._trajets();
     // Liens : K plus proches voisins (s'adapte à l'étalement de l'alliance)
     const edgeSet = new Set();
     for (let i = 0; i < spots.length; i++) {

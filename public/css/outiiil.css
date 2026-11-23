@@ -1428,6 +1428,20 @@ h2:has(+ .o_nbUnite) {
 .o_carteLigneMasquee > b {
   opacity: 0.45;
 }
+/* départ et Vitesse d'attaque des temps de trajet : passent à la ligne sur un téléphone */
+.o_carteTrajetsChoix {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 16px;
+}
+#o_trajetsDepart {
+  max-width: 14em;
+}
+#o_trajetsVa {
+  width: 4em;
+}
 #o_carteAutreApercu {
   margin: 0 0 0 4px;
 }

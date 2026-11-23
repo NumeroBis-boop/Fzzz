@@ -856,3 +856,108 @@ describe("autres joueurs et alliances ajoutés", () => {
     ]);
   });
 });
+
+describe("temps de trajet depuis un joueur", () => {
+  const temps = (de: string, vers: string, va: number) =>
+    lire<string>(`Utils.intToTime(Joueur.tempsTrajet(${de}, ${vers}, ${va}))`);
+  const lignes = () =>
+    lire<string[][]>(
+      `$("#o_trajetsListe tbody tr").not(".reduce").map((i, tr) => [$(tr).find("td").map((j, td) => $(td).text()).get()]).get()`,
+    );
+  const preparer = () => {
+    garderPositions();
+    lire(
+      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "alliance", nom: "ENN", couleur: "#7b3fb0" }]))`,
+    );
+    lire(
+      `localStorage.setItem("fzzz_joueurs_S5", JSON.stringify({ t: Date.now(), joueurs: ${JSON.stringify(BASE)} }))`,
+    );
+    ouvrirPage();
+    afficherCarte();
+  };
+
+  test("calcul : départ retiré (casse ignorée), du plus court au plus long, Vitesse d'attaque saisie", () => {
+    const r = lire<any[]>(`PageAlliance.trajetsDepuis({ pseudo: "alpha", x: 10, y: 10 }, [
+      { pseudo: "Loin", x: 90, y: 10 }, { pseudo: "Alpha", x: 10, y: 10 },
+      { pseudo: "Zed", x: 20, y: 10 }, { pseudo: "Abel", x: 10, y: 20 },
+    ], 3)`);
+    expect(r.map((c) => c.pseudo)).toEqual(["Abel", "Zed", "Loin"]);
+    expect(r[2].temps).toBe(lire(`Joueur.tempsTrajet({ x: 10, y: 10 }, { x: 90, y: 10 }, 3)`));
+    expect(
+      lire(`["", "7", "3,9", "-2", "150", "abc", null].map((v) => PageAlliance.vaTrajets(v))`),
+    ).toEqual([0, 7, 3, 0, 99, 0, 0]);
+  });
+
+  test("tableau sous la carte : depuis moi par défaut avec ma VA, puis le départ choisi (gardé) et la VA saisie", () => {
+    preparer();
+    expect(lire(`$("#o_carteTrajets").css("display")`)).not.toBe("none");
+    expect(lire(`$("#o_trajetsVa").val()`)).toBe("5");
+    expect(
+      lire(
+        `[$("#o_trajetsDepart option").map((i, o) => o.value).get(), $("#o_trajetsDepart optgroup").map((i, g) => g.label).get(), $("#o_trajetsDepart").val()]`,
+      ),
+    ).toEqual([
+      ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
+      ["Ton alliance (TAG)", "Joueurs et alliances ajoutés"],
+      "Alpha",
+    ]);
+    const alpha = "{ x: 10, y: 10 }",
+      echo = "{ x: 80, y: 5 }";
+    expect(lignes()).toEqual([
+      ["Bravo", "TAG", temps(alpha, "{ x: 30, y: 12 }", 5)],
+      ["Delta", "TAG", temps(alpha, "{ x: 12, y: 50 }", 5)],
+      ["Charlie", "TAG", temps(alpha, "{ x: 50, y: 40 }", 5)],
+      ["Echo", "ENN", temps(alpha, echo, 5)],
+      ["Foxtrot", "ENN", temps(alpha, "{ x: 85, y: 9 }", 5)],
+    ]);
+    // l'info-bulle de la carte donne le même temps (même formule)
+    const bulle = lire<string>(`(() => {
+      let d = CARTES.at(-1).series.find((s) => s.name == "Membres").data.find((d) => d.name == "Bravo");
+      return CARTES.at(-1).tooltip.formatter.call({ point: d });
+    })()`);
+    expect(bulle).toContain(temps(alpha, "{ x: 30, y: 12 }", 5));
+
+    lire(`$("#o_trajetsDepart").val("Echo").trigger("change")`);
+    expect(lire(`localStorage.getItem("fzzz_carteDepartTrajets")`)).toBe('"Echo"');
+    expect(lignes().map((l) => l[0])).toEqual([
+      "Foxtrot",
+      "Charlie",
+      "Bravo",
+      "Alpha (toi)",
+      "Delta",
+    ]);
+    lire(`$("#o_trajetsVa").val("0").trigger("input")`);
+    expect(lignes()[0]).toEqual(["Foxtrot", "ENN", temps(echo, "{ x: 85, y: 9 }", 0)]);
+    expect(lire(`$("#o_trajetsListe tr.reduce").text()`)).toBe(
+      "Depuis Echo (80 / 5), Vitesse d'attaque 0 · 5 joueurs",
+    );
+
+    // alliance masquée : ses membres ne sont plus des cibles, le départ reste
+    lire(`$("#o_carteAutresListe li:first .o_carteMasquer").trigger("click")`);
+    expect(lignes().map((l) => l[0])).toEqual(["Foxtrot"]);
+    expect(lire(`$("#o_trajetsDepart option").map((i, o) => o.value).get()`)).toEqual([
+      "Alpha",
+      "Echo",
+      "Foxtrot",
+    ]);
+
+    // nouvelle page : départ gardé, VA de nouveau la mienne
+    lire(`CARTES.length = 0;
+      document.body.innerHTML = "<span id='tag_alliance'>TAG</span><span id='quantite_tdc'>100000</span><a id='o_ongletCarte' href='#'>Carte</a><div id='alliance'></div>"`);
+    ouvrirPage();
+    afficherCarte();
+    expect(lire(`[$("#o_trajetsDepart").val(), $("#o_trajetsVa").val()]`)).toEqual(["Echo", "5"]);
+  });
+
+  test("départ qui n'est plus sur la carte : depuis moi ; aucun autre joueur affiché : une phrase", () => {
+    garderPositions();
+    lire(`localStorage.setItem("fzzz_carteDepartTrajets", JSON.stringify("Inconnu"))`);
+    lire(`localStorage.setItem("fzzz_carteMembresMasques", "true")`);
+    ouvrirPage();
+    afficherCarte();
+    expect(lire(`$("#o_trajetsDepart").val()`)).toBe("Alpha");
+    expect(lire(`$("#o_trajetsListe").text()`)).toBe("Aucun autre joueur affiché sur la carte.");
+    // le choix gardé n'est pas effacé par le repli
+    expect(lire(`localStorage.getItem("fzzz_carteDepartTrajets")`)).toBe('"Inconnu"');
+  });
+});

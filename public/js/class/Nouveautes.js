@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.155.0",
+    notes: [
+      "Carte de l'alliance : ta fourmilière a sa propre ligne, sous celle de ton alliance, avec sa couleur, sa forme, sa taille et un bouton « Masquer » indépendant de celui de l'alliance.",
+    ],
+  },
+  {
     version: "1.154.0",
     notes: [
       "Carte de l'alliance : choisis un joueur de départ et une Vitesse d'attaque, un tableau sous la carte donne son temps de trajet vers chacun des joueurs affichés, du plus proche au plus loin.",

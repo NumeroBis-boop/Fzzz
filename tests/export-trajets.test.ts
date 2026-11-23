@@ -197,6 +197,8 @@ describe("Carte de l'alliance : « Exporter en Excel »", () => {
     const bouton = lire<{ texte: string; avant: string }>(`(() => {
       localStorage.clear();
       document.body.innerHTML = "<span id='tag_alliance'>TAG</span><div id='alliance'></div>";
+      // le profil du joueur, lu par sa ligne « ta fourmilière » de la Carte
+      window.monProfil = { pseudo: "Moi", x: 0, y: 0, niveauRecherche: [] };
       Object.assign(Object.create(PageAlliance.prototype), { _gradesNatifs: {} }).carte();
       return { texte: $("#o_carteAllianceExportExcel").text(), avant: $("#o_carteAllianceExportExcel").prev().attr("id") };
     })()`);

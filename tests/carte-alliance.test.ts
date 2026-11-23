@@ -355,13 +355,14 @@ describe("autres joueurs et alliances ajoutés", () => {
       { type: "joueur", nom: "Golf", couleur: "#8a8a8a", forme: "losange", taille: "moyenne" },
     ]);
     expect(lire(`$("#o_carteAutreNom").val()`)).toBe("");
-    // mon alliance en tête, sans ✕ ; puis les ajoutés
+    // mon alliance en tête, puis ma fourmilière, sans ✕ ; puis les ajoutés
     expect(
       lire(
         `$("#o_carteAutresListe li").map((i, e) => [[$(e).children("b").text(), $(e).children(".reduce").text(), $(e).find(".o_carteAutreRetirer").length]]).get()`,
       ),
     ).toEqual([
       ["TAG", "ton alliance · 4 membres", 0],
+      ["Alpha", "ta fourmilière", 0],
       ["ENN", "alliance · 2 joueurs", 1],
       ["Golf", "joueur · sans alliance · 90 000 cm²", 1],
     ]);
@@ -394,13 +395,13 @@ describe("autres joueurs et alliances ajoutés", () => {
 
     // couleur changée puis retrait
     lire(
-      `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=couleur]").val("#e75fa3").trigger("change")`,
+      `$("#o_carteAutresListe li:eq(2) .o_carteStyle[data-champ=couleur]").val("#e75fa3").trigger("change")`,
     );
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))[0].couleur`)).toBe("#e75fa3");
     expect(
       (series().find((s) => s.name == "Autres")?.data ?? []).map((d) => d.marker.fillColor),
     ).toEqual(["#8a8a8a", "#e75fa3", "#e75fa3"]);
-    lire(`$("#o_carteAutresListe li:eq(1) .o_carteAutreRetirer").trigger("click")`);
+    lire(`$("#o_carteAutresListe li:eq(2) .o_carteAutreRetirer").trigger("click")`);
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
       { type: "joueur", nom: "Golf", couleur: "#8a8a8a", forme: "losange", taille: "moyenne" },
     ]);
@@ -485,7 +486,7 @@ describe("autres joueurs et alliances ajoutés", () => {
     afficherCarte();
     const d = lire(`CARTES[0].series.find((s) => s.name == "Autres").data[0]`);
     expect([d.name, d.marker.fillColor]).toEqual(["Kilo", "#2a78d6"]);
-    expect(lire(`$("#o_carteAutresListe li:eq(1) .o_carteSymbole").attr("style")`)).toBe(
+    expect(lire(`$("#o_carteAutresListe li:eq(2) .o_carteSymbole").attr("style")`)).toBe(
       "color:#2a78d6;",
     );
     // 100 000 cm² contre 250 000 : je peux l'attaquer (jusqu'au triple), pas lui (pas sous sa moitié)
@@ -496,7 +497,7 @@ describe("autres joueurs et alliances ajoutés", () => {
     ).toContain("Tu peux l'attaquer : oui · il peut t'attaquer : non");
   });
 
-  test("dix couleurs au choix ; gris de la 1.151.0 gardé gris ; aperçu de la couleur proposée", () => {
+  test("onze couleurs au choix ; gris de la 1.151.0 gardé gris ; aperçu de la couleur proposée", () => {
     lire(`localStorage.setItem("fzzz_carteAutres", JSON.stringify([
       { type: "joueur", nom: "Golf", couleur: "#6b6b6b" },
       { type: "alliance", nom: "ENN", couleur: "#0b6e2f" },
@@ -513,6 +514,7 @@ describe("autres joueurs et alliances ajoutés", () => {
       "Bleu marine",
       "Bordeaux",
       "Gris",
+      "Vert clair",
     ]);
     expect(lire(`PageAlliance.autresGardes().map((e) => e.couleur)`)).toEqual([
       "#8a8a8a",
@@ -526,7 +528,7 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(lire(`$("#o_carteAutreApercu").css("color")`)).toBe("#e8590c");
   });
 
-  test("marqueurs : forme, taille, case de plusieurs joueurs cerclée de noir, ma case en vert, croix en traits", () => {
+  test("marqueurs : forme, taille, case de plusieurs joueurs et ma case cerclées de noir, croix en traits", () => {
     const m = (style: object, cas = "{}") =>
       lire(`PageAlliance.marqueur(${JSON.stringify(style)}, ${cas})`);
     expect(m({ couleur: "#2a78d6", forme: "carre", taille: "grande" })).toEqual({
@@ -543,13 +545,15 @@ describe("autres joueurs et alliances ajoutés", () => {
       lineColor: "#222",
       lineWidth: 2,
     });
-    expect(m({ couleur: "#c0392b", forme: "rond", taille: "moyenne" }, "{ moi: true }")).toEqual({
-      symbol: "circle",
-      radius: 5,
-      fillColor: "#27ae60",
-      lineColor: "#196f3d",
-      lineWidth: 2,
-    });
+    expect(m({ couleur: "#27ae60", forme: "losange", taille: "moyenne" }, "{ moi: true }")).toEqual(
+      {
+        symbol: "diamond",
+        radius: 6,
+        fillColor: "#27ae60",
+        lineColor: "#222",
+        lineWidth: 2,
+      },
+    );
     expect(m({ couleur: "#1a1a1a", forme: "croix", taille: "tresGrande" }, "{ n: 9 }")).toEqual({
       symbol: "fzzzCroix",
       radius: 13,
@@ -576,7 +580,7 @@ describe("autres joueurs et alliances ajoutés", () => {
       "ton alliance · 4 membres",
     );
     const membres = () => series().find((s) => s.name == "Membres")?.data ?? [];
-    // par défaut : rond rouge moyen, ma case en vert
+    // par défaut : rond rouge moyen, ma case en vert clair (sa ligne « Toi »)
     expect(
       membres().map((d) => [d.name, d.marker.symbol, d.marker.fillColor, d.marker.radius]),
     ).toEqual([
@@ -597,8 +601,9 @@ describe("autres joueurs et alliances ajoutés", () => {
       forme: "carre",
       taille: "grande",
     });
+    // ma case ne suit pas la ligne de l'alliance
     expect(membres().map((d) => [d.marker.symbol, d.marker.fillColor, d.marker.radius])).toEqual([
-      ["square", "#27ae60", 7],
+      ["circle", "#27ae60", 5],
       ["square", "#1c3f94", 7],
       ["square", "#1c3f94", 7],
       ["square", "#1c3f94", 7],
@@ -612,7 +617,58 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#c0392b");
   });
 
-  test("« Masquer » sur la ligne de mon alliance : les ajoutés seuls, cadrés sur eux ; gardé ; « Afficher » la remet", () => {
+  test("ligne de ma fourmilière : couleur, forme et taille à elle, gardées ; légende à jour", () => {
+    garderPositions();
+    ouvrirPage();
+    afficherCarte();
+    const moi = () =>
+      (series().find((s) => s.name == "Membres")?.data ?? []).find((d) => d.name == "Alpha");
+    const regler = (champ: string, valeur: string) =>
+      lire(
+        `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=${champ}]").val("${valeur}").trigger("change")`,
+      );
+    expect(lire(`$("#o_carteAutresListe li:eq(1)").data("k")`)).toBe("moi");
+    regler("couleur", "#1a1a1a");
+    regler("forme", "triangle");
+    regler("taille", "tresGrande");
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteStyleMoi"))`)).toEqual({
+      couleur: "#1a1a1a",
+      forme: "triangle",
+      taille: "tresGrande",
+    });
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteStyleMembres"))`)).toBe(null);
+    const m = moi();
+    expect([m.marker.symbol, m.marker.fillColor, m.marker.radius, m.marker.lineColor]).toEqual([
+      "triangle",
+      "#1a1a1a",
+      11,
+      "#222",
+    ]);
+    // les autres membres gardent le style de l'alliance
+    expect(
+      (series().find((s) => s.name == "Membres")?.data ?? [])
+        .filter((d) => d.name != "Alpha")
+        .map((d) => d.marker.fillColor),
+    ).toEqual(["#c0392b", "#c0392b", "#c0392b"]);
+    expect(lire(`$("#o_carteAutresListe li:eq(1) .o_carteSymbole").attr("style")`)).toBe(
+      "color:#1a1a1a;",
+    );
+    expect(lire(`$("#o_carteLegende").text()`)).toContain("▲ Toi");
+    // ma couleur prise : jamais proposée pour une nouvelle ligne
+    regler("couleur", "#2a78d6");
+    expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#7b3fb0");
+    // style hors des choix : celui par défaut
+    lire(
+      `localStorage.setItem("fzzz_carteStyleMoi", JSON.stringify({ couleur: "red", forme: "x", taille: "y" }))`,
+    );
+    expect(lire(`PageAlliance.styleMoi()`)).toEqual({
+      couleur: "#27ae60",
+      forme: "rond",
+      taille: "moyenne",
+    });
+  });
+
+  test("« Masquer » de l'alliance puis de ma fourmilière : les ajoutés seuls, cadrés sur eux ; gardé ; « Afficher » les remet", () => {
     garderPositions();
     lire(
       `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "alliance", nom: "ENN", couleur: "#7b3fb0" }]))`,
@@ -644,10 +700,24 @@ describe("autres joueurs et alliances ajoutés", () => {
 
     lire(`${bouton}.trigger("click")`);
     expect(lire(`localStorage.getItem("fzzz_carteMembresMasques")`)).toBe("true");
-    expect(donnees("Membres")).toEqual([]);
+    // ma fourmilière a sa propre ligne : elle reste
+    expect(donnees("Membres").map((d) => d.name)).toEqual(["Alpha"]);
     expect([donnees("Liens"), donnees("Liens vers toi"), donnees("Chaîne")]).toEqual([[], [], []]);
+    expect(lire(`CARTES.at(-1).title.text`)).toBe("Ton alliance masquée • 2 autres • 3 cases");
+    expect(lire(`$("#o_carteLegende").text()`)).toBe(
+      "Ton alliance est masquée (« Afficher » sur sa ligne) · ● Toi · les autres : forme et couleur de leur ligne",
+    );
+    const boutonMoi = `$("#o_carteAutresListe li:eq(1) .o_carteMasquer")`;
+    lire(`${boutonMoi}.trigger("click")`);
+    expect(lire(`localStorage.getItem("fzzz_carteMoiMasque")`)).toBe("true");
+    expect(donnees("Membres")).toEqual([]);
     expect(donnees("Autres").map((d) => d.name)).toEqual(["Echo", "Foxtrot"]);
     expect(bulle()).toBe(avant);
+    expect(
+      lire(
+        `[$("#o_carteAutresListe li:eq(1) .reduce").text(), $("#o_carteAutresListe li:eq(1)").hasClass("o_carteLigneMasquee"), ${boutonMoi}.text()]`,
+      ),
+    ).toEqual(["ta fourmilière · masquée", true, "Afficher"]);
     const o = lire(`(() => {
       let c = CARTES.at(-1), li = $("#o_carteAutresListe li:first");
       return { x: c.xAxis, titre: c.title.text, sous: c.subtitle.text, legende: $("#o_carteLegende").text(),
@@ -660,7 +730,7 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(o.titre).toBe("Ton alliance masquée • 2 autres • 2 cases");
     expect(o.sous).toBe("");
     expect(o.legende).toBe(
-      "Ton alliance est masquée (« Afficher » sur sa ligne) · les autres : forme et couleur de leur ligne",
+      "Ton alliance est masquée (« Afficher » sur sa ligne) · ta fourmilière masquée · les autres : forme et couleur de leur ligne",
     );
     expect([o.ligne, o.pale, o.bouton]).toEqual([
       "ton alliance · 4 membres · masquée",
@@ -674,7 +744,7 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(donnees("Membres")).toEqual([]);
     expect(lire(`p._membresCarte("l'exporter").members.length`)).toBe(4);
 
-    // nouvelle page : toujours masquée
+    // nouvelle page : toujours masquées
     lire(`CARTES.length = 0;
       document.body.innerHTML = "<span id='tag_alliance'>TAG</span><span id='quantite_tdc'>100000</span><a id='o_ongletCarte' href='#'>Carte</a><div id='alliance'></div>"`);
     ouvrirPage();
@@ -682,19 +752,31 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(donnees("Membres")).toEqual([]);
     lire(`${bouton}.trigger("click")`);
     expect(lire(`localStorage.getItem("fzzz_carteMembresMasques")`)).toBe(null);
+    // l'alliance remise sans moi : ses trois autres membres, « 3 membres affichés sur 4 » ;
+    // la chaîne tracée (filtres) passe encore par ma fourmilière : son rang 2 n'est sur aucun point
+    expect(donnees("Membres").map((d) => d.name)).toEqual(["1. Bravo", "4. Charlie", "3. Delta"]);
+    expect(lire(`CARTES.at(-1).title.text`)).toContain("3 membres affichés sur 4 •");
+    expect(donnees("Liens vers toi")).toEqual([]);
+    lire(`${boutonMoi}.trigger("click")`);
+    expect(lire(`localStorage.getItem("fzzz_carteMoiMasque")`)).toBe(null);
     expect(donnees("Membres").length).toBe(4);
     expect(donnees("Chaîne").length).toBe(4);
-    expect(lire(`${bouton}.text()`)).toBe("Masquer");
+    expect(lire(`[${bouton}.text(), ${boutonMoi}.text()]`)).toEqual(["Masquer", "Masquer"]);
   });
 
-  test("alliance masquée sans joueur ajouté : carte vide autour de moi, titre qui le dit", () => {
+  test("alliance et fourmilière masquées sans joueur ajouté : carte vide autour de moi, titre qui le dit", () => {
     garderPositions();
     lire(`localStorage.setItem("fzzz_carteMembresMasques", "true")`);
     ouvrirPage();
     afficherCarte();
-    const o = lire(
-      `({ titre: CARTES.at(-1).title.text, x: CARTES.at(-1).xAxis, points: CARTES.at(-1).series.reduce((n, s) => n + s.data.length, 0) })`,
-    );
+    const lireCarte = () =>
+      lire(
+        `({ titre: CARTES.at(-1).title.text, x: CARTES.at(-1).xAxis, points: CARTES.at(-1).series.reduce((n, s) => n + s.data.length, 0) })`,
+      );
+    // ma fourmilière seule
+    expect(lireCarte().points).toBe(1);
+    lire(`$("#o_carteAutresListe li:eq(1) .o_carteMasquer").trigger("click")`);
+    const o = lireCarte();
     expect(o.titre).toBe("Ton alliance masquée • aucun joueur ajouté à montrer");
     expect(o.points).toBe(0);
     // cadre autour de ma fourmilière (10, 10)
@@ -743,10 +825,10 @@ describe("autres joueurs et alliances ajoutés", () => {
     ouvrirPage();
     afficherCarte();
     lire(
-      `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=forme]").val("croix").trigger("change")`,
+      `$("#o_carteAutresListe li:eq(2) .o_carteStyle[data-champ=forme]").val("croix").trigger("change")`,
     );
     lire(
-      `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=taille]").val("tresGrande").trigger("change")`,
+      `$("#o_carteAutresListe li:eq(2) .o_carteStyle[data-champ=taille]").val("tresGrande").trigger("change")`,
     );
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
       { type: "joueur", nom: "Golf", couleur: "#1a1a1a", forme: "croix", taille: "tresGrande" },
@@ -758,7 +840,7 @@ describe("autres joueurs et alliances ajoutés", () => {
       10,
       "#1a1a1a",
     ]);
-    expect(lire(`$("#o_carteAutresListe li:eq(1) .o_carteSymbole").text()`)).toBe("✕");
+    expect(lire(`$("#o_carteAutresListe li:eq(2) .o_carteSymbole").text()`)).toBe("✕");
   });
 
   test("suggestions : contient le texte, début d'abord, casse ignorée ; sans mon alliance ni le déjà ajouté", () => {
@@ -932,8 +1014,10 @@ describe("temps de trajet depuis un joueur", () => {
       "Depuis Echo (80 / 5), Vitesse d'attaque 0 · 5 joueurs",
     );
 
-    // alliance masquée : ses membres ne sont plus des cibles, le départ reste
+    // alliance masquée : ses membres ne sont plus des cibles, ma fourmilière (sa ligne) si ; le départ reste
     lire(`$("#o_carteAutresListe li:first .o_carteMasquer").trigger("click")`);
+    expect(lignes().map((l) => l[0])).toEqual(["Foxtrot", "Alpha (toi)"]);
+    lire(`$("#o_carteAutresListe li:eq(1) .o_carteMasquer").trigger("click")`);
     expect(lignes().map((l) => l[0])).toEqual(["Foxtrot"]);
     expect(lire(`$("#o_trajetsDepart option").map((i, o) => o.value).get()`)).toEqual([
       "Alpha",

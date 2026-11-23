@@ -25,6 +25,7 @@ const COULEURS_CARTE = [
   ["Bleu marine", "#1c3f94"],
   ["Bordeaux", "#7a1f3d"],
   ["Gris", "#8a8a8a"],
+  ["Vert clair", "#27ae60"],
 ];
 /** Symbole Highcharts de la croix, ajouté à ceux de Highcharts 6 (rond, carré, losange, triangles). */
 const SYMBOLE_CROIX = "fzzzCroix";
@@ -48,15 +49,18 @@ const TAILLES_CARTE = [
   ["grande", "Grande", 7],
   ["tresGrande", "Très grande", 10],
 ];
-/** Ma fourmilière sur la Carte, quelle que soit la couleur choisie pour mon alliance. */
-const COULEUR_CARTE_MOI = "#27ae60";
 /** Couleur, forme et taille des membres de mon alliance sur la Carte (localStorage du jeu, donc par serveur). */
 const CLE_CARTE_STYLE_MEMBRES = "fzzz_carteStyleMembres";
 // membres de mon alliance retirés de la carte, pour regarder les autres seuls
 const CLE_CARTE_MEMBRES_MASQUES = "fzzz_carteMembresMasques";
+/** Couleur, forme et taille de ma fourmilière sur la Carte, et son retrait (localStorage du jeu, donc par serveur). */
+const CLE_CARTE_STYLE_MOI = "fzzz_carteStyleMoi";
+const CLE_CARTE_MOI_MASQUE = "fzzz_carteMoiMasque";
 /** Joueur de départ des « Temps de trajet depuis un joueur » (localStorage du jeu, donc par serveur). */
 const CLE_CARTE_DEPART_TRAJETS = "fzzz_carteDepartTrajets";
 const STYLE_CARTE_MEMBRES = { couleur: "#c0392b", forme: "rond", taille: "moyenne" };
+// le vert de ma fourmilière d'avant 1.155.0
+const STYLE_CARTE_MOI = { couleur: "#27ae60", forme: "rond", taille: "moyenne" };
 const STYLE_CARTE_AUTRE = { couleur: "#2a78d6", forme: "losange", taille: "moyenne" };
 /** Suggestions proposées au plus pendant la saisie d'un pseudo ou d'un tag. */
 const SUGGESTIONS_CARTE_MAX = 8;
@@ -1556,6 +1560,25 @@ class PageAlliance {
     return Utils.lireStockage(CLE_CARTE_MEMBRES_MASQUES, false) === true;
   }
   /**
+   * Couleur, forme et taille de ma fourmilière sur la carte.
+   *
+   * @static
+   * @method styleMoi
+   */
+  static styleMoi() {
+    return PageAlliance.style(Utils.lireStockage(CLE_CARTE_STYLE_MOI), STYLE_CARTE_MOI);
+  }
+  /**
+   * Ma fourmilière masquée sur la carte (bouton de sa ligne), indépendamment de mon alliance.
+   *
+   * @static
+   * @method moiMasque
+   * @return {Boolean}
+   */
+  static moiMasque() {
+    return Utils.lireStockage(CLE_CARTE_MOI_MASQUE, false) === true;
+  }
+  /**
    * Joueurs et alliances ajoutés à la carte, couleur, forme et taille vérifiées.
    *
    * @static
@@ -1577,8 +1600,8 @@ class PageAlliance {
   /**
    * Marqueur Highcharts d'une case de la carte, à la couleur, la forme et la
    * taille de sa ligne : une case de plusieurs joueurs plus grande et cerclée
-   * de noir, la mienne en vert. La croix, faite de traits, prend la couleur
-   * dans son trait.
+   * de noir, la mienne cerclée de noir aussi. La croix, faite de traits, prend
+   * la couleur dans son trait.
    *
    * @static
    * @method marqueur
@@ -1590,7 +1613,7 @@ class PageAlliance {
     let n = cas.n || 1,
       forme = FORMES_CARTE.find((f) => f[0] == style.forme) || FORMES_CARTE[0],
       rayon = (TAILLES_CARTE.find((t) => t[0] == style.taille) || TAILLES_CARTE[1])[2] + forme[4],
-      couleur = cas.moi ? COULEUR_CARTE_MOI : style.couleur,
+      couleur = style.couleur,
       marque = n > 1 || !!cas.moi;
     if (forme[2] == SYMBOLE_CROIX)
       return {
@@ -1604,7 +1627,7 @@ class PageAlliance {
       symbol: forme[2],
       radius: rayon + Math.min(n - 1, 3),
       fillColor: couleur,
-      lineColor: cas.moi ? "#196f3d" : n > 1 ? "#222" : "#fff",
+      lineColor: marque ? "#222" : "#fff",
       lineWidth: marque ? 2 : 1.5,
     };
   }
@@ -1850,12 +1873,20 @@ class PageAlliance {
         )}${retirer}</span></span>`,
       nbMembres = this._carteMembres ? this._carteMembres.length : 0,
       masques = PageAlliance.membresMasques(),
+      moi = PageAlliance.styleMoi(),
+      moiMasque = PageAlliance.moiMasque(),
       lignes = [
         `<li data-k='membres' class='o_carteLigneMembres${masques ? " o_carteLigneMasquee" : ""}'>${PageAlliance.glyphe(membres)}<b>${echapper(Utils.alliance)}</b> <span class='reduce'>ton alliance${nbMembres ? ` · ${nbMembres} membres` : ""}${masques ? " · masquée" : ""}</span>
           ${reglages(
             membres,
             Utils.alliance,
-            `<button type='button' class='o_carteMasquer o_button f_info' aria-pressed='${masques}' title='${masques ? "Remettre les membres de ton alliance sur la carte" : "Retirer les membres de ton alliance de la carte, pour ne voir que les joueurs et alliances ajoutés"}'>${masques ? "Afficher" : "Masquer"}</button>`,
+            `<button type='button' class='o_carteMasquer o_button f_info' aria-pressed='${masques}' title='${masques ? "Remettre les membres de ton alliance sur la carte" : "Retirer les membres de ton alliance de la carte (pas ta fourmilière, qui a sa ligne), pour regarder les joueurs et alliances ajoutés"}'>${masques ? "Afficher" : "Masquer"}</button>`,
+          )}</li>`,
+        `<li data-k='moi' class='o_carteLigneMoi${moiMasque ? " o_carteLigneMasquee" : ""}'>${PageAlliance.glyphe(moi)}<b>${echapper(monProfil.pseudo)}</b> <span class='reduce'>ta fourmilière${moiMasque ? " · masquée" : ""}</span>
+          ${reglages(
+            moi,
+            "ta fourmilière",
+            `<button type='button' class='o_carteMasquer o_button f_info' aria-pressed='${moiMasque}' title='${moiMasque ? "Remettre ta fourmilière sur la carte" : "Retirer ta fourmilière de la carte"}'>${moiMasque ? "Afficher" : "Masquer"}</button>`,
           )}</li>`,
         ...entrees.map(
           (e, k) =>
@@ -1868,8 +1899,8 @@ class PageAlliance {
         "<li class='reduce o_secondaire'>Ajoute un joueur ou une alliance entière (alliés, ennemis, recrues…).</li>",
       );
     $("#o_carteAutresListe").html(lignes.join(""));
-    // couleur proposée : la première que ni mon alliance ni un ajouté n'a prise
-    let prises = [membres.couleur, ...entrees.map((e) => e.couleur)],
+    // couleur proposée : la première que ni mon alliance, ni moi, ni un ajouté n'a prise
+    let prises = [membres.couleur, moi.couleur, ...entrees.map((e) => e.couleur)],
       libre = COULEURS_CARTE.find((c) => !prises.includes(c[1]));
     $("#o_carteAutreCouleur").val((libre || COULEURS_CARTE[1])[1]);
     $("#o_carteAutreApercu").css("color", String($("#o_carteAutreCouleur").val()));
@@ -1921,12 +1952,13 @@ class PageAlliance {
         let k = $(e.currentTarget).closest("li").data("k"),
           champ = String($(e.currentTarget).data("champ")),
           valeur = String($(e.currentTarget).val());
-        if (k == "membres") {
+        if (k == "membres" || k == "moi") {
+          let [cle, actuel] =
+            k == "moi"
+              ? [CLE_CARTE_STYLE_MOI, PageAlliance.styleMoi()]
+              : [CLE_CARTE_STYLE_MEMBRES, PageAlliance.styleMembres()];
           try {
-            localStorage.setItem(
-              CLE_CARTE_STYLE_MEMBRES,
-              JSON.stringify({ ...PageAlliance.styleMembres(), [champ]: valeur }),
-            );
+            localStorage.setItem(cle, JSON.stringify({ ...actuel, [champ]: valeur }));
           } catch (err) {}
           this._listeAutres();
           this._redessiner();
@@ -1936,10 +1968,13 @@ class PageAlliance {
           if (liste[Number(k)]) liste[Number(k)][champ] = valeur;
         });
       })
-      .on("click", ".o_carteMasquer", () => {
+      .on("click", ".o_carteMasquer", (e) => {
+        let moi = $(e.currentTarget).closest("li").data("k") == "moi",
+          cle = moi ? CLE_CARTE_MOI_MASQUE : CLE_CARTE_MEMBRES_MASQUES,
+          masque = moi ? PageAlliance.moiMasque() : PageAlliance.membresMasques();
         try {
-          if (PageAlliance.membresMasques()) localStorage.removeItem(CLE_CARTE_MEMBRES_MASQUES);
-          else localStorage.setItem(CLE_CARTE_MEMBRES_MASQUES, "true");
+          if (masque) localStorage.removeItem(cle);
+          else localStorage.setItem(cle, "true");
         } catch (err) {}
         this._listeAutres();
         this._redessiner();
@@ -2178,12 +2213,18 @@ class PageAlliance {
     const $graphe = $("#o_carteAllianceChart").show();
     const styleMembres = PageAlliance.styleMembres();
     const masques = PageAlliance.membresMasques();
+    const styleMoi = PageAlliance.styleMoi();
+    const moiMasque = PageAlliance.moiMasque();
     PageAlliance.formeCroix();
     $("#o_carteLegende")
       .html(
-        masques
-          ? "Ton alliance est masquée (« Afficher » sur sa ligne) · les autres : forme et couleur de leur ligne"
-          : `${PageAlliance.glyphe(styleMembres)} Membre · ${PageAlliance.glyphe(styleMembres)} plus gros, cerclé de noir : plusieurs membres sur une case · ${PageAlliance.glyphe({ ...styleMembres, couleur: COULEUR_CARTE_MOI })} Toi · les autres : forme et couleur de leur ligne`,
+        [
+          masques
+            ? "Ton alliance est masquée (« Afficher » sur sa ligne)"
+            : `${PageAlliance.glyphe(styleMembres)} Membre · ${PageAlliance.glyphe(styleMembres)} plus gros, cerclé de noir : plusieurs membres sur une case`,
+          moiMasque ? "ta fourmilière masquée" : `${PageAlliance.glyphe(styleMoi)} Toi`,
+          "les autres : forme et couleur de leur ligne",
+        ].join(" · "),
       )
       .show();
     // Désactive le warning Highcharts #15 : nos séries `line` représentent des arêtes
@@ -2196,6 +2237,8 @@ class PageAlliance {
       m.isMe = m.pseudo === monProfil.pseudo;
     });
     const me = members.find((m) => m.isMe) || { x: monProfil.x, y: monProfil.y };
+    // chaque ligne masquable à part : mon alliance (ses autres membres) et ma fourmilière
+    const affiches = members.filter((m) => (m.isMe ? !moiMasque : !masques));
     const chaine = this._chaineAJour(
       members,
       !!(this._optionsChaine && this._optionsChaine.tracer) || !!this._chaineVoulue,
@@ -2214,7 +2257,7 @@ class PageAlliance {
       return [...cases.values()];
     };
     // alliance masquée : ni ses cases, ni ses liens ; temps de trajet toujours depuis moi
-    const spots = parCase(masques ? [] : members).map((s) => ({
+    const spots = parCase(affiches).map((s) => ({
       ...s,
       isMyGroup: s.members.some((m) => m.isMe),
     }));
@@ -2222,7 +2265,7 @@ class PageAlliance {
     this._pointsTrajets = {
       moi: { pseudo: monProfil.pseudo, x: me.x, y: me.y, alliance: Utils.alliance },
       cibles: [
-        ...(masques ? [] : members).map((m) => ({
+        ...affiches.map((m) => ({
           pseudo: m.pseudo,
           x: m.x,
           y: m.y,
@@ -2347,8 +2390,8 @@ class PageAlliance {
       },
       title: {
         text: masques
-          ? `Ton alliance masquée • ${nbAutres ? `${nbAutres} autre${nbAutres > 1 ? "s" : ""} • ${autres.length} case${autres.length > 1 ? "s" : ""}` : "aucun joueur ajouté à montrer"}`
-          : `${total > members.length ? `${members.length} membres affichés sur ${total}` : `${members.length} membres`}${nbAutres ? ` • ${nbAutres} autre${nbAutres > 1 ? "s" : ""}` : ""} • ${spots.length} cases • ${tracer ? `chaîne de ${chaine.ordre.length} joueurs (${Utils.intToTime(chaine.total)} cumulés)` : `${edges.length} liens (${K_NEIGHBORS} plus proches voisins)`}`,
+          ? `Ton alliance masquée • ${nbAutres ? `${nbAutres} autre${nbAutres > 1 ? "s" : ""} • ${points.length} case${points.length > 1 ? "s" : ""}` : "aucun joueur ajouté à montrer"}`
+          : `${total > affiches.length ? `${affiches.length} membres affichés sur ${total}` : `${affiches.length} membres`}${nbAutres ? ` • ${nbAutres} autre${nbAutres > 1 ? "s" : ""}` : ""} • ${spots.length} cases • ${tracer ? `chaîne de ${chaine.ordre.length} joueurs (${Utils.intToTime(chaine.total)} cumulés)` : `${edges.length} liens (${K_NEIGHBORS} plus proches voisins)`}`,
         style: { fontSize: "14px", fontWeight: "600" },
       },
       subtitle: {
@@ -2524,7 +2567,9 @@ class PageAlliance {
               y: s.y,
               spot: s,
               name: label,
-              marker: PageAlliance.marqueur(styleMembres, { n, moi: s.isMyGroup }),
+              marker: s.isMyGroup
+                ? PageAlliance.marqueur(styleMoi, { n, moi: true })
+                : PageAlliance.marqueur(styleMembres, { n }),
             };
           }),
         },

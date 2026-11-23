@@ -1859,30 +1859,31 @@ class PageAlliance {
               `<option value='${valeur}'${valeur == choisie ? " selected" : ""}>${nom}</option>`,
           )
           .join("")}</select>`,
-      reglages = (/** @type {any} */ style, /** @type {String} */ nom, retirer = "") =>
-        `<span class='o_carteAutreActions'>${choix(
+      // une cellule par colonne de la grille : couleur, forme, taille, bouton
+      reglages = (/** @type {any} */ style, /** @type {String} */ nom, action = "") =>
+        `${choix(
           COULEURS_CARTE.map(([n, v]) => [v, n]),
           style.couleur,
           "couleur",
           `Couleur de ${nom}`,
-        )}${choix(FORMES_CARTE, style.forme, "forme", `Forme de ${nom}`)}<span class='o_carteAutreFin'>${choix(
+        )}${choix(FORMES_CARTE, style.forme, "forme", `Forme de ${nom}`)}${choix(
           TAILLES_CARTE,
           style.taille,
           "taille",
           `Taille de ${nom}`,
-        )}${retirer}</span></span>`,
+        )}<span class='o_carteAction'>${action}</span>`,
       nbMembres = this._carteMembres ? this._carteMembres.length : 0,
       masques = PageAlliance.membresMasques(),
       moi = PageAlliance.styleMoi(),
       moiMasque = PageAlliance.moiMasque(),
       lignes = [
-        `<li data-k='membres' class='o_carteLigneMembres${masques ? " o_carteLigneMasquee" : ""}'>${PageAlliance.glyphe(membres)}<b>${echapper(Utils.alliance)}</b> <span class='reduce'>ton alliance${nbMembres ? ` · ${nbMembres} membres` : ""}${masques ? " · masquée" : ""}</span>
+        `<li data-k='membres' class='o_carteLigneMembres${masques ? " o_carteLigneMasquee" : ""}'><span class='o_carteLigneNom'>${PageAlliance.glyphe(membres)}<b>${echapper(Utils.alliance)}</b> <span class='reduce'>ton alliance${nbMembres ? ` · ${nbMembres} membres` : ""}${masques ? " · masquée" : ""}</span></span>
           ${reglages(
             membres,
             Utils.alliance,
             `<button type='button' class='o_carteMasquer o_button f_info' aria-pressed='${masques}' title='${masques ? "Remettre les membres de ton alliance sur la carte" : "Retirer les membres de ton alliance de la carte (pas ta fourmilière, qui a sa ligne), pour regarder les joueurs et alliances ajoutés"}'>${masques ? "Afficher" : "Masquer"}</button>`,
           )}</li>`,
-        `<li data-k='moi' class='o_carteLigneMoi${moiMasque ? " o_carteLigneMasquee" : ""}'>${PageAlliance.glyphe(moi)}<b>${echapper(monProfil.pseudo)}</b> <span class='reduce'>ta fourmilière${moiMasque ? " · masquée" : ""}</span>
+        `<li data-k='moi' class='o_carteLigneMoi${moiMasque ? " o_carteLigneMasquee" : ""}'><span class='o_carteLigneNom'>${PageAlliance.glyphe(moi)}<b>${echapper(monProfil.pseudo)}</b> <span class='reduce'>ta fourmilière${moiMasque ? " · masquée" : ""}</span></span>
           ${reglages(
             moi,
             "ta fourmilière",
@@ -1890,7 +1891,7 @@ class PageAlliance {
           )}</li>`,
         ...entrees.map(
           (e, k) =>
-            `<li data-k='${k}'>${PageAlliance.glyphe(e)}<b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span>
+            `<li data-k='${k}'><span class='o_carteLigneNom'>${PageAlliance.glyphe(e)}<b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span></span>
               ${reglages(e, e.nom, "<span class='o_carteAutreRetirer cursor' role='button' title='Retirer de la carte'>✕</span>")}</li>`,
         ),
       ];

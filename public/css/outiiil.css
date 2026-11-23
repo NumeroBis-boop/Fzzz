@@ -1386,13 +1386,45 @@ h2:has(+ .o_nbUnite) {
   width: 10em;
   max-width: 100%;
 }
+/* lignes de la carte : nom, couleur, forme, taille et bouton, chacun dans sa colonne d'une ligne à l'autre */
+#o_carteAutres {
+  container-type: inline-size;
+}
 #o_carteAutresListe {
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: minmax(8em, max-content) repeat(4, max-content);
+  align-items: center;
+  gap: 4px 6px;
 }
-#o_carteAutresListe li {
-  margin: 3px 0;
+#o_carteAutresListe > li[data-k] {
+  display: contents;
+}
+#o_carteAutresListe > li:not([data-k]) {
+  grid-column: 1 / -1;
+}
+#o_carteAutresListe .o_carteStyle {
+  max-width: 9em;
+}
+.o_carteAction {
+  justify-self: start;
+}
+/* téléphone : le nom sur sa ligne, ses réglages dessous, toujours en colonnes */
+@container (max-width: 560px) {
+  #o_carteAutresListe {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    row-gap: 2px;
+  }
+  #o_carteAutresListe .o_carteLigneNom {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+  }
+  #o_carteAutresListe .o_carteStyle {
+    width: 100%;
+    max-width: none;
+  }
 }
 .o_carteSymbole {
   display: inline-block;
@@ -1400,32 +1432,16 @@ h2:has(+ .o_nbUnite) {
   margin-right: 6px;
   text-align: center;
 }
-/* réglages d'une ligne (couleur, forme, taille et ✕) : passent à la ligne entre eux, la ✕ avec la taille */
-.o_carteAutreActions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  vertical-align: middle;
-}
-.o_carteAutreActions select {
-  max-width: 9em;
-}
-.o_carteAutreFin {
-  white-space: nowrap;
-}
 .o_carteAutreRetirer {
-  margin-left: 6px;
   padding: 0 6px;
 }
 .o_carteMasquer {
-  margin-left: 6px;
   padding: 2px 10px;
   font-size: 0.9em;
 }
-/* alliance masquée sur la carte : sa ligne pâlie, le bouton net */
-.o_carteLigneMasquee > .o_carteSymbole,
-.o_carteLigneMasquee > b {
+/* alliance ou fourmilière masquée sur la carte : sa ligne pâlie, le bouton net */
+.o_carteLigneMasquee .o_carteLigneNom > .o_carteSymbole,
+.o_carteLigneMasquee .o_carteLigneNom > b {
   opacity: 0.45;
 }
 /* départ et Vitesse d'attaque des temps de trajet : passent à la ligne sur un téléphone */

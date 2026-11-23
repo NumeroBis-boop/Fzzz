@@ -358,7 +358,7 @@ describe("autres joueurs et alliances ajoutés", () => {
     // mon alliance en tête, puis ma fourmilière, sans ✕ ; puis les ajoutés
     expect(
       lire(
-        `$("#o_carteAutresListe li").map((i, e) => [[$(e).children("b").text(), $(e).children(".reduce").text(), $(e).find(".o_carteAutreRetirer").length]]).get()`,
+        `$("#o_carteAutresListe li").map((i, e) => [[$(e).find(".o_carteLigneNom > b").text(), $(e).find(".o_carteLigneNom > .reduce").text(), $(e).find(".o_carteAutreRetirer").length]]).get()`,
       ),
     ).toEqual([
       ["TAG", "ton alliance · 4 membres", 0],
@@ -366,6 +366,16 @@ describe("autres joueurs et alliances ajoutés", () => {
       ["ENN", "alliance · 2 joueurs", 1],
       ["Golf", "joueur · sans alliance · 90 000 cm²", 1],
     ]);
+    // chaque ligne en cinq cellules, les mêmes colonnes de la grille d'une ligne à l'autre
+    expect(
+      lire(
+        `$("#o_carteAutresListe > li").map((i, e) => [$(e).children().map((j, c) => c.className.split(" ")[0] + (c.dataset.champ ? ":" + c.dataset.champ : "")).get().join(" ")]).get()`,
+      ),
+    ).toEqual(
+      Array(4).fill(
+        "o_carteLigneNom o_carteStyle:couleur o_carteStyle:forme o_carteStyle:taille o_carteAction",
+      ),
+    );
     const autres = series().find((s) => s.name == "Autres")?.data ?? [];
     expect(autres.map((d) => [d.name, d.marker.symbol, d.marker.fillColor, d.autre])).toEqual([
       ["Golf", "diamond", "#8a8a8a", true],

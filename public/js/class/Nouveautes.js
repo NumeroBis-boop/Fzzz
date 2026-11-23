@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.155.2",
+    notes: [
+      "Carte de l'alliance : la couleur, la forme, la taille et le bouton de chaque ligne sont alignés en colonnes ; sur téléphone, le nom passe au-dessus de ses réglages.",
+    ],
+  },
+  {
     version: "1.155.1",
     notes: [
       "Carte de l'alliance : légende allégée, sans la mention des cases à plusieurs membres.",

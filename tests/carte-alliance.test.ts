@@ -580,6 +580,10 @@ describe("autres joueurs et alliances ajoutés", () => {
       "ton alliance · 4 membres",
     );
     const membres = () => series().find((s) => s.name == "Membres")?.data ?? [];
+    // légende sans la case de plusieurs membres (KWHWWYMWN, 23/11/2026 : plus de coordonnées identiques)
+    expect(lire(`$("#o_carteLegende").text()`)).toBe(
+      "● Membre · ● Toi · les autres : forme et couleur de leur ligne",
+    );
     // par défaut : rond rouge moyen, ma case en vert clair (sa ligne « Toi »)
     expect(
       membres().map((d) => [d.name, d.marker.symbol, d.marker.fillColor, d.marker.radius]),

@@ -2221,7 +2221,7 @@ class PageAlliance {
         [
           masques
             ? "Ton alliance est masquée (« Afficher » sur sa ligne)"
-            : `${PageAlliance.glyphe(styleMembres)} Membre · ${PageAlliance.glyphe(styleMembres)} plus gros, cerclé de noir : plusieurs membres sur une case`,
+            : `${PageAlliance.glyphe(styleMembres)} Membre`,
           moiMasque ? "ta fourmilière masquée" : `${PageAlliance.glyphe(styleMoi)} Toi`,
           "les autres : forme et couleur de leur ligne",
         ].join(" · "),

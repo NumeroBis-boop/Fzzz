@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.155.1",
+    notes: [
+      "Carte de l'alliance : légende allégée, sans la mention des cases à plusieurs membres.",
+    ],
+  },
+  {
     version: "1.155.0",
     notes: [
       "Carte de l'alliance : ta fourmilière a sa propre ligne, sous celle de ton alliance, avec sa couleur, sa forme, sa taille et un bouton « Masquer » indépendant de celui de l'alliance.",

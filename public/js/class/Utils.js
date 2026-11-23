@@ -1845,9 +1845,21 @@ class Utils {
     return f;
   }
   /**
+   * Joueurs et alliances de la réponse de la recherche du jeu
+   * (`Joueur.rechercher`, `Alliance.rechercher`) : 6 d'un seul type, ou 3 de
+   * chaque. Avec le texte saisi, ceux dont le nom (ou le tag) commence par lui
+   * passent d'abord, l'ordre du jeu gardé dans chaque groupe (le jeu cherche
+   * le texte n'importe où dans le nom).
    *
+   * @static
+   * @method extraitRecherche
+   * @param {any} data réponse de la recherche
+   * @param {Boolean} [joueur]
+   * @param {Boolean} [alliance]
+   * @param {String} [terme] texte saisi
+   * @return {Array<any>} {value, value_avec_html, url, tag?}
    */
-  static extraitRecherche(data, joueur = true, alliance = true) {
+  static extraitRecherche(data, joueur = true, alliance = true, terme = "") {
     let element = new Array(),
       cptJ = alliance ? 3 : 6,
       cptA = joueur ? 3 : 6;
@@ -1855,34 +1867,54 @@ class Utils {
     if ($(data).find("h2").length) {
       let pseudo = $(data).find("h2").text();
       element.push({ value: pseudo, value_avec_html: pseudo, url: "Membre.php?Pseudo=" + pseudo });
-    } else {
-      $(data)
-        .find(".simulateur:eq(0) tr")
-        .each((i, elt) => {
-          // les joueurs et les alli ont 6 cellules
-          if ($(elt).find("td").length == 6) {
-            let cellule = $(elt).find("td:eq(1) a"),
-              lien = cellule.attr("href"),
-              nom = cellule.text();
-            // c'est un joueur si on trouve un lien de profil cellule 2
-            if (joueur && lien.includes("Membre.php") && cptJ) {
-              element.push({ value: nom, value_avec_html: nom, url: "Membre.php?Pseudo=" + nom });
-              cptJ--;
-            }
-            // c'est une alliance
-            if (alliance && lien.includes("classementAlliance.php") && cptA) {
-              let tag = $(elt).find("td:eq(0)").text();
-              element.push({
-                value: nom,
-                value_avec_html: `<span style="white-space:nowrap;"><strong>${tag}</strong> ${nom}</span>`,
-                tag: tag,
-                url: "classementAlliance.php?alliance=" + tag,
-              });
-              cptA--;
-            }
-          }
-        });
+      return element;
     }
+    /** @type {Array<{joueur: Boolean, noms: Array<String>, item: any}>} */
+    let trouves = [];
+    $(data)
+      .find(".simulateur:eq(0) tr")
+      .each((i, elt) => {
+        // les joueurs et les alli ont 6 cellules
+        if ($(elt).find("td").length != 6) return;
+        let cellule = $(elt).find("td:eq(1) a"),
+          lien = cellule.attr("href") || "",
+          nom = cellule.text();
+        // c'est un joueur si on trouve un lien de profil cellule 2
+        if (joueur && lien.includes("Membre.php"))
+          trouves.push({
+            joueur: true,
+            noms: [nom],
+            item: { value: nom, value_avec_html: nom, url: "Membre.php?Pseudo=" + nom },
+          });
+        // c'est une alliance
+        if (alliance && lien.includes("classementAlliance.php")) {
+          let tag = $(elt).find("td:eq(0)").text();
+          trouves.push({
+            joueur: false,
+            noms: [nom, tag],
+            item: {
+              value: nom,
+              value_avec_html: `<span style="white-space:nowrap;"><strong>${tag}</strong> ${nom}</span>`,
+              tag: tag,
+              url: "classementAlliance.php?alliance=" + tag,
+            },
+          });
+        }
+      });
+    let plat = (/** @type {String} */ t) =>
+        String(t || "")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, ""),
+      debut = plat(terme),
+      commence = (/** @type {any} */ t) => !!debut && t.noms.some((n) => plat(n).startsWith(debut));
+    // tri stable : l'ordre du jeu reste dans chaque groupe
+    trouves
+      .sort((a, b) => Number(!commence(a)) - Number(!commence(b)))
+      .forEach((t) => {
+        if (t.joueur ? cptJ-- > 0 : cptA-- > 0) element.push(t.item);
+      });
     return element;
   }
   /**

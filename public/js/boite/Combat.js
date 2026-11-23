@@ -911,7 +911,7 @@ class BoiteCombat extends Boite {
         source: (request, response) => {
           Joueur.rechercher(request.term).then(
             (data) => {
-              let items = Utils.extraitRecherche(data, true, false);
+              let items = Utils.extraitRecherche(data, true, false, request.term);
               response(
                 items.map((it) => ({
                   label: it.value_avec_html,
@@ -1551,7 +1551,7 @@ class BoiteCombat extends Boite {
     $("#o_pseudoTemps").autocomplete({
       source: (request, response) => {
         Joueur.rechercher(request.term).then((data) => {
-          response(Utils.extraitRecherche(data, true, false));
+          response(Utils.extraitRecherche(data, true, false, request.term));
         });
       },
       position: { my: "left top-5", at: "left bottom" },
@@ -1559,8 +1559,9 @@ class BoiteCombat extends Boite {
     });
     $("#o_cibleJoueurTemps").autocomplete({
       source: (request, response) => {
-        Alliance.rechercher(request.term.split(/,\s*/g).pop()).then((data) => {
-          response(Utils.extraitRecherche(data, true, false));
+        let terme = request.term.split(/,\s*/g).pop();
+        Alliance.rechercher(terme).then((data) => {
+          response(Utils.extraitRecherche(data, true, false, terme));
         });
       },
       position: { my: "left top-6", at: "left bottom" },
@@ -1625,7 +1626,7 @@ class BoiteCombat extends Boite {
       $(id).autocomplete({
         source: (request, response) => {
           Joueur.rechercher(request.term).then((data) => {
-            response(Utils.extraitRecherche(data, true, false));
+            response(Utils.extraitRecherche(data, true, false, request.term));
           });
         },
         position: { my: "left top-5", at: "left bottom" },

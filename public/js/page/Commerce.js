@@ -104,7 +104,7 @@ class PageCommerce {
         source: (request, response) => {
           // requete pour autocomplete
           Joueur.rechercher(request.term).then((data) => {
-            response(Utils.extraitRecherche(data, true, false));
+            response(Utils.extraitRecherche(data, true, false, request.term));
           });
         },
         position: { my: "left top-5", at: "left bottom" },

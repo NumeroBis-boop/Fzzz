@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.152.1",
+    notes: [
+      "Recherche d'un joueur (Multi-flood opti, convois, boîte Combat, radar) : les pseudos qui commencent par ce que tu tapes sont proposés en premier, sans requête de plus au jeu.",
+    ],
+  },
+  {
     version: "1.152.0",
     notes: [
       "Carte de l'alliance : en tapant un pseudo ou un tag, la carte propose les noms qui correspondent. Chaque ligne, dont celle de ton alliance (ses membres), a sa couleur, sa forme (rond, carré, losange, triangles, croix) et sa taille.",

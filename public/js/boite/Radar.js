@@ -256,7 +256,9 @@ class BoiteRadar {
     if (Utils.comptePlus)
       $("#o_requete").autocomplete({
         source: (request, response) => {
-          Joueur.rechercher(request.term).then((data) => response(Utils.extraitRecherche(data)));
+          Joueur.rechercher(request.term).then((data) =>
+            response(Utils.extraitRecherche(data, true, true, request.term)),
+          );
         },
         position: { my: "left top-5", at: "left bottom" },
         delay: 0,

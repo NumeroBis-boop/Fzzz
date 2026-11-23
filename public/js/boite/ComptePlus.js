@@ -420,7 +420,7 @@ class BoiteComptePlus {
           source: (request, response) => {
             // requete pour autocomplete
             Joueur.rechercher(request.term).then((data) => {
-              response(Utils.extraitRecherche(data));
+              response(Utils.extraitRecherche(data, true, true, request.term));
             });
           },
           position: { my: "left top-5", at: "left bottom" },

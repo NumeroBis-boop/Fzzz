@@ -368,7 +368,7 @@ class MultiFlood {
       );
     return Promise.resolve(Joueur.rechercher(terme)).then(
       (data) =>
-        Utils.extraitRecherche(data, true, false)
+        Utils.extraitRecherche(data, true, false, terme)
           .map((/** @type {any} */ it) => String(it.value))
           .filter((p) => !pris.has(p.toLowerCase()))
           .map((p) => ({ label: p, value: p })),

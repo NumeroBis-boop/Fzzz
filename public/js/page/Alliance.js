@@ -52,6 +52,8 @@ const TAILLES_CARTE = [
 const COULEUR_CARTE_MOI = "#27ae60";
 /** Couleur, forme et taille des membres de mon alliance sur la Carte (localStorage du jeu, donc par serveur). */
 const CLE_CARTE_STYLE_MEMBRES = "fzzz_carteStyleMembres";
+// membres de mon alliance retirés de la carte, pour regarder les autres seuls
+const CLE_CARTE_MEMBRES_MASQUES = "fzzz_carteMembresMasques";
 const STYLE_CARTE_MEMBRES = { couleur: "#c0392b", forme: "rond", taille: "moyenne" };
 const STYLE_CARTE_AUTRE = { couleur: "#2a78d6", forme: "losange", taille: "moyenne" };
 /** Suggestions proposées au plus pendant la saisie d'un pseudo ou d'un tag. */
@@ -1526,6 +1528,16 @@ class PageAlliance {
     return PageAlliance.style(Utils.lireStockage(CLE_CARTE_STYLE_MEMBRES), STYLE_CARTE_MEMBRES);
   }
   /**
+   * Membres de mon alliance masqués sur la carte (bouton de sa ligne).
+   *
+   * @static
+   * @method membresMasques
+   * @return {Boolean}
+   */
+  static membresMasques() {
+    return Utils.lireStockage(CLE_CARTE_MEMBRES_MASQUES, false) === true;
+  }
+  /**
    * Joueurs et alliances ajoutés à la carte, couleur, forme et taille vérifiées.
    *
    * @static
@@ -1819,9 +1831,14 @@ class PageAlliance {
           `Taille de ${nom}`,
         )}${retirer}</span></span>`,
       nbMembres = this._carteMembres ? this._carteMembres.length : 0,
+      masques = PageAlliance.membresMasques(),
       lignes = [
-        `<li data-k='membres' class='o_carteLigneMembres'>${PageAlliance.glyphe(membres)}<b>${echapper(Utils.alliance)}</b> <span class='reduce'>ton alliance${nbMembres ? ` · ${nbMembres} membres` : ""}</span>
-          ${reglages(membres, Utils.alliance)}</li>`,
+        `<li data-k='membres' class='o_carteLigneMembres${masques ? " o_carteLigneMasquee" : ""}'>${PageAlliance.glyphe(membres)}<b>${echapper(Utils.alliance)}</b> <span class='reduce'>ton alliance${nbMembres ? ` · ${nbMembres} membres` : ""}${masques ? " · masquée" : ""}</span>
+          ${reglages(
+            membres,
+            Utils.alliance,
+            `<button type='button' class='o_carteMasquer o_button f_info' aria-pressed='${masques}' title='${masques ? "Remettre les membres de ton alliance sur la carte" : "Retirer les membres de ton alliance de la carte, pour ne voir que les joueurs et alliances ajoutés"}'>${masques ? "Afficher" : "Masquer"}</button>`,
+          )}</li>`,
         ...entrees.map(
           (e, k) =>
             `<li data-k='${k}'>${PageAlliance.glyphe(e)}<b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span>
@@ -1900,6 +1917,14 @@ class PageAlliance {
         changer((liste) => {
           if (liste[Number(k)]) liste[Number(k)][champ] = valeur;
         });
+      })
+      .on("click", ".o_carteMasquer", () => {
+        try {
+          if (PageAlliance.membresMasques()) localStorage.removeItem(CLE_CARTE_MEMBRES_MASQUES);
+          else localStorage.setItem(CLE_CARTE_MEMBRES_MASQUES, "true");
+        } catch (err) {}
+        this._listeAutres();
+        this._redessiner();
       })
       .on("click", ".o_carteAutreRetirer", (e) => {
         let k = Number($(e.currentTarget).closest("li").data("k"));
@@ -2049,10 +2074,13 @@ class PageAlliance {
   _dessinerCarte(members, total) {
     const $graphe = $("#o_carteAllianceChart").show();
     const styleMembres = PageAlliance.styleMembres();
+    const masques = PageAlliance.membresMasques();
     PageAlliance.formeCroix();
     $("#o_carteLegende")
       .html(
-        `${PageAlliance.glyphe(styleMembres)} Membre · ${PageAlliance.glyphe(styleMembres)} plus gros, cerclé de noir : plusieurs membres sur une case · ${PageAlliance.glyphe({ ...styleMembres, couleur: COULEUR_CARTE_MOI })} Toi · les autres : forme et couleur de leur ligne`,
+        masques
+          ? "Ton alliance est masquée (« Afficher » sur sa ligne) · les autres : forme et couleur de leur ligne"
+          : `${PageAlliance.glyphe(styleMembres)} Membre · ${PageAlliance.glyphe(styleMembres)} plus gros, cerclé de noir : plusieurs membres sur une case · ${PageAlliance.glyphe({ ...styleMembres, couleur: COULEUR_CARTE_MOI })} Toi · les autres : forme et couleur de leur ligne`,
       )
       .show();
     // Désactive le warning Highcharts #15 : nos séries `line` représentent des arêtes
@@ -2069,7 +2097,7 @@ class PageAlliance {
       members,
       !!(this._optionsChaine && this._optionsChaine.tracer) || !!this._chaineVoulue,
     );
-    const tracer = !!(chaine && this._optionsChaine.tracer);
+    const tracer = !masques && !!(chaine && this._optionsChaine.tracer);
     const rangs = new Map(tracer ? chaine.ordre.map((m, k) => [m.pseudo, k + 1]) : []);
     const tempsParcours = (target, niveauVit) =>
       Math.ceil(
@@ -2087,7 +2115,8 @@ class PageAlliance {
       }
       return [...cases.values()];
     };
-    const spots = parCase(members).map((s) => ({
+    // alliance masquée : ni ses cases, ni ses liens ; temps de trajet toujours depuis moi
+    const spots = parCase(masques ? [] : members).map((s) => ({
       ...s,
       isMyGroup: s.members.some((m) => m.isMe),
     }));
@@ -2193,7 +2222,9 @@ class PageAlliance {
         },
       },
       title: {
-        text: `${total > members.length ? `${members.length} membres affichés sur ${total}` : `${members.length} membres`}${nbAutres ? ` • ${nbAutres} autre${nbAutres > 1 ? "s" : ""}` : ""} • ${spots.length} cases • ${tracer ? `chaîne de ${chaine.ordre.length} joueurs (${Utils.intToTime(chaine.total)} cumulés)` : `${edges.length} liens (${K_NEIGHBORS} plus proches voisins)`}`,
+        text: masques
+          ? `Ton alliance masquée • ${nbAutres ? `${nbAutres} autre${nbAutres > 1 ? "s" : ""} • ${autres.length} case${autres.length > 1 ? "s" : ""}` : "aucun joueur ajouté à montrer"}`
+          : `${total > members.length ? `${members.length} membres affichés sur ${total}` : `${members.length} membres`}${nbAutres ? ` • ${nbAutres} autre${nbAutres > 1 ? "s" : ""}` : ""} • ${spots.length} cases • ${tracer ? `chaîne de ${chaine.ordre.length} joueurs (${Utils.intToTime(chaine.total)} cumulés)` : `${edges.length} liens (${K_NEIGHBORS} plus proches voisins)`}`,
         style: { fontSize: "14px", fontWeight: "600" },
       },
       subtitle: {

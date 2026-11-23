@@ -1418,6 +1418,16 @@ h2:has(+ .o_nbUnite) {
   margin-left: 6px;
   padding: 0 6px;
 }
+.o_carteMasquer {
+  margin-left: 6px;
+  padding: 2px 10px;
+  font-size: 0.9em;
+}
+/* alliance masquée sur la carte : sa ligne pâlie, le bouton net */
+.o_carteLigneMasquee > .o_carteSymbole,
+.o_carteLigneMasquee > b {
+  opacity: 0.45;
+}
 #o_carteAutreApercu {
   margin: 0 0 0 4px;
 }

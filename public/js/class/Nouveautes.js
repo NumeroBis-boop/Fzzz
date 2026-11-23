@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.153.0",
+    notes: [
+      "Carte de l'alliance : un bouton « Masquer » sur la ligne de ton alliance la retire de la carte, pour ne regarder que les joueurs et alliances ajoutés ; « Afficher » la remet.",
+    ],
+  },
+  {
     version: "1.152.1",
     notes: [
       "Recherche d'un joueur (Multi-flood opti, convois, boîte Combat, radar) : les pseudos qui commencent par ce que tu tapes sont proposés en premier, sans requête de plus au jeu.",

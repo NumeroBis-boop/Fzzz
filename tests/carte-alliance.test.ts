@@ -612,6 +612,96 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#c0392b");
   });
 
+  test("« Masquer » sur la ligne de mon alliance : les ajoutés seuls, cadrés sur eux ; gardé ; « Afficher » la remet", () => {
+    garderPositions();
+    lire(
+      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "alliance", nom: "ENN", couleur: "#7b3fb0" }]))`,
+    );
+    lire(
+      `localStorage.setItem("fzzz_joueurs_S5", JSON.stringify({ t: Date.now(), joueurs: ${JSON.stringify(BASE)} }))`,
+    );
+    lire(
+      `localStorage.setItem("outiiil_carteChaine_S5_TAG", JSON.stringify({ depart: "Bravo", tracer: true }))`,
+    );
+    ouvrirPage();
+    afficherCarte();
+    const bouton = `$("#o_carteAutresListe li:first .o_carteMasquer")`;
+    const donnees = (nom: string) => series().find((s) => s.name == nom)?.data ?? [];
+    // info-bulle d'un ajouté (temps de trajet depuis moi), avant et après
+    const bulle = () =>
+      lire<string>(`(() => {
+        let s = CARTES.at(-1).series.find((s) => s.name == "Autres"),
+          d = s.data.find((d) => d.name == "Echo");
+        return CARTES.at(-1).tooltip.formatter.call({ point: d });
+      })()`);
+    expect(lire(`[${bouton}.text(), ${bouton}.attr("aria-pressed")]`)).toEqual([
+      "Masquer",
+      "false",
+    ]);
+    expect(donnees("Membres").length).toBe(4);
+    const avant = bulle();
+    expect(avant).toContain("Temps de trajet");
+
+    lire(`${bouton}.trigger("click")`);
+    expect(lire(`localStorage.getItem("fzzz_carteMembresMasques")`)).toBe("true");
+    expect(donnees("Membres")).toEqual([]);
+    expect([donnees("Liens"), donnees("Liens vers toi"), donnees("Chaîne")]).toEqual([[], [], []]);
+    expect(donnees("Autres").map((d) => d.name)).toEqual(["Echo", "Foxtrot"]);
+    expect(bulle()).toBe(avant);
+    const o = lire(`(() => {
+      let c = CARTES.at(-1), li = $("#o_carteAutresListe li:first");
+      return { x: c.xAxis, titre: c.title.text, sous: c.subtitle.text, legende: $("#o_carteLegende").text(),
+        ligne: li.find(".reduce").text(), pale: li.hasClass("o_carteLigneMasquee"),
+        bouton: [li.find(".o_carteMasquer").text(), li.find(".o_carteMasquer").attr("aria-pressed")] };
+    })()`);
+    // cadre sur Echo (80, 5) et Foxtrot (85, 9), plus sur les membres (x de 10 à 50)
+    expect(o.x.min).toBeGreaterThan(50);
+    expect(o.x.max).toBeGreaterThan(85);
+    expect(o.titre).toBe("Ton alliance masquée • 2 autres • 2 cases");
+    expect(o.sous).toBe("");
+    expect(o.legende).toBe(
+      "Ton alliance est masquée (« Afficher » sur sa ligne) · les autres : forme et couleur de leur ligne",
+    );
+    expect([o.ligne, o.pale, o.bouton]).toEqual([
+      "ton alliance · 4 membres · masquée",
+      true,
+      ["Afficher", "true"],
+    ]);
+    // un réglage de la ligne ne la remet pas ; exports : les membres toujours
+    lire(
+      `$("#o_carteAutresListe li:eq(0) .o_carteStyle[data-champ=couleur]").val("#1c3f94").trigger("change")`,
+    );
+    expect(donnees("Membres")).toEqual([]);
+    expect(lire(`p._membresCarte("l'exporter").members.length`)).toBe(4);
+
+    // nouvelle page : toujours masquée
+    lire(`CARTES.length = 0;
+      document.body.innerHTML = "<span id='tag_alliance'>TAG</span><span id='quantite_tdc'>100000</span><a id='o_ongletCarte' href='#'>Carte</a><div id='alliance'></div>"`);
+    ouvrirPage();
+    afficherCarte();
+    expect(donnees("Membres")).toEqual([]);
+    lire(`${bouton}.trigger("click")`);
+    expect(lire(`localStorage.getItem("fzzz_carteMembresMasques")`)).toBe(null);
+    expect(donnees("Membres").length).toBe(4);
+    expect(donnees("Chaîne").length).toBe(4);
+    expect(lire(`${bouton}.text()`)).toBe("Masquer");
+  });
+
+  test("alliance masquée sans joueur ajouté : carte vide autour de moi, titre qui le dit", () => {
+    garderPositions();
+    lire(`localStorage.setItem("fzzz_carteMembresMasques", "true")`);
+    ouvrirPage();
+    afficherCarte();
+    const o = lire(
+      `({ titre: CARTES.at(-1).title.text, x: CARTES.at(-1).xAxis, points: CARTES.at(-1).series.reduce((n, s) => n + s.data.length, 0) })`,
+    );
+    expect(o.titre).toBe("Ton alliance masquée • aucun joueur ajouté à montrer");
+    expect(o.points).toBe(0);
+    // cadre autour de ma fourmilière (10, 10)
+    expect(o.x.min).toBeLessThan(10);
+    expect(o.x.max).toBeGreaterThan(10);
+  });
+
   test("forme, taille ou couleur gardées hors des choix proposés : celles par défaut", () => {
     lire(
       `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#2a78d6", forme: "javascript:x", taille: "énorme" }]))`,

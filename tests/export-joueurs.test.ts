@@ -72,9 +72,9 @@ describe("export public des joueurs", () => {
     garderBase(2 * HEURE, { A: [1, 2, 3] });
     const [appels, base] = await avecExport("ExportJoueurs.base()");
     expect(appels.length).toBe(2);
-    expect(base).toEqual({ B: [5, 6, 7, 1, null] });
+    expect(base).toEqual({ B: [5, 6, 7, 1, null, null] });
     const gardee = page.lire<any>(`JSON.parse(localStorage.getItem("fzzz_joueurs_S5"))`);
-    expect(gardee.joueurs).toEqual({ B: [5, 6, 7, 1, null] });
+    expect(gardee.joueurs).toEqual({ B: [5, 6, 7, 1, null, null] });
     expect(Date.now() - gardee.t).toBeLessThan(HEURE);
   });
 
@@ -90,6 +90,26 @@ describe("export public des joueurs", () => {
     expect(page.lire(`JSON.parse(localStorage.getItem("fzzz_joueurs_S5")).joueurs`)).toEqual({
       A: [1, 2, 3],
     });
+  });
+
+  test("alliance de chaque joueur gardée ; base d'une version d'avant relue pour la Carte", async () => {
+    garderBase(HEURE / 2, { A: [1, 2, 3, 4, null] });
+    expect(page.lire("ExportJoueurs.gardee()")).toEqual({ A: [1, 2, 3, 4, null] });
+    // sans les alliances : rien sans requête pour la Carte, l'export est relu
+    expect(page.lire("ExportJoueurs.gardee(true)")).toBeNull();
+    const [appels, base] = await avecExport(
+      "ExportJoueurs.avecAlliances()",
+      "[{ id: 1, pseudo: 'B', x: 5, y: 6, field: 7, alliance: 'TAG' }, { id: 2, pseudo: 'C', x: 1, y: 1, field: 2, alliance: null }]",
+    );
+    expect(appels.length).toBe(2);
+    expect(base).toEqual({ B: [5, 6, 7, 1, null, "TAG"], C: [1, 1, 2, 2, null, null] });
+    expect(page.lire("ExportJoueurs.gardee(true)")).toEqual(base);
+    // base à jour : plus aucune requête
+    const [encore] = await avecExport("ExportJoueurs.avecAlliances()");
+    expect(encore).toEqual([]);
+    // plus d'une heure : rien sans requête
+    garderBase(2 * HEURE, base);
+    expect(page.lire("ExportJoueurs.gardee(true)")).toBeNull();
   });
 
   test("completer : base (casse ignorée), sinon page du joueur", async () => {

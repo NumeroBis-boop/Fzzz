@@ -69,21 +69,80 @@ class ExportJoueurs {
     return index;
   }
   /**
-   * {pseudo: [x, y, terrain, id, id du seigneur ou null]} : ~80 000 caractères
-   * pour les 2 000 joueurs du s5.
+   * {pseudo: [x, y, terrain, id, id du seigneur ou null, tag d'alliance ou null]} :
+   * ~100 000 caractères pour les 2 000 joueurs du s5.
    *
    * @static
    * @method compacter
-   * @param {Map<string, {x: number, y: number, terrain: number, id: number, seigneur: number|null}>} index
-   * @return {Object<string, Array<number|null>>}
+   * @param {Map<string, {x: number, y: number, terrain: number, id: number, seigneur: number|null, alliance?: string|null}>} index
+   * @return {Object<string, Array<number|string|null>>}
    */
   static compacter(index) {
-    /** @type {Object<string, Array<number|null>>} */
+    /** @type {Object<string, Array<number|string|null>>} */
     let joueurs = {};
     index.forEach(
-      (j, pseudo) => (joueurs[pseudo] = [j.x, j.y, j.terrain, j.id ?? null, j.seigneur ?? null]),
+      (j, pseudo) =>
+        (joueurs[pseudo] = [
+          j.x,
+          j.y,
+          j.terrain,
+          j.id ?? null,
+          j.seigneur ?? null,
+          j.alliance ?? null,
+        ]),
     );
     return joueurs;
+  }
+  /**
+   * La base note-t-elle l'alliance de chaque joueur ? Celle d'une version
+   * d'avant 1.151.0 ne la note pas.
+   *
+   * @static
+   * @method noteAlliances
+   * @param {Object<string, Array<any>>} base
+   * @return {Boolean}
+   */
+  static noteAlliances(base) {
+    return Object.values(base).some((j) => Array.isArray(j) && j.length >= 6);
+  }
+  /**
+   * Base gardée de moins d'une heure, sans requête (null sinon) ; avec
+   * `alliances`, seulement si elle note l'alliance de chaque joueur.
+   *
+   * @static
+   * @method gardee
+   * @param {Boolean} [alliances]
+   * @return {Object<string, Array<any>>|null}
+   */
+  static gardee(alliances = false) {
+    let g = Utils.lireStockage(ExportJoueurs.cle);
+    return ExportJoueurs._fraiche(g) && (!alliances || ExportJoueurs.noteAlliances(g.joueurs))
+      ? g.joueurs
+      : null;
+  }
+  /**
+   * Base avec l'alliance de chaque joueur : celle gardée, relue si elle a plus
+   * d'une heure ou si une version précédente l'a gardée sans les alliances.
+   *
+   * @static
+   * @method avecAlliances
+   * @return {Promise<Object<string, Array<any>>>}
+   */
+  static avecAlliances() {
+    return ExportJoueurs.base().then((base) =>
+      ExportJoueurs.noteAlliances(base)
+        ? base
+        : ExportJoueurs.lire().then((index) => ExportJoueurs.compacter(index)),
+    );
+  }
+  /**
+   * @private
+   * @static
+   * @param {any} g base gardée {t, joueurs}
+   * @return {Boolean} de moins d'une heure
+   */
+  static _fraiche(g) {
+    return !!g.joueurs && Date.now() - g.t < DUREE_BASE_JOUEURS;
   }
   /**
    * Colonies d'un joueur et leur TdC, d'après l'export (à l'heure près). Une
@@ -134,12 +193,11 @@ class ExportJoueurs {
    *
    * @static
    * @method base
-   * @return {Promise<Object<string, Array<number|null>>>} {pseudo: [x, y, terrain, id, seigneur]}
+   * @return {Promise<Object<string, Array<any>>>} {pseudo: [x, y, terrain, id, seigneur, alliance]}
    */
   static base() {
     let gardee = Utils.lireStockage(ExportJoueurs.cle);
-    if (gardee.joueurs && Date.now() - gardee.t < DUREE_BASE_JOUEURS)
-      return Promise.resolve(gardee.joueurs);
+    if (ExportJoueurs._fraiche(gardee)) return Promise.resolve(gardee.joueurs);
     return ExportJoueurs.lire()
       .then((index) => ExportJoueurs.compacter(index))
       .catch((e) => {

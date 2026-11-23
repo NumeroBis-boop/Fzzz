@@ -5,6 +5,24 @@
 
 /** Vitesse d'attaque du fichier Excel de la Carte (choix du mainteneur), modifiable dans le fichier. */
 const VITESSE_EXPORT_TRAJETS = 10;
+/**
+ * Couleurs au choix des joueurs et alliances ajoutés à la Carte : bleu, violet
+ * et rose validés entre eux et contre le rouge, l'orange et le vert des membres
+ * (validateur de la méthode dataviz : séparation suffisante pour des points
+ * nommés sur la carte) ; le gris, neutre, pour un joueur quelconque.
+ */
+const COULEURS_CARTE_AUTRES = [
+  ["Bleu", "#2a78d6"],
+  ["Violet", "#7b3fb0"],
+  ["Rose", "#e75fa3"],
+  ["Gris", "#6b6b6b"],
+];
+/** Joueurs et alliances ajoutés à la Carte : liste du joueur, dans le localStorage du jeu (donc par serveur). */
+const CLE_CARTE_AUTRES = "fzzz_carteAutres";
+/** Place prise autour du tracé de la Carte (axes, titre, sous-titre), en px, pour en estimer la hauteur. */
+const MARGES_CARTE = { largeur: 70, hauteur: 135 };
+/** Hauteur réservée au-dessus des points du haut de la Carte pour leur nom, en px. */
+const PX_NOM_CARTE = 20;
 
 /**
  * Classe de fonction pour la page /alliance.php.
@@ -263,11 +281,13 @@ class PageAlliance {
    */
   carte() {
     if ($("#o_carteAlliance").length) return this; // déjà rendue
-    const cacheKey = `outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`;
+    let couleurs = COULEURS_CARTE_AUTRES.map(
+      ([nom, valeur]) => `<option value='${valeur}'>${nom}</option>`,
+    ).join("");
     $("#alliance").after(`
       <div id='o_carteAlliance' class='boite_amelioration simulateur centre' style='display:none;'>
         <h2>Carte de l'alliance</h2>
-        <p class='reduce'>Carte interactive des positions des membres. <b>Survole</b> un point pour voir les temps de trajet depuis ta fourmilière. <b>Drag</b> pour zoomer sur une zone, <b>clic</b> sur un point pour zoomer 4× dessus (utile dans les clusters denses). Données chargées à la demande puis mises en cache localement.</p>
+        <p class='reduce'>Positions des membres, à la même échelle en X et en Y : les distances à l'œil sont celles des temps de trajet. <b>Survole</b> ou touche un point pour voir le temps de trajet depuis ta fourmilière. <b>Glisse</b> pour zoomer sur une zone, <b>clic</b> sur un point pour zoomer 4× dessus. Positions chargées à la demande puis gardées dans ce navigateur.</p>
         <div class='centre o_marginT15'>
           <button id='o_carteAllianceRefresh' class='o_button f_info'>Charger / Actualiser</button>
           <button id='o_carteAllianceExportForum' class='o_button f_success' style='margin-left:8px;'>Exporter pour le forum</button>
@@ -275,12 +295,29 @@ class PageAlliance {
           <span id='o_carteAllianceStatus' class='reduce o_secondaire' style='margin-left:12px;'></span>
         </div>
         <div id='o_carteFiltres' class='left o_marginT15' style='display:none;'></div>
-        <div id='o_carteAllianceChart' style='height:800px;margin-top:15px;display:none;'></div>
+        <div id='o_carteAutres' class='left o_marginT15'>
+          <p class='left reduce gras'>Autres joueurs et alliances <span class='reduce o_secondaire' style='font-weight:normal;'>(ta liste, gardée dans ce navigateur)</span></p>
+          <div class='o_carteAutreAjout'>
+            <select id='o_carteAutreType' aria-label='Joueur ou alliance'><option value='joueur'>Joueur</option><option value='alliance'>Alliance</option></select>
+            <input type='text' id='o_carteAutreNom' maxlength='40' placeholder='Pseudo ou tag' aria-label='Pseudo ou tag'/>
+            <select id='o_carteAutreCouleur' aria-label='Couleur'>${couleurs}</select>
+            <button type='button' id='o_carteAutreAjouter' class='o_button f_info'>Ajouter</button>
+          </div>
+          <ul id='o_carteAutresListe'></ul>
+        </div>
+        <div id='o_carteAllianceChart' style='margin-top:15px;display:none;'></div>
+        <p id='o_carteLegende' class='reduce' style='display:none;'>
+          <span class='o_carteSymbole' style='color:#c0392b;'>●</span> Membre
+          <span class='o_carteSymbole' style='color:#f39c12;'>●</span> Plusieurs membres sur une case
+          <span class='o_carteSymbole' style='color:#27ae60;'>●</span> Toi
+          <span class='o_carteSymbole'>◆</span> Autres, à la couleur choisie
+        </p>
         <div id='o_carteChaine' class='o_marginT15' style='display:none;'>
           <div class='centre gras'>Chaîne entre plus proches voisins</div>
-          <p class='reduce'>Ordre de passage qui minimise le temps de trajet total entre les membres affichés : chacun envoie au suivant. Les joueurs décochés dans les filtres sont exclus. Temps sans amélioration de Vitesse d'attaque.</p>
+          <p class='reduce'>Ordre de passage qui minimise le temps de trajet total entre les membres affichés : chacun envoie au suivant. Les joueurs décochés dans les filtres et les autres joueurs ajoutés sont exclus. Temps sans amélioration de Vitesse d'attaque.</p>
           <div class='centre o_marginT15'>
             <label>Départ <select id='o_chaineDepart'></select></label>
+            <button id='o_chaineCalculer' class='o_button f_info' style='margin-left:12px;'>Calculer la chaîne</button>
             <label style='margin-left:12px;'><input type='checkbox' id='o_chaineTracer'/> Tracer sur la carte</label>
             <button id='o_chaineCopier' class='o_button f_success' style='margin-left:12px;'>Copier pour le forum</button>
           </div>
@@ -288,25 +325,75 @@ class PageAlliance {
         </div>
       </div>
     `);
-    let cached = null;
-    try {
-      cached = JSON.parse(localStorage.getItem(cacheKey));
-    } catch (e) {
-      cached = null;
-    }
-    // les versions qui ne lisaient pas le lien carte.php de s5 ont mis en cache
-    // des membres en 0 / 0 : on les ignore (un Actualiser les repositionne)
-    if (cached && cached.members)
-      cached.members = cached.members.filter((m) => !(m.x == 0 && m.y == 0));
-    if (cached && cached.members && cached.members.length) {
-      this._renderCarte(cached.members);
-      this._afficherAge(cached.timestamp);
-    }
+    // dessinée seulement quand on l'affiche (ongletCarte) : la page Membres
+    // n'a pas à la calculer pour qui ne l'ouvre pas
+    let gardee = PageAlliance._carteGardee();
+    if (gardee) this._afficherAge(gardee.timestamp);
     $("#o_carteAllianceRefresh").click(() => this._actualiserCarte());
     $("#o_carteAllianceExportForum").click(() => this._exporterCarteForumPng());
     $("#o_carteAllianceExportExcel").click(() => this._exporterCarteExcel());
     this._evenementsChaine();
+    this._evenementsAutres();
+    // la carte garde la même échelle sur ses deux axes : redessinée à sa nouvelle largeur
+    let attente = 0;
+    $(window).on("resize", () => {
+      clearTimeout(attente);
+      attente = setTimeout(() => {
+        if (
+          this._carteMembres &&
+          $("#o_carteAlliance").is(":visible") &&
+          $("#o_carteAllianceChart").width() != this._largeurCarte
+        )
+          this._redessiner();
+      }, 250);
+    });
     return this;
+  }
+  /**
+   * Positions gardées par « Charger / Actualiser », sans les membres en 0 / 0
+   * des versions qui ne lisaient pas le lien carte.php du s5 (un Actualiser
+   * les repositionne) ; null sans positions.
+   *
+   * @private
+   * @static
+   * @return {{timestamp: Number, members: Array<any>}|null}
+   */
+  static _carteGardee() {
+    let cached = null;
+    try {
+      cached = JSON.parse(
+        localStorage.getItem(`outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`),
+      );
+    } catch (e) {
+      cached = null;
+    }
+    if (!cached || !Array.isArray(cached.members)) return null;
+    cached.members = cached.members.filter((m) => !(m.x == 0 && m.y == 0));
+    return cached.members.length ? cached : null;
+  }
+  /**
+   * Vue Carte affichée : dessinée la première fois depuis les positions
+   * gardées, redessinée si sa largeur a changé pendant qu'elle était cachée.
+   *
+   * @private
+   * @method _montrerCarte
+   */
+  _montrerCarte() {
+    this._listeAutres();
+    if (this._carteMembres) {
+      if ($("#o_carteAllianceChart").width() != this._largeurCarte) this._redessiner();
+      return;
+    }
+    let gardee = PageAlliance._carteGardee();
+    if (gardee) this._renderCarte(gardee.members);
+  }
+  /**
+   * @private
+   * @method _redessiner
+   */
+  _redessiner() {
+    if (this._carteMembres)
+      this._dessinerCarte(this._filtrerMembres(this._carteMembres), this._carteMembres.length);
   }
   /**
    * Active l'onglet "Carte" du menu Alliance (injecté par content.js sur toutes
@@ -321,6 +408,7 @@ class PageAlliance {
     const showCarte = () => {
       $("#alliance, #o_statsMembres").hide();
       $("#o_carteAlliance").show();
+      this._montrerCarte();
     };
     $("#o_ongletCarte").click((e) => {
       e.preventDefault();
@@ -472,14 +560,8 @@ class PageAlliance {
    * @param {String} usage fin de « Charge d'abord la carte avant de pouvoir … »
    */
   _membresCarte(usage) {
-    const cacheKey = `outiiil_carteAlliance_${Utils.serveur}_${Utils.alliance}`;
-    let cached = null;
-    try {
-      cached = JSON.parse(localStorage.getItem(cacheKey));
-    } catch (e) {
-      cached = null;
-    }
-    if (!cached || !cached.members || !cached.members.length) {
+    const cached = PageAlliance._carteGardee();
+    if (!cached) {
       $.toast({
         ...TOAST_WARNING,
         text: `Charge d'abord la carte avant de pouvoir ${usage}.`,
@@ -642,11 +724,11 @@ class PageAlliance {
     ];
   }
   /**
-   * Génère un PNG simple dessiné sur canvas, avec les vraies proportions du jeu
-   * (1 case = 5 unités X × 50 unités Y, donc pxPerY = pxPerX / 10). Image étroite
-   * et haute, sans grille ni axes — pensée pour partager dans le forum d'alliance.
-   * Utilise directement le cache des coords (pas besoin que le chart Highcharts
-   * soit rendu).
+   * Génère un PNG simple dessiné sur canvas, à la même échelle en X et en Y
+   * que la carte (les distances à l'œil sont celles des temps de trajet), son
+   * plus grand côté vers 900 px. Sans grille marquée — pensée pour partager
+   * dans le forum d'alliance. Utilise directement le cache des coords (pas
+   * besoin que le chart Highcharts soit rendu).
    *
    * @private
    * @method _exporterCarteForumPng
@@ -661,10 +743,8 @@ class PageAlliance {
     const xMax = Math.max(...xs);
     const yMin = Math.min(...ys);
     const yMax = Math.max(...ys);
-    // Échelle : 1 case du jeu = 5 X × 50 Y → pxPerY = pxPerX / 10 pour rendre les
-    // cellules visuellement carrées (proportions réelles).
-    const PX_PER_X = 14;
-    const PX_PER_Y = PX_PER_X / 10;
+    // une seule échelle pour X et Y
+    const PX = PageAlliance.echelleImage(xMax - xMin, yMax - yMin);
     // Padding suffisant pour les graduations d'axes (X en haut, Y à gauche)
     const PAD_LEFT = 38;
     const PAD_TOP = 26;
@@ -681,8 +761,8 @@ class PageAlliance {
     const sorted = [...members].sort((a, b) => a.y - b.y || a.x - b.x);
     const placed = [];
     const positions = sorted.map((m) => {
-      const dotX = (m.x - xMin) * PX_PER_X + PAD_LEFT;
-      const dotY = (m.y - yMin) * PX_PER_Y + PAD_TOP;
+      const dotX = (m.x - xMin) * PX + PAD_LEFT;
+      const dotY = (m.y - yMin) * PX + PAD_TOP;
       const labelW = tmp.measureText(m.pseudo).width;
       const labelX = dotX + LABEL_GAP;
       let labelY = dotY;
@@ -704,13 +784,12 @@ class PageAlliance {
     // tick supérieur arrondi (ceil) afin que le 50 / 1900 / etc. soit toujours visible.
     const maxRight = Math.max(...positions.map((p) => p.labelX + p.labelW));
     const maxBottom = Math.max(...positions.map((p) => Math.max(p.labelY + 6, p.dotY + 4)));
-    const yRange = yMax - yMin;
-    const yStep = yRange > 1500 ? 200 : yRange > 500 ? 100 : 50;
-    const xStep = 5;
+    const yStep = PageAlliance.pasGrille(PX);
+    const xStep = yStep;
     const xTickEnd = Math.ceil(xMax / xStep) * xStep;
     const yTickEnd = Math.ceil(yMax / yStep) * yStep;
-    const tickRight = (xTickEnd - xMin) * PX_PER_X + PAD_LEFT;
-    const tickBottom = (yTickEnd - yMin) * PX_PER_Y + PAD_TOP;
+    const tickRight = (xTickEnd - xMin) * PX + PAD_LEFT;
+    const tickBottom = (yTickEnd - yMin) * PX + PAD_TOP;
     const W = Math.max(220, Math.max(maxRight, tickRight) + PAD_RIGHT_MIN);
     const H = Math.max(220, Math.max(maxBottom, tickBottom) + PAD_BOTTOM);
     const canvas = document.createElement("canvas");
@@ -730,7 +809,7 @@ class PageAlliance {
     const xGridStart = Math.floor(xMin / xStep) * xStep;
     for (let x = xGridStart; x <= xTickEnd; x += xStep) {
       if (x < xMin) continue;
-      const px = (x - xMin) * PX_PER_X + PAD_LEFT;
+      const px = (x - xMin) * PX + PAD_LEFT;
       ctx.beginPath();
       ctx.moveTo(px, PAD_TOP);
       ctx.lineTo(px, canvas.height - PAD_BOTTOM);
@@ -743,7 +822,7 @@ class PageAlliance {
     const yGridStart = Math.floor(yMin / yStep) * yStep;
     for (let y = yGridStart; y <= yTickEnd; y += yStep) {
       if (y < yMin) continue;
-      const py = (y - yMin) * PX_PER_Y + PAD_TOP;
+      const py = (y - yMin) * PX + PAD_TOP;
       ctx.beginPath();
       ctx.moveTo(PAD_LEFT, py);
       ctx.lineTo(canvas.width - PAD_RIGHT_MIN, py);
@@ -788,6 +867,32 @@ class PageAlliance {
       document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
     }, "image/png");
+  }
+  /**
+   * Pixels par unité de l'image pour le forum, les mêmes en X et en Y : son
+   * plus grand côté fait environ 900 px, 20 px par unité au plus.
+   *
+   * @static
+   * @method echelleImage
+   * @param {Number} etendueX
+   * @param {Number} etendueY
+   * @return {Number}
+   */
+  static echelleImage(etendueX, etendueY) {
+    return Math.min(20, 900 / Math.max(etendueX, etendueY, 1));
+  }
+  /**
+   * Pas des graduations (1, 2 ou 5 × 10^n unités), au moins 40 px entre deux.
+   *
+   * @static
+   * @method pasGrille
+   * @param {Number} pxParUnite
+   * @return {Number}
+   */
+  static pasGrille(pxParUnite) {
+    let brut = 40 / pxParUnite,
+      puissance = Math.pow(10, Math.floor(Math.log10(brut)));
+    return [1, 2, 5, 10].map((k) => k * puissance).find((v) => v >= brut - 1e-9) || 10 * puissance;
   }
   /**
    * Affiche le timestamp en texte humain à côté du bouton.
@@ -1020,11 +1125,21 @@ class PageAlliance {
         tracer: $("#o_chaineTracer").prop("checked"),
       };
       this._sauverOptionsChaine();
-      if (this._carteMembres)
-        this._dessinerCarte(this._filtrerMembres(this._carteMembres), this._carteMembres.length);
+      this._redessiner();
     };
     $("#o_chaineDepart, #o_chaineTracer").on("change", redessiner);
-    let copie = new Clipboard("#o_chaineCopier", { text: () => this._texteChaine() });
+    // calculée à la demande : la carte s'affiche sans l'attendre
+    $("#o_chaineCalculer").click(() => {
+      this._chaineVoulue = true;
+      if (this._carteMembres) this._chaineAJour(this._filtrerMembres(this._carteMembres), true);
+    });
+    let copie = new Clipboard("#o_chaineCopier", {
+      text: () => {
+        this._chaineVoulue = true;
+        if (this._carteMembres) this._chaineAJour(this._filtrerMembres(this._carteMembres), true);
+        return this._texteChaine();
+      },
+    });
     copie.on("success", () => {
       $.toast({ ...TOAST_SUCCESS, text: "La chaîne a été copiée dans le presse papier." });
     });
@@ -1043,49 +1158,58 @@ class PageAlliance {
     return Math.round(637200 * (1 - Math.exp(-Math.hypot(a.x - b.x, a.y - b.y) / 350)));
   }
   /**
+   * Temps de trajet de base entre chaque paire de membres, calculés une fois
+   * pour toute la chaîne.
+   *
+   * @private
+   * @method _matriceTemps
+   * @param {Array} membres
+   * @return {Array<Array<Number>>}
+   */
+  _matriceTemps(membres) {
+    return membres.map((a) => membres.map((b) => this._tempsEntre(a, b)));
+  }
+  /**
    * Ordre de passage qui minimise la somme des temps de trajet : plus proche
    * voisin depuis le départ, puis amélioration 2-opt (on inverse un morceau du
-   * parcours tant que ça raccourcit le total). Avec quelques dizaines de membres
-   * c'est instantané, et en pratique très proche de l'optimum.
+   * parcours tant que ça raccourcit le total), sur les temps de la matrice.
    *
    * @private
    * @method _calculerChaine
    * @param {Array} membres membres affichés
    * @param {Object} depart membre de départ
+   * @param {Array<Array<Number>>} [temps] _matriceTemps(membres)
    */
-  _calculerChaine(membres, depart) {
-    let ordre = [depart],
-      restants = membres.filter((m) => m !== depart);
+  _calculerChaine(membres, depart, temps = this._matriceTemps(membres)) {
+    let n = membres.length,
+      debut = membres.indexOf(depart),
+      ordre = [debut],
+      restants = membres.map((m, k) => k).filter((k) => k != debut);
     while (restants.length) {
       let dernier = ordre[ordre.length - 1],
         i = 0;
       restants.forEach((m, j) => {
-        if (this._tempsEntre(dernier, m) < this._tempsEntre(dernier, restants[i])) i = j;
+        if (temps[dernier][m] < temps[dernier][restants[i]]) i = j;
       });
       ordre.push(restants.splice(i, 1)[0]);
     }
-    const n = ordre.length,
-      t = (a, b) => (a && b ? this._tempsEntre(a, b) : 0),
-      // suivant de la position k : rien en bout de chaîne
-      suivant = (k) => (k + 1 < n ? ordre[k + 1] : null);
+    // rien après le bout de la chaîne
+    const t = (/** @type {Number} */ a, /** @type {Number|undefined} */ b) =>
+      b === undefined ? 0 : temps[a][b];
     let ameliore = n > 3;
     while (ameliore) {
       ameliore = false;
       for (let i = 1; i < n - 1; i++)
         for (let k = i + 1; k < n; k++) {
-          let avant = t(ordre[i - 1], ordre[i]) + t(ordre[k], suivant(k)),
-            apres = t(ordre[i - 1], ordre[k]) + t(ordre[i], suivant(k));
+          let avant = t(ordre[i - 1], ordre[i]) + t(ordre[k], ordre[k + 1]),
+            apres = t(ordre[i - 1], ordre[k]) + t(ordre[i], ordre[k + 1]);
           if (apres < avant) {
-            ordre = [
-              ...ordre.slice(0, i),
-              ...ordre.slice(i, k + 1).reverse(),
-              ...ordre.slice(k + 1),
-            ];
+            for (let a = i, b = k; a < b; a++, b--) [ordre[a], ordre[b]] = [ordre[b], ordre[a]];
             ameliore = true;
           }
         }
     }
-    return this._chaineDepuisOrdre(ordre);
+    return this._chaineDepuisOrdre(ordre.map((k) => membres[k]));
   }
   /**
    * Temps de chaque étape d'un ordre de passage donné.
@@ -1111,9 +1235,10 @@ class PageAlliance {
    * @method _chaineLaPlusCourte
    */
   _chaineLaPlusCourte(membres) {
-    let c = membres
-      .map((m) => this._calculerChaine(membres, m))
-      .reduce((a, b) => (b.total < a.total ? b : a));
+    let temps = this._matriceTemps(membres),
+      c = membres
+        .map((m) => this._calculerChaine(membres, m, temps))
+        .reduce((a, b) => (b.total < a.total ? b : a));
     if (c.ordre[0].y > c.ordre[c.ordre.length - 1].y) {
       c.ordre.reverse();
       c.etapes.reverse();
@@ -1121,43 +1246,56 @@ class PageAlliance {
     return c;
   }
   /**
-   * Recalcule la chaîne sur les membres affichés et remplit le tableau sous la
-   * carte. Renvoie null s'il n'y a pas assez de membres.
+   * Chaîne des membres affichés : celle déjà calculée pour ces membres et ce
+   * départ, sinon calculée si `calculer`, sinon le tableau invite à la
+   * calculer. Remplit la liste des départs et le tableau sous la carte.
    *
    * @private
-   * @method _majChaine
+   * @method _chaineAJour
+   * @param {Array} membres membres affichés
+   * @param {Boolean} calculer
+   * @return {Object|null}
    */
-  _majChaine(membres) {
+  _chaineAJour(membres, calculer) {
     if (!this._optionsChaine) this._optionsChaine = this._chargerOptionsChaine();
     $("#o_carteChaine").show();
-    let pseudos = membres.map((m) => m.pseudo).sort((a, b) => a.localeCompare(b)),
+    let echapper = (/** @type {String} */ t) => $("<div>").text(t).html(),
+      pseudos = membres.map((m) => m.pseudo).sort((a, b) => a.localeCompare(b)),
       // sans départ choisi (ou s'il n'est plus affiché), départ libre
-      depart = membres.find((m) => m.pseudo === this._optionsChaine.depart);
+      depart = membres.find((m) => m.pseudo === this._optionsChaine.depart),
+      cle =
+        (depart ? depart.pseudo : "") +
+        "|" +
+        membres
+          .map((m) => `${m.pseudo}:${m.x}:${m.y}`)
+          .sort()
+          .join(",");
     $("#o_chaineDepart").html(
       `<option value=''>Le plus court (départ libre)</option>` +
-        pseudos
-          .map(
-            (p) =>
-              `<option value='${$("<div>").text(p).html()}'>${$("<div>").text(p).html()}</option>`,
-          )
-          .join(""),
+        pseudos.map((p) => `<option value='${echapper(p)}'>${echapper(p)}</option>`).join(""),
     );
     $("#o_chaineDepart").val(depart ? depart.pseudo : "");
+    if (this._chaine && this._chaine.cle == cle) return this._chaine;
+    this._chaine = null;
     if (membres.length < 2) {
-      this._chaine = null;
       $("#o_chaineListe").html(
         "<tr><td><em>Il faut au moins deux membres affichés pour former une chaîne.</em></td></tr>",
       );
-      $("#o_chaineCopier").prop("disabled", true);
+      $("#o_chaineCopier, #o_chaineCalculer").prop("disabled", true);
       return null;
     }
-    $("#o_chaineCopier").prop("disabled", false);
-    let chaine = (this._chaine = depart
-        ? this._calculerChaine(membres, depart)
-        : this._chaineLaPlusCourte(membres)),
-      n = chaine.ordre.length,
-      lien = (m) =>
-        `<a href='Membre.php?Pseudo=${m.pseudo}'>${$("<div>").text(m.pseudo).html()}</a>`,
+    $("#o_chaineCopier, #o_chaineCalculer").prop("disabled", false);
+    if (!calculer) {
+      $("#o_chaineListe").html(
+        "<tr><td><em>« Calculer la chaîne » établit l'ordre de passage des membres affichés.</em></td></tr>",
+      );
+      return null;
+    }
+    let chaine = (this._chaine = {
+        ...(depart ? this._calculerChaine(membres, depart) : this._chaineLaPlusCourte(membres)),
+        cle,
+      }),
+      lien = (m) => `<a href='Membre.php?Pseudo=${m.pseudo}'>${echapper(m.pseudo)}</a>`,
       lignes = chaine.ordre.map((m, k) => {
         let vers = chaine.ordre[k + 1];
         return `<tr><td>${k + 1}</td><td>${lien(m)}${m.isMe ? " <em>(toi)</em>" : ""}</td><td>${m.x} / ${m.y}</td>
@@ -1193,7 +1331,9 @@ class PageAlliance {
   }
   /**
    * Point d'entrée de la carte : mémorise la liste complète, (re)construit les
-   * filtres, puis dessine la carte filtrée.
+   * filtres, puis dessine la carte filtrée, avec les autres joueurs ajoutés
+   * (lus dans l'export public : tout de suite si sa copie gardée est à jour,
+   * sinon après sa lecture, la carte redessinée).
    *
    * @private
    * @method _renderCarte
@@ -1202,12 +1342,383 @@ class PageAlliance {
     this._carteMembres = membres;
     this._filtres = this._chargerFiltres();
     this._construireFiltres(membres);
-    return this._dessinerCarte(this._filtrerMembres(membres), membres.length);
+    let entrees = PageAlliance.autresGardes(),
+      base = entrees.length ? ExportJoueurs.gardee(true) : null;
+    if (base) this._poserAutres(base);
+    this._dessinerCarte(this._filtrerMembres(membres), membres.length);
+    if (entrees.length && !base) this._lireAutres();
   }
   /**
-   * Render Highcharts dans #o_carteAllianceChart.
-   * Regroupe les membres par case (x,y), trace les liens en-dessous d'un seuil,
-   * affiche le tooltip avec temps de trajet (sans / avec bonus Vitesse d'attaque).
+   * Cadre de la carte autour des points, avec une marge ; avec la largeur de
+   * la carte, de quoi écrire le nom d'un point du haut au-dessus de lui (sinon
+   * Highcharts le ramène dans le tracé, sur le point).
+   *
+   * @static
+   * @method bornesCarte
+   * @param {Array<{x: Number, y: Number}>} points
+   * @param {Number} [largeur] px
+   * @return {{xMin: Number, xMax: Number, yMin: Number, yMax: Number}}
+   */
+  static bornesCarte(points, largeur = 0) {
+    let xs = points.map((p) => p.x),
+      ys = points.map((p) => p.y),
+      xMin = Math.min(...xs),
+      xMax = Math.max(...xs),
+      yMin = Math.min(...ys),
+      yMax = Math.max(...ys),
+      marge = Math.max(2, 0.06 * Math.max(xMax - xMin, yMax - yMin)),
+      b = { xMin: xMin - marge, xMax: xMax + marge, yMin: yMin - marge, yMax: yMax + marge };
+    if (!largeur) return b;
+    let parPixel = Math.max(
+      (b.xMax - b.xMin) / Math.max(1, largeur - MARGES_CARTE.largeur),
+      (b.yMax - b.yMin) / Math.max(1, PageAlliance.hauteurCarte(b, largeur) - MARGES_CARTE.hauteur),
+    );
+    return { ...b, yMax: b.yMax + PX_NOM_CARTE * parPixel };
+  }
+  /**
+   * Cadre qui contient `bornes`, centré sur elles, avec autant d'unités par
+   * pixel en X qu'en Y sur un tracé de `largeur` × `hauteur` px : le temps de
+   * trajet suit la distance en ligne droite, une case de travers ne doit pas
+   * paraître plus loin qu'en face.
+   *
+   * @static
+   * @method cadreOrthonorme
+   * @param {{xMin: Number, xMax: Number, yMin: Number, yMax: Number}} bornes
+   * @param {Number} largeur px
+   * @param {Number} hauteur px
+   * @return {{xMin: Number, xMax: Number, yMin: Number, yMax: Number}}
+   */
+  static cadreOrthonorme(bornes, largeur, hauteur) {
+    let l = Math.max(1, largeur),
+      h = Math.max(1, hauteur),
+      parPixel = Math.max((bornes.xMax - bornes.xMin) / l, (bornes.yMax - bornes.yMin) / h, 1e-6),
+      cx = (bornes.xMin + bornes.xMax) / 2,
+      cy = (bornes.yMin + bornes.yMax) / 2;
+    return {
+      xMin: cx - (parPixel * l) / 2,
+      xMax: cx + (parPixel * l) / 2,
+      yMin: cy - (parPixel * h) / 2,
+      yMax: cy + (parPixel * h) / 2,
+    };
+  }
+  /**
+   * Hauteur de la carte (px) pour une largeur donnée : celle qui garde les
+   * proportions des positions, entre 320 et 900 px (au-delà, le cadre
+   * s'élargit pour garder la même échelle).
+   *
+   * @static
+   * @method hauteurCarte
+   */
+  static hauteurCarte(bornes, largeur) {
+    let trace = Math.max(150, largeur - MARGES_CARTE.largeur),
+      hauteur =
+        (trace * (bornes.yMax - bornes.yMin)) / Math.max(1e-6, bornes.xMax - bornes.xMin) +
+        MARGES_CARTE.hauteur;
+    return Math.round(Math.min(900, Math.max(320, hauteur)));
+  }
+  /**
+   * Met les axes au cadre orthonormé du tracé réel (repris par « Reset zoom ») ;
+   * refait une fois si la largeur des graduations a changé le tracé.
+   *
+   * @static
+   * @method cadrer
+   * @param {any} chart graphique Highcharts
+   * @param {{xMin: Number, xMax: Number, yMin: Number, yMax: Number}} bornes
+   */
+  static cadrer(chart, bornes) {
+    for (let essai = 0; essai < 2; essai++) {
+      let l = chart.plotWidth,
+        h = chart.plotHeight,
+        c = PageAlliance.cadreOrthonorme(bornes, l, h);
+      chart.xAxis[0].update({ min: c.xMin, max: c.xMax }, false);
+      chart.yAxis[0].update({ min: c.yMin, max: c.yMax }, false);
+      chart.redraw(false);
+      if (chart.plotWidth == l && chart.plotHeight == h) return;
+    }
+  }
+  /**
+   * Zoom par glisser : la zone choisie est élargie dans un sens pour garder
+   * la même échelle sur les deux axes.
+   *
+   * @static
+   * @method zoomOrthonorme
+   * @param {any} chart
+   * @param {any} e événement « selection » de Highcharts
+   * @return {Boolean} false : zoom fait ici
+   */
+  static zoomOrthonorme(chart, e) {
+    if (e.resetSelection || !e.xAxis || !e.yAxis) return true;
+    let c = PageAlliance.cadreOrthonorme(
+      { xMin: e.xAxis[0].min, xMax: e.xAxis[0].max, yMin: e.yAxis[0].min, yMax: e.yAxis[0].max },
+      chart.plotWidth,
+      chart.plotHeight,
+    );
+    chart.xAxis[0].setExtremes(c.xMin, c.xMax, false);
+    chart.yAxis[0].setExtremes(c.yMin, c.yMax, false);
+    chart.redraw();
+    chart.showResetZoom();
+    return false;
+  }
+  /**
+   * Joueurs et alliances ajoutés à la carte, couleurs vérifiées.
+   *
+   * @static
+   * @method autresGardes
+   * @return {Array<{type: String, nom: String, couleur: String}>}
+   */
+  static autresGardes() {
+    let liste = Utils.lireStockage(CLE_CARTE_AUTRES, []),
+      couleurs = COULEURS_CARTE_AUTRES.map((c) => c[1]);
+    return (Array.isArray(liste) ? liste : [])
+      .filter(
+        (e) => e && (e.type == "joueur" || e.type == "alliance") && String(e.nom || "").trim(),
+      )
+      .map((e) => ({
+        type: e.type,
+        nom: String(e.nom).trim(),
+        couleur: couleurs.includes(e.couleur) ? e.couleur : couleurs[0],
+      }));
+  }
+  /**
+   * @private
+   * @static
+   */
+  static _garderAutres(liste) {
+    try {
+      localStorage.setItem(CLE_CARTE_AUTRES, JSON.stringify(liste));
+    } catch (e) {}
+  }
+  /**
+   * Points des joueurs et alliances ajoutés, d'après la base de l'export
+   * public : un joueur ajouté seul garde sa couleur même si son alliance est
+   * ajoutée aussi ; un membre de mon alliance n'y est jamais (il est sur la
+   * carte comme membre). Pseudos et tags comparés sans la casse.
+   *
+   * @static
+   * @method resoudreAutres
+   * @param {Array<{type: String, nom: String, couleur: String}>} entrees
+   * @param {Object<string, Array<any>>} base {pseudo: [x, y, terrain, id, seigneur, alliance]}
+   * @param {String} monAlliance tag
+   * @param {Array<String>} membres pseudos des membres
+   * @return {{points: Array<any>, etats: Array<String>}} etats : ce qui est affiché pour chaque entrée
+   */
+  static resoudreAutres(entrees, base, monAlliance, membres) {
+    let min = (/** @type {any} */ t) => String(t || "").toLowerCase(),
+      exclus = new Set(membres.map(min)),
+      tag = min(monAlliance),
+      pseudos = Object.keys(base),
+      parMin = new Map(pseudos.map((p) => [min(p), p])),
+      places = new Map(),
+      etats = entrees.map(() => ""),
+      dansMonAlliance = (/** @type {String} */ p) =>
+        exclus.has(min(p)) || (!!tag && min(base[p][5]) == tag),
+      placer = (/** @type {String} */ p, /** @type {any} */ e) => {
+        let j = base[p];
+        places.set(min(p), {
+          pseudo: p,
+          x: j[0],
+          y: j[1],
+          terrain: Number(j[2]) || 0,
+          alliance: j[5] || "",
+          couleur: e.couleur,
+        });
+      };
+    entrees.forEach((e, k) => {
+      if (e.type != "joueur") return;
+      let p = parMin.get(min(e.nom));
+      if (!p) etats[k] = "introuvable dans la liste publique des joueurs";
+      else if (dansMonAlliance(p)) etats[k] = "membre de ton alliance";
+      else {
+        placer(p, e);
+        let j = base[p];
+        etats[k] = `${j[5] ? j[5] : "sans alliance"} · ${numeral(Number(j[2]) || 0).format()} cm²`;
+      }
+    });
+    entrees.forEach((e, k) => {
+      if (e.type != "alliance") return;
+      let n = 0;
+      pseudos.forEach((p) => {
+        if (min(base[p][5]) != min(e.nom) || dansMonAlliance(p) || places.has(min(p))) return;
+        placer(p, e);
+        n++;
+      });
+      etats[k] = n ? `${n} joueur${n > 1 ? "s" : ""}` : "aucun joueur dans la liste publique";
+    });
+    return { points: [...places.values()], etats };
+  }
+  /**
+   * Joueurs et alliances ajoutés résolus avec la base donnée (gardée pour les
+   * changements de couleur et les retraits), liste mise à jour.
+   *
+   * @private
+   * @method _poserAutres
+   */
+  _poserAutres(base) {
+    this._baseAutres = base;
+    let membres = [
+      ...Object.keys((this._alliance && this._alliance.joueurs) || {}),
+      ...(this._carteMembres || []).map((m) => m.pseudo),
+    ];
+    this._autres = PageAlliance.resoudreAutres(
+      PageAlliance.autresGardes(),
+      base,
+      Utils.alliance,
+      membres,
+    );
+    this._listeAutres();
+  }
+  /**
+   * Lit l'export public (au plus une fois par heure) pour placer les joueurs
+   * ajoutés, puis redessine la carte.
+   *
+   * @private
+   * @method _lireAutres
+   */
+  _lireAutres() {
+    return ExportJoueurs.avecAlliances().then(
+      (base) => {
+        this._poserAutres(base);
+        this._redessiner();
+      },
+      () => {
+        $("#o_carteAutresListe").prepend(
+          "<li class='reduce o_secondaire'>Liste publique des joueurs illisible pour l'instant : les joueurs ajoutés n'apparaissent pas.</li>",
+        );
+      },
+    );
+  }
+  /**
+   * Liste des joueurs et alliances ajoutés, sous les filtres.
+   *
+   * @private
+   * @method _listeAutres
+   */
+  _listeAutres() {
+    let entrees = PageAlliance.autresGardes(),
+      etats = this._autres ? this._autres.etats : [],
+      echapper = (/** @type {String} */ t) => $("<div>").text(t).html(),
+      options = (/** @type {String} */ choisie) =>
+        COULEURS_CARTE_AUTRES.map(
+          ([nom, valeur]) =>
+            `<option value='${valeur}'${valeur == choisie ? " selected" : ""}>${nom}</option>`,
+        ).join("");
+    $("#o_carteAutresListe").html(
+      entrees.length
+        ? entrees
+            .map(
+              (e, k) =>
+                `<li data-k='${k}'><span class='o_carteAutrePastille' style='background:${e.couleur};'></span><b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span>
+                <select class='o_carteAutreCouleurDe' aria-label='Couleur de ${echapper(e.nom)}'>${options(e.couleur)}</select>
+                <span class='o_carteAutreRetirer cursor' role='button' title='Retirer de la carte'>✕</span></li>`,
+            )
+            .join("")
+        : "<li class='reduce o_secondaire'>Aucun : ajoute un joueur ou une alliance entière (alliés, ennemis, recrues…).</li>",
+    );
+    // couleur proposée : la première pas encore prise
+    let prises = entrees.map((e) => e.couleur),
+      libre = COULEURS_CARTE_AUTRES.find((c) => !prises.includes(c[1]));
+    $("#o_carteAutreCouleur").val((libre || COULEURS_CARTE_AUTRES[0])[1]);
+  }
+  /**
+   * Ajout, changement de couleur et retrait des joueurs et alliances.
+   *
+   * @private
+   * @method _evenementsAutres
+   */
+  _evenementsAutres() {
+    let changer = (/** @type {(liste: Array<any>) => void} */ modifier) => {
+      let liste = PageAlliance.autresGardes();
+      modifier(liste);
+      PageAlliance._garderAutres(liste);
+      if (this._baseAutres) this._poserAutres(this._baseAutres);
+      else this._listeAutres();
+      this._redessiner();
+    };
+    $("#o_carteAutreAjouter").on("click", () => this._ajouterAutre());
+    $("#o_carteAutreNom").on("keydown", (e) => {
+      if (e.key == "Enter") {
+        e.preventDefault();
+        this._ajouterAutre();
+      }
+    });
+    $("#o_carteAutresListe")
+      .on("change", ".o_carteAutreCouleurDe", (e) => {
+        let k = Number($(e.currentTarget).closest("li").data("k")),
+          couleur = String($(e.currentTarget).val());
+        changer((liste) => {
+          if (liste[k]) liste[k].couleur = couleur;
+        });
+      })
+      .on("click", ".o_carteAutreRetirer", (e) => {
+        let k = Number($(e.currentTarget).closest("li").data("k"));
+        changer((liste) => liste.splice(k, 1));
+      });
+    this._listeAutres();
+  }
+  /**
+   * Ajoute le joueur ou l'alliance saisi, après l'avoir trouvé dans l'export
+   * public (lu au plus une fois par heure), avec son orthographe du jeu.
+   *
+   * @private
+   * @method _ajouterAutre
+   * @return {Promise<void>}
+   */
+  _ajouterAutre() {
+    let type = String($("#o_carteAutreType").val()),
+      nom = String($("#o_carteAutreNom").val() || "").trim(),
+      couleur = String($("#o_carteAutreCouleur").val()),
+      min = (/** @type {any} */ t) => String(t || "").toLowerCase(),
+      refus = (/** @type {String} */ texte) => $.toast({ ...TOAST_WARNING, text: texte });
+    if (!nom) return Promise.resolve();
+    if (PageAlliance.autresGardes().some((e) => e.type == type && min(e.nom) == min(nom)))
+      return Promise.resolve(refus(`« ${nom} » est déjà sur la carte.`));
+    if (type == "alliance" && min(nom) == min(Utils.alliance))
+      return Promise.resolve(refus("Ton alliance est déjà sur la carte : ce sont les membres."));
+    let $bouton = $("#o_carteAutreAjouter").prop("disabled", true);
+    return ExportJoueurs.avecAlliances()
+      .then(
+        (base) => {
+          let pseudos = Object.keys(base),
+            exact =
+              type == "joueur"
+                ? pseudos.find((p) => min(p) == min(nom))
+                : (pseudos.map((p) => base[p][5]).find((t) => t && min(t) == min(nom)) ?? null);
+          if (!exact)
+            return refus(
+              `${type == "joueur" ? "Joueur" : "Alliance"} « ${nom} » introuvable dans la liste publique des joueurs (le jeu la refait chaque heure).`,
+            );
+          let membres = [
+            ...Object.keys((this._alliance && this._alliance.joueurs) || {}),
+            ...(this._carteMembres || []).map((m) => m.pseudo),
+          ];
+          if (
+            type == "joueur" &&
+            (membres.some((p) => min(p) == min(exact)) ||
+              (!!Utils.alliance && min(base[exact][5]) == min(Utils.alliance)))
+          )
+            return refus(`${exact} est membre de ton alliance : il est déjà sur la carte.`);
+          let liste = PageAlliance.autresGardes();
+          liste.push({ type, nom: exact, couleur });
+          PageAlliance._garderAutres(liste);
+          $("#o_carteAutreNom").val("");
+          this._poserAutres(base);
+          this._redessiner();
+        },
+        () =>
+          $.toast({
+            ...TOAST_ERROR,
+            text: "Liste publique des joueurs illisible pour l'instant : réessaie plus tard.",
+          }),
+      )
+      .then(() => {
+        $bouton.prop("disabled", false);
+      });
+  }
+  /**
+   * Render Highcharts dans #o_carteAllianceChart, à la même échelle sur les
+   * deux axes. Regroupe les membres par case (x,y), relie chaque case à ses
+   * plus proches voisines, affiche le temps de trajet au survol ; les joueurs
+   * ajoutés sont des losanges à leur couleur, hors des liens et de la chaîne.
    *
    * @private
    * @method _dessinerCarte
@@ -1215,7 +1726,8 @@ class PageAlliance {
    * @param {Integer} total effectif avant filtrage, pour le titre
    */
   _dessinerCarte(members, total) {
-    $("#o_carteAllianceChart").show();
+    const $graphe = $("#o_carteAllianceChart").show();
+    $("#o_carteLegende").show();
     // Désactive le warning Highcharts #15 : nos séries `line` représentent des arêtes
     // arbitraires entre cases (a→b dans n'importe quelle direction), donc les x ne
     // sont pas monotonement croissants. Le rendu marche, c'est juste un warning console.
@@ -1226,7 +1738,10 @@ class PageAlliance {
       m.isMe = m.pseudo === monProfil.pseudo;
     });
     const me = members.find((m) => m.isMe) || { x: monProfil.x, y: monProfil.y };
-    const chaine = this._majChaine(members);
+    const chaine = this._chaineAJour(
+      members,
+      !!(this._optionsChaine && this._optionsChaine.tracer) || !!this._chaineVoulue,
+    );
     const tracer = !!(chaine && this._optionsChaine.tracer);
     const rangs = new Map(tracer ? chaine.ordre.map((m, k) => [m.pseudo, k + 1]) : []);
     const tempsParcours = (target, niveauVit) =>
@@ -1236,16 +1751,20 @@ class PageAlliance {
           (1 - Math.exp(-Math.hypot(target.x - me.x, target.y - me.y) / 350)),
       );
     // Regroupement par case (x, y)
-    const spotMap = new Map();
-    for (const m of members) {
-      const key = `${m.x},${m.y}`;
-      if (!spotMap.has(key)) spotMap.set(key, { x: m.x, y: m.y, members: [] });
-      spotMap.get(key).members.push(m);
-    }
-    const spots = [...spotMap.values()].map((s) => ({
+    const parCase = (liste) => {
+      const cases = new Map();
+      for (const m of liste) {
+        const key = `${m.x},${m.y}`;
+        if (!cases.has(key)) cases.set(key, { x: m.x, y: m.y, members: [] });
+        cases.get(key).members.push(m);
+      }
+      return [...cases.values()];
+    };
+    const spots = parCase(members).map((s) => ({
       ...s,
       isMyGroup: s.members.some((m) => m.isMe),
     }));
+    const autres = parCase(this._autres ? this._autres.points : []);
     // Liens : K plus proches voisins (s'adapte à l'étalement de l'alliance)
     const edgeSet = new Set();
     for (let i = 0; i < spots.length; i++) {
@@ -1284,6 +1803,50 @@ class PageAlliance {
     const dMin = allDists.length ? Math.min(...allDists) : 0;
     const dMax = allDists.length ? Math.max(...allDists) : 0;
     const dAvg = allDists.length ? allDists.reduce((s, v) => s + v, 0) / allDists.length : 0;
+    // même échelle en X et en Y : hauteur d'après la largeur, cadre ajusté au tracé
+    const points = [...spots, ...autres];
+    // largeur mesurée gardée telle quelle : comparée à l'affichage suivant
+    this._largeurCarte = $graphe.width();
+    const largeur = this._largeurCarte || 600;
+    const bornes = PageAlliance.bornesCarte(points.length ? points : [me], largeur);
+    const hauteur = PageAlliance.hauteurCarte(bornes, largeur);
+    const depart = PageAlliance.cadreOrthonorme(
+      bornes,
+      largeur - MARGES_CARTE.largeur,
+      hauteur - MARGES_CARTE.hauteur,
+    );
+    $graphe.css("height", hauteur + "px");
+    const nbAutres = autres.reduce((n, s) => n + s.members.length, 0);
+    const axe = (titre) => ({
+      title: { text: titre },
+      gridLineWidth: 1,
+      gridLineColor: "#f0f0f0",
+      // mêmes graduations sur les deux axes : la grille fait des carrés
+      tickPixelInterval: 50,
+      startOnTick: false,
+      endOnTick: false,
+      minPadding: 0,
+      maxPadding: 0,
+    });
+    const echapper = (t) => $("<div>").text(t).html();
+    const trajet = (cible) => {
+      const tSans = tempsParcours(cible, 0);
+      const tAvec = tempsParcours(cible, niveauVitesseAttaque);
+      return (
+        `&nbsp;&nbsp;Sans amélioration : ${Utils.intToTime(tSans)}<br/>` +
+        `&nbsp;&nbsp;Avec ton bonus (Vit. att. ${niveauVitesseAttaque}) : ${Utils.intToTime(tAvec)}`
+      );
+    };
+    // joueur ajouté : alliance, TdC de l'export (à l'heure près) et portée
+    const infoAutre = (a) => {
+      let html = `<b>${echapper(a.pseudo)}</b>${a.alliance ? ` [${echapper(a.alliance)}]` : " (sans alliance)"}<br/>`;
+      html += `Terrain : ${numeral(a.terrain).format()} cm² <span class="reduce">(liste publique, à l'heure près)</span>`;
+      if (Utils.terrain > 0 && a.terrain > 0)
+        html +=
+          `<br/>Tu peux l'attaquer : ${Utils.aPortee(a.terrain, Utils.terrain) ? "oui" : "non"}` +
+          ` · il peut t'attaquer : ${Utils.aPortee(Utils.terrain, a.terrain) ? "oui" : "non"}`;
+      return html;
+    };
     Highcharts.chart("o_carteAllianceChart", {
       chart: {
         type: "scatter",
@@ -1291,9 +1854,19 @@ class PageAlliance {
         panKey: "shift",
         backgroundColor: "#fff",
         spacingTop: 25,
+        // la largeur change l'échelle : la carte est redessinée (resize) plutôt qu'étirée
+        reflow: false,
+        events: {
+          load: function () {
+            PageAlliance.cadrer(this, bornes);
+          },
+          selection: function (e) {
+            return PageAlliance.zoomOrthonorme(this, e);
+          },
+        },
       },
       title: {
-        text: `${total > members.length ? `${members.length} membres affichés sur ${total}` : `${members.length} membres`} • ${spots.length} cases • ${tracer ? `chaîne de ${chaine.ordre.length} joueurs (${Utils.intToTime(chaine.total)} cumulés)` : `${edges.length} liens (${K_NEIGHBORS} plus proches voisins)`}`,
+        text: `${total > members.length ? `${members.length} membres affichés sur ${total}` : `${members.length} membres`}${nbAutres ? ` • ${nbAutres} autre${nbAutres > 1 ? "s" : ""}` : ""} • ${spots.length} cases • ${tracer ? `chaîne de ${chaine.ordre.length} joueurs (${Utils.intToTime(chaine.total)} cumulés)` : `${edges.length} liens (${K_NEIGHBORS} plus proches voisins)`}`,
         style: { fontSize: "14px", fontWeight: "600" },
       },
       subtitle: {
@@ -1302,12 +1875,8 @@ class PageAlliance {
           : "",
         style: { fontSize: "11px", color: "#888" },
       },
-      xAxis: {
-        title: { text: "X (coord monde)" },
-        gridLineWidth: 1,
-        gridLineColor: "#f0f0f0",
-      },
-      yAxis: { title: { text: "Y (coord monde)" }, gridLineColor: "#f0f0f0" },
+      xAxis: { ...axe("X (coord monde)"), min: depart.xMin, max: depart.xMax },
+      yAxis: { ...axe("Y (coord monde)"), min: depart.yMin, max: depart.yMax },
       credits: { enabled: false },
       legend: { enabled: false },
       tooltip: {
@@ -1319,7 +1888,10 @@ class PageAlliance {
           const spot = this.point.spot;
           const pos = `(${Math.round(spot.x)}, ${Math.round(spot.y)})`;
           let html = "";
-          if (spot.members.length === 1) {
+          if (this.point.autre) {
+            html += spot.members.map(infoAutre).join("<br/><br/>");
+            html += `<br/>Position : ${pos}<br/><br/><b>Temps de trajet</b><br/>${trajet(spot)}`;
+          } else if (spot.members.length === 1) {
             const m = spot.members[0];
             html += `<b>${m.pseudo}</b><br/>`;
             html += `Terrain : ${numeral(m.terrain).format()} cm²<br/>`;
@@ -1327,11 +1899,7 @@ class PageAlliance {
             if (m.isMe) {
               html += `<br/><em class="o_succesClair">C'est toi</em>`;
             } else {
-              const tSans = tempsParcours(m, 0);
-              const tAvec = tempsParcours(m, niveauVitesseAttaque);
-              html += `<br/><br/><b>Temps de trajet</b><br/>`;
-              html += `&nbsp;&nbsp;Sans amélioration : ${Utils.intToTime(tSans)}<br/>`;
-              html += `&nbsp;&nbsp;Avec ton bonus (Vit. att. ${niveauVitesseAttaque}) : ${Utils.intToTime(tAvec)}`;
+              html += `<br/><br/><b>Temps de trajet</b><br/>${trajet(m)}`;
             }
           } else {
             html += `<b>${spot.members.length} membres sur cette case</b><br/>`;
@@ -1348,11 +1916,7 @@ class PageAlliance {
               spot.members.forEach((m) => {
                 html += `&nbsp;&nbsp;• <b>${m.pseudo}</b> (${numeral(m.terrain).format()} cm²)<br/>`;
               });
-              const tSans = tempsParcours(spot, 0);
-              const tAvec = tempsParcours(spot, niveauVitesseAttaque);
-              html += `<br/><b>Temps de trajet</b> (commun, même case)<br/>`;
-              html += `&nbsp;&nbsp;Sans amélioration : ${Utils.intToTime(tSans)}<br/>`;
-              html += `&nbsp;&nbsp;Avec ton bonus (Vit. att. ${niveauVitesseAttaque}) : ${Utils.intToTime(tAvec)}`;
+              html += `<br/><b>Temps de trajet</b> (commun, même case)<br/>${trajet(spot)}`;
             }
           }
           return html;
@@ -1364,10 +1928,23 @@ class PageAlliance {
             symbol: "circle",
             states: { hover: { lineColor: "#000", lineWidth: 2 } },
           },
+          dataLabels: {
+            enabled: true,
+            format: "{point.name}",
+            allowOverlap: false,
+            style: {
+              fontSize: "10px",
+              fontWeight: "normal",
+              color: "#222",
+              textOutline: "2px contrast",
+            },
+            y: -14,
+          },
           point: {
             events: {
               click: function () {
-                // Clic sur un point → zoom 4× autour (utile pour explorer les clusters denses).
+                // Clic sur un point → zoom 4× autour (utile pour explorer les clusters denses) ;
+                // les deux axes divisés par 4 : l'échelle reste la même en X et en Y.
                 // Cap : on stop si le viewport descendrait sous 1 unité de jeu (sinon clic infini).
                 const chart = this.series.chart;
                 const xExt = chart.xAxis[0].getExtremes();
@@ -1426,6 +2003,31 @@ class PageAlliance {
           showInLegend: false,
           animation: false,
         },
+        // Joueurs et alliances ajoutés, sous les membres
+        {
+          type: "scatter",
+          name: "Autres",
+          data: autres.map((s) => {
+            const n = s.members.length;
+            return {
+              x: s.x,
+              y: s.y,
+              spot: s,
+              autre: true,
+              name:
+                n === 1
+                  ? s.members[0].pseudo
+                  : `${[...s.members].map((m) => m.pseudo).sort()[0]} +${n - 1}`,
+              marker: {
+                symbol: "diamond",
+                radius: n > 1 ? 7 : 6,
+                fillColor: s.members[0].couleur,
+                lineColor: "#fff",
+                lineWidth: 1.5,
+              },
+            };
+          }),
+        },
         {
           type: "scatter",
           name: "Membres",
@@ -1469,18 +2071,6 @@ class PageAlliance {
               },
             };
           }),
-          dataLabels: {
-            enabled: true,
-            format: "{point.name}",
-            allowOverlap: false,
-            style: {
-              fontSize: "10px",
-              fontWeight: "normal",
-              color: "#222",
-              textOutline: "2px contrast",
-            },
-            y: -14,
-          },
         },
       ],
     });

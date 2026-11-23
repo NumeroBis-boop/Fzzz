@@ -1375,6 +1375,41 @@ h2:has(+ .o_nbUnite) {
   margin-bottom: 4px;
 }
 
+/* Joueurs et alliances ajoutés à la carte de l'alliance (liste du joueur) */
+#o_carteAutres .o_carteAutreAjout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+#o_carteAutreNom {
+  width: 10em;
+  max-width: 100%;
+}
+#o_carteAutresListe {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+#o_carteAutresListe li {
+  margin: 3px 0;
+}
+.o_carteAutrePastille {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin: 0 8px 0 3px;
+  transform: rotate(45deg);
+  vertical-align: middle;
+}
+.o_carteAutreRetirer {
+  margin-left: 10px;
+  padding: 0 6px;
+}
+#o_carteLegende .o_carteSymbole {
+  margin-left: 10px;
+}
+
 /* Valeur saisissable d'un curseur (part de ratio, paramètre slider) */
 .o_sliderValeur {
   width: 38px;

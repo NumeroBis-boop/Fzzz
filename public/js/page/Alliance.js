@@ -6,17 +6,27 @@
 /** Vitesse d'attaque du fichier Excel de la Carte (choix du mainteneur), modifiable dans le fichier. */
 const VITESSE_EXPORT_TRAJETS = 10;
 /**
- * Couleurs au choix des joueurs et alliances ajoutés à la Carte : bleu, violet
- * et rose validés entre eux et contre le rouge, l'orange et le vert des membres
- * (validateur de la méthode dataviz : séparation suffisante pour des points
- * nommés sur la carte) ; le gris, neutre, pour un joueur quelconque.
+ * Couleurs au choix des joueurs et alliances ajoutés à la Carte, la première
+ * libre proposée. Écart deux à deux au moins 15 en vision normale (OKLab ×100,
+ * validateur de la méthode dataviz) entre elles et avec le rouge, l'orange et
+ * le vert des membres, sauf l'orange (demandé par le mainteneur), à 11 du rouge
+ * des membres : sa forme (losange) et son nom l'en distinguent. Jaune (trop pâle
+ * sur le blanc, comme l'orange des membres), turquoise (comme le bleu) et
+ * marron (comme le gris) écartés.
  */
 const COULEURS_CARTE_AUTRES = [
   ["Bleu", "#2a78d6"],
   ["Violet", "#7b3fb0"],
   ["Rose", "#e75fa3"],
-  ["Gris", "#6b6b6b"],
+  ["Vert", "#0b6e2f"],
+  ["Orange", "#e8590c"],
+  ["Noir", "#1a1a1a"],
+  ["Bleu marine", "#1c3f94"],
+  ["Bordeaux", "#7a1f3d"],
+  ["Gris", "#8a8a8a"],
 ];
+/** Couleurs gardées par une version précédente et leur remplaçante (gris de 1.151.0, trop proche du vert). */
+const COULEURS_CARTE_REMPLACEES = { "#6b6b6b": "#8a8a8a" };
 /** Joueurs et alliances ajoutés à la Carte : liste du joueur, dans le localStorage du jeu (donc par serveur). */
 const CLE_CARTE_AUTRES = "fzzz_carteAutres";
 /** Place prise autour du tracé de la Carte (axes, titre, sous-titre), en px, pour en estimer la hauteur. */
@@ -300,7 +310,7 @@ class PageAlliance {
           <div class='o_carteAutreAjout'>
             <select id='o_carteAutreType' aria-label='Joueur ou alliance'><option value='joueur'>Joueur</option><option value='alliance'>Alliance</option></select>
             <input type='text' id='o_carteAutreNom' maxlength='40' placeholder='Pseudo ou tag' aria-label='Pseudo ou tag'/>
-            <select id='o_carteAutreCouleur' aria-label='Couleur'>${couleurs}</select>
+            <span id='o_carteAutreApercu' class='o_carteAutrePastille'></span><select id='o_carteAutreCouleur' aria-label='Couleur'>${couleurs}</select>
             <button type='button' id='o_carteAutreAjouter' class='o_button f_info'>Ajouter</button>
           </div>
           <ul id='o_carteAutresListe'></ul>
@@ -1473,11 +1483,14 @@ class PageAlliance {
       .filter(
         (e) => e && (e.type == "joueur" || e.type == "alliance") && String(e.nom || "").trim(),
       )
-      .map((e) => ({
-        type: e.type,
-        nom: String(e.nom).trim(),
-        couleur: couleurs.includes(e.couleur) ? e.couleur : couleurs[0],
-      }));
+      .map((e) => {
+        let couleur = COULEURS_CARTE_REMPLACEES[e.couleur] || e.couleur;
+        return {
+          type: e.type,
+          nom: String(e.nom).trim(),
+          couleur: couleurs.includes(couleur) ? couleur : couleurs[0],
+        };
+      });
   }
   /**
    * @private
@@ -1608,8 +1621,8 @@ class PageAlliance {
             .map(
               (e, k) =>
                 `<li data-k='${k}'><span class='o_carteAutrePastille' style='background:${e.couleur};'></span><b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span>
-                <select class='o_carteAutreCouleurDe' aria-label='Couleur de ${echapper(e.nom)}'>${options(e.couleur)}</select>
-                <span class='o_carteAutreRetirer cursor' role='button' title='Retirer de la carte'>✕</span></li>`,
+                <span class='o_carteAutreActions'><select class='o_carteAutreCouleurDe' aria-label='Couleur de ${echapper(e.nom)}'>${options(e.couleur)}</select>
+                <span class='o_carteAutreRetirer cursor' role='button' title='Retirer de la carte'>✕</span></span></li>`,
             )
             .join("")
         : "<li class='reduce o_secondaire'>Aucun : ajoute un joueur ou une alliance entière (alliés, ennemis, recrues…).</li>",
@@ -1618,6 +1631,7 @@ class PageAlliance {
     let prises = entrees.map((e) => e.couleur),
       libre = COULEURS_CARTE_AUTRES.find((c) => !prises.includes(c[1]));
     $("#o_carteAutreCouleur").val((libre || COULEURS_CARTE_AUTRES[0])[1]);
+    $("#o_carteAutreApercu").css("background", String($("#o_carteAutreCouleur").val()));
   }
   /**
    * Ajout, changement de couleur et retrait des joueurs et alliances.
@@ -1635,6 +1649,9 @@ class PageAlliance {
       this._redessiner();
     };
     $("#o_carteAutreAjouter").on("click", () => this._ajouterAutre());
+    $("#o_carteAutreCouleur").on("change", (e) =>
+      $("#o_carteAutreApercu").css("background", String($(e.currentTarget).val())),
+    );
     $("#o_carteAutreNom").on("keydown", (e) => {
       if (e.key == "Enter") {
         e.preventDefault();

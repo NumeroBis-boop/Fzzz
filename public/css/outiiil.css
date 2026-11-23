@@ -1402,9 +1402,17 @@ h2:has(+ .o_nbUnite) {
   transform: rotate(45deg);
   vertical-align: middle;
 }
+/* liste de couleur et ✕ passent à la ligne ensemble */
+.o_carteAutreActions {
+  display: inline-block;
+  white-space: nowrap;
+}
 .o_carteAutreRetirer {
   margin-left: 10px;
   padding: 0 6px;
+}
+#o_carteAutreApercu {
+  margin: 0 0 0 4px;
 }
 #o_carteLegende .o_carteSymbole {
   margin-left: 10px;

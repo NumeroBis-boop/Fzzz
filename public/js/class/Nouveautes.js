@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.151.1",
+    notes: [
+      "Carte de l'alliance : neuf couleurs au choix pour les joueurs et alliances ajoutés (bleu, violet, rose, vert, orange, noir, bleu marine, bordeaux, gris), avec un aperçu de la couleur choisie.",
+    ],
+  },
+  {
     version: "1.151.0",
     notes: [
       "Carte de l'alliance : même échelle en X et en Y (les distances à l'œil sont celles des temps de trajet), dessinée seulement quand tu l'ouvres, la chaîne entre membres calculée à la demande. Tu peux y ajouter des joueurs ou des alliances entières (alliés, ennemis, recrues), en losanges à la couleur de ton choix.",

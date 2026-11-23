@@ -305,7 +305,7 @@ describe("autres joueurs et alliances ajoutés", () => {
       `PageAlliance.resoudreAutres([
         { type: "alliance", nom: "enn", couleur: "#7b3fb0" },
         { type: "joueur", nom: "foxtrot", couleur: "#2a78d6" },
-        { type: "joueur", nom: "golf", couleur: "#6b6b6b" },
+        { type: "joueur", nom: "golf", couleur: "#8a8a8a" },
         { type: "joueur", nom: "Bravo", couleur: "#e75fa3" },
         { type: "joueur", nom: "Inconnu", couleur: "#e75fa3" },
         { type: "alliance", nom: "VIDE", couleur: "#e75fa3" },
@@ -321,7 +321,7 @@ describe("autres joueurs et alliances ajoutés", () => {
         alliance: "ENN",
         couleur: "#2a78d6",
       },
-      { pseudo: "Golf", x: 60, y: 60, terrain: 90000, alliance: "", couleur: "#6b6b6b" },
+      { pseudo: "Golf", x: 60, y: 60, terrain: 90000, alliance: "", couleur: "#8a8a8a" },
       { pseudo: "Echo", x: 80, y: 5, terrain: 120000, alliance: "ENN", couleur: "#7b3fb0" },
     ]);
     expect(r.etats).toEqual([
@@ -349,10 +349,10 @@ describe("autres joueurs et alliances ajoutés", () => {
     await ajouter("alliance", "enn");
     // couleur proposée ensuite : la première libre
     expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#7b3fb0");
-    await ajouter("joueur", "golf", "#6b6b6b");
+    await ajouter("joueur", "golf", "#8a8a8a");
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
       { type: "alliance", nom: "ENN", couleur: "#2a78d6" },
-      { type: "joueur", nom: "Golf", couleur: "#6b6b6b" },
+      { type: "joueur", nom: "Golf", couleur: "#8a8a8a" },
     ]);
     expect(lire(`$("#o_carteAutreNom").val()`)).toBe("");
     expect(
@@ -360,12 +360,12 @@ describe("autres joueurs et alliances ajoutés", () => {
         `$("#o_carteAutresListe li").map((i, e) => $(e).text().replace(/\\s+/g, " ").trim()).get()`,
       ),
     ).toEqual([
-      "ENN alliance · 2 joueurs BleuVioletRoseGris ✕",
-      "Golf joueur · sans alliance · 90 000 cm² BleuVioletRoseGris ✕",
+      "ENN alliance · 2 joueurs BleuVioletRoseVertOrangeNoirBleu marineBordeauxGris ✕",
+      "Golf joueur · sans alliance · 90 000 cm² BleuVioletRoseVertOrangeNoirBleu marineBordeauxGris ✕",
     ]);
     const autres = series().find((s) => s.name == "Autres")?.data ?? [];
     expect(autres.map((d) => [d.name, d.marker.symbol, d.marker.fillColor, d.autre])).toEqual([
-      ["Golf", "diamond", "#6b6b6b", true],
+      ["Golf", "diamond", "#8a8a8a", true],
       ["Echo", "diamond", "#2a78d6", true],
       ["Foxtrot", "diamond", "#2a78d6", true],
     ]);
@@ -397,10 +397,10 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))[0].couleur`)).toBe("#e75fa3");
     expect(
       (series().find((s) => s.name == "Autres")?.data ?? []).map((d) => d.marker.fillColor),
-    ).toEqual(["#6b6b6b", "#e75fa3", "#e75fa3"]);
+    ).toEqual(["#8a8a8a", "#e75fa3", "#e75fa3"]);
     lire(`$("#o_carteAutresListe li:eq(0) .o_carteAutreRetirer").trigger("click")`);
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
-      { type: "joueur", nom: "Golf", couleur: "#6b6b6b" },
+      { type: "joueur", nom: "Golf", couleur: "#8a8a8a" },
     ]);
     expect((series().find((s) => s.name == "Autres")?.data ?? []).map((d) => d.name)).toEqual([
       "Golf",
@@ -410,7 +410,7 @@ describe("autres joueurs et alliances ajoutés", () => {
   test("refus : déjà ajouté, mon alliance, un membre, introuvable, liste publique illisible", async () => {
     garderPositions();
     lire(
-      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#6b6b6b" }]))`,
+      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#8a8a8a" }]))`,
     );
     ouvrirPage();
     const essai = (type: string, nom: string) =>
@@ -494,10 +494,38 @@ describe("autres joueurs et alliances ajoutés", () => {
     ).toContain("Tu peux l'attaquer : oui · il peut t'attaquer : non");
   });
 
+  test("neuf couleurs au choix ; gris de la 1.151.0 gardé gris ; aperçu de la couleur proposée", () => {
+    lire(`localStorage.setItem("fzzz_carteAutres", JSON.stringify([
+      { type: "joueur", nom: "Golf", couleur: "#6b6b6b" },
+      { type: "alliance", nom: "ENN", couleur: "#0b6e2f" },
+    ]))`);
+    ouvrirPage();
+    expect(lire(`$("#o_carteAutreCouleur option").map((i, o) => o.textContent).get()`)).toEqual([
+      "Bleu",
+      "Violet",
+      "Rose",
+      "Vert",
+      "Orange",
+      "Noir",
+      "Bleu marine",
+      "Bordeaux",
+      "Gris",
+    ]);
+    expect(lire(`PageAlliance.autresGardes().map((e) => e.couleur)`)).toEqual([
+      "#8a8a8a",
+      "#0b6e2f",
+    ]);
+    // première couleur libre proposée, et son aperçu à côté de la liste
+    expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#2a78d6");
+    expect(lire(`$("#o_carteAutreApercu").css("background")`)).toBe("#2a78d6");
+    lire(`$("#o_carteAutreCouleur").val("#e8590c").trigger("change")`);
+    expect(lire(`$("#o_carteAutreApercu").css("background")`)).toBe("#e8590c");
+  });
+
   test("exports Excel et forum : les membres seulement", () => {
     garderPositions();
     lire(
-      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#6b6b6b" }]))`,
+      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#8a8a8a" }]))`,
     );
     ouvrirPage();
     expect(lire(`p._membresCarte("l'exporter").members.map((m) => m.pseudo)`)).toEqual([

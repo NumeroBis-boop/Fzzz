@@ -6,15 +6,16 @@
 /** Vitesse d'attaque du fichier Excel de la Carte (choix du mainteneur), modifiable dans le fichier. */
 const VITESSE_EXPORT_TRAJETS = 10;
 /**
- * Couleurs au choix des joueurs et alliances ajoutés à la Carte, la première
- * libre proposée. Écart deux à deux au moins 15 en vision normale (OKLab ×100,
- * validateur de la méthode dataviz) entre elles et avec le rouge, l'orange et
- * le vert des membres, sauf l'orange (demandé par le mainteneur), à 11 du rouge
- * des membres : sa forme (losange) et son nom l'en distinguent. Jaune (trop pâle
- * sur le blanc, comme l'orange des membres), turquoise (comme le bleu) et
- * marron (comme le gris) écartés.
+ * Couleurs au choix des lignes de la Carte (ton alliance, joueurs et alliances
+ * ajoutés), la première libre proposée à l'ajout. Écart deux à deux au moins 15
+ * en vision normale (OKLab ×100, validateur de la méthode dataviz), sauf
+ * l'orange (demandé par le mainteneur), à 11 du rouge (la couleur des membres
+ * par défaut) : la forme et le nom des points les distinguent. Jaune (trop pâle
+ * sur le blanc, comme l'orange), turquoise (comme le bleu) et marron (comme le
+ * gris) écartés.
  */
-const COULEURS_CARTE_AUTRES = [
+const COULEURS_CARTE = [
+  ["Rouge", "#c0392b"],
   ["Bleu", "#2a78d6"],
   ["Violet", "#7b3fb0"],
   ["Rose", "#e75fa3"],
@@ -25,6 +26,36 @@ const COULEURS_CARTE_AUTRES = [
   ["Bordeaux", "#7a1f3d"],
   ["Gris", "#8a8a8a"],
 ];
+/** Symbole Highcharts de la croix, ajouté à ceux de Highcharts 6 (rond, carré, losange, triangles). */
+const SYMBOLE_CROIX = "fzzzCroix";
+/**
+ * Formes des points de la Carte : [clé, nom, symbole Highcharts, caractère de
+ * la liste et de la légende, px de rayon en plus : un losange ou un triangle
+ * du même rayon qu'un rond paraît plus petit].
+ */
+const FORMES_CARTE = [
+  ["rond", "Rond", "circle", "●", 0],
+  ["carre", "Carré", "square", "■", 0],
+  ["losange", "Losange", "diamond", "◆", 1],
+  ["triangle", "Triangle", "triangle", "▲", 1],
+  ["triangleBas", "Triangle bas", "triangle-down", "▼", 1],
+  ["croix", "Croix", SYMBOLE_CROIX, "✕", 0],
+];
+/** Tailles des points de la Carte : [clé, nom, rayon en px] ; « Moyenne » est celle des membres d'avant 1.152.0. */
+const TAILLES_CARTE = [
+  ["petite", "Petite", 4],
+  ["moyenne", "Moyenne", 5],
+  ["grande", "Grande", 7],
+  ["tresGrande", "Très grande", 10],
+];
+/** Ma fourmilière sur la Carte, quelle que soit la couleur choisie pour mon alliance. */
+const COULEUR_CARTE_MOI = "#27ae60";
+/** Couleur, forme et taille des membres de mon alliance sur la Carte (localStorage du jeu, donc par serveur). */
+const CLE_CARTE_STYLE_MEMBRES = "fzzz_carteStyleMembres";
+const STYLE_CARTE_MEMBRES = { couleur: "#c0392b", forme: "rond", taille: "moyenne" };
+const STYLE_CARTE_AUTRE = { couleur: "#2a78d6", forme: "losange", taille: "moyenne" };
+/** Suggestions proposées au plus pendant la saisie d'un pseudo ou d'un tag. */
+const SUGGESTIONS_CARTE_MAX = 8;
 /** Couleurs gardées par une version précédente et leur remplaçante (gris de 1.151.0, trop proche du vert). */
 const COULEURS_CARTE_REMPLACEES = { "#6b6b6b": "#8a8a8a" };
 /** Joueurs et alliances ajoutés à la Carte : liste du joueur, dans le localStorage du jeu (donc par serveur). */
@@ -291,7 +322,7 @@ class PageAlliance {
    */
   carte() {
     if ($("#o_carteAlliance").length) return this; // déjà rendue
-    let couleurs = COULEURS_CARTE_AUTRES.map(
+    let couleurs = COULEURS_CARTE.map(
       ([nom, valeur]) => `<option value='${valeur}'>${nom}</option>`,
     ).join("");
     $("#alliance").after(`
@@ -306,22 +337,18 @@ class PageAlliance {
         </div>
         <div id='o_carteFiltres' class='left o_marginT15' style='display:none;'></div>
         <div id='o_carteAutres' class='left o_marginT15'>
-          <p class='left reduce gras'>Autres joueurs et alliances <span class='reduce o_secondaire' style='font-weight:normal;'>(ta liste, gardée dans ce navigateur)</span></p>
+          <p class='left reduce gras'>Alliances et joueurs sur la carte <span class='reduce o_secondaire' style='font-weight:normal;'>(ta liste, gardée dans ce navigateur)</span></p>
           <div class='o_carteAutreAjout'>
             <select id='o_carteAutreType' aria-label='Joueur ou alliance'><option value='joueur'>Joueur</option><option value='alliance'>Alliance</option></select>
-            <input type='text' id='o_carteAutreNom' maxlength='40' placeholder='Pseudo ou tag' aria-label='Pseudo ou tag'/>
-            <span id='o_carteAutreApercu' class='o_carteAutrePastille'></span><select id='o_carteAutreCouleur' aria-label='Couleur'>${couleurs}</select>
+            <input type='text' id='o_carteAutreNom' maxlength='40' placeholder='Pseudo ou tag' aria-label='Pseudo ou tag' autocomplete='off' aria-controls='o_carteSuggestions'/>
+            <span id='o_carteAutreApercu' class='o_carteSymbole'>${FORMES_CARTE.find((f) => f[0] == STYLE_CARTE_AUTRE.forme)[3]}</span><select id='o_carteAutreCouleur' aria-label='Couleur'>${couleurs}</select>
             <button type='button' id='o_carteAutreAjouter' class='o_button f_info'>Ajouter</button>
           </div>
+          <ul id='o_carteSuggestions' class='o_carteSuggestions' role='listbox' style='display:none;'></ul>
           <ul id='o_carteAutresListe'></ul>
         </div>
         <div id='o_carteAllianceChart' style='margin-top:15px;display:none;'></div>
-        <p id='o_carteLegende' class='reduce' style='display:none;'>
-          <span class='o_carteSymbole' style='color:#c0392b;'>●</span> Membre
-          <span class='o_carteSymbole' style='color:#f39c12;'>●</span> Plusieurs membres sur une case
-          <span class='o_carteSymbole' style='color:#27ae60;'>●</span> Toi
-          <span class='o_carteSymbole'>◆</span> Autres, à la couleur choisie
-        </p>
+        <p id='o_carteLegende' class='reduce' style='display:none;'></p>
         <div id='o_carteChaine' class='o_marginT15' style='display:none;'>
           <div class='centre gras'>Chaîne entre plus proches voisins</div>
           <p class='reduce'>Ordre de passage qui minimise le temps de trajet total entre les membres affichés : chacun envoie au suivant. Les joueurs décochés dans les filtres et les autres joueurs ajoutés sont exclus. Temps sans amélioration de Vitesse d'attaque.</p>
@@ -1350,6 +1377,7 @@ class PageAlliance {
    */
   _renderCarte(membres) {
     this._carteMembres = membres;
+    this._listeAutres();
     this._filtres = this._chargerFiltres();
     this._construireFiltres(membres);
     let entrees = PageAlliance.autresGardes(),
@@ -1470,27 +1498,178 @@ class PageAlliance {
     return false;
   }
   /**
-   * Joueurs et alliances ajoutés à la carte, couleurs vérifiées.
+   * Couleur, forme et taille d'une ligne de la Carte, chacune parmi celles
+   * proposées, sinon celle par défaut.
+   *
+   * @static
+   * @method style
+   * @param {any} e ligne gardée
+   * @param {{couleur: String, forme: String, taille: String}} defaut
+   * @return {{couleur: String, forme: String, taille: String}}
+   */
+  static style(e, defaut) {
+    let x = e || {},
+      couleur = COULEURS_CARTE_REMPLACEES[x.couleur] || x.couleur;
+    return {
+      couleur: COULEURS_CARTE.some((c) => c[1] == couleur) ? couleur : defaut.couleur,
+      forme: FORMES_CARTE.some((f) => f[0] == x.forme) ? x.forme : defaut.forme,
+      taille: TAILLES_CARTE.some((t) => t[0] == x.taille) ? x.taille : defaut.taille,
+    };
+  }
+  /**
+   * Couleur, forme et taille des membres de mon alliance sur la carte.
+   *
+   * @static
+   * @method styleMembres
+   */
+  static styleMembres() {
+    return PageAlliance.style(Utils.lireStockage(CLE_CARTE_STYLE_MEMBRES), STYLE_CARTE_MEMBRES);
+  }
+  /**
+   * Joueurs et alliances ajoutés à la carte, couleur, forme et taille vérifiées.
    *
    * @static
    * @method autresGardes
-   * @return {Array<{type: String, nom: String, couleur: String}>}
+   * @return {Array<{type: String, nom: String, couleur: String, forme: String, taille: String}>}
    */
   static autresGardes() {
-    let liste = Utils.lireStockage(CLE_CARTE_AUTRES, []),
-      couleurs = COULEURS_CARTE_AUTRES.map((c) => c[1]);
+    let liste = Utils.lireStockage(CLE_CARTE_AUTRES, []);
     return (Array.isArray(liste) ? liste : [])
       .filter(
         (e) => e && (e.type == "joueur" || e.type == "alliance") && String(e.nom || "").trim(),
       )
-      .map((e) => {
-        let couleur = COULEURS_CARTE_REMPLACEES[e.couleur] || e.couleur;
-        return {
-          type: e.type,
-          nom: String(e.nom).trim(),
-          couleur: couleurs.includes(couleur) ? couleur : couleurs[0],
-        };
+      .map((e) => ({
+        type: e.type,
+        nom: String(e.nom).trim(),
+        ...PageAlliance.style(e, STYLE_CARTE_AUTRE),
+      }));
+  }
+  /**
+   * Marqueur Highcharts d'une case de la carte, à la couleur, la forme et la
+   * taille de sa ligne : une case de plusieurs joueurs plus grande et cerclée
+   * de noir, la mienne en vert. La croix, faite de traits, prend la couleur
+   * dans son trait.
+   *
+   * @static
+   * @method marqueur
+   * @param {{couleur: String, forme: String, taille: String}} style
+   * @param {{n?: Number, moi?: Boolean}} [cas] n : joueurs sur la case
+   * @return {any}
+   */
+  static marqueur(style, cas = {}) {
+    let n = cas.n || 1,
+      forme = FORMES_CARTE.find((f) => f[0] == style.forme) || FORMES_CARTE[0],
+      rayon = (TAILLES_CARTE.find((t) => t[0] == style.taille) || TAILLES_CARTE[1])[2] + forme[4],
+      couleur = cas.moi ? COULEUR_CARTE_MOI : style.couleur,
+      marque = n > 1 || !!cas.moi;
+    if (forme[2] == SYMBOLE_CROIX)
+      return {
+        symbol: forme[2],
+        radius: rayon + Math.min(n - 1, 3),
+        fillColor: couleur,
+        lineColor: couleur,
+        lineWidth: marque ? 3.5 : 2.5,
+      };
+    return {
+      symbol: forme[2],
+      radius: rayon + Math.min(n - 1, 3),
+      fillColor: couleur,
+      lineColor: cas.moi ? "#196f3d" : n > 1 ? "#222" : "#fff",
+      lineWidth: marque ? 2 : 1.5,
+    };
+  }
+  /**
+   * Ajoute la croix aux formes de Highcharts (une fois).
+   *
+   * @static
+   * @method formeCroix
+   */
+  static formeCroix() {
+    let symboles =
+      typeof Highcharts != "undefined" &&
+      Highcharts.SVGRenderer &&
+      Highcharts.SVGRenderer.prototype.symbols;
+    if (symboles && !symboles[SYMBOLE_CROIX])
+      symboles[SYMBOLE_CROIX] = (
+        /** @type {Number} */ x,
+        /** @type {Number} */ y,
+        /** @type {Number} */ w,
+        /** @type {Number} */ h,
+      ) => ["M", x, y, "L", x + w, y + h, "M", x + w, y, "L", x, y + h];
+  }
+  /**
+   * Caractère de la forme, à la couleur de la ligne, pour la liste et la légende.
+   *
+   * @static
+   * @method glyphe
+   * @param {{couleur: String, forme: String}} style
+   * @return {String} HTML
+   */
+  static glyphe(style) {
+    let forme = FORMES_CARTE.find((f) => f[0] == style.forme) || FORMES_CARTE[0];
+    return `<span class='o_carteSymbole' style='color:${style.couleur};'>${forme[3]}</span>`;
+  }
+  /**
+   * Pseudos et tags de l'export public, pour les suggestions de saisie.
+   *
+   * @static
+   * @method indexSuggestions
+   * @param {Object<string, Array<any>>} base {pseudo: [x, y, terrain, id, seigneur, alliance]}
+   * @return {{joueurs: Array<any>, alliances: Array<any>}}
+   */
+  static indexSuggestions(base) {
+    let tags = new Map(),
+      joueurs = Object.keys(base).map((p) => {
+        let tag = base[p][5] || "";
+        if (tag) tags.set(tag, (tags.get(tag) || 0) + 1);
+        return { nom: p, min: p.toLowerCase(), tag, terrain: Number(base[p][2]) || 0 };
       });
+    return {
+      joueurs,
+      alliances: [...tags].map(([tag, n]) => ({ nom: tag, min: tag.toLowerCase(), n })),
+    };
+  }
+  /**
+   * Pseudos ou tags qui contiennent le texte saisi (casse ignorée), ceux qui
+   * commencent par lui d'abord, puis dans l'ordre alphabétique ; sans mon
+   * alliance, ses membres ni ce qui est déjà sur la carte.
+   *
+   * @static
+   * @method suggestions
+   * @param {{joueurs: Array<any>, alliances: Array<any>}} index indexSuggestions
+   * @param {String} type "joueur" ou "alliance"
+   * @param {String} texte
+   * @param {{tag: String, deja: Array<String>}} exclus mon tag ; noms déjà ajoutés de ce type
+   * @param {Number} [max]
+   * @return {Array<{valeur: String, detail: String}>}
+   */
+  static suggestions(index, type, texte, exclus, max = SUGGESTIONS_CARTE_MAX) {
+    let t = String(texte || "")
+        .trim()
+        .toLowerCase(),
+      tag = String(exclus.tag || "").toLowerCase(),
+      deja = new Set(exclus.deja.map((n) => String(n).toLowerCase()));
+    if (!t) return [];
+    return (type == "alliance" ? index.alliances : index.joueurs)
+      .filter(
+        (e) =>
+          e.min.includes(t) &&
+          !deja.has(e.min) &&
+          (type == "alliance" ? e.min != tag : !tag || e.tag.toLowerCase() != tag),
+      )
+      .sort(
+        (a, b) =>
+          Number(!a.min.startsWith(t)) - Number(!b.min.startsWith(t)) ||
+          a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }),
+      )
+      .slice(0, max)
+      .map((e) => ({
+        valeur: e.nom,
+        detail:
+          type == "alliance"
+            ? `${e.n} joueur${e.n > 1 ? "s" : ""}`
+            : `${e.tag ? `[${e.tag}]` : "sans alliance"} · ${numeral(e.terrain).format()} cm²`,
+      }));
   }
   /**
    * @private
@@ -1534,6 +1713,8 @@ class PageAlliance {
           terrain: Number(j[2]) || 0,
           alliance: j[5] || "",
           couleur: e.couleur,
+          forme: e.forme,
+          taille: e.taille,
         });
       };
     entrees.forEach((e, k) => {
@@ -1601,40 +1782,65 @@ class PageAlliance {
     );
   }
   /**
-   * Liste des joueurs et alliances ajoutés, sous les filtres.
+   * Lignes de la carte, sous les filtres : mon alliance d'abord (ses membres),
+   * puis les joueurs et alliances ajoutés ; couleur, forme et taille sur
+   * chacune, et une ✕ sur les ajoutés.
    *
    * @private
    * @method _listeAutres
    */
   _listeAutres() {
     let entrees = PageAlliance.autresGardes(),
+      membres = PageAlliance.styleMembres(),
       etats = this._autres ? this._autres.etats : [],
       echapper = (/** @type {String} */ t) => $("<div>").text(t).html(),
-      options = (/** @type {String} */ choisie) =>
-        COULEURS_CARTE_AUTRES.map(
-          ([nom, valeur]) =>
-            `<option value='${valeur}'${valeur == choisie ? " selected" : ""}>${nom}</option>`,
-        ).join("");
-    $("#o_carteAutresListe").html(
-      entrees.length
-        ? entrees
-            .map(
-              (e, k) =>
-                `<li data-k='${k}'><span class='o_carteAutrePastille' style='background:${e.couleur};'></span><b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span>
-                <span class='o_carteAutreActions'><select class='o_carteAutreCouleurDe' aria-label='Couleur de ${echapper(e.nom)}'>${options(e.couleur)}</select>
-                <span class='o_carteAutreRetirer cursor' role='button' title='Retirer de la carte'>✕</span></span></li>`,
-            )
-            .join("")
-        : "<li class='reduce o_secondaire'>Aucun : ajoute un joueur ou une alliance entière (alliés, ennemis, recrues…).</li>",
-    );
-    // couleur proposée : la première pas encore prise
-    let prises = entrees.map((e) => e.couleur),
-      libre = COULEURS_CARTE_AUTRES.find((c) => !prises.includes(c[1]));
-    $("#o_carteAutreCouleur").val((libre || COULEURS_CARTE_AUTRES[0])[1]);
-    $("#o_carteAutreApercu").css("background", String($("#o_carteAutreCouleur").val()));
+      choix = (
+        /** @type {Array<Array<any>>} */ liste,
+        /** @type {String} */ choisie,
+        /** @type {String} */ champ,
+        /** @type {String} */ libelle,
+      ) =>
+        `<select class='o_carteStyle' data-champ='${champ}' aria-label='${echapper(libelle)}'>${liste
+          .map(
+            ([valeur, nom]) =>
+              `<option value='${valeur}'${valeur == choisie ? " selected" : ""}>${nom}</option>`,
+          )
+          .join("")}</select>`,
+      reglages = (/** @type {any} */ style, /** @type {String} */ nom, retirer = "") =>
+        `<span class='o_carteAutreActions'>${choix(
+          COULEURS_CARTE.map(([n, v]) => [v, n]),
+          style.couleur,
+          "couleur",
+          `Couleur de ${nom}`,
+        )}${choix(FORMES_CARTE, style.forme, "forme", `Forme de ${nom}`)}<span class='o_carteAutreFin'>${choix(
+          TAILLES_CARTE,
+          style.taille,
+          "taille",
+          `Taille de ${nom}`,
+        )}${retirer}</span></span>`,
+      nbMembres = this._carteMembres ? this._carteMembres.length : 0,
+      lignes = [
+        `<li data-k='membres' class='o_carteLigneMembres'>${PageAlliance.glyphe(membres)}<b>${echapper(Utils.alliance)}</b> <span class='reduce'>ton alliance${nbMembres ? ` · ${nbMembres} membres` : ""}</span>
+          ${reglages(membres, Utils.alliance)}</li>`,
+        ...entrees.map(
+          (e, k) =>
+            `<li data-k='${k}'>${PageAlliance.glyphe(e)}<b>${echapper(e.nom)}</b> <span class='reduce'>${e.type == "alliance" ? "alliance" : "joueur"}${etats[k] ? ` · ${echapper(etats[k])}` : ""}</span>
+              ${reglages(e, e.nom, "<span class='o_carteAutreRetirer cursor' role='button' title='Retirer de la carte'>✕</span>")}</li>`,
+        ),
+      ];
+    if (!entrees.length)
+      lignes.push(
+        "<li class='reduce o_secondaire'>Ajoute un joueur ou une alliance entière (alliés, ennemis, recrues…).</li>",
+      );
+    $("#o_carteAutresListe").html(lignes.join(""));
+    // couleur proposée : la première que ni mon alliance ni un ajouté n'a prise
+    let prises = [membres.couleur, ...entrees.map((e) => e.couleur)],
+      libre = COULEURS_CARTE.find((c) => !prises.includes(c[1]));
+    $("#o_carteAutreCouleur").val((libre || COULEURS_CARTE[1])[1]);
+    $("#o_carteAutreApercu").css("color", String($("#o_carteAutreCouleur").val()));
   }
   /**
-   * Ajout, changement de couleur et retrait des joueurs et alliances.
+   * Ajout, réglages et retrait des lignes ; suggestions pendant la saisie.
    *
    * @private
    * @method _evenementsAutres
@@ -1650,20 +1856,49 @@ class PageAlliance {
     };
     $("#o_carteAutreAjouter").on("click", () => this._ajouterAutre());
     $("#o_carteAutreCouleur").on("change", (e) =>
-      $("#o_carteAutreApercu").css("background", String($(e.currentTarget).val())),
+      $("#o_carteAutreApercu").css("color", String($(e.currentTarget).val())),
     );
-    $("#o_carteAutreNom").on("keydown", (e) => {
-      if (e.key == "Enter") {
-        e.preventDefault();
-        this._ajouterAutre();
-      }
-    });
+    $("#o_carteAutreNom")
+      .on("keydown", (e) => {
+        if (e.key == "Enter") {
+          e.preventDefault();
+          this._cacherSuggestions();
+          this._ajouterAutre();
+        } else if (e.key == "Escape") this._cacherSuggestions();
+      })
+      .on("focus", () => this._chargerSuggestions())
+      .on("input", () => this._proposer())
+      // après le clic sur une suggestion (mousedown la garde du blur)
+      .on("blur", () => {
+        setTimeout(() => this._cacherSuggestions(), 200);
+      });
+    $("#o_carteAutreType").on("change", () => this._proposer());
+    $("#o_carteSuggestions")
+      .on("mousedown", (e) => e.preventDefault())
+      .on("click", "li[data-valeur]", (e) => {
+        $("#o_carteAutreNom")
+          .val(String($(e.currentTarget).data("valeur")))
+          .trigger("focus");
+        this._cacherSuggestions();
+      });
     $("#o_carteAutresListe")
-      .on("change", ".o_carteAutreCouleurDe", (e) => {
-        let k = Number($(e.currentTarget).closest("li").data("k")),
-          couleur = String($(e.currentTarget).val());
+      .on("change", ".o_carteStyle", (e) => {
+        let k = $(e.currentTarget).closest("li").data("k"),
+          champ = String($(e.currentTarget).data("champ")),
+          valeur = String($(e.currentTarget).val());
+        if (k == "membres") {
+          try {
+            localStorage.setItem(
+              CLE_CARTE_STYLE_MEMBRES,
+              JSON.stringify({ ...PageAlliance.styleMembres(), [champ]: valeur }),
+            );
+          } catch (err) {}
+          this._listeAutres();
+          this._redessiner();
+          return;
+        }
         changer((liste) => {
-          if (liste[k]) liste[k].couleur = couleur;
+          if (liste[Number(k)]) liste[Number(k)][champ] = valeur;
         });
       })
       .on("click", ".o_carteAutreRetirer", (e) => {
@@ -1671,6 +1906,75 @@ class PageAlliance {
         changer((liste) => liste.splice(k, 1));
       });
     this._listeAutres();
+  }
+  /**
+   * Lit l'export public pour les suggestions (au plus une fois par heure, au
+   * premier passage dans le champ).
+   *
+   * @private
+   * @method _chargerSuggestions
+   */
+  _chargerSuggestions() {
+    if (this._suggestions) return this._suggestions;
+    this._indexSuggestions = null;
+    this._suggestions = ExportJoueurs.avecAlliances().then(
+      (base) => {
+        this._indexSuggestions = PageAlliance.indexSuggestions(base);
+        this._proposer();
+      },
+      () => {
+        this._suggestionsIllisibles = true;
+        this._proposer();
+      },
+    );
+    return this._suggestions;
+  }
+  /**
+   * Suggestions sous le champ pour le texte saisi.
+   *
+   * @private
+   * @method _proposer
+   */
+  _proposer() {
+    let texte = String($("#o_carteAutreNom").val() || "").trim(),
+      type = String($("#o_carteAutreType").val()),
+      $liste = $("#o_carteSuggestions"),
+      echapper = (/** @type {String} */ t) => $("<div>").text(t).html(),
+      message = (/** @type {String} */ t) =>
+        $liste.html(`<li class='reduce o_secondaire'>${t}</li>`).show();
+    if (!texte) return $liste.hide().empty();
+    if (this._suggestionsIllisibles)
+      return message(
+        "Liste publique des joueurs illisible pour l'instant : saisis le nom en entier.",
+      );
+    if (!this._indexSuggestions) return message("Chargement de la liste publique des joueurs…");
+    let proposees = PageAlliance.suggestions(this._indexSuggestions, type, texte, {
+      tag: Utils.alliance,
+      deja: PageAlliance.autresGardes()
+        .filter((e) => e.type == type)
+        .map((e) => e.nom),
+    });
+    if (!proposees.length)
+      return message(
+        type == "alliance" ? "Aucune alliance ne correspond." : "Aucun joueur ne correspond.",
+      );
+    $liste
+      .html(
+        proposees
+          .map(
+            (p) =>
+              `<li role='option' data-valeur='${echapper(p.valeur)}'><b>${echapper(p.valeur)}</b> <span class='reduce'>${echapper(p.detail)}</span></li>`,
+          )
+          .join(""),
+      )
+      .show();
+  }
+  /**
+   * @private
+   * @method _cacherSuggestions
+   */
+  _cacherSuggestions() {
+    $("#o_carteSuggestions").hide().empty();
   }
   /**
    * Ajoute le joueur ou l'alliance saisi, après l'avoir trouvé dans l'export
@@ -1715,7 +2019,7 @@ class PageAlliance {
           )
             return refus(`${exact} est membre de ton alliance : il est déjà sur la carte.`);
           let liste = PageAlliance.autresGardes();
-          liste.push({ type, nom: exact, couleur });
+          liste.push({ type, nom: exact, ...STYLE_CARTE_AUTRE, couleur });
           PageAlliance._garderAutres(liste);
           $("#o_carteAutreNom").val("");
           this._poserAutres(base);
@@ -1744,7 +2048,13 @@ class PageAlliance {
    */
   _dessinerCarte(members, total) {
     const $graphe = $("#o_carteAllianceChart").show();
-    $("#o_carteLegende").show();
+    const styleMembres = PageAlliance.styleMembres();
+    PageAlliance.formeCroix();
+    $("#o_carteLegende")
+      .html(
+        `${PageAlliance.glyphe(styleMembres)} Membre · ${PageAlliance.glyphe(styleMembres)} plus gros, cerclé de noir : plusieurs membres sur une case · ${PageAlliance.glyphe({ ...styleMembres, couleur: COULEUR_CARTE_MOI })} Toi · les autres : forme et couleur de leur ligne`,
+      )
+      .show();
     // Désactive le warning Highcharts #15 : nos séries `line` représentent des arêtes
     // arbitraires entre cases (a→b dans n'importe quelle direction), donc les x ne
     // sont pas monotonement croissants. Le rendu marche, c'est juste un warning console.
@@ -2035,13 +2345,7 @@ class PageAlliance {
                 n === 1
                   ? s.members[0].pseudo
                   : `${[...s.members].map((m) => m.pseudo).sort()[0]} +${n - 1}`,
-              marker: {
-                symbol: "diamond",
-                radius: n > 1 ? 7 : 6,
-                fillColor: s.members[0].couleur,
-                lineColor: "#fff",
-                lineWidth: 1.5,
-              },
+              marker: PageAlliance.marqueur(s.members[0], { n }),
             };
           }),
         },
@@ -2050,18 +2354,6 @@ class PageAlliance {
           name: "Membres",
           data: spots.map((s) => {
             const n = s.members.length;
-            const terrainMax = Math.max(...s.members.map((m) => m.terrain || 0));
-            let fill, line;
-            if (s.isMyGroup) {
-              fill = "#27ae60";
-              line = "#196f3d";
-            } else if (n > 1) {
-              fill = "#f39c12";
-              line = "#b9770e";
-            } else {
-              fill = "#c0392b";
-              line = "#fff";
-            }
             let label;
             if (n === 1) label = s.members[0].pseudo;
             else if (s.isMyGroup) label = `Toi +${n - 1}`;
@@ -2072,20 +2364,12 @@ class PageAlliance {
                 .map((m) => rangs.get(m.pseudo))
                 .sort((a, b) => a - b)
                 .join(", ")}. ${label}`;
-            // Radius modeste : log(terrain) compressé pour limiter le stack visuel dans
-            // les clusters denses (alliances de 30+ membres souvent groupés).
-            const radiusBase = terrainMax > 0 ? 2 + Math.log10(terrainMax) / 2 : 4;
             return {
               x: s.x,
               y: s.y,
               spot: s,
               name: label,
-              marker: {
-                radius: n > 1 ? 5 + Math.min(n - 1, 3) : Math.max(3, Math.min(radiusBase, 6)),
-                fillColor: fill,
-                lineColor: line,
-                lineWidth: n > 1 ? 2 : 1.5,
-              },
+              marker: PageAlliance.marqueur(styleMembres, { n, moi: s.isMyGroup }),
             };
           }),
         },

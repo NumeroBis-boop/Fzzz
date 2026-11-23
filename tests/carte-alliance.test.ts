@@ -351,17 +351,19 @@ describe("autres joueurs et alliances ajoutés", () => {
     expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#7b3fb0");
     await ajouter("joueur", "golf", "#8a8a8a");
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
-      { type: "alliance", nom: "ENN", couleur: "#2a78d6" },
-      { type: "joueur", nom: "Golf", couleur: "#8a8a8a" },
+      { type: "alliance", nom: "ENN", couleur: "#2a78d6", forme: "losange", taille: "moyenne" },
+      { type: "joueur", nom: "Golf", couleur: "#8a8a8a", forme: "losange", taille: "moyenne" },
     ]);
     expect(lire(`$("#o_carteAutreNom").val()`)).toBe("");
+    // mon alliance en tête, sans ✕ ; puis les ajoutés
     expect(
       lire(
-        `$("#o_carteAutresListe li").map((i, e) => $(e).text().replace(/\\s+/g, " ").trim()).get()`,
+        `$("#o_carteAutresListe li").map((i, e) => [[$(e).children("b").text(), $(e).children(".reduce").text(), $(e).find(".o_carteAutreRetirer").length]]).get()`,
       ),
     ).toEqual([
-      "ENN alliance · 2 joueurs BleuVioletRoseVertOrangeNoirBleu marineBordeauxGris ✕",
-      "Golf joueur · sans alliance · 90 000 cm² BleuVioletRoseVertOrangeNoirBleu marineBordeauxGris ✕",
+      ["TAG", "ton alliance · 4 membres", 0],
+      ["ENN", "alliance · 2 joueurs", 1],
+      ["Golf", "joueur · sans alliance · 90 000 cm²", 1],
     ]);
     const autres = series().find((s) => s.name == "Autres")?.data ?? [];
     expect(autres.map((d) => [d.name, d.marker.symbol, d.marker.fillColor, d.autre])).toEqual([
@@ -392,15 +394,15 @@ describe("autres joueurs et alliances ajoutés", () => {
 
     // couleur changée puis retrait
     lire(
-      `$("#o_carteAutresListe li:eq(0) .o_carteAutreCouleurDe").val("#e75fa3").trigger("change")`,
+      `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=couleur]").val("#e75fa3").trigger("change")`,
     );
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))[0].couleur`)).toBe("#e75fa3");
     expect(
       (series().find((s) => s.name == "Autres")?.data ?? []).map((d) => d.marker.fillColor),
     ).toEqual(["#8a8a8a", "#e75fa3", "#e75fa3"]);
-    lire(`$("#o_carteAutresListe li:eq(0) .o_carteAutreRetirer").trigger("click")`);
+    lire(`$("#o_carteAutresListe li:eq(1) .o_carteAutreRetirer").trigger("click")`);
     expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
-      { type: "joueur", nom: "Golf", couleur: "#8a8a8a" },
+      { type: "joueur", nom: "Golf", couleur: "#8a8a8a", forme: "losange", taille: "moyenne" },
     ]);
     expect((series().find((s) => s.name == "Autres")?.data ?? []).map((d) => d.name)).toEqual([
       "Golf",
@@ -483,8 +485,8 @@ describe("autres joueurs et alliances ajoutés", () => {
     afficherCarte();
     const d = lire(`CARTES[0].series.find((s) => s.name == "Autres").data[0]`);
     expect([d.name, d.marker.fillColor]).toEqual(["Kilo", "#2a78d6"]);
-    expect(lire(`$("#o_carteAutresListe .o_carteAutrePastille").attr("style")`)).toBe(
-      "background:#2a78d6;",
+    expect(lire(`$("#o_carteAutresListe li:eq(1) .o_carteSymbole").attr("style")`)).toBe(
+      "color:#2a78d6;",
     );
     // 100 000 cm² contre 250 000 : je peux l'attaquer (jusqu'au triple), pas lui (pas sous sa moitié)
     expect(
@@ -494,13 +496,14 @@ describe("autres joueurs et alliances ajoutés", () => {
     ).toContain("Tu peux l'attaquer : oui · il peut t'attaquer : non");
   });
 
-  test("neuf couleurs au choix ; gris de la 1.151.0 gardé gris ; aperçu de la couleur proposée", () => {
+  test("dix couleurs au choix ; gris de la 1.151.0 gardé gris ; aperçu de la couleur proposée", () => {
     lire(`localStorage.setItem("fzzz_carteAutres", JSON.stringify([
       { type: "joueur", nom: "Golf", couleur: "#6b6b6b" },
       { type: "alliance", nom: "ENN", couleur: "#0b6e2f" },
     ]))`);
     ouvrirPage();
     expect(lire(`$("#o_carteAutreCouleur option").map((i, o) => o.textContent).get()`)).toEqual([
+      "Rouge",
       "Bleu",
       "Violet",
       "Rose",
@@ -515,11 +518,238 @@ describe("autres joueurs et alliances ajoutés", () => {
       "#8a8a8a",
       "#0b6e2f",
     ]);
-    // première couleur libre proposée, et son aperçu à côté de la liste
+    // première couleur libre (le rouge est celle de mon alliance), et son aperçu
     expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#2a78d6");
-    expect(lire(`$("#o_carteAutreApercu").css("background")`)).toBe("#2a78d6");
+    expect(lire(`$("#o_carteAutreApercu").css("color")`)).toBe("#2a78d6");
+    expect(lire(`$("#o_carteAutreApercu").text()`)).toBe("◆");
     lire(`$("#o_carteAutreCouleur").val("#e8590c").trigger("change")`);
-    expect(lire(`$("#o_carteAutreApercu").css("background")`)).toBe("#e8590c");
+    expect(lire(`$("#o_carteAutreApercu").css("color")`)).toBe("#e8590c");
+  });
+
+  test("marqueurs : forme, taille, case de plusieurs joueurs cerclée de noir, ma case en vert, croix en traits", () => {
+    const m = (style: object, cas = "{}") =>
+      lire(`PageAlliance.marqueur(${JSON.stringify(style)}, ${cas})`);
+    expect(m({ couleur: "#2a78d6", forme: "carre", taille: "grande" })).toEqual({
+      symbol: "square",
+      radius: 7,
+      fillColor: "#2a78d6",
+      lineColor: "#fff",
+      lineWidth: 1.5,
+    });
+    expect(m({ couleur: "#2a78d6", forme: "triangleBas", taille: "petite" }, "{ n: 3 }")).toEqual({
+      symbol: "triangle-down",
+      radius: 7,
+      fillColor: "#2a78d6",
+      lineColor: "#222",
+      lineWidth: 2,
+    });
+    expect(m({ couleur: "#c0392b", forme: "rond", taille: "moyenne" }, "{ moi: true }")).toEqual({
+      symbol: "circle",
+      radius: 5,
+      fillColor: "#27ae60",
+      lineColor: "#196f3d",
+      lineWidth: 2,
+    });
+    expect(m({ couleur: "#1a1a1a", forme: "croix", taille: "tresGrande" }, "{ n: 9 }")).toEqual({
+      symbol: "fzzzCroix",
+      radius: 13,
+      fillColor: "#1a1a1a",
+      lineColor: "#1a1a1a",
+      lineWidth: 3.5,
+    });
+    // la croix ajoutée aux formes de Highcharts : deux traits
+    const croix = lire(`(() => {
+      window.Highcharts.SVGRenderer = { prototype: { symbols: {} } };
+      PageAlliance.formeCroix();
+      let s = Highcharts.SVGRenderer.prototype.symbols.fzzzCroix(0, 0, 10, 10);
+      delete window.Highcharts.SVGRenderer;
+      return s;
+    })()`);
+    expect(croix).toEqual(["M", 0, 0, "L", 10, 10, "M", 10, 0, "L", 0, 10]);
+  });
+
+  test("ligne de mon alliance : couleur, forme et taille des membres, gardées ; légende à jour", () => {
+    garderPositions();
+    ouvrirPage();
+    afficherCarte();
+    expect(lire(`$("#o_carteAutresListe li:first .reduce").text()`)).toBe(
+      "ton alliance · 4 membres",
+    );
+    const membres = () => series().find((s) => s.name == "Membres")?.data ?? [];
+    // par défaut : rond rouge moyen, ma case en vert
+    expect(
+      membres().map((d) => [d.name, d.marker.symbol, d.marker.fillColor, d.marker.radius]),
+    ).toEqual([
+      ["Alpha", "circle", "#27ae60", 5],
+      ["Bravo", "circle", "#c0392b", 5],
+      ["Charlie", "circle", "#c0392b", 5],
+      ["Delta", "circle", "#c0392b", 5],
+    ]);
+    const regler = (champ: string, valeur: string) =>
+      lire(
+        `$("#o_carteAutresListe li:eq(0) .o_carteStyle[data-champ=${champ}]").val("${valeur}").trigger("change")`,
+      );
+    regler("couleur", "#1c3f94");
+    regler("forme", "carre");
+    regler("taille", "grande");
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteStyleMembres"))`)).toEqual({
+      couleur: "#1c3f94",
+      forme: "carre",
+      taille: "grande",
+    });
+    expect(membres().map((d) => [d.marker.symbol, d.marker.fillColor, d.marker.radius])).toEqual([
+      ["square", "#27ae60", 7],
+      ["square", "#1c3f94", 7],
+      ["square", "#1c3f94", 7],
+      ["square", "#1c3f94", 7],
+    ]);
+    expect(lire(`$("#o_carteAutresListe li:eq(0) .o_carteSymbole").attr("style")`)).toBe(
+      "color:#1c3f94;",
+    );
+    expect(lire(`$("#o_carteLegende .o_carteSymbole:first").text()`)).toBe("■");
+    // couleur de mon alliance prise : proposée ensuite la première libre
+    regler("couleur", "#2a78d6");
+    expect(lire(`$("#o_carteAutreCouleur").val()`)).toBe("#c0392b");
+  });
+
+  test("forme, taille ou couleur gardées hors des choix proposés : celles par défaut", () => {
+    lire(
+      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#2a78d6", forme: "javascript:x", taille: "énorme" }]))`,
+    );
+    lire(
+      `localStorage.setItem("fzzz_carteStyleMembres", JSON.stringify({ couleur: "red", forme: "etoile", taille: "grande" }))`,
+    );
+    expect(lire(`PageAlliance.autresGardes()[0]`)).toEqual({
+      type: "joueur",
+      nom: "Golf",
+      couleur: "#2a78d6",
+      forme: "losange",
+      taille: "moyenne",
+    });
+    expect(lire(`PageAlliance.styleMembres()`)).toEqual({
+      couleur: "#c0392b",
+      forme: "rond",
+      taille: "grande",
+    });
+  });
+
+  test("un appui sur une suggestion laisse le champ actif (mousedown annulé)", () => {
+    ouvrirPage();
+    expect(
+      lire(
+        `(() => { let e = $.Event("mousedown"); $("#o_carteSuggestions").trigger(e); return e.isDefaultPrevented(); })()`,
+      ),
+    ).toBe(true);
+  });
+
+  test("forme et taille d'un ajouté réglées sur sa ligne", async () => {
+    garderPositions();
+    lire(
+      `localStorage.setItem("fzzz_carteAutres", JSON.stringify([{ type: "joueur", nom: "Golf", couleur: "#1a1a1a" }]))`,
+    );
+    lire(
+      `localStorage.setItem("fzzz_joueurs_S5", JSON.stringify({ t: Date.now(), joueurs: ${JSON.stringify(BASE)} }))`,
+    );
+    ouvrirPage();
+    afficherCarte();
+    lire(
+      `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=forme]").val("croix").trigger("change")`,
+    );
+    lire(
+      `$("#o_carteAutresListe li:eq(1) .o_carteStyle[data-champ=taille]").val("tresGrande").trigger("change")`,
+    );
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_carteAutres"))`)).toEqual([
+      { type: "joueur", nom: "Golf", couleur: "#1a1a1a", forme: "croix", taille: "tresGrande" },
+    ]);
+    const d = (series().find((s) => s.name == "Autres")?.data ?? [])[0];
+    expect([d.name, d.marker.symbol, d.marker.radius, d.marker.lineColor]).toEqual([
+      "Golf",
+      "fzzzCroix",
+      10,
+      "#1a1a1a",
+    ]);
+    expect(lire(`$("#o_carteAutresListe li:eq(1) .o_carteSymbole").text()`)).toBe("✕");
+  });
+
+  test("suggestions : contient le texte, début d'abord, casse ignorée ; sans mon alliance ni le déjà ajouté", () => {
+    const index = `PageAlliance.indexSuggestions({
+      Alpha: [1, 1, 1000, 1, null, "TAG"],
+      Albatros: [1, 1, 2000, 2, null, "ENN"],
+      Calamar: [1, 1, 3000, 3, null, null],
+      Alix: [1, 1, 4000, 4, null, "ALL"],
+      Bal: [1, 1, 5000, 5, null, "ALL"],
+    })`;
+    expect(
+      lire(`PageAlliance.suggestions(${index}, "joueur", "al", { tag: "tag", deja: ["alix"] })`),
+    ).toEqual([
+      { valeur: "Albatros", detail: "[ENN] · 2 000 cm²" },
+      { valeur: "Bal", detail: "[ALL] · 5 000 cm²" },
+      { valeur: "Calamar", detail: "sans alliance · 3 000 cm²" },
+    ]);
+    expect(
+      lire(`PageAlliance.suggestions(${index}, "alliance", "a", { tag: "TAG", deja: [] })`),
+    ).toEqual([{ valeur: "ALL", detail: "2 joueurs" }]);
+    expect(
+      lire(`PageAlliance.suggestions(${index}, "alliance", "n", { tag: "TAG", deja: [] })`),
+    ).toEqual([{ valeur: "ENN", detail: "1 joueur" }]);
+    expect(
+      lire(`PageAlliance.suggestions(${index}, "joueur", "  ", { tag: "TAG", deja: [] })`),
+    ).toEqual([]);
+    // « ba » : Bal commence par le texte, passe avant Albatros qui le contient seulement
+    expect(
+      lire<{ valeur: string }[]>(
+        `PageAlliance.suggestions(${index}, "joueur", "ba", { tag: "TAG", deja: [] })`,
+      ).map((p) => p.valeur),
+    ).toEqual(["Bal", "Albatros"]);
+    expect(
+      lire(`PageAlliance.suggestions(${index}, "joueur", "a", { tag: "", deja: [] }, 2)`).length,
+    ).toBe(2);
+  });
+
+  test("suggestions sous le champ : liste publique lue au premier passage, un clic remplit le champ", async () => {
+    garderPositions();
+    lire(
+      `window.lectures = 0; ExportJoueurs.avecAlliances = () => (lectures++, Promise.resolve(${JSON.stringify(BASE)}))`,
+    );
+    ouvrirPage();
+    afficherCarte();
+    const proposees = () =>
+      lire<string[]>(
+        `$("#o_carteSuggestions li").map((i, e) => $(e).text().replace(/\\s+/g, " ").trim()).get()`,
+      );
+    lire(`$("#o_carteAutreNom").trigger("focus").val("o").trigger("input")`);
+    expect(proposees()).toEqual(["Chargement de la liste publique des joueurs…"]);
+    await lire(`Promise.resolve()`);
+    await lire(`new Promise((r) => setTimeout(r, 0))`);
+    // les membres de mon alliance ne sont pas proposés
+    expect(proposees()).toEqual([
+      "Echo [ENN] · 120 000 cm²",
+      "Foxtrot [ENN] · 400 000 cm²",
+      "Golf sans alliance · 90 000 cm²",
+    ]);
+    lire(`$("#o_carteAutreType").val("alliance").trigger("change")`);
+    expect(proposees()).toEqual(["Aucune alliance ne correspond."]);
+    lire(`$("#o_carteAutreNom").val("e").trigger("input")`);
+    expect(proposees()).toEqual(["ENN 2 joueurs"]);
+    lire(`$("#o_carteSuggestions li:first").trigger("click")`);
+    expect(lire(`$("#o_carteAutreNom").val()`)).toBe("ENN");
+    expect(lire(`$("#o_carteSuggestions").css("display")`)).toBe("none");
+    lire(`$("#o_carteAutreNom").val("zzz").trigger("input")`);
+    expect(proposees()).toEqual(["Aucune alliance ne correspond."]);
+    // une seule lecture pour toute la page
+    lire(`$("#o_carteAutreNom").trigger("blur").trigger("focus")`);
+    expect(lire(`lectures`)).toBe(1);
+  });
+
+  test("suggestions : liste publique illisible, le nom se saisit en entier", async () => {
+    garderPositions();
+    lire(`ExportJoueurs.avecAlliances = () => Promise.reject(new Error("503"))`);
+    ouvrirPage();
+    lire(`$("#o_carteAutreNom").trigger("focus").val("ab").trigger("input")`);
+    await lire(`new Promise((r) => setTimeout(r, 0))`);
+    expect(lire(`$("#o_carteSuggestions").text()`)).toBe(
+      "Liste publique des joueurs illisible pour l'instant : saisis le nom en entier.",
+    );
   });
 
   test("exports Excel et forum : les membres seulement", () => {

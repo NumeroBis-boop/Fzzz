@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.152.0",
+    notes: [
+      "Carte de l'alliance : en tapant un pseudo ou un tag, la carte propose les noms qui correspondent. Chaque ligne, dont celle de ton alliance (ses membres), a sa couleur, sa forme (rond, carré, losange, triangles, croix) et sa taille.",
+    ],
+  },
+  {
     version: "1.151.1",
     notes: [
       "Carte de l'alliance : neuf couleurs au choix pour les joueurs et alliances ajoutés (bleu, violet, rose, vert, orange, noir, bleu marine, bordeaux, gris), avec un aperçu de la couleur choisie.",

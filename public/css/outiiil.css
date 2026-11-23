@@ -1394,21 +1394,28 @@ h2:has(+ .o_nbUnite) {
 #o_carteAutresListe li {
   margin: 3px 0;
 }
-.o_carteAutrePastille {
+.o_carteSymbole {
   display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin: 0 8px 0 3px;
-  transform: rotate(45deg);
+  min-width: 1.1em;
+  margin-right: 6px;
+  text-align: center;
+}
+/* réglages d'une ligne (couleur, forme, taille et ✕) : passent à la ligne entre eux, la ✕ avec la taille */
+.o_carteAutreActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
   vertical-align: middle;
 }
-/* liste de couleur et ✕ passent à la ligne ensemble */
-.o_carteAutreActions {
-  display: inline-block;
+.o_carteAutreActions select {
+  max-width: 9em;
+}
+.o_carteAutreFin {
   white-space: nowrap;
 }
 .o_carteAutreRetirer {
-  margin-left: 10px;
+  margin-left: 6px;
   padding: 0 6px;
 }
 #o_carteAutreApercu {
@@ -1416,6 +1423,25 @@ h2:has(+ .o_nbUnite) {
 }
 #o_carteLegende .o_carteSymbole {
   margin-left: 10px;
+  margin-right: 2px;
+}
+/* suggestions sous le champ pseudo ou tag de la Carte */
+.o_carteSuggestions {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-width: 24em;
+  border: 1px solid #bd8d46;
+  background: #fff;
+}
+.o_carteSuggestions li {
+  padding: 6px 8px;
+}
+.o_carteSuggestions li[data-valeur] {
+  cursor: pointer;
+}
+.o_carteSuggestions li[data-valeur]:hover {
+  background: #f3ead2;
 }
 
 /* Valeur saisissable d'un curseur (part de ratio, paramètre slider) */

@@ -713,6 +713,8 @@ class PageAttaquer {
     });
     $("#o_supprimeAttaque").click((e) => {
       this.supprimerAttaque();
+      // le flood part du dernier calcul : sans le refaire, la ligne retirée partait quand même
+      this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     });
   }
   /**
@@ -1064,8 +1066,13 @@ class PageAttaquer {
       methode,
       attaques,
       $("#o_attaque1").spinner("value"),
+      // une attaque par ligne, plus l'antisonde envoyée, qui compte dans ce total
       methode == "2" || methode == "3"
-        ? Math.min($("input[id^='o_attaque']").length, this._nbAttaque)
+        ? Math.min(
+            $("input[id^='o_attaque']").length +
+              ($("#o_floodAntiSonde").spinner("value") > 0 ? 1 : 0),
+            this._nbAttaque,
+          )
         : this._nbAttaque,
       indSupp,
       {

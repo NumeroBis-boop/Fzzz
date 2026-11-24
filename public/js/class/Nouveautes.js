@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.0",
+    notes: [
+      "Évolution du TdC (page d'un membre, info-bulle de la page Membres) : la colonne Synchro affiche « HdP (heure) » quand la cible sera hors de ta portée à l'arrivée du flood, d'après les mouvements partagés connus.",
+    ],
+  },
+  {
     version: "1.155.2",
     notes: [
       "Carte de l'alliance : la couleur, la forme, la taille et le bouton de chaque ligne sont alignés en colonnes ; sur téléphone, le nom passe au-dessus de ses réglages.",

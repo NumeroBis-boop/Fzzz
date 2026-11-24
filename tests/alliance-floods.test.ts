@@ -342,6 +342,23 @@ describe("page Membres, vue « Floods et chasses en cours »", () => {
     );
     // ma propre ligne : pas de colonne
     expect(synchro("Moi")).toBeNull();
+    // Gamma : 51 000 après sa chasse de 11h30 quand je suis à 110 000 (portée
+    // dès 55 000), 56 000 après celle de 12h00
+    await ouvrir({
+      ...PARTAGES,
+      chasses: {
+        ...PARTAGES.chasses,
+        gamma: [
+          { date: "2026-11-09 11:30", terrain: 1000 },
+          { date: "2026-11-09 12:00", terrain: 5000 },
+        ],
+      },
+    });
+    expect(synchro("Gamma")).toEqual(["Synchro", "", "HdP (10h30m00s)", "11h00m00s"]);
+    expect(espaces(infobulle("Gamma").texte)).toContain(
+      "donc après lui ; HdP : hors de ta portée à ce moment, d'après les mouvements partagés connus.",
+    );
+    expect(espaces(infobulle("Alpha").texte)).not.toContain("HdP");
   });
 
   test("info-bulle : rien de surligné pour soi, ni sans temps de trajet", async () => {

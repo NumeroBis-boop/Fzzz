@@ -224,6 +224,72 @@ describe("page d'un membre : TdC à l'arrivée d'une attaque lancée à l'ouvert
     expect((await afficher(null)).synchro).toBeNull();
   });
 
+  test("colonne « Synchro » : « HdP (heure) » quand il sera hors de ma portée à l'arrivée", async () => {
+    // mon TdC 150 000 (portée jusqu'à 450 000) : 450 001 après le flood de
+    // 10h30, 451 501 après la chasse de 11h30, 446 501 après le flood de 12h00
+    const r = await afficher({ secondes: 4500 }, 460001);
+    expect(r.synchro).toEqual(["Synchro", "", "passée", "HdP (10h15m00s)", "10h45m00s"]);
+    expect(espaces(r.noteSynchro)).toBe(
+      "Synchro : lancer à cette seconde pour arriver au début de la minute du mouvement, donc après lui ; HdP : hors de ta portée à ce moment, d'après les mouvements partagés connus.",
+    );
+    expect(
+      page.lire(
+        `$("#o_chassesPartagees .o_synchroHorsPortee").map((i, c) => c.getAttribute("title")).get()`,
+      ),
+    ).toEqual(["Hors de portée à l'arrivée"]);
+    // 448 500 à 10h30, 450 000 (le triple compris) à 11h30 : rien de marqué
+    const limite = await afficher({ secondes: 4500 }, 458500);
+    expect(limite.synchro).toEqual(["Synchro", "", "passée", "10h15m00s", "10h45m00s"]);
+    expect(limite.noteSynchro).not.toContain("HdP");
+    // trajet inconnu : la portée reste connue
+    expect((await afficher({ secondes: null }, 460001)).synchro).toEqual([
+      "Synchro",
+      "",
+      "HdP (?)",
+      "HdP (?)",
+      "?",
+    ]);
+    // lancement déjà passé : « passée », même hors de portée
+    expect((await afficher({ secondes: 7200 }, 460001)).synchro?.slice(2)).toEqual([
+      "passée",
+      "passée",
+      "passée",
+    ]);
+    // cellule seule : un autre jour, la date devant l'heure ; sans portée connue, l'heure seule
+    const cellule = (portee: string) =>
+      page.lire(
+        `PartageChasses.celluleSynchro({ flood: true, date: "2026-11-10 02:10" }, { secondes: 600, maintenant: Horloge.clic(), portee: ${portee} })`,
+      );
+    expect(cellule(`{ "2026-11-10 02:10": false }`)).toBe(
+      `<td class='o_synchroLancement o_synchroHorsPortee' title="Hors de portée à l'arrivée">HdP <span class='o_synchroHeure'>(10/11 02h00m00s)</span></td>`,
+    );
+    for (const portee of [`{ "2026-11-10 02:10": true }`, "{}", "null"])
+      expect(cellule(portee)).toBe("<td class='o_synchroLancement'>10/11 02h00m00s</td>");
+  });
+
+  test("porteeParMinute : l'état à la fin de chaque minute ; portee() en dérive", () => {
+    const sim = (terrain: number) =>
+      page.lire(`(() => {
+        let sim = PartageChasses.simuler(${JSON.stringify(PARTAGES)});
+        return {
+          minutes: PartageChasses.porteeParMinute(sim, "Alpha", ${terrain}, 150000),
+          portee: PartageChasses.portee(sim, "Alpha", ${terrain}, 150000),
+          moi: PartageChasses.porteeParMinute(sim, "moi", ${terrain}, 150000),
+          inconnu: PartageChasses.porteeParMinute(sim, "Alpha", 0, 150000),
+        };
+      })()`);
+    expect(sim(460001)).toEqual({
+      minutes: { "2026-11-09 10:30": false, "2026-11-09 11:30": false, "2026-11-09 12:00": true },
+      portee: { deja: false, date: "2026-11-09 12:00" },
+      moi: null,
+      inconnu: null,
+    });
+    expect(sim(200000)).toMatchObject({
+      minutes: { "2026-11-09 10:30": true, "2026-11-09 11:30": true, "2026-11-09 12:00": true },
+      portee: { deja: true, date: null },
+    });
+  });
+
   test("son propre profil : rien de surligné ; trajet inconnu : une note", async () => {
     expect(await afficher(null)).toMatchObject({ surlignee: -1, note: "" });
     const r = await afficher({ secondes: null });

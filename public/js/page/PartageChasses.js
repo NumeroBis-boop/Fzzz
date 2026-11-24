@@ -1770,7 +1770,7 @@ class PartageChasses {
    * @param {Array} vars chronologie()
    * @param {Number|null} surlignee indice dans vars, -1 : « Actuellement », null : aucune
    * @param {String} classeEntete classe de la ligne d'en-tête
-   * @param {{secondes: Number|null, maintenant: Object}|null} [synchro] trajet vers le joueur et heure de référence de la colonne « Synchro » (null : sans elle)
+   * @param {{secondes: Number|null, maintenant: Object, portee?: Object<string, Boolean>|null}|null} [synchro] trajet vers le joueur, heure de référence et portée par minute (porteeParMinute) de la colonne « Synchro » (null : sans elle)
    * @return {String} HTML des lignes
    */
   static lignesEvolution(terrain, vars, surlignee, classeEntete, synchro = null) {
@@ -1796,7 +1796,7 @@ class PartageChasses {
    * @static
    * @method avecSynchro
    * @param {Array} vars chronologie()
-   * @param {{secondes: Number|null, maintenant: Object}|null} synchro trajet vers lui et heure de référence (null : moi)
+   * @param {{secondes: Number|null, maintenant: Object, portee?: Object<string, Boolean>|null}|null} synchro trajet vers lui, heure de référence et portée par minute (null : moi)
    * @return {Boolean}
    */
   static avecSynchro(vars, synchro) {
@@ -1821,21 +1821,30 @@ class PartageChasses {
     return moment(date, "YYYY-MM-DD HH:mm").subtract(secondes, "s");
   }
   /**
+   * Cellule « Synchro » : « passée », l'heure de lancement, ou « HdP (heure) »
+   * quand le joueur sera hors de ma portée à l'arrivée (portée par minute
+   * connue seulement), « ? » pour l'heure quand mon trajet est inconnu.
+   *
    * @private
    * @static
    * @param {Object} v ligne de chronologie
-   * @param {{secondes: Number|null, maintenant: Object}} synchro
+   * @param {{secondes: Number|null, maintenant: Object, portee?: Object<string, Boolean>|null}} synchro
    * @return {String} HTML de la cellule
    */
   static celluleSynchro(v, synchro) {
-    let lancement = PartageChasses.lancementSynchro(v.date, synchro.secondes);
-    if (!lancement) return "<td class='o_synchroLancement'>?</td>";
+    let lancement = PartageChasses.lancementSynchro(v.date, synchro.secondes),
+      horsPortee = !!synchro.portee && synchro.portee[v.date] === false,
+      cellule = (/** @type {String} */ heure) =>
+        horsPortee
+          ? `<td class='o_synchroLancement o_synchroHorsPortee' title="Hors de portée à l'arrivée">HdP <span class='o_synchroHeure'>(${heure})</span></td>`
+          : `<td class='o_synchroLancement'>${heure}</td>`;
+    if (!lancement) return cellule("?");
     if (lancement.isBefore(synchro.maintenant))
       return "<td class='o_synchroLancement o_synchroPassee'>passée</td>";
     let format = lancement.isSame(synchro.maintenant, "day")
       ? "HH[h]mm[m]ss[s]"
       : "DD/MM HH[h]mm[m]ss[s]";
-    return `<td class='o_synchroLancement'>${lancement.format(format)}</td>`;
+    return cellule(lancement.format(format));
   }
   /**
    * Note sous le tableau quand il a la colonne « Synchro ».
@@ -1848,7 +1857,10 @@ class PartageChasses {
    */
   static noteSynchro(vars, synchro) {
     if (!PartageChasses.avecSynchro(vars, synchro)) return "";
-    return `<div class='o_note'>Synchro : lancer à cette seconde pour arriver au début de la minute du mouvement, donc après lui${synchro.secondes == null ? " (temps de trajet inconnu : ?)" : ""}.</div>`;
+    let hdp = vars.some((v) =>
+      PartageChasses.celluleSynchro(v, synchro).includes("o_synchroHorsPortee"),
+    );
+    return `<div class='o_note'>Synchro : lancer à cette seconde pour arriver au début de la minute du mouvement, donc après lui${synchro.secondes == null ? " (temps de trajet inconnu : ?)" : ""}${hdp ? " ; HdP : hors de ta portée à ce moment, d'après les mouvements partagés connus" : ""}.</div>`;
   }
   /**
    * Quand `pseudo` est à ma portée (je peux le flooder : Utils.aPortee de son
@@ -1865,12 +1877,33 @@ class PartageChasses {
    * @return {{deja: Boolean, date: String|null}|null} deja : à portée maintenant, `date` (« AAAA-MM-JJ HH:mm ») étant alors celle où il en sort, sinon celle où il y entre (null : jamais) ; null pour moi ou un TdC inconnu
    */
   static portee(sim, pseudo, terrain, monTerrain) {
+    let minutes = PartageChasses.porteeParMinute(sim, pseudo, terrain, monTerrain);
+    if (!minutes) return null;
+    let deja = Utils.aPortee(terrain, monTerrain),
+      change = Object.keys(minutes).find((date) => minutes[date] != deja);
+    return { deja, date: change || null };
+  }
+  /**
+   * Pour chaque minute des mouvements partagés à venir (les siens et les
+   * miens), si `pseudo` est alors à ma portée : l'état à la fin de la minute
+   * du RC, que trouve une attaque arrivant au début de cette minute, après
+   * les mouvements qui y sont datés.
+   *
+   * @static
+   * @method porteeParMinute
+   * @param {Object} sim simuler()
+   * @param {String} pseudo
+   * @param {Number} terrain son TdC actuel
+   * @param {Number} monTerrain mon TdC actuel
+   * @return {Object<string, Boolean>|null} {« AAAA-MM-JJ HH:mm »: à portée}, dans l'ordre ; null pour moi ou un TdC inconnu
+   */
+  static porteeParMinute(sim, pseudo, terrain, monTerrain) {
     let p = pseudo.toLowerCase(),
       m = String(monProfil.pseudo || "").toLowerCase();
     if (p == m || !(terrain > 0) || !(monTerrain > 0)) return null;
     let lui = terrain,
       moi = monTerrain,
-      deja = Utils.aPortee(lui, moi),
+      minutes = /** @type {Object<string, Boolean>} */ ({}),
       evts = sim.evenements;
     for (let i = 0; i < evts.length; i++) {
       let e = evts[i],
@@ -1883,10 +1916,10 @@ class PartageChasses {
               (e.cible.toLowerCase() == joueur ? e.prise : 0);
       lui += variation(p);
       moi += variation(m);
-      if (i + 1 < evts.length && evts[i + 1].date == e.date) continue;
-      if (Utils.aPortee(lui, moi) != deja) return { deja, date: e.date };
+      // le dernier mouvement de la minute donne l'état à sa fin
+      minutes[e.date] = Utils.aPortee(lui, moi);
     }
-    return { deja, date: null };
+    return minutes;
   }
   /**
    * Mention écrite après le pseudo : « à portée le 10/11 à 12h45 », « déjà à
@@ -1991,7 +2024,13 @@ class PartageChasses {
           let arrivee = attaque
               ? PartageChasses.arriveeAttaque(vars, attaque.secondes, attaque.depart)
               : null,
-            synchro = attaque ? { secondes: attaque.secondes, maintenant: attaque.depart } : null;
+            synchro = attaque
+              ? {
+                  secondes: attaque.secondes,
+                  maintenant: attaque.depart,
+                  portee: PartageChasses.porteeParMinute(sim, pseudo, terrain, Utils.terrain),
+                }
+              : null;
           contenu =
             `<div class='o_partageSynthese'>` +
             `<h3 class='o_partageTitre'>Évolution du TdC de ${Utils.echapper(pseudo)}${attaque ? PartageChasses.mentionPortee(PartageChasses.portee(sim, pseudo, terrain, Utils.terrain)) : ""}</h3>

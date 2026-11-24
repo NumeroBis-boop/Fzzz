@@ -454,7 +454,13 @@ class AllianceFzzz {
         moi = pseudo.toLowerCase() == String(monProfil.pseudo).toLowerCase(),
         trajet = moi ? null : tempsTrajet(pseudo),
         arrivee = moi ? null : PartageChasses.arriveeAttaque(vars, trajet, ouverture),
-        synchro = moi ? null : { secondes: trajet, maintenant: ouverture },
+        synchro = moi
+          ? null
+          : {
+              secondes: trajet,
+              maintenant: ouverture,
+              portee: PartageChasses.porteeParMinute(sim, pseudo, terrain, monTerrain),
+            },
         date = (v, cle) =>
           cellule(r, colonne(cle))
             .attr(

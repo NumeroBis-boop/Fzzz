@@ -2816,6 +2816,15 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance.o_allMesure .o_a
   font-style: italic;
   color: var(--fzzz-secondaire);
 }
+/* « HdP (heure) » : la cible sera hors de portée à l'arrivée du flood ; « HdP »
+   passe au-dessus de l'heure plutôt que d'élargir le tableau hors du cadre */
+.o_synchroHorsPortee {
+  color: var(--fzzz-erreur);
+  white-space: normal;
+}
+.o_synchroHeure {
+  white-space: nowrap;
+}
 /* écran tactile : le tableau de l'infobulle, plus large que l'écran, défile au doigt */
 @media (hover: none) {
   #o_allInfobulle {

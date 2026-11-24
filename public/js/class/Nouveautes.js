@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.3",
+    notes: [
+      "Unités d'élite écrites « d’Élite » : les Statistiques et le replacement de la page Armée, et l'armée du Lanceur de Flood, les comptent de nouveau. Lanceur de Flood : une attaque retirée avec « Supprimer une attaque » n'est plus envoyée, et avec une antisonde, Uniforme et Dégressive calculent une attaque par ligne.",
+    ],
+  },
+  {
     version: "1.156.2",
     notes: [
       "Unités d'élite : le jeu écrit désormais « d’Élite » avec une majuscule, et l'extension ne les reconnaissait plus. Le lanceur de chasses, le Multi-flood, le replacement de l'armée et les autres lectures de l'armée les comptent de nouveau.",

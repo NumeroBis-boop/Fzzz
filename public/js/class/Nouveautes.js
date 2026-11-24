@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.5",
+    notes: [
+      "Page Membres sur téléphone : le cadre reprend presque toute la largeur de l'écran, comme avant la 1.156.1. La police du tableau se réduit pour que toutes les colonnes s'affichent.",
+    ],
+  },
+  {
     version: "1.156.4",
     notes: [
       "Lanceur de chasses (proposé par Grim) : les chasses d'une série partent plus vite, la page n'est plus relue avant chacune. L'intervalle entre les chasses propose aussi « Minimal » (dès que la précédente est confirmée) et 1 seconde.",

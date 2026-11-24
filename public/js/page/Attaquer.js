@@ -432,7 +432,8 @@ class PageAttaquer {
         (somme, k) => somme + (parseInt($td.eq(k).text().replace(/\D/g, "")) || 0),
         0,
       );
-      if (nb > 0) dispo[$td.eq(0).text().trim()] = { id: $champ.attr("id"), nb };
+      let u = Utils.indexUnite($td.eq(0).text());
+      if (nb > 0 && u > 0) dispo[NOM_UNITE[u]] = { id: $champ.attr("id"), nb };
     });
     return dispo;
   }
@@ -450,7 +451,7 @@ class PageAttaquer {
   static compositionSonde(dispo, nom, quantite) {
     if (dispo[nom])
       return { nom, id: dispo[nom].id, nb: Math.max(1, Math.min(quantite, dispo[nom].nb)) };
-    let rang = (n) => NOM_UNITE.indexOf(n),
+    let rang = (n) => Utils.indexUnite(n),
       noms = Object.keys(dispo)
         .filter((n) => rang(n) > 0)
         .sort(

@@ -514,9 +514,7 @@ class Combat {
       i < tmp.length;
       i++
     ) {
-      let uniteXP = NOM_UNITE.indexOf(
-          tmp[i].replace(/[0-9]/g, "").split("sont")[0].replace(/s /g, " ").trim(),
-        ),
+      let uniteXP = Utils.indexUnite(tmp[i].replace(/[0-9]/g, "").split("sont")[0]),
         qteXP = parseInt(tmp[i].replace(/ /g, ""));
       res.unite[uniteXP - 1] -= qteXP;
       res.unite[tableXP[uniteXP]] += qteXP;

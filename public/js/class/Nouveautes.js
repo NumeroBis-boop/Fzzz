@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.2",
+    notes: [
+      "Unités d'élite : le jeu écrit désormais « d’Élite » avec une majuscule, et l'extension ne les reconnaissait plus. Le lanceur de chasses, le Multi-flood, le replacement de l'armée et les autres lectures de l'armée les comptent de nouveau.",
+    ],
+  },
+  {
     version: "1.156.1",
     notes: [
       "Téléphone sans « site pour ordinateur » : l'horloge ne cache plus le menu du jeu (sa première icône ouvre les encadrés, dont celui de l'extension), ni le bloc « Mes attaques en cours » et les bandeaux placés sous le menu. Les listes des Ennemies et des Membres, la synthèse des chasses et la ligne d'envoi du chat n'élargissent plus la page.",

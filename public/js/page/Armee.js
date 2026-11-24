@@ -446,7 +446,7 @@ class PageArmee {
    * @return {String}
    */
   static valeurUnite(i) {
-    let option = $("#ChoixUnite option").filter((k, o) => o.textContent.trim() == NOM_UNITE[i + 1]);
+    let option = $("#ChoixUnite option").filter((k, o) => Utils.indexUnite(o.textContent) == i + 1);
     return option.length ? option.val() : "unite" + CHOIX_UNITE_JEU[i];
   }
   /**

@@ -172,19 +172,24 @@ class Armee {
     Utils.parseHtml(html)
       .find(".simulateur tr[align='center']:lt(14)")
       .each((i, elt) => {
-        let label = $(elt).find(".pas_sur_telephone").text();
-        if (label)
-          $(elt)
-            .find("td span")
-            .each((i2, elt2) => {
-              // id du jeu : (nombre,'uniteX',lieu)
-              if (lieu && !($(elt2).attr("id") || "").endsWith("," + lieu + ")")) return;
-              this._unite[NOM_UNITE.indexOf(label) - 1] += parseInt(
-                $(elt2)
-                  .text()
-                  .replace(/[^0-9]/g, ""),
-              );
-            });
+        let label = $(elt).find(".pas_sur_telephone").text(),
+          u = label ? Utils.indexUnite(label) : -1,
+          $nombres = $(elt).find("td span");
+        if (u < 1) {
+          // une ligne de troupes dont le nom n'est plus reconnu : ses unités manqueraient
+          if (label && /\d/.test($nombres.text()))
+            Journal.erreur("Armée", `unité non reconnue sur la page Armée : « ${label.trim()} »`);
+          return;
+        }
+        $nombres.each((i2, elt2) => {
+          // id du jeu : (nombre,'uniteX',lieu)
+          if (lieu && !($(elt2).attr("id") || "").endsWith("," + lieu + ")")) return;
+          this._unite[u - 1] += parseInt(
+            $(elt2)
+              .text()
+              .replace(/[^0-9]/g, ""),
+          );
+        });
       });
     this._nbrJSN = this._unite[0];
     return this;

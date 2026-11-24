@@ -95,7 +95,7 @@ class PageReine {
     $(".icones_unite").attr("onclick", "$('.tab_stat').toggle();");
     // Ajout des statistiques des unités avec bonus
     $(".icones_unite").each((i, elt) => {
-      let index = NOM_UNITE.indexOf($(elt).parent().find("h2").text());
+      let index = Utils.indexUnite($(elt).parent().find("h2").text());
       $(elt).append(
         `<table class="tab_stat" style="display: none;"><tbody><tr><td style="text-align:center;font-size:0.8em;height:30px;" colspan="2"> Avec Bonus</td></tr><tr title="Vie avec Bouclier niveau ${monProfil.niveauRecherche[1]}"><td class="icone_vie" style="position:relative; top:4px">${IMG_VIE}</td><td class="vie" style="white-space:nowrap">${Utils.decimal(VIE_UNITE[index] + (VIE_UNITE[index] / 10) * monProfil.niveauRecherche[1], 1, true)}</td></tr><tr title="Dégâts en Attaque avec Armes niveau ${monProfil.niveauRecherche[2]}"><td class="icone_degat_attaque" style="position:relative;top:3px">${IMG_ATT}</td><td class="degat_defense" style="white-space:nowrap">${Utils.decimal(ATT_UNITE[index] + (ATT_UNITE[index] / 10) * monProfil.niveauRecherche[2], 1, true)}</td></tr><tr title="Dégâts en Défense avec Armes niveau ${monProfil.niveauRecherche[2]}"><td class="icone_degat_defense" style="position:relative;top:3px">${IMG_DEF}</td><td class="degat_defense" style="white-space:nowrap">${Utils.decimal(DEF_UNITE[index] + (DEF_UNITE[index] / 10) * monProfil.niveauRecherche[2], 1, true)}</td></tr><tr><td style="height:30px;" colspan="2"></td></tr></tbody></table>`,
       );
@@ -300,7 +300,7 @@ class PageReine {
   nombreUnites() {
     let afficher = (index, nombre) => {
       $("h2")
-        .filter((i, elt) => $(elt).text().trim() == NOM_UNITE[index])
+        .filter((i, elt) => Utils.indexUnite($(elt).text()) == index)
         .after(
           `<span class="o_nbUnite" title="${numeral(nombre).format()} ${nombre > 1 ? NOM_UNITES[index] : NOM_UNITE[index]}">${Utils.nombreCourt(nombre)}</span>`,
         );

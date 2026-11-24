@@ -374,6 +374,24 @@ const MINUTES_MASQUAGE_PONTE = 10;
 const ECART_SOUS_MENU = 6;
 /** Déclenché sur document quand l'horloge passe sous la barre du menu du jeu, ou en sort. */
 const EVENEMENT_HORLOGE_PLACEE = "o_horlogePlacee";
+/** Noms des unités dans l'ordre de NOM_UNITE, sous la forme de Utils.cleUnite. */
+const CLES_UNITES = [
+  "ouvriere",
+  "jeune soldate naine",
+  "soldate naine",
+  "naine d'elite",
+  "jeune soldate",
+  "soldate",
+  "concierge",
+  "concierge d'elite",
+  "artilleuse",
+  "artilleuse d'elite",
+  "soldate d'elite",
+  "tank",
+  "tank d'elite",
+  "tueuse",
+  "tueuse d'elite",
+];
 
 class Utils {
   /**
@@ -970,6 +988,40 @@ class Utils {
     return { ouvrieres: ouvrieres, brut: brut, reine: true };
   }
   /**
+   * Clé d'un nom d'unité : minuscules, sans accents, apostrophe droite, mots
+   * au singulier (« Naines d’Élites » → « naine d'elite »).
+   *
+   * @static
+   * @method cleUnite
+   * @param {String} nom
+   * @return {String}
+   */
+  static cleUnite(nom) {
+    return String(nom)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[’‘`]/g, "'")
+      .trim()
+      .split(/\s+/)
+      .map((mot) => mot.replace(/s$/, ""))
+      .join(" ");
+  }
+  /**
+   * Indice dans NOM_UNITE (0 : ouvrière) d'un nom d'unité écrit par le jeu,
+   * au singulier ou au pluriel, ou -1. Casse, accents et apostrophe ignorés :
+   * le jeu a écrit « d’élite », « d'élite » puis « d’Élite » selon les pages
+   * et les dates (Grim, 24/11/2026 : ses unités d'élite manquaient au lanceur).
+   *
+   * @static
+   * @method indexUnite
+   * @param {String} nom
+   * @return {Number}
+   */
+  static indexUnite(nom) {
+    return CLES_UNITES.indexOf(Utils.cleUnite(nom));
+  }
+  /**
    * Indice (dans NOM_UNITE) de l'unité nommée dans un texte, ou -1. Le nom
    * le plus long l'emporte (« Artilleuse d'élite » avant « Artilleuse »).
    *
@@ -984,22 +1036,7 @@ class Utils {
         .replace(/[’`]/g, "'")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, ""),
-      noms = [
-        "jeune soldate naine",
-        "soldate naine",
-        "naine d'elite",
-        "jeune soldate",
-        "soldate",
-        "concierge",
-        "concierge d'elite",
-        "artilleuse",
-        "artilleuse d'elite",
-        "soldate d'elite",
-        "tank",
-        "tank d'elite",
-        "tueuse",
-        "tueuse d'elite",
-      ],
+      noms = CLES_UNITES.slice(1),
       meilleur = -1;
     noms.forEach((nom, i) => {
       // pluriel accepté (« Tanks d'élites »), mots entiers

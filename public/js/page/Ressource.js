@@ -325,10 +325,8 @@ class PageRessource {
     });
     // ordre des unités du jeu (JSN, SN, NE, JS, S…), inconnues en dernier
     let rang = (nom) => {
-        let r = [...NOM_UNITES, ...NOM_UNITE].findIndex(
-          (n) => n.toLowerCase() == nom.toLowerCase(),
-        );
-        return r == -1 ? 99 : r % NOM_UNITES.length;
+        let r = Utils.indexUnite(nom);
+        return r == -1 ? 99 : r;
       },
       detail = Object.values(unites).sort((a, b) => rang(a.nom) - rang(b.nom)),
       total = detail.reduce((t, u) => t + u.nb, 0);
@@ -392,11 +390,9 @@ class PageRessource {
    * @return {Array}
    */
   static _armeeDepuisNoms(unites) {
-    let armee = new Array(14).fill(0),
-      noms = [...NOM_UNITES, ...NOM_UNITE].map((n) => n.toLowerCase().replace(/['’]/g, "'"));
+    let armee = new Array(14).fill(0);
     for (let nom in unites) {
-      let i = noms.indexOf(nom.toLowerCase().replace(/['’]/g, "'")),
-        u = i == -1 ? -1 : (i % NOM_UNITES.length) - 1;
+      let u = Utils.indexUnite(nom) - 1;
       if (u >= 0) armee[u] += unites[nom] || 0;
     }
     return armee;

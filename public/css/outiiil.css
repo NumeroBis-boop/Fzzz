@@ -2987,11 +2987,13 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   .o_attaquesLancees .o_button {
     white-space: normal;
   }
-  /* page Membres : le tableau défile dans son cadre, largeur fixe désactivée */
+  /* page Membres : le cadre du jeu suit le tableau jusqu'à presque toute la
+     largeur de l'écran (32 px : marges et bords du cadre, sans élargir la
+     page) ; au-delà, la police se réduit (AllianceFzzz.ajusterTaille), puis
+     le tableau défile */
   html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance_wrapper {
-    /* la largeur de sa case du jeu, sans l'élargir (100vw dépassait de 5 px) */
-    width: 0 !important;
-    min-width: 100%;
+    width: auto !important;
+    max-width: calc(100vw - 32px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }

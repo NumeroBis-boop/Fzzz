@@ -689,3 +689,24 @@ describe("page Membres, vue « Floods et chasses en cours » décochée", () => 
     expect(page.lire(`$("#o_allInfobulle").length`)).toBe(0);
   });
 });
+
+test("police ajustée à chaque vue choisie et sur écran étroit (tableau entier sur téléphone)", async () => {
+  await ouvrir(
+    [],
+    `window.ajustements = 0;
+     window.ajusterOrigine = window.ajusterOrigine || AllianceFzzz.ajusterTaille;
+     AllianceFzzz.ajusterTaille = () => window.ajustements++;`,
+  );
+  try {
+    expect(page.lire<number>(`ajustements`)).toBeGreaterThan(0);
+    page.lire(`ajustements = 0; $(".o_allVue[data-vue='floods']").trigger("click")`);
+    expect(page.lire<number>(`ajustements`)).toBe(1);
+    // écran étroit : pas de largeur fixe, seulement la police
+    page.lire(
+      `ajustements = 0; window.matchMedia = () => ({ matches: true }); AllianceFzzz._fixerLargeur()`,
+    );
+    expect(page.lire<number>(`ajustements`)).toBe(1);
+  } finally {
+    page.lire(`AllianceFzzz.ajusterTaille = ajusterOrigine`);
+  }
+});

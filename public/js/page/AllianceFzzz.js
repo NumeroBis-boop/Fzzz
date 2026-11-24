@@ -7,6 +7,9 @@
 const CLE_VUE_APRES_SYNCHRO = "fzzz_vueMembresApresSynchro";
 // vues de la page Membres, dans l'ordre du réglage « vueMembres »
 const VUES_MEMBRES = ["reset", "trajet", "floods"];
+// police du tableau des membres réduite jusqu'à ce pourcentage pour qu'il tienne en entier
+const TAILLE_MIN_MEMBRES = 60;
+let ajustementMembresActif = false;
 // membre sans mouvement en cours, ou sans temps de trajet connu : après les autres dans le tri croissant
 const ALLIANCE_SANS_MOUVEMENT = 9999999999;
 // colonnes ajoutées en fin de ligne au tableau des membres, montrées dans la vue
@@ -147,6 +150,7 @@ class AllianceFzzz {
         for (let i = 0; i < n; i++) api.column(i).visible(vues[vue](i), false);
         $("#tabMembresAlliance").toggleClass("o_allVueFloods", vue == "floods");
         api.columns.adjust().draw(false);
+        AllianceFzzz.ajusterTaille();
         $(".o_allVue").removeClass("o_allVueActive");
         $(`.o_allVue[data-vue='${vue}']`).addClass("o_allVueActive");
         if (vue == "floods" && !partagesLus) {
@@ -206,12 +210,16 @@ class AllianceFzzz {
     // change pas de taille d'une vue à l'autre (les colonnes se répartissent)
     let vuesAffichees = k ? VUES_MEMBRES : VUES_MEMBRES.filter((v) => v != "floods"),
       fixerLargeur = () => {
-        // écran étroit (mobile) : le tableau défile dans son cadre, pas de largeur fixe
-        if (window.matchMedia && window.matchMedia("(max-width: 760px)").matches) return;
+        // écran étroit (mobile) : le cadre suit le tableau jusqu'à la largeur de
+        // l'écran, pas de largeur fixe ; la police se réduit s'il ne tient pas
+        if (window.matchMedia && window.matchMedia("(max-width: 760px)").matches)
+          return AllianceFzzz.ajusterTaille();
         let $t = $("#tabMembresAlliance"),
           $w = $("#tabMembresAlliance_wrapper"),
           vue = courante,
           max = 0;
+        // mesuré à la police entière : réduite, la largeur commune rétrécirait à chaque passage
+        $t.css("font-size", "");
         $w.css("width", "");
         $t.addClass("o_allMesure");
         vuesAffichees.forEach((v) => {
@@ -248,6 +256,41 @@ class AllianceFzzz {
       }
     appliquer(initiale);
     fixerLargeur();
+  }
+  /**
+   * Police du tableau des membres réduite par pas de 5 %, jusqu'à
+   * TAILLE_MIN_MEMBRES, tant qu'il dépasse de son cadre ; refaite quand la
+   * fenêtre change de taille (affichage seulement).
+   *
+   * @static
+   * @method ajusterTaille
+   */
+  static ajusterTaille() {
+    let t = document.getElementById("tabMembresAlliance"),
+      w = document.getElementById("tabMembresAlliance_wrapper");
+    if (!t || !w) return;
+    t.style.fontSize = "";
+    // tableau caché (Carte, Stats membres) : rien à mesurer
+    if (!w.clientWidth) return;
+    let base = parseFloat(getComputedStyle(t).fontSize),
+      taille = 100,
+      deborde = () => Math.max(w.scrollWidth, t.offsetWidth) > w.clientWidth + 1;
+    while (taille > TAILLE_MIN_MEMBRES && deborde()) {
+      taille -= 5;
+      t.style.fontSize = (base * taille) / 100 + "px";
+    }
+    if (!ajustementMembresActif) {
+      ajustementMembresActif = true;
+      /** @type {any} */
+      let attente = null;
+      $(window).on("resize", () => {
+        clearTimeout(attente);
+        attente = setTimeout(
+          () => (AllianceFzzz._fixerLargeur || AllianceFzzz.ajusterTaille)(),
+          150,
+        );
+      });
+    }
   }
   /**
    * Temps de trajet jusqu'à un membre, à ma Vitesse d'attaque (niveau lu sur

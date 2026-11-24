@@ -997,15 +997,28 @@ class Utils {
    * @return {String}
    */
   static cleUnite(nom) {
-    return String(nom)
+    return Utils.texteUnite(nom)
+      .split(" ")
+      .map((mot) => mot.replace(/s$/, ""))
+      .join(" ");
+  }
+  /**
+   * Texte où chercher un nom d'unité : minuscules, sans accents, apostrophes
+   * droites, espaces (insécables compris) réduites à une.
+   *
+   * @static
+   * @method texteUnite
+   * @param {String} texte
+   * @return {String}
+   */
+  static texteUnite(texte) {
+    return String(texte)
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
-      .replace(/[’‘`]/g, "'")
-      .trim()
-      .split(/\s+/)
-      .map((mot) => mot.replace(/s$/, ""))
-      .join(" ");
+      .replace(/[’‘`´ʼ]/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
   }
   /**
    * Indice dans NOM_UNITE (0 : ouvrière) d'un nom d'unité écrit par le jeu,
@@ -1022,6 +1035,33 @@ class Utils {
     return CLES_UNITES.indexOf(Utils.cleUnite(nom));
   }
   /**
+   * Indice d'un nom d'unité lu dans une page du jeu, comme indexUnite. Un nom
+   * inconnu est noté en erreur dans le journal, avec le code de ses caractères
+   * non ASCII (une autre apostrophe ne se voit pas) : une nouvelle écriture du
+   * jeu arrive dans le fichier du mainteneur, et se corrige dans texteUnite
+   * ou CLES_UNITES.
+   *
+   * @static
+   * @method uniteLue
+   * @param {String} nom texte qui ne peut être qu'un nom d'unité
+   * @param {String} source source de la note
+   * @return {Number}
+   */
+  static uniteLue(nom, source) {
+    let u = Utils.indexUnite(nom),
+      texte = String(nom).trim();
+    if (u < 0 && texte && typeof Journal != "undefined")
+      Journal.erreur(
+        source,
+        `unité non reconnue : « ${texte} »`,
+        [...texte]
+          .filter((c) => c > "~")
+          .map((c) => `${c} U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`)
+          .join(", "),
+      );
+    return u;
+  }
+  /**
    * Indice (dans NOM_UNITE) de l'unité nommée dans un texte, ou -1. Le nom
    * le plus long l'emporte (« Artilleuse d'élite » avant « Artilleuse »).
    *
@@ -1031,11 +1071,7 @@ class Utils {
    * @return {Number}
    */
   static uniteDepuisLibelle(texte) {
-    let t = String(texte)
-        .toLowerCase()
-        .replace(/[’`]/g, "'")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, ""),
+    let t = Utils.texteUnite(texte),
       noms = CLES_UNITES.slice(1),
       meilleur = -1;
     noms.forEach((nom, i) => {
@@ -1523,9 +1559,11 @@ class Utils {
         (id && new RegExp(`\\(\\s*(\\d+)\\s*,\\s*["']${id}["']`).exec(scripts)) ||
         (apres || $(tr).next().text()).match(/\(\s*(\d+)\s*,/);
       if (!m) return;
-      let texte = $(tr).find("td:eq(0)").text();
+      let texte = $(tr).find("td:eq(0)").text(),
+        unite = texte.replace(/[0-9]+/g, "").trim();
+      Utils.uniteLue(unite, "Reine");
       pontes.push({
-        unite: texte.replace(/[0-9]+/g, "").trim(),
+        unite: unite,
         nombre: parseInt(texte.replace(/\D+/g, "")) || 0,
         secondes: parseInt(m[1]),
       });

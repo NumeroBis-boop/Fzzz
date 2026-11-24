@@ -150,7 +150,7 @@ class LanceurChasse {
       },
       ratio: r.ratio >= 1 ? r.ratio : 9,
       budget: r.budget > 0 ? r.budget : 30,
-      intervalle: [2, 30, 60, 120].includes(r.intervalle) ? r.intervalle : 2,
+      intervalle: [0, 1, 2, 30, 60, 120].includes(r.intervalle) ? r.intervalle : 2,
       marge: r.marge >= 0 ? r.marge : SimulationChasse.FACTEUR_SECURITE,
       reequilibrer: r.reequilibrer == null ? true : !!r.reequilibrer,
       jsn: r.jsn > 0 ? r.jsn : 0,
@@ -236,7 +236,7 @@ class LanceurChasse {
             <p id='${this._p}o_chasseAlerte' class='o_marginT15'></p>
             <div class='o_marginT15'><span title='Au plus marge × pertes max de JSN partent en tampon avec chaque chasse ; au-delà, les JSN sont des attaquantes. Si le stock ne permet pas ce tampon à toutes les chasses, il est réduit pour toutes. Dès × 1, les pertes max sont couvertes.'>Marge JSN max <input value='${R.marge}' size='12' id='${this._p}o_chasseMarge'/> × pertes max</span> &nbsp; <input id='${this._p}o_chasseReequilibrer' type='checkbox'${R.reequilibrer ? " checked='checked'" : ""}/><label for='${this._p}o_chasseReequilibrer' title='Redistribue les JSN au prorata des pertes max de chaque chasse, puis complète avec les SN et les NE (totaux inchangés).'>Rééquilibrer JSN → SN → NE</label></div>
             <div id='${this._p}o_simuChasse'><table id='${this._p}o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
-                        <div class='o_marginT15'>Intervalle entre les chasses <select id='${this._p}o_chasseInt' title='Intervalle entre les chasses'><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></div>
+                        <div class='o_marginT15'>Intervalle entre les chasses <select id='${this._p}o_chasseInt' title='Intervalle entre les chasses'><option value='0'>Minimal</option><option value='1'>1 seconde</option><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></div>
             <div class='o_pile o_marginT15'><button class='o_button f_success' type='button' id='${this._p}o_chasseEnvoyer'>Envoyer</button>
             <button class='o_button f_info' type='button' id='${this._p}o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button></div>
             <p class='o_marginT0'><em class='small'>Veuillez rester sur cette page le temps du lancement !</em></p>
@@ -452,7 +452,7 @@ class LanceurChasse {
         // export des chasses dû : détecté à ce clic (règle du mainteneur), il part
         // après l'envoi, en requêtes de la priorité la plus faible (ExportAuto)
         ExportAuto.noterChasse();
-        // chaque chasse relit un jeton neuf (Armee.posterChasse) ; sur la page
+        // chaque chasse part avec le jeton de la réponse précédente (Armee.envoyerChasse) ; sur la page
         // Ressources, rechargement à la fin ; dans la boîte, un bilan
         this._armee.envoyerChasse(
           terrainChasse,
@@ -518,7 +518,8 @@ class LanceurChasse {
       auto: cases,
       ratio: cases.ratio ? R.ratio : valeur("#o_chasseDiff"),
       budget: cases.budget ? R.budget : valeur("#o_chasseBudget"),
-      intervalle: parseInt(this.$("#o_chasseInt").val()) || 2,
+      intervalle:
+        [0, 1, 2, 30, 60, 120].find((n) => String(n) == this.$("#o_chasseInt").val()) ?? 2,
       marge: Math.max(0, valeur("#o_chasseMarge")),
       reequilibrer: this.$("#o_chasseReequilibrer").is(":checked"),
       jsn: valeur("#o_chasseJSN"),

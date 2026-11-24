@@ -10,10 +10,10 @@ import { creerPage } from "./harnais";
  * lu dans une page passe par Utils.indexUnite (casse, accents, apostrophe et
  * pluriel ignorés). Armées inventées.
  */
-/** NOM_UNITE et NOM_UNITES de content.js, sans lancer son démarrage. */
+/** Listes d'unités de content.js, sans lancer son démarrage. */
 function listesUnites() {
   const contenu = readFileSync(join(__dirname, "..", "public", "js", "content.js"), "utf8");
-  return ["NOM_UNITE", "NOM_UNITES"]
+  return ["NOM_UNITE", "NOM_UNITES", "VIE_UNITE"]
     .map((nom) => {
       const debut = contenu.indexOf(`const ${nom} = [`);
       return "var " + contenu.slice(debut + 6, contenu.indexOf("];", debut) + 2);
@@ -38,6 +38,9 @@ const page = creerPage(
     "js/page/Ressource.js",
     "js/page/Armee.js",
     "js/page/Attaquer.js",
+    "js/page/Reine.js",
+    "js/class/Chasse.js",
+    "js/class/AttaqueLancee.js",
   ],
   `var chrome = { runtime: { getManifest: () => ({ version: "0" }), getURL: (p) => p } };
    var Horloge = { serveur: () => moment(), maintenant: () => Date.now() };
@@ -110,6 +113,128 @@ describe("garnison de la page Armée (lanceur de chasses, Multi-flood, replaceme
   });
 });
 
+/** Écritures d'un nom de NOM_UNITE : celles déjà vues dans le jeu et les plus probables ensuite. */
+const ecritures = (nom: string) => [
+  nom,
+  nom.replace(/d’[ée]lite|d’Elite/i, "d’Élite"),
+  nom.replace(/d’[ée]lite|d’Elite/i, "d'élite"),
+  nom.toUpperCase(),
+  nom.replace(/’/g, "`"),
+  nom.replace(/’/g, "‘"),
+  nom.replace(/’/g, "ʼ"),
+  nom.replace(/’/g, "´"),
+  nom.replace(/(\S+)/g, "$1s"),
+  nom.replace(/ /g, "\u00a0"),
+  nom.replace(/ /g, "  "),
+  nom.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+];
+const NOMS = lire<string[]>(`NOM_UNITE`);
+
+describe("chaque lecture, pour toutes les écritures d'un nom d'unité", () => {
+  test("nom seul (indexUnite) et nom dans un texte (uniteDepuisLibelle)", () => {
+    const faux: string[] = [];
+    NOMS.forEach((nom, rang) => {
+      for (const e of ecritures(nom)) {
+        if (lire(`Utils.indexUnite(${JSON.stringify(e)})`) != rang) faux.push(`indexUnite ${e}`);
+        if (
+          rang &&
+          lire(`Utils.uniteDepuisLibelle(${JSON.stringify(`Troupes : 1 000 ${e}.`)})`) != rang
+        )
+          faux.push(`uniteDepuisLibelle ${e}`);
+      }
+    });
+    expect(faux).toEqual([]);
+  });
+
+  test("constructeur d'Armee (armée par lieu de la page Armée, page d'attaque) et texte d'un RC (parseArmee)", () => {
+    const faux: string[] = [];
+    NOMS.slice(1).forEach((nom, u) => {
+      for (const e of ecritures(nom)) {
+        if (lire(`new Armee({ unite: { ${JSON.stringify(e)}: 7 } }).unite[${u}]`) != 7)
+          faux.push(`Armee ${e}`);
+        if (
+          lire(
+            `(() => { let a = new Armee(); a.parseArmee(${JSON.stringify(`1 000 ${e}`)}); return a.unite[${u}]; })()`,
+          ) != 1000
+        )
+          faux.push(`parseArmee ${e}`);
+      }
+    });
+    expect(faux).toEqual([]);
+  });
+
+  test("Statistiques et replacement de la page Armée : armée par lieu avec « d’Élite »", () => {
+    // signalé le 24/11/2026 : les unités d'élite manquaient encore aux statistiques
+    const html = pageArmee(
+      ligne("Jeune Soldate Naine", 1000, 200) +
+        ligne("Naine d’Élite", 30, 0) +
+        ligne("Soldate d’Élite", 0, 450) +
+        ligne("Tueuse d’Élite", 12, 3),
+    );
+    const lieux = lire<{ dome: number[]; loge: number[]; vie: number }>(`(() => {
+      let l = PageArmee.lieuxDe($(${JSON.stringify(html)}));
+      return { dome: l.dome.unite, loge: l.loge.unite, vie: l.tdc.getBaseVie() + l.dome.getBaseVie() + l.loge.getBaseVie() };
+    })()`);
+    expect(lieux.dome).toEqual([1000, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12]);
+    expect(lieux.loge).toEqual([200, 0, 0, 0, 0, 0, 0, 0, 0, 450, 0, 0, 0, 3]);
+    const [, v1, , v3, , , , , , , v10, , , , v14] = lire<number[]>(`VIE_UNITE`);
+    expect(lieux.vie).toBe(1200 * v1! + 30 * v3! + 450 * v10! + 15 * v14!);
+  });
+
+  test("page d'attaque : armée du Lanceur de Flood et de ses statistiques", () => {
+    lire(
+      `document.body.innerHTML = "<table id='tabChoixArmee'><tr><td>Jeune Soldate Naine</td><td>100</td><td>0</td><td>0</td><td><input id='unite1' value='100'></td></tr><tr><td>Tank d’Élite</td><td>4</td><td>0</td><td>0</td><td><input id='unite14' value='4'></td></tr></table>"`,
+    );
+    expect(lire(`new Armee({ unite: PageAttaquer.prototype.extraitArmee() }).unite`)).toEqual([
+      100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0,
+    ]);
+  });
+});
+
+describe("un nom inconnu lu dans une page est noté dans le journal (erreur, envoyée au fichier du mainteneur)", () => {
+  const notes = (motif: string) =>
+    lire<{ n: string; d: string }[]>(
+      `Journal.entrees().filter((e) => e.m.includes(${JSON.stringify(motif)})).map((e) => ({ n: e.n, d: e.d }))`,
+    );
+  const vider = () => lire(`localStorage.removeItem("fzzz_journal"); Journal.installer()`);
+
+  test("garnison par lieu, page d'attaque, chasses, pontes, XP des rapports", () => {
+    vider();
+    lire(`PageArmee.lieuxDe($(${JSON.stringify(pageArmee(ligne("Garde Ʃ", 5, 5)))}))`);
+    lire(
+      `document.body.innerHTML = "<table id='tabChoixArmee'><tr><td>Garde Ω</td><td>1</td><td>0</td><td>0</td><td><input id='unite3' value='1'></td></tr></table>"; PageAttaquer.prototype.extraitArmee()`,
+    );
+    lire(`PageRessource._armeeDepuisNoms({ "Garde ß": 3 })`);
+    lire(
+      `Utils.pontesReine($("<div><table class='tableau_leger'><tr><td>Unité</td><td>reste(60, 'ponte_1')</td></tr><tr><td>12 Garde Ŧ</td><td></td><td></td><td><span id='ponte_1'></span></td></tr></table></div>"))`,
+    );
+    lire(
+      `(() => { let c = Object.create(Chasse.prototype); c._rc = "x - 5 Gardes Ŋ sont devenues des Gardes"; c._xp = new Array(14).fill(0); c.ajouteXP(new Armee()); })()`,
+    );
+    for (const nom of ["Garde Ʃ", "Garde Ω", "Garde ß", "Garde Ŧ", "Gardes Ŋ"])
+      expect([nom, notes(nom).map((n) => n.n)]).toEqual([nom, ["erreur"]]);
+    // le code des caractères : une autre apostrophe ou lettre ne se voit pas à l'œil
+    expect(notes("Garde Ω").map((n) => n.d)).toEqual(["Ω U+03A9"]);
+  });
+
+  test("troupes d'une attaque en cours (« Mes attaques en cours », page Armée)", () => {
+    vider();
+    const nom = lire<string>(`NOM_UNITE[12]`);
+    expect(lire(`AttaqueLancee.uniteNatif("3 Gardes Ж, 2 Tanks d’Élites et 5 Tanks")`)).toEqual({
+      [nom]: 2,
+      [lire<string>(`NOM_UNITE[11]`)]: 5,
+    });
+    expect(notes("Gardes Ж").map((n) => n.n)).toEqual(["erreur"]);
+  });
+
+  test("un nom connu, l'en-tête « Unités » ou une ligne sans troupes ne sont pas notés", () => {
+    vider();
+    lire(`PageArmee.lieuxDe($(${JSON.stringify(pageArmee(ligne("Soldate d’Élite", 5, 5)))}))`);
+    lire(`new Armee().chargeData(${JSON.stringify(pageArmee(ligne("Tank d’élite", 1, 1)))})`);
+    expect(lire(`Journal.entrees().filter((e) => /unité/.test(e.m)).length`)).toBe(0);
+  });
+});
+
 describe("autres lectures de noms d'unités", () => {
   test("chasses en cours de la page Ressources", () => {
     expect(
@@ -137,14 +262,70 @@ describe("autres lectures de noms d'unités", () => {
   });
 });
 
-test("aucun nom d'unité lu dans une page n'est plus comparé au caractère près", () => {
-  const dossiers = ["class", "page", "boite"].map((d) => join(__dirname, "..", "public", "js", d));
-  for (const dossier of dossiers)
-    for (const f of readdirSync(dossier).filter((f) => f.endsWith(".js"))) {
-      const code = readFileSync(join(dossier, f), "utf8");
-      expect([
-        f,
-        code.match(/NOM_UNITES?\.(indexOf|findIndex|includes)\(|==\s*NOM_UNITES?\[/g),
-      ]).toEqual([f, null]);
-    }
+/**
+ * Tout nom d'unité lu dans une page passe par Utils (indexUnite, uniteLue,
+ * uniteDepuisLibelle, le constructeur d'Armee) : une nouvelle écriture du jeu
+ * se corrige dans Utils.texteUnite. Ce test trouve les comparaisons au
+ * caractère près, sous toutes les formes déjà rencontrées (24/11/2026 : le
+ * constructeur d'Armee, avec hasOwnProperty, avait échappé à la 1re version).
+ */
+const COMPARAISONS_INTERDITES: [string, RegExp][] = [
+  [
+    // aussi sur une copie de la liste (`[...NOM_UNITES, ...NOM_UNITE].findIndex(…)`)
+    "recherche dans NOM_UNITE",
+    /NOM_UNITES?\b[^;\n]*?\.(indexOf|lastIndexOf|findIndex|find|includes|some|every|filter)\(/,
+  ],
+  ["égalité avec un nom de NOM_UNITE", /[=!]==?\s*NOM_UNITES?\[|NOM_UNITES?\[[^\]]*\]\s*[=!]==?/],
+  [
+    "clé NOM_UNITE cherchée dans un objet",
+    /hasOwnProperty\(\s*NOM_UNITES?\[|NOM_UNITES?\[[^\]]*\]\s+in\s/,
+  ],
+  // objet lu par une clé de NOM_UNITE (écrire une clé reste permis : `x[NOM_UNITE[i]] = …`)
+  ["objet lu par un nom de NOM_UNITE", /\w\[NOM_UNITES?\[[^\]]*\]\](?!\s*=[^=])/],
+  [
+    "nom d'unité écrit en dur et comparé",
+    /[=!]==?\s*["'`][^"'`]*(Soldate|Tank|Tueuse|Artilleuse|Concierge|Naine)|["'`][^"'`]*(Soldate|Tank|Tueuse|Artilleuse|Concierge|Naine)[^"'`]*["'`]\s*[=!]==?|\.(indexOf|includes|startsWith|endsWith|split)\(\s*["'`][^"'`]*(Soldate|Tank|Tueuse|Artilleuse|Concierge|Naine)/,
+  ],
+  ["CLES_UNITES hors de Utils.js", /\bCLES_UNITES\b/],
+];
+
+test("aucun nom d'unité lu dans une page n'est comparé au caractère près", () => {
+  const racine = join(__dirname, "..", "public", "js"),
+    fichiers = [
+      "content.js",
+      ...["class", "page", "boite"].flatMap((d) =>
+        readdirSync(join(racine, d))
+          .filter((f) => f.endsWith(".js"))
+          .map((f) => join(d, f)),
+      ),
+    ],
+    trouves: string[] = [];
+  for (const f of fichiers) {
+    const lignes = readFileSync(join(racine, f), "utf8").split("\n");
+    lignes.forEach((ligne, i) => {
+      if (/^\s*(\/\/|\*)/.test(ligne)) return;
+      for (const [quoi, motif] of COMPARAISONS_INTERDITES)
+        if (
+          motif.test(ligne) &&
+          !(quoi.startsWith("CLES_UNITES") && f == join("class", "Utils.js"))
+        )
+          trouves.push(`${f}:${i + 1} ${quoi} : ${ligne.trim()}`);
+    });
+  }
+  expect(trouves).toEqual([]);
+});
+
+test("le filet attrape bien chaque forme déjà rencontrée", () => {
+  const exemples = [
+    `this._unite[NOM_UNITE.indexOf(label) - 1] += n;`,
+    `if (o.textContent == NOM_UNITE[i + 1]) return;`,
+    `if (parametres.unite.hasOwnProperty(NOM_UNITE[i + 1]))`,
+    `this._unite[i] = parametres.unite[NOM_UNITE[i + 1]];`,
+    `let r = [...NOM_UNITES, ...NOM_UNITE].findIndex((n) => n.toLowerCase() == nom);`,
+    `if (nom === "Tank d’élite") x++;`,
+  ];
+  for (const e of exemples)
+    expect([e, COMPARAISONS_INTERDITES.some(([, m]) => m.test(e))]).toEqual([e, true]);
+  // une clé écrite avec le nom de l'extension reste permise
+  expect(COMPARAISONS_INTERDITES.some(([, m]) => m.test(`unite[NOM_UNITE[i]] = n;`))).toBe(false);
 });

@@ -191,6 +191,8 @@ class PageArmee {
         let unite = $(ligne).find(".pas_sur_telephone").text(),
           $cases = $(ligne).find("td");
         if (!unite) return;
+        // ligne de troupes au nom inconnu : notée dans le journal
+        if (/\d/.test($cases.slice(1).text())) Utils.uniteLue(unite, "Armée");
         let tdc = nombre($(ligne).find("td:nth-child(3) span")),
           loge = nombre($(ligne).find("td:nth-last-child(2)"));
         if (tdc) lieux.tdc[unite] = tdc;

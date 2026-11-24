@@ -22,10 +22,13 @@ class Armee {
      * @type array
      */
     this._unite = new Array(14).fill(0);
+    // noms lus dans une page (tableau de la garnison, page d'attaque) comme
+    // ceux de l'extension : casse, accents, apostrophe et pluriel ignorés
     if (parametres.hasOwnProperty("unite"))
-      for (let i = 0; i < 14; i++)
-        if (parametres.unite.hasOwnProperty(NOM_UNITE[i + 1]))
-          this._unite[i] = parametres.unite[NOM_UNITE[i + 1]];
+      Object.keys(parametres.unite).forEach((nom) => {
+        let u = Utils.indexUnite(nom);
+        if (u > 0) this._unite[u - 1] += Number(parametres.unite[nom]) || 0;
+      });
     /**
      * Sauvegarde du nombre de JSN pour le lancement des chasses.
      *
@@ -173,14 +176,14 @@ class Armee {
       .find(".simulateur tr[align='center']:lt(14)")
       .each((i, elt) => {
         let label = $(elt).find(".pas_sur_telephone").text(),
-          u = label ? Utils.indexUnite(label) : -1,
-          $nombres = $(elt).find("td span");
-        if (u < 1) {
-          // une ligne de troupes dont le nom n'est plus reconnu : ses unités manqueraient
-          if (label && /\d/.test($nombres.text()))
-            Journal.erreur("Armée", `unité non reconnue sur la page Armée : « ${label.trim()} »`);
-          return;
-        }
+          $nombres = $(elt).find("td span"),
+          // une ligne de troupes dont le nom n'est plus reconnu : notée, ses unités manqueraient
+          u = !label
+            ? -1
+            : /\d/.test($nombres.text())
+              ? Utils.uniteLue(label, "Armée")
+              : Utils.indexUnite(label);
+        if (u < 1) return;
         $nombres.each((i2, elt2) => {
           // id du jeu : (nombre,'uniteX',lieu)
           if (lieu && !($(elt2).attr("id") || "").endsWith("," + lieu + ")")) return;
@@ -301,8 +304,12 @@ class Armee {
     let ordre = new Array(0, 2, 1, 3, 9, 4, 8, 7, 6, 5, 11, 10, 13, 12);
     // initialistion du nombre d'unité
     this._unite = new Array(14).fill(0);
-    // on match le texte d'entrée
-    texte = texte.replace(interdit, "");
+    // on match le texte d'entrée ; toute apostrophe devient droite, comme dans Utils.texteUnite
+    texte = String(texte)
+      .replace(/[’‘`´ʼ]/g, "'")
+      .replace(/[\u00a0\u202f]/g, " ")
+      .replace(/ {2,}/g, " ")
+      .replace(interdit, "");
     for (let i = 0; i < unite.length; i++)
       texte = texte.replace(unite[ordre[i]], "{separateur}unite" + ordre[i] + "{separateur}");
     texte = texte.replace(kilo, "$1 000");

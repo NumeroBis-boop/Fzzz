@@ -131,7 +131,11 @@ class Chasse {
     res.unite = armee.unite.slice(0);
     // Pour chaques types d'unitées qui ont XP.
     for (let i = 1, l = tmp.length; i < l; i++) {
-      let uniteXP = Utils.indexUnite(tmp[i].replace(/[0-9]/g, "").split("sont")[0]),
+      let nom = tmp[i].replace(/[0-9]/g, "").split("sont")[0],
+        // ligne d'XP au nom inconnu : notée dans le journal
+        uniteXP = /sont devenu/.test(tmp[i])
+          ? Utils.uniteLue(nom, "Rapport")
+          : Utils.indexUnite(nom),
         qteXP = parseInt(tmp[i].replace(/ /g, ""));
       res.unite[uniteXP - 1] -= qteXP;
       res.unite[tableXP[uniteXP]] += qteXP;

@@ -257,7 +257,9 @@ class PageAttaquer {
   extraitArmee() {
     let unites = {};
     $("input[id^='unite']").each((i, elt) => {
-      unites[$(elt).parent().parent().find("td:first").text()] = numeral($(elt).val()).value();
+      let nom = $(elt).parent().parent().find("td:first").text();
+      Utils.uniteLue(nom, "Attaque");
+      unites[nom] = numeral($(elt).val()).value();
     });
     return unites;
   }

@@ -316,7 +316,7 @@ class PageRessource {
       estime = estime || c.estime;
       // singulier et pluriel (« 1 Tank », « 3 Tanks ») sous la même clé
       for (let nom in c.unites) {
-        let cle = nom.toLowerCase().replace(/s\b/g, "");
+        let cle = Utils.cleUnite(nom);
         if (!unites[cle]) unites[cle] = { nom: nom, nb: 0 };
         unites[cle].nb += c.unites[nom];
         // forme plurielle (la plus longue) pour l'affichage
@@ -392,7 +392,7 @@ class PageRessource {
   static _armeeDepuisNoms(unites) {
     let armee = new Array(14).fill(0);
     for (let nom in unites) {
-      let u = Utils.indexUnite(nom) - 1;
+      let u = Utils.uniteLue(nom, "Ressources") - 1;
       if (u >= 0) armee[u] += unites[nom] || 0;
     }
     return armee;

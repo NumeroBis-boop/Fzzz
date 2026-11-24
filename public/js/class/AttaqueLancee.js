@@ -1390,8 +1390,10 @@ class AttaqueLancee {
       .forEach((morceau) => {
         let m = morceau.trim().match(/^(\d[\d\s\u00a0\u202f]*)\s+(.+)$/),
           i = m ? Utils.uniteDepuisLibelle(m[2]) : -1;
-        if (i > 0)
-          unite[NOM_UNITE[i]] = (unite[NOM_UNITE[i]] || 0) + parseInt(m[1].replace(/\D/g, ""));
+        if (m && i < 0) Utils.uniteLue(m[2], "Attaques");
+        if (i < 1) return;
+        let nom = NOM_UNITE[i];
+        unite[nom] = (unite[nom] || 0) + parseInt(m[1].replace(/\D/g, ""));
       });
     return unite;
   }

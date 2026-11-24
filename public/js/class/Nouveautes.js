@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.4",
+    notes: [
+      "Lanceur de chasses (proposé par Grim) : les chasses d'une série partent plus vite, la page n'est plus relue avant chacune. L'intervalle entre les chasses propose aussi « Minimal » (dès que la précédente est confirmée) et 1 seconde.",
+    ],
+  },
+  {
     version: "1.156.3",
     notes: [
       "Unités d'élite écrites « d’Élite » : les Statistiques et le replacement de la page Armée, et l'armée du Lanceur de Flood, les comptent de nouveau. Lanceur de Flood : une attaque retirée avec « Supprimer une attaque » n'est plus envoyée, et avec une antisonde, Uniforme et Dégressive calculent une attaque par ligne.",

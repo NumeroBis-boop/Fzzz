@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.1",
+    notes: [
+      "Téléphone sans « site pour ordinateur » : l'horloge ne cache plus le menu du jeu (sa première icône ouvre les encadrés, dont celui de l'extension), ni le bloc « Mes attaques en cours » et les bandeaux placés sous le menu. Les listes des Ennemies et des Membres, la synthèse des chasses et la ligne d'envoi du chat n'élargissent plus la page.",
+    ],
+  },
+  {
     version: "1.156.0",
     notes: [
       "Évolution du TdC (page d'un membre, info-bulle de la page Membres) : la colonne Synchro affiche « HdP (heure) » quand la cible sera hors de ta portée à l'arrivée du flood, d'après les mouvements partagés connus.",

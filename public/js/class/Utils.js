@@ -372,6 +372,8 @@ const VALIDITE_FIN_PONTE = 30 * 60000;
 const MINUTES_MASQUAGE_PONTE = 10;
 // écart (px) entre le menu principal du jeu et le bandeau d'alerte de ponte
 const ECART_SOUS_MENU = 6;
+/** Déclenché sur document quand l'horloge passe sous la barre du menu du jeu, ou en sort. */
+const EVENEMENT_HORLOGE_PLACEE = "o_horlogePlacee";
 
 class Utils {
   /**
@@ -1537,7 +1539,23 @@ class Utils {
     if (typeof RappelExport != "undefined") RappelExport.caler();
     // la page peut encore bouger (images, polices, largeur de fenêtre)
     $(window).off(".o_alertePonte").on("load.o_alertePonte resize.o_alertePonte", caler);
+    $(document)
+      .off(`${EVENEMENT_HORLOGE_PLACEE}.o_alertePonte`)
+      .on(`${EVENEMENT_HORLOGE_PLACEE}.o_alertePonte`, caler);
     if (document.fonts) document.fonts.ready.then(caler);
+  }
+  /**
+   * Bas de l'horloge de l'extension quand elle est sous la barre du menu
+   * (affichage mobile du jeu, Horloge.afficher), en px depuis le haut de
+   * l'écran ; 0 sinon. Fixée à l'écran : c'est aussi sa place en haut de page.
+   *
+   * @static
+   * @method basHorlogeSousMenu
+   * @return {Number}
+   */
+  static basHorlogeSousMenu() {
+    let h = document.querySelector("#o_horloge.o_horlogeSousMenu:not(.o_horlogeMasquee)");
+    return h ? h.getBoundingClientRect().bottom : 0;
   }
   /**
    * Place `elt` à ECART_SOUS_MENU px sous le menu principal du jeu, quelle que
@@ -1556,7 +1574,10 @@ class Utils {
     let fixe = [menu, document.getElementById("menu")].some(
         (m) => m && getComputedStyle(m).position == "fixed",
       ),
-      basMenu = menu.getBoundingClientRect().bottom + (fixe ? 0 : window.scrollY);
+      basMenu = Math.max(
+        menu.getBoundingClientRect().bottom + (fixe ? 0 : window.scrollY),
+        Utils.basHorlogeSousMenu(),
+      );
     elt.style.marginTop = "0px";
     let haut = elt.getBoundingClientRect().top + window.scrollY;
     elt.style.marginTop = Math.round(basMenu + ecart - haut) + "px";

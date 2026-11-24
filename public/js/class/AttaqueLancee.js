@@ -1259,7 +1259,7 @@ class AttaqueLancee {
       bloc.style.position = "";
       bloc.style.top =
         (!porteur
-          ? 0
+          ? Utils.basHorlogeSousMenu()
           : getComputedStyle(porteur).position == "fixed"
             ? bas
             : (parseFloat(getComputedStyle(porteur).top) || 0) +
@@ -1268,6 +1268,7 @@ class AttaqueLancee {
     };
     caler();
     $(window).on("load resize", caler);
+    $(document).on(EVENEMENT_HORLOGE_PLACEE, caler);
   }
   /**
    * Colonne des actions : largeur réservée pour le plus large de « Partager »

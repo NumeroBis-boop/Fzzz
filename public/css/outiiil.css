@@ -1712,6 +1712,15 @@ html:not(.o_originePage) #color {
   width: 46px;
   height: 26px;
 }
+/* affichage mobile du jeu : sa ligne d'envoi, qui ne passe pas à la ligne,
+   dépasse déjà l'écran ; le sélecteur de couleur y prend moins de place */
+@media screen and (max-width: 41em) {
+  html:not(.o_originePage) #color {
+    padding: 0;
+    width: 24px;
+    height: 22px;
+  }
+}
 .o_group_bouton_chat {
   margin-left: 6px;
   background: linear-gradient(
@@ -1918,7 +1927,7 @@ html:not(.o_desactivee):not(.o_originePage) center > div > #tabMembresAlliance {
 /* Correctif jquerui pour outiiil */
 .ui-tooltip {
   opacity: 1 !important;
-  max-width: 400px !important;
+  max-width: min(400px, calc(100vw - 16px)) !important;
 }
 .ui-tooltip-lightBrown {
   background-color: #d7c384 !important;
@@ -2147,6 +2156,16 @@ html:not(.o_desactivee):not(.o_originePage) center > div > #tabMembresAlliance {
 }
 #o_horloge.o_horlogeDeplace {
   opacity: 0.85;
+}
+/* affichage mobile du jeu : ses menus (encadrés, Fourmilière…) s'ouvrent sous
+   la barre, là où est l'horloge ; elle s'efface tant qu'un menu est ouvert */
+@media screen and (max-width: 61em) {
+  html:not(.o_origineGenerale):has(.menuActif) #o_horloge {
+    visibility: hidden !important;
+  }
+  html:not(.o_origineGenerale):has(#o_horloge.o_horlogeSousMenu:not(.o_horlogeMasquee)) #centre {
+    padding-top: calc(53px + var(--o-horloge-hauteur, 24px) + 6px) !important;
+  }
 }
 /* croix : masquée une heure, ou jusqu'à l'ouverture d'une page d'attaque */
 #o_horloge.o_horlogeMasquee {
@@ -2911,6 +2930,19 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+  /* dans une case du tableau du jeu (Ressources) : prend la largeur de la
+     case sans l'élargir, son tableau défile */
+  #o_syntheseChasses {
+    width: 0;
+    min-width: 100%;
+  }
+  #o_syntheseChasses table {
+    max-width: 100%;
+  }
+  /* liste des unités lisible : le tableau défile plutôt que de l'écraser */
+  #o_syntheseChasses .o_syntheseUnites {
+    min-width: 14em;
+  }
   .o_attaquesLancees td,
   .o_attaquesLancees th,
   #o_chassesPartagees td {
@@ -2957,8 +2989,9 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   }
   /* page Membres : le tableau défile dans son cadre, largeur fixe désactivée */
   html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance_wrapper {
-    width: auto !important;
-    max-width: calc(100vw - 24px);
+    /* la largeur de sa case du jeu, sans l'élargir (100vw dépassait de 5 px) */
+    width: 0 !important;
+    min-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -3449,6 +3482,20 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 #o_attaquesLancees .o_attaqueAnnuler a::before,
 #o_attaquesLancees .o_chasseAnnuler a::before {
   content: "• ";
+}
+/* page Ennemies, affichage mobile du jeu : avec la colonne « Temps » de
+   l'extension, la liste défile dans sa largeur au lieu d'élargir la page */
+@media screen and (max-width: 41em) {
+  html:not(.o_originePage) #tabEnnemie {
+    display: block;
+    overflow-x: auto;
+    width: 0;
+    min-width: 100%;
+  }
+  html:not(.o_originePage) #tabEnnemie th,
+  html:not(.o_originePage) #tabEnnemie td {
+    white-space: nowrap;
+  }
 }
 /* page Ennemies : filtre de la liste sous l'encadré « Cibles » */
 #o_filtreEnnemisZone,

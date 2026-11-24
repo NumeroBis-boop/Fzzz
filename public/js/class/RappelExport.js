@@ -189,6 +189,9 @@ class RappelExport {
     $(window)
       .off(".o_rappelExport")
       .on("load.o_rappelExport resize.o_rappelExport", RappelExport.caler);
+    $(document)
+      .off(`${EVENEMENT_HORLOGE_PLACEE}.o_rappelExport`)
+      .on(`${EVENEMENT_HORLOGE_PLACEE}.o_rappelExport`, RappelExport.caler);
     if (document.fonts) document.fonts.ready.then(RappelExport.caler);
   }
   /**

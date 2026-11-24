@@ -615,53 +615,91 @@ class Armee {
     return donnees;
   }
   /**
-   * Lance une chasse avec un jeton de sécurité neuf : le jeu n'accepte chaque
-   * jeton qu'une fois, réutiliser celui de la première chasse faisait refuser
-   * toutes les suivantes. Résout le texte de la réponse ("" en cas d'échec).
+   * Jeton de sécurité du formulaire d'une page AcquerirTerrain.php, "nom=valeur",
+   * ou "" si la page n'en a pas. La réponse à une chasse porte le jeton de la
+   * suivante (essais sur le s5 du 24/11/2026 : un seul jeton courant par compte,
+   * le même sur deux lectures de la page, remplacé quand une chasse l'utilise).
+   *
+   * @static
+   * @method jetonChasse
+   * @param {String} html
+   * @return {String}
+   */
+  static jetonChasse(html) {
+    if (!html) return "";
+    // id="t" est à la fois la table principale et l'input du jeton : on vise l'input
+    let jeton = Utils.parseHtml(String(html)).find("input[name='t']");
+    return jeton.attr("name") && jeton.attr("value")
+      ? jeton.attr("name") + "=" + jeton.attr("value")
+      : "";
+  }
+  /**
+   * Lance une chasse. Le jeu n'accepte chaque jeton de sécurité qu'une fois :
+   * sans jeton donné (première chasse, réponse précédente sans jeton), la page
+   * est relue pour prendre le jeton courant. Résout le texte de la réponse (""
+   * en cas d'échec).
    *
    * @static
    * @method posterChasse
    * @param {Integer} terrainChasse
    * @param {Array} unites nombre par unité, ordre d'Armee.unite
+   * @param {String} [jeton] "nom=valeur" lu dans la réponse de la chasse précédente
    * @return {Promise<String>}
    */
-  static posterChasse(terrainChasse, unites) {
-    return Promise.resolve($.ajax({ url: location.origin + "/AcquerirTerrain.php", cache: false }))
-      .then((page) => {
-        // id="t" est à la fois la table principale et l'input du jeton : on vise l'input
-        let jeton = Utils.parseHtml(page).find("input[name='t']");
-        if (!jeton.attr("name")) throw new Error("jeton introuvable");
-        return $.post(
+  static posterChasse(terrainChasse, unites, jeton = "") {
+    let lu = jeton
+      ? Promise.resolve(jeton)
+      : Promise.resolve(
+          $.ajax({ url: location.origin + "/AcquerirTerrain.php", cache: false }),
+        ).then((page) => {
+          let courant = Armee.jetonChasse(page);
+          if (!courant) throw new Error("jeton introuvable");
+          return courant;
+        });
+    return lu
+      .then((securite) =>
+        $.post(
           location.origin + "/AcquerirTerrain.php",
-          Armee.donneesChasse(
-            terrainChasse,
-            unites,
-            jeton.attr("name") + "=" + jeton.attr("value"),
-          ),
-        );
-      })
+          Armee.donneesChasse(terrainChasse, unites, securite),
+        ),
+      )
       .then((data) => String(data))
       .catch(() => "");
   }
   /**
-   * Envoie une chasse.
+   * Envoie une chasse, puis les suivantes : chacune avec le jeton lu dans la
+   * réponse de la précédente, sans relire la page. Une chasse refusée avec un
+   * tel jeton est renvoyée une fois avec le jeton courant, relu (jeton périmé
+   * par une autre action du joueur pendant l'intervalle) ; sans réponse du jeu,
+   * rien n'est renvoyé : la chasse est peut-être partie.
    *
    * @method envoyerChasse
    * @param {Function} fin appelée à la fin (chasses lancées, demandées) ;
    *   par défaut, rechargement de la page
    * @param {Integer} indice
+   * @param {String} [jeton] jeton de la réponse précédente (usage interne)
    */
-  envoyerChasse(terrainChasse, nbChasse, indice, intervalle, fin = () => location.reload()) {
+  envoyerChasse(
+    terrainChasse,
+    nbChasse,
+    indice,
+    intervalle,
+    fin = () => location.reload(),
+    jeton = "",
+  ) {
     if (indice < nbChasse) {
-      Armee.posterChasse(terrainChasse, this._repartition[indice]).then((data) => {
+      Armee.posterChasse(terrainChasse, this._repartition[indice], jeton).then((data) => {
         if (data.indexOf("La chasse est lancée.") > -1) {
           TroupesDehors.enregistrerChasse(this._repartition[indice]);
           $("#o_simulationChasse tr:eq(" + (indice + 1) + ")").html(
             `<td class='green'>${indice + 1}</td><td colspan='14' class='green'>La chasse est lancée.</td>`,
           );
+          let suivant = Armee.jetonChasse(data);
           setTimeout(() => {
-            this.envoyerChasse(terrainChasse, nbChasse, ++indice, intervalle, fin);
+            this.envoyerChasse(terrainChasse, nbChasse, ++indice, intervalle, fin, suivant);
           }, intervalle);
+        } else if (jeton && data) {
+          this.envoyerChasse(terrainChasse, nbChasse, indice, intervalle, fin);
         } else {
           // refusée (plus de place, d'unités…) : les suivantes le seraient aussi
           $("#o_simulationChasse tr:eq(" + (indice + 1) + ")").html(

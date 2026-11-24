@@ -60,6 +60,111 @@ describe("Combat.simuler", () => {
 });
 
 describe("Armee.envoyerChasse", () => {
+  // jeu simulé : un seul jeton courant, remplacé quand une chasse l'utilise ;
+  // une chasse envoyée avec un autre jeton est refusée (essais du 24/11/2026)
+  const jeu = (refus: string, autre = "") => `
+    var monProfil = { niveauRecherche: [0, 0, 0, 0, 0, 0] };
+    var TroupesDehors = { enregistrerChasse() {} };
+    window.jeu = { courant: 1, lectures: 0, envois: [], lancees: 0, bilan: null };
+    window.fini = new Promise((r) => (window.finir = r));
+    var pageChasse = (texte) => "<table id='t'></table><form><input type='hidden' name='t' id='t' value='j" + window.jeu.courant + "'/></form>" + texte;
+    $.ajax = () => { window.jeu.lectures++; ${autre} return Promise.resolve(pageChasse("")); };
+    $.post = (url, d) => {
+      let j = window.jeu;
+      j.envois.push(d.t);
+      if (${refus}) return Promise.resolve(REPONSE_REFUS(j));
+      if (d.t != "j" + j.courant) return Promise.resolve(pageChasse("Erreur"));
+      j.courant++; j.lancees++;
+      return Promise.resolve(pageChasse("La chasse est lancée."));
+    };
+    var REPONSE_REFUS = (j) => pageChasse("Erreur");
+    var a = new Armee(); a._repartition = [[1], [1], [1], [1]];
+  `;
+  // fin de la suite de chasses (appel de `fin`), sans délai fixe
+  const fin = () => page.lire<Promise<void>>(`window.fini`);
+  const etat = () =>
+    JSON.parse(page.lire<string>(`JSON.stringify(window.jeu)`)) as {
+      lectures: number;
+      envois: string[];
+      lancees: number;
+      bilan: number[] | null;
+    };
+
+  test('jetonChasse : l\'input du jeton, pas la table de même id ; "" sans jeton', () => {
+    expect(
+      page.lire(`[
+        Armee.jetonChasse("<table id='t'></table><input type='hidden' name='t' id='t' value='lb20'/>"),
+        Armee.jetonChasse("<table id='t'></table><p>La chasse est lancée.</p>"),
+        Armee.jetonChasse(""),
+        Armee.jetonChasse("<input name='t' value=''/>"),
+      ]`),
+    ).toEqual(["t=lb20", "", "", ""]);
+  });
+
+  test("une seule lecture de la page : chaque chasse part avec le jeton de la réponse précédente", async () => {
+    page.lire(
+      jeu("false") +
+        `a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
+    );
+    await fin();
+    expect(etat()).toMatchObject({
+      lectures: 1,
+      envois: ["j1", "j2", "j3", "j4"],
+      lancees: 4,
+      bilan: [4, 4],
+    });
+  });
+
+  test("jeton périmé entre deux chasses : relu une fois, la chasse repart et la suite continue", async () => {
+    // une autre action du joueur change le jeton après la 2e chasse
+    page.lire(
+      jeu("false") +
+        `let post = $.post; $.post = (url, d) => { if (window.jeu.envois.length == 2 && !window.jeu.autre) { window.jeu.autre = true; window.jeu.courant = 50; } return post(url, d); };
+         a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
+    );
+    await fin();
+    expect(etat()).toMatchObject({
+      lectures: 2,
+      envois: ["j1", "j2", "j3", "j50", "j51"],
+      lancees: 4,
+      bilan: [4, 4],
+    });
+  });
+
+  test("refus du jeu (plus de place) : un seul nouvel essai avec le jeton relu, puis arrêt", async () => {
+    page.lire(
+      jeu("j.lancees >= 2") +
+        `a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
+    );
+    await fin();
+    expect(etat()).toMatchObject({
+      lectures: 2,
+      envois: ["j1", "j2", "j3", "j3"],
+      lancees: 2,
+      bilan: [2, 4],
+    });
+  });
+
+  test("pas de réponse du jeu : rien n'est renvoyé (la chasse est peut-être partie)", async () => {
+    page.lire(
+      jeu("j.lancees >= 1") +
+        `REPONSE_REFUS = () => ""; a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
+    );
+    await fin();
+    expect(etat()).toMatchObject({ lectures: 1, envois: ["j1", "j2"], lancees: 1, bilan: [1, 4] });
+  });
+
+  test("page sans jeton à la première lecture : rien n'est envoyé", async () => {
+    page.lire(
+      jeu("false") +
+        `$.ajax = () => { window.jeu.lectures++; return Promise.resolve("<p>Connexion</p>"); };
+         a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
+    );
+    await fin();
+    expect(etat()).toMatchObject({ lectures: 1, envois: [], lancees: 0, bilan: [0, 4] });
+  });
+
+  // remplace Armee.posterChasse pour la suite : dernier test du bloc
   test("s'arrête au premier refus et appelle `fin` avec le compte", async () => {
     page.lire(`
       var monProfil = { niveauRecherche: [0, 0, 0, 0, 0, 0] };

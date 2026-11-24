@@ -208,6 +208,22 @@ describe("lanceur : réglages mémorisés", () => {
     expect(valeur("o_chasseMarge")).toBe(1.5);
     expect(plan().limite).toBe("budget");
   });
+
+  test("intervalles « Minimal » (0) et 1 seconde : proposés, mémorisés et restaurés ; 2 secondes par défaut", () => {
+    expect(lire(`$("#o_chasseInt").val()`)).toBe("2");
+    expect(lire(`$("#o_chasseInt option").map((i, o) => o.value).get().join()`)).toBe(
+      "0,1,2,30,60,120",
+    );
+    lire(`$("#o_chasseInt").val("0").trigger("change")`);
+    expect(reglages().intervalle).toBe(0);
+    creerLanceur();
+    expect(lire(`$("#o_chasseInt").val()`)).toBe("0");
+    expect(lire(`$("#o_chasseInt option:selected").text()`)).toBe("Minimal");
+    lire(`$("#o_chasseInt").val("1").trigger("change")`);
+    expect(reglages().intervalle).toBe(1);
+    creerLanceur();
+    expect(lire(`$("#o_chasseInt").val()`)).toBe("1");
+  });
 });
 
 describe("lanceur : terrain à l'arrivée", () => {

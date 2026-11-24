@@ -66,6 +66,7 @@ describe("Armee.envoyerChasse", () => {
     var monProfil = { niveauRecherche: [0, 0, 0, 0, 0, 0] };
     var TroupesDehors = { enregistrerChasse() {} };
     window.jeu = { courant: 1, lectures: 0, envois: [], lancees: 0, bilan: null };
+    window.fini = new Promise((r) => (window.finir = r));
     var pageChasse = (texte) => "<table id='t'></table><form><input type='hidden' name='t' id='t' value='j" + window.jeu.courant + "'/></form>" + texte;
     $.ajax = () => { window.jeu.lectures++; ${autre} return Promise.resolve(pageChasse("")); };
     $.post = (url, d) => {
@@ -79,6 +80,8 @@ describe("Armee.envoyerChasse", () => {
     var REPONSE_REFUS = (j) => pageChasse("Erreur");
     var a = new Armee(); a._repartition = [[1], [1], [1], [1]];
   `;
+  // fin de la suite de chasses (appel de `fin`), sans délai fixe
+  const fin = () => page.lire<Promise<void>>(`window.fini`);
   const etat = () =>
     JSON.parse(page.lire<string>(`JSON.stringify(window.jeu)`)) as {
       lectures: number;
@@ -100,9 +103,10 @@ describe("Armee.envoyerChasse", () => {
 
   test("une seule lecture de la page : chaque chasse part avec le jeton de la réponse précédente", async () => {
     page.lire(
-      jeu("false") + `a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; });`,
+      jeu("false") +
+        `a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
     );
-    await new Promise((r) => setTimeout(r, 60));
+    await fin();
     expect(etat()).toMatchObject({
       lectures: 1,
       envois: ["j1", "j2", "j3", "j4"],
@@ -116,9 +120,9 @@ describe("Armee.envoyerChasse", () => {
     page.lire(
       jeu("false") +
         `let post = $.post; $.post = (url, d) => { if (window.jeu.envois.length == 2 && !window.jeu.autre) { window.jeu.autre = true; window.jeu.courant = 50; } return post(url, d); };
-         a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; });`,
+         a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
     );
-    await new Promise((r) => setTimeout(r, 60));
+    await fin();
     expect(etat()).toMatchObject({
       lectures: 2,
       envois: ["j1", "j2", "j3", "j50", "j51"],
@@ -130,9 +134,9 @@ describe("Armee.envoyerChasse", () => {
   test("refus du jeu (plus de place) : un seul nouvel essai avec le jeton relu, puis arrêt", async () => {
     page.lire(
       jeu("j.lancees >= 2") +
-        `a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; });`,
+        `a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
     );
-    await new Promise((r) => setTimeout(r, 60));
+    await fin();
     expect(etat()).toMatchObject({
       lectures: 2,
       envois: ["j1", "j2", "j3", "j3"],
@@ -144,9 +148,9 @@ describe("Armee.envoyerChasse", () => {
   test("pas de réponse du jeu : rien n'est renvoyé (la chasse est peut-être partie)", async () => {
     page.lire(
       jeu("j.lancees >= 1") +
-        `REPONSE_REFUS = () => ""; a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; });`,
+        `REPONSE_REFUS = () => ""; a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
     );
-    await new Promise((r) => setTimeout(r, 60));
+    await fin();
     expect(etat()).toMatchObject({ lectures: 1, envois: ["j1", "j2"], lancees: 1, bilan: [1, 4] });
   });
 
@@ -154,9 +158,9 @@ describe("Armee.envoyerChasse", () => {
     page.lire(
       jeu("false") +
         `$.ajax = () => { window.jeu.lectures++; return Promise.resolve("<p>Connexion</p>"); };
-         a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; });`,
+         a.envoyerChasse(10, 4, 0, 0, (l, t) => { window.jeu.bilan = [l, t]; finir(); });`,
     );
-    await new Promise((r) => setTimeout(r, 60));
+    await fin();
     expect(etat()).toMatchObject({ lectures: 1, envois: [], lancees: 0, bilan: [0, 4] });
   });
 

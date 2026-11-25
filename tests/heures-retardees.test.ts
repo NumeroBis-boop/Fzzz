@@ -280,3 +280,64 @@ describe("floods arrivés ou annulés (page Armée)", () => {
     expect(lire(`Object.keys(PartageChasses.floodsPartages())`)).toEqual([]);
   });
 });
+
+describe("chasse retardée sur un autre appareil au-delà de mon réglage", () => {
+  // mainteneur, 25/11/2026 : sa chasse publiée à 21h55 (heure réelle 21h44,
+  // retard tiré sur un autre appareil), « Partager » proposé dans « Mes attaques
+  // en cours » d'un appareil réglé plus bas, le clic a publié 21h44 : doublon.
+  // La même chasse a le même TdC chassé ; heures et TdC inventés.
+  const recaler = (anciennes: any[], groupes: any[], fenetre = 0) =>
+    lire<any>(
+      `PartageChasses.recalerListeChasses(${JSON.stringify(anciennes)}, ${JSON.stringify(groupes)}, "2026-11-21 12:00", ${fenetre})`,
+    );
+  const g = { debut: "2026-11-21 21:44", fin: "2026-11-21 21:44", terrain: 74816 };
+
+  test("reconnue à son TdC chassé (même chasse), heure publiée gardée", () => {
+    expect(recaler([{ date: "2026-11-21 21:55", terrain: 74816 }], [g])).toEqual({
+      lignes: [{ date: "2026-11-21 21:55", terrain: 74816, reel: "2026-11-21 21:44" }],
+      change: false,
+    });
+  });
+
+  test("autre TdC chassé : une autre chasse, pas reconnue", () => {
+    expect(recaler([{ date: "2026-11-21 21:55", terrain: 50000 }], [g]).lignes).toEqual([]);
+  });
+
+  test("plus de 59 min après son groupe : pas reconnue", () => {
+    expect(recaler([{ date: "2026-11-21 22:45", terrain: 74816 }], [g]).lignes).toEqual([]);
+  });
+
+  test("doublon déjà au forum : la ligne à l'heure exacte reste, l'autre part", () => {
+    expect(
+      recaler(
+        [
+          { date: "2026-11-21 21:55", terrain: 74816 },
+          { date: "2026-11-21 21:44", terrain: 74816 },
+        ],
+        [g],
+      ),
+    ).toEqual({
+      lignes: [{ date: "2026-11-21 21:44", terrain: 74816, reel: "2026-11-21 21:44" }],
+      change: true,
+    });
+  });
+
+  test("partage : pas de doublon d'une chasse déjà publiée retardée ailleurs", async () => {
+    preparer([["Alpha", [ligne("Chasses", chasse("2026-11-21 21:55", 74816))]]], [], {
+      chasses: 0,
+      floods: 0,
+    });
+    expect(
+      await lire(
+        `PartageChasses._partager("Chasses", [${JSON.stringify(chasse("2026-11-21 21:44", 74816))}])`,
+      ),
+    ).toBe(0);
+    expect(ecritures()).toEqual([]);
+    // une autre chasse (autre TdC chassé) est bien publiée
+    expect(
+      await lire(
+        `PartageChasses._partager("Chasses", [${JSON.stringify(chasse("2026-11-21 21:44", 50000))}])`,
+      ),
+    ).toBe(1);
+  });
+});

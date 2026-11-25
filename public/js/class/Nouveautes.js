@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.6",
+    notes: [
+      "TdC à l'impact et évolutions du TdC : une chasse ou un flood arrivé dans la minute où le TdC est lu n'est plus compté deux fois. Une chasse partagée avec un retard depuis un autre appareil n'est plus proposée au partage une seconde fois, ce qui faisait un doublon au forum.",
+    ],
+  },
+  {
     version: "1.156.5",
     notes: [
       "Page Membres sur téléphone : le cadre reprend presque toute la largeur de l'écran, comme avant la 1.156.1. La police du tableau se réduit pour que toutes les colonnes s'affichent.",

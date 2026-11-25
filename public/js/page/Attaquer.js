@@ -709,7 +709,8 @@ class PageAttaquer {
     $(document)
       .off("o_parametre.o_flood")
       .on("o_parametre.o_flood", () => this.actualiserFlood());
-    // en Optimisée, une ligne ajoutée ou retirée fixe le nombre d'attaques, jusqu'au changement de méthode
+    // en Optimisée, une ligne ajoutée ou retirée fixe le nombre d'attaques, jusqu'au
+    // changement de méthode ; une ligne retirée laisse aux autres leur montant
     $("#o_ajouteAttaque").click((e) => {
       let optimisee = $("#o_methodeFlood").val() == "1";
       if (optimisee) this._lignesOptimisee = true;
@@ -718,9 +719,12 @@ class PageAttaquer {
         this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     });
     $("#o_supprimeAttaque").click((e) => {
-      if ($("#o_methodeFlood").val() == "1") this._lignesOptimisee = true;
+      let optimisee = $("#o_methodeFlood").val() == "1";
+      if (optimisee) this._lignesOptimisee = true;
       this.supprimerAttaque();
-      this._saisiesOptimisee.delete($("input[id^='o_attaque']").length + 1);
+      let lignes = $("input[id^='o_attaque']").length;
+      this._saisiesOptimisee.delete(lignes + 1);
+      if (optimisee && lignes) this._saisiesOptimisee.add(lignes);
       // le flood part du dernier calcul : sans le refaire, la ligne retirée partait quand même
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     });

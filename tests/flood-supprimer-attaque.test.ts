@@ -134,13 +134,16 @@ describe("Optimisée : attaques retirées, ajoutées ou modifiées", () => {
     expect(liens()).toEqual([true, true]);
   });
 
-  test("une attaque retirée : les autres sont recalculées pour ce nombre, seules elles partent", () => {
+  test("une attaque retirée : les autres gardent leur montant, seules elles partent", () => {
     ouvrir(1);
     expect(montants()).toEqual([20000, 13333, 13333]);
     supprimer(1);
-    // deux attaques : plus besoin de l'attaque « limite », 20 % chacune
-    expect(montants()).toEqual([20000, 16000]);
-    expect(envoyer()).toEqual([20000, 16000]);
+    // pas de nouveau calcul Optimisée pour deux attaques (20 000 / 16 000) : règle du mainteneur
+    expect(montants()).toEqual([20000, 13333]);
+    expect(envoyer()).toEqual([20000, 13333]);
+    // ni après un changement de TdC
+    lire(`$("#o_floodTDCB").spinner("value", 90000).trigger("input")`);
+    expect(montants()).toEqual([20000, 13333]);
   });
 
   test("une attaque ajoutée : à 0 quand Optimisée n'en voit pas l'utilité, envoyée au montant saisi", () => {
@@ -154,12 +157,15 @@ describe("Optimisée : attaques retirées, ajoutées ou modifiées", () => {
     expect(envoyer()).toEqual([18000, 8666, 12666, 5000]);
   });
 
-  test("une attaque retirée puis rajoutée : recalculée pour ce nombre", () => {
+  test("une attaque retirée puis rajoutée : la nouvelle est calculée après les autres", () => {
     ouvrir(1);
-    supprimer(1);
+    saisir(1, 10000);
+    expect(montants()).toEqual([10000, 18000, 5333, 13333]);
+    supprimer(2);
     lire(`$("#o_ajouteAttaque").trigger("click")`);
-    expect(montants()).toEqual([20000, 13333, 13333]);
-    expect(envoyer()).toEqual([20000, 13333, 13333]);
+    // 128 000 contre 72 000 après les deux premières : un dernier 20 %
+    expect(montants()).toEqual([10000, 18000, 14400]);
+    expect(envoyer()).toEqual([10000, 18000, 14400]);
   });
 
   test("une attaque ajoutée sous la limite de créneaux seulement", () => {
@@ -215,9 +221,8 @@ describe("Optimisée : attaques retirées, ajoutées ou modifiées", () => {
     supprimer(1);
     expect(montants()).toEqual([20000, 13333, 7000]);
     supprimer(1);
-    // plus de saisie : les deux attaques restantes sont recalculées
-    expect(montants()).toEqual([20000, 16000]);
-    expect(envoyer()).toEqual([20000, 16000]);
+    expect(montants()).toEqual([20000, 13333]);
+    expect(envoyer()).toEqual([20000, 13333]);
   });
 
   test("changement de méthode puis retour en Optimisée : son propre calcul revient", () => {

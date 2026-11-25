@@ -279,8 +279,9 @@ class PageRessource {
     }));
   }
   /**
-   * Groupes de chasses par minute d'impact (minutes consécutives : un seul
-   * groupe, à la minute la plus tardive), par ordre d'impact.
+   * Groupes de chasses par minute d'impact, un par minute, par ordre d'impact.
+   * Une ligne du forum par minute : datée de la dernière minute d'une série,
+   * une ligne ferait compter aux autres ses chasses déjà arrivées.
    *
    * @static
    * @method grouperChasses
@@ -290,10 +291,8 @@ class PageRessource {
     let groupes = [];
     chasses.forEach((c) => {
       let dernier = groupes[groupes.length - 1];
-      if (dernier && c.impact.diff(dernier.impact, "minutes") <= 1) {
-        dernier.impact = c.impact;
-        dernier.chasses.push(c);
-      } else groupes.push({ impact: c.impact, chasses: [c] });
+      if (dernier && c.impact.isSame(dernier.impact, "minute")) dernier.chasses.push(c);
+      else groupes.push({ impact: c.impact, chasses: [c] });
     });
     return groupes;
   }

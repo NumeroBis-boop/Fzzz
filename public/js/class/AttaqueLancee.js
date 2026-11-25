@@ -607,6 +607,16 @@ class AttaqueLancee {
               PartageChasses.tdcConnus(tdc, { [moi]: Utils.terrain }),
             ),
             maintenant = minute(Horloge.serveur()),
+            // minutes de mes chasses que le forum a déjà, toutes à la fois : une
+            // ligne ne couvre qu'une minute, une ligne d'avant 1.156.7 ses minutes
+            couvertes = groupes
+              ? PartageChasses.recalerListeChasses(
+                  partagees,
+                  PageRessource.groupesForum(groupes),
+                  maintenant,
+                  PartageChasses.decalageMax("Chasses"),
+                ).lignes.map((l) => l.reel)
+              : [],
             mouvements = { floods: {}, chasses: [], recus: [] };
           sim.evenements.forEach((e) => {
             if (e.type == "chasse") {
@@ -616,15 +626,7 @@ class AttaqueLancee {
                 evenement: e,
                 groupe: g,
                 // sans la page Ressources, mes chasses connues sont celles du forum
-                partagee: groupes
-                  ? !!g &&
-                    PartageChasses.recalerListeChasses(
-                      partagees,
-                      [{ debut: minute(g.chasses[0].impact), fin: e.date, terrain: e.terrain }],
-                      maintenant,
-                      PartageChasses.decalageMax("Chasses"),
-                    ).lignes.some((l) => l.reel == e.date)
-                  : true,
+                partagee: groupes ? !!g && couvertes.includes(e.date) : true,
               });
             } else if (String(e.lanceur).toLowerCase() == m) {
               if (e.id) mouvements.floods[e.id] = e;

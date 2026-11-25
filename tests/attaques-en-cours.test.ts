@@ -98,9 +98,9 @@ const FORUM = {
   chasses: MA_CHASSE as Record<string, object[]>,
   floods: [flood(700, "10:25", "Autre", "Moi", 30000), flood(501, "10:31", "Moi", "Cible", 5000)],
 };
-// chasses de Ressources.php : deux à des minutes voisines (un groupe), une plus tard
+// chasses de Ressources.php : deux à la même minute (une ligne), une plus tard
 const CHASSES = [
-  ["10:20", 1000, 400],
+  ["10:21", 1000, 400],
   ["10:21", 2000, 600],
   ["11:00", 1000, 500],
 ];
@@ -529,9 +529,9 @@ describe("« Copier » d'une chasse : au format des lignes de la page Ressources
     copier(0);
     expect(copie()).toBe(
       [
-        "- Vos chasseuses vont conquérir 1 000 cm² dans 19m 30s",
+        "- Vos chasseuses vont conquérir 1 000 cm² dans 20m 30s",
         "Troupes en chasses : 400 Jeunes Soldates Naines.",
-        "Arrivée à 10h20",
+        "Arrivée à 10h21",
         "",
         "- Vos chasseuses vont conquérir 2 000 cm² dans 20m 30s",
         "Troupes en chasses : 600 Jeunes Soldates Naines.",
@@ -1032,7 +1032,7 @@ describe("« Annuler » d'une chasse : l'ordre du jeu, puis son partage dans le 
     await annuler("903");
     expect(annulations()).toEqual(["/Ressources.php?annuler=903"]);
     expect(lire(`CONFIRMATIONS.length`)).toBe(0);
-    expect(lire(`ECRITS.recalages`)).toEqual([["10:20-10:21 3000"]]);
+    expect(lire(`ECRITS.recalages`)).toEqual([["10:21-10:21 3000"]]);
     expect(lire(`JEU.rechargements`)).toBe(1);
   });
 
@@ -1055,7 +1055,7 @@ describe("« Annuler » d'une chasse : l'ordre du jeu, puis son partage dans le 
     lire(`JEU.annulables = [903]; JEU.refus = true`);
     await ouvrir();
     await annuler("903");
-    expect(lire(`ECRITS.recalages`)).toEqual([["10:20-10:21 3000", "11:00-11:00 1000"]]);
+    expect(lire(`ECRITS.recalages`)).toEqual([["10:21-10:21 3000", "11:00-11:00 1000"]]);
     expect(lire(`JEU.rechargements`)).toBe(1);
     lire(`TOASTS = []`);
     await ouvrir();
@@ -1074,5 +1074,19 @@ describe("« Annuler » d'une chasse : l'ordre du jeu, puis son partage dans le 
     expect(lire(`JEU.lues`)).toEqual(["/Ressources.php?annuler=903", "/Ressources.php"]);
     expect(lire(`ECRITS.recalages`)).toEqual([]);
     expect(lire(`JEU.rechargements`)).toBe(1);
+  });
+});
+
+describe("chasses de minutes voisines : une ligne de forum par minute (1.156.7)", () => {
+  test("ligne d'une version d'avant (deux minutes sur une ligne, à la dernière) : les deux minutes partagées", async () => {
+    // même TdC chassé qu'avant : la ligne de 10h21 couvre aussi la chasse de 10h20
+    lire(`PageRessource.lireChasses = ((lire) => () =>
+      lire().map((c, i) => (i == 0 ? { ...c, impact: moment("2026-11-12 10:20", "YYYY-MM-DD HH:mm") } : c)))(PageRessource.lireChasses)`);
+    await ouvrir();
+    expect(
+      lire(
+        `$("#o_attaquesLancees tr.o_ligneChasse").map((i, tr) => $(tr).find("td").eq(1).text() + " " + ($(tr).find(".o_attaquePartage").length ? "partagée" : "à partager")).get()`,
+      ),
+    ).toEqual(["12/11 10h20 partagée", "12/11 10h21 partagée", "12/11 11h00 à partager"]);
   });
 });

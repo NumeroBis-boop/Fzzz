@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.9",
+    notes: [
+      "Lanceur de Flood, méthode « Optimisée » : supprimer une attaque laisse aux autres leur montant, au lieu de les recalculer pour le nouveau nombre d'attaques.",
+    ],
+  },
+  {
     version: "1.156.8",
     notes: [
       "Lanceur de Flood, méthode « Optimisée » : tu peux maintenant supprimer ou ajouter une attaque et modifier un montant, comme dans les autres méthodes. Un montant saisi est gardé, comme ceux des attaques d'avant, et les attaques suivantes sont recalculées à partir des TdC qu'il laisse.",

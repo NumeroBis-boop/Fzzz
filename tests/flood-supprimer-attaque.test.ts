@@ -112,3 +112,120 @@ test("antisonde envoyée : une attaque par ligne en Dégressive et en Uniforme",
   ouvrir(2, 50);
   expect(envoyer()).toEqual([50, 20000, 20000, 20000, 20000]);
 });
+
+/**
+ * Optimisée (demande du mainteneur, 25/11/2026) : retirer, ajouter une attaque
+ * ou en changer le montant comme dans les autres méthodes. Cible à 100 000
+ * contre 100 000 : 20 000, l'attaque « limite » 13 333, puis 13 333.
+ */
+describe("Optimisée : attaques retirées, ajoutées ou modifiées", () => {
+  const liens = () =>
+    lire<boolean[]>(
+      `[$("#o_supprimeAttaque").css("display"), $("#o_ajouteAttaque").css("display")].map((d) => d != "none")`,
+    );
+  const montants = () =>
+    lire<number[]>(`$("input[id^='o_attaque']").map((i, e) => $(e).spinner("value")).get()`);
+
+  test("les liens « Supprimer » et « Ajouter une attaque » restent affichés", () => {
+    ouvrir(1);
+    expect(liens()).toEqual([true, true]);
+    lire(`$("#o_methodeFlood").val("3").trigger("change")`);
+    lire(`$("#o_methodeFlood").val("1").trigger("change")`);
+    expect(liens()).toEqual([true, true]);
+  });
+
+  test("une attaque retirée : les autres sont recalculées pour ce nombre, seules elles partent", () => {
+    ouvrir(1);
+    expect(montants()).toEqual([20000, 13333, 13333]);
+    supprimer(1);
+    // deux attaques : plus besoin de l'attaque « limite », 20 % chacune
+    expect(montants()).toEqual([20000, 16000]);
+    expect(envoyer()).toEqual([20000, 16000]);
+  });
+
+  test("une attaque ajoutée : à 0 quand Optimisée n'en voit pas l'utilité, envoyée au montant saisi", () => {
+    ouvrir(1);
+    lire(`$("#o_ajouteAttaque").trigger("click")`);
+    expect(montants()).toEqual([20000, 13333, 13333, 0]);
+    // ligne gardée même quand les TdC changent
+    lire(`$("#o_floodTDCB").spinner("value", 90000).trigger("input")`);
+    expect(lignes()).toBe(4);
+    saisir(4, 5000);
+    expect(envoyer()).toEqual([18000, 8666, 12666, 5000]);
+  });
+
+  test("une attaque retirée puis rajoutée : recalculée pour ce nombre", () => {
+    ouvrir(1);
+    supprimer(1);
+    lire(`$("#o_ajouteAttaque").trigger("click")`);
+    expect(montants()).toEqual([20000, 13333, 13333]);
+    expect(envoyer()).toEqual([20000, 13333, 13333]);
+  });
+
+  test("une attaque ajoutée sous la limite de créneaux seulement", () => {
+    ouvrir(1);
+    lire(`$.toast = (o) => (window.avis = o.text)`);
+    for (const _ of [1, 2, 3]) lire(`$("#o_ajouteAttaque").trigger("click")`);
+    // 5 créneaux libres
+    expect(lignes()).toBe(5);
+    expect(lire<string>(`window.avis`)).toContain("vitesse d'attaque");
+  });
+
+  test("un montant saisi est gardé, les attaques suivantes recalculées depuis les TdC qu'il laisse", () => {
+    ouvrir(1);
+    saisir(1, 10000);
+    // 110 000 contre 90 000 : 20 % (18 000), puis la limite et un dernier 20 %
+    expect(montants()).toEqual([10000, 18000, 5333, 13333]);
+    // les TdC changent : la saisie reste, la suite est recalculée
+    lire(`$("#o_floodTDCB").spinner("value", 90000).trigger("input")`);
+    expect(montants()[0]).toBe(10000);
+    expect(envoyer()[0]).toBe(10000);
+  });
+
+  test("attaque 2 saisie : l'attaque 1 garde son montant aussi, même après un changement de TdC", () => {
+    ouvrir(1);
+    saisir(2, 1000);
+    lire(`$("#o_floodTDCB").spinner("value", 90000).trigger("input")`);
+    const [a, b] = montants();
+    expect([a, b]).toEqual([20000, 1000]);
+  });
+
+  test("attaque saisie arrivant hors de portée : elle ne prend rien, la suite en tient compte", () => {
+    ouvrir(1);
+    saisir(1, 20000);
+    saisir(2, 20000);
+    // 136 000 contre 64 000 : la cible est sous la moitié, l'attaque 3 ne prend rien
+    saisir(3, 1000);
+    expect(montants()).toEqual([20000, 20000, 1000, 12800]);
+  });
+
+  test("toute l'armée dans l'attaque 1 : l'attaque 2 saisie avant reste, à 0", () => {
+    ouvrir(1);
+    saisir(2, 5000);
+    saisir(1, 1000000);
+    expect(montants()).toEqual([1000000, 0]);
+    expect(envoyer()).toEqual([1000000]);
+  });
+
+  test("attaque saisie puis retirée : la saisie disparaît avec la ligne", () => {
+    ouvrir(1);
+    saisir(3, 7000);
+    // la cible reste à portée : Optimisée ajoute une attaque après la saisie
+    expect(montants()).toEqual([20000, 13333, 7000, 11933]);
+    supprimer(1);
+    expect(montants()).toEqual([20000, 13333, 7000]);
+    supprimer(1);
+    // plus de saisie : les deux attaques restantes sont recalculées
+    expect(montants()).toEqual([20000, 16000]);
+    expect(envoyer()).toEqual([20000, 16000]);
+  });
+
+  test("changement de méthode puis retour en Optimisée : son propre calcul revient", () => {
+    ouvrir(1);
+    saisir(1, 10000);
+    supprimer(1);
+    lire(`$("#o_methodeFlood").val("2").trigger("change")`);
+    lire(`$("#o_methodeFlood").val("1").trigger("change")`);
+    expect(montants()).toEqual([20000, 13333, 13333]);
+  });
+});

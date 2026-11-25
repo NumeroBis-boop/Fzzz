@@ -809,6 +809,30 @@ class Armee {
     }
   }
   /**
+   * Premières attaques aux montants saisis par le joueur, avant celles que
+   * calcule la méthode ; hors de portée, le jeu ne prend rien.
+   *
+   * @method attaquesSaisies
+   * @param {Object} donneesFlood
+   * @param {Array<Number>} montants
+   * @return {Boolean} il reste des unités et des créneaux pour la suite
+   */
+  attaquesSaisies(donneesFlood, montants) {
+    for (let montant of montants) {
+      if (donneesFlood.unite <= 0 || donneesFlood.reste <= 0) return false;
+      let prise = Math.min(Math.max(0, montant || 0), donneesFlood.unite),
+        gain = Utils.aPortee(donneesFlood.tdcCible, donneesFlood.tdcAtt)
+          ? Math.min(prise, Math.floor(donneesFlood.tdcCible * 0.2))
+          : 0;
+      this._floods.push(prise);
+      donneesFlood.tdcAtt += gain;
+      donneesFlood.tdcCible -= gain;
+      donneesFlood.unite -= prise;
+      donneesFlood.reste--;
+    }
+    return donneesFlood.unite > 0 && donneesFlood.reste > 0;
+  }
+  /**
    * 1re attaque : valeur saisie, sinon `base` % du TdC de la cible ; suivantes :
    * même part du TdC restant, ou `ecart` (5) points de % du TdC de départ en moins.
    */
@@ -954,7 +978,17 @@ class Armee {
    * @private
    * @method calculeFlood
    */
-  simulerFlood(tdcAtt, tdcCible, methode, attaques, tdcUniforme, reste, indSupp, degressif = null) {
+  simulerFlood(
+    tdcAtt,
+    tdcCible,
+    methode,
+    attaques,
+    tdcUniforme,
+    reste,
+    indSupp,
+    degressif = null,
+    saisies = [],
+  ) {
     this._floods = new Array();
     let dispo = this.disponibleFlood(),
       ligneReste = parseInt(indSupp);
@@ -980,8 +1014,8 @@ class Armee {
       case "0": // defini manuellement
         this.standardFlood(data);
         break;
-      case "1": // Opti
-        this.optimiserFlood(data);
+      case "1": // Opti, après les premières attaques saisies par le joueur
+        if (this.attaquesSaisies(data, saisies)) this.optimiserFlood(data);
         break;
       case "2": // uniforme
         this.uniformeFlood(data);

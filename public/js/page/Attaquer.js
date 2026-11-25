@@ -616,7 +616,7 @@ class PageAttaquer {
 			<tr class='gras'><td>Etape</td><td>Troupes</td><td>Reste</td><td>Mon Terrain</td><td>${this._cible.pseudo} (${Utils.intToTime(monProfil.getTempsParcours2(this._cible))})</td></tr>
 			<tr><td><select id='o_methodeFlood'><option value='0' ${methode == 0 ? "selected" : ""}>${METHODE_FLOOD[0]}</option><option value='1' ${methode == 1 ? "selected" : ""}>${METHODE_FLOOD[1]}</option><option value='2' ${methode == 2 ? "selected" : ""}>${METHODE_FLOOD[2]}</option><option value='3' ${methode == 3 ? "selected" : ""}>${METHODE_FLOOD[3]}</option></select></td><td colspan="2" class="o_floodPortee"></td><td><input value='${Utils.terrain}' size='12' id='o_floodTDCA'/></td><td><input value='${this._cible.terrain}' size='12' id='o_floodTDCB'/></td></tr>
 			<tr><td>Antisonde (<span id="o_pourcentAttaque0">0</span>%)</td><td><input value='0' size='12' id='o_floodAntiSonde'/></td><td></td><td>${numeral(Utils.terrain).format()}</td><td>${numeral(this._cible.terrain).format()}</td></tr>
-            <tr id="o_floodActions" class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor" ${methode == 1 ? "style=display:none;" : ""}>Ajouter une attaque</span></td></tr>
+            <tr id="o_floodActions" class="gras reduce"><td colspan="3"></td><td><span id="o_supprimeAttaque" class="souligne cursor">Supprimer une attaque</span></td><td><span id="o_ajouteAttaque" class="souligne cursor">Ajouter une attaque</span></td></tr>
             ${
               Utils.affichage("floodImpact")
                 ? `<tr class="o_floodImpactLigne"><td colspan="3" rowspan="4" class="o_floodBoutonsCase"></td><td colspan="2" class="o_floodImpact"><span class="souligne cursor o_floodImpactLire">Calculer le TdC à l'impact</span></td></tr>
@@ -640,6 +640,9 @@ class PageAttaquer {
     this._armee.gardees = this._unitesGardees.reglage;
     this.afficherGardees();
     this._methodeFlood = $("#o_methodeFlood").val();
+    // Optimisée : lignes dont le montant a été saisi ; nombre de lignes choisi par le joueur
+    this._saisiesOptimisee = new Set();
+    this._lignesOptimisee = false;
     this.proposerAttaques();
     // Si la methode par defaut est par standard on prepare
     if (methode)
@@ -647,15 +650,13 @@ class PageAttaquer {
     // event
     $("#o_methodeFlood").change((e) => {
       this._saisieDegressive = null;
+      this._saisiesOptimisee = new Set();
+      this._lignesOptimisee = false;
       // Optimisée choisit elle-même le nombre d'attaques : en la quittant, on
       // repart du nombre proposé, comme à l'ouverture de la page
       if (this._methodeFlood == "1" && e.currentTarget.value != "1") this.proposerAttaques();
       this._methodeFlood = e.currentTarget.value;
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
-      if (e.currentTarget.value == "1")
-        // en optimisee on peut ni ajouter ni supprimer d'attaques
-        $("#o_ajouteAttaque, #o_supprimeAttaque").hide();
-      else $("#o_ajouteAttaque, #o_supprimeAttaque").show();
     });
     $("#o_floodTDCA").on("input spin", (e, ui) => {
       let nombre = ui ? ui.value : $(e.currentTarget).spinner("value");
@@ -708,11 +709,18 @@ class PageAttaquer {
     $(document)
       .off("o_parametre.o_flood")
       .on("o_parametre.o_flood", () => this.actualiserFlood());
+    // en Optimisée, une ligne ajoutée ou retirée fixe le nombre d'attaques, jusqu'au changement de méthode
     $("#o_ajouteAttaque").click((e) => {
+      let optimisee = $("#o_methodeFlood").val() == "1";
+      if (optimisee) this._lignesOptimisee = true;
       this.ajouterAttaque();
+      if (optimisee)
+        this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     });
     $("#o_supprimeAttaque").click((e) => {
+      if ($("#o_methodeFlood").val() == "1") this._lignesOptimisee = true;
       this.supprimerAttaque();
+      this._saisiesOptimisee.delete($("input[id^='o_attaque']").length + 1);
       // le flood part du dernier calcul : sans le refaire, la ligne retirée partait quand même
       this.preparerFlood($("#o_floodTDCA").spinner("value"), $("#o_floodTDCB").spinner("value"));
     });
@@ -1047,6 +1055,16 @@ class PageAttaquer {
     // attaque suivante saisie fige toutes les valeurs, jusqu'au changement de méthode
     if (methode == "3" && bRecup && ligne) this._saisieDegressive = ligne == 1 ? 1 : 2;
     if (methode == "3" && this._saisieDegressive == 2) methode = "0";
+    // Optimisée : une attaque saisie garde son montant, et celles d'avant le leur ;
+    // les suivantes sont recalculées à partir des TdC qu'elles laissent
+    if (methode == "1" && bRecup && ligne) this._saisiesOptimisee.add(ligne);
+    let fixees = methode == "1" ? Math.max(0, ...this._saisiesOptimisee) : 0,
+      saisies = Array.from({ length: fixees }, (_, i) =>
+        $("#o_attaque" + (i + 1)).spinner("value"),
+      ),
+      // une attaque par ligne, plus l'antisonde envoyée, qui compte dans ce total ;
+      // Optimisée en fixe elle-même le nombre tant qu'aucune ligne n'est ajoutée ni retirée
+      parLigne = methode == "2" || methode == "3" || (methode == "1" && this._lignesOptimisee);
     // on recup les attaques manuellement
     let attaques = new Array();
     // on push au moins l'antisonde quelque soit le cas !
@@ -1066,8 +1084,7 @@ class PageAttaquer {
       methode,
       attaques,
       $("#o_attaque1").spinner("value"),
-      // une attaque par ligne, plus l'antisonde envoyée, qui compte dans ce total
-      methode == "2" || methode == "3"
+      parLigne
         ? Math.min(
             $("input[id^='o_attaque']").length +
               ($("#o_floodAntiSonde").spinner("value") > 0 ? 1 : 0),
@@ -1080,6 +1097,7 @@ class PageAttaquer {
         regle: p["degressifRegle"].valeur == 1 ? "ecart" : "restant",
         premiere: this._saisieDegressive == 1 ? $("#o_attaque1").spinner("value") : null,
       },
+      saisies,
     );
     // le jeu prend au plus 20 % du TdC de la cible, et rien hors de portée :
     // une attaque arrivée après que la cible en est sortie est à 0 %
@@ -1103,16 +1121,20 @@ class PageAttaquer {
       $("#o_attaque" + i).spinner("value", simulation[i]);
       afficher(i, prendre(simulation[i]));
     }
-    // attaques en trop : retirées en Optimisée, qui en fixe le nombre ; à 0
-    // sinon, pour garder le nombre choisi (unités épuisées, réserve agrandie)
-    let lignes = $("input[id^='o_attaque']").length;
-    if (methode == "1")
-      for (let n = lignes - (simulation.length - 1); n > 0; n--) this.supprimerAttaque();
-    else
-      for (let i = simulation.length; i <= lignes; i++) {
-        $("#o_attaque" + i).spinner("value", 0);
-        afficher(i, 0);
-      }
+    // attaques en trop : retirées quand Optimisée en fixe le nombre (sauf une
+    // attaque saisie) ; à 0 sinon, pour garder le nombre choisi (unités
+    // épuisées, réserve agrandie)
+    if (methode == "1" && !parLigne)
+      for (
+        let n = $("input[id^='o_attaque']").length - Math.max(simulation.length - 1, fixees);
+        n > 0;
+        n--
+      )
+        this.supprimerAttaque();
+    for (let i = simulation.length; i <= $("input[id^='o_attaque']").length; i++) {
+      $("#o_attaque" + i).spinner("value", 0);
+      afficher(i, 0);
+    }
   }
   /**
    * Lignes d'attaque manquantes jusqu'au nombre proposé (Préférences →

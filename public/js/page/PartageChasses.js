@@ -738,14 +738,31 @@ class PartageChasses {
       fenetre = PartageChasses.decalageMax(type),
       ajoutees = 0;
     entrees = PartageChasses.decaler(type, entrees);
-    return PartageChasses._modifierMessage(type, (anciennes) => {
-      let ids = anciennes.filter((e) => e.id).map((e) => e.id),
+    return PartageChasses._modifierMessage(type, (toutes) => {
+      let fichesChasses = PartageChasses._decalages().Chasses,
+        // ligne d'une version d'avant 1.156.7 : les chasses de minutes
+        // consécutives sur une ligne, à la dernière ; remplacée par les lignes
+        // de ses minutes, sinon son TdC compterait en plus du leur
+        regroupees =
+          type == "Chasses"
+            ? toutes.filter((a) => {
+                let reel = PartageChasses.reel("Chasses", a, fichesChasses) || a.date,
+                  derniere = entrees.find((e) => e.reel == reel);
+                return (
+                  !!derniere &&
+                  a.terrain > derniere.terrain &&
+                  entrees.some((e) => e.reel == PartageChasses.decalerDate(reel, -1))
+                );
+              })
+            : [],
+        anciennes = toutes.filter((a) => !regroupees.includes(a)),
+        ids = anciennes.filter((e) => e.id).map((e) => e.id),
         // anciennes lignes sans numéro d'attaque : chacune ne couvre qu'un envoi
         sansId = anciennes.filter((e) => !e.id).map(cle),
         // chasses publiées depuis un autre appareil (ou avant le retard des
         // heures) : leur heure réelle, inconnue ici, est de 0 à `fenetre` min
         // avant l'heure publiée ; chacune couvre une seule de mes chasses
-        fiches = PartageChasses._decalages().Chasses,
+        fiches = fichesChasses,
         inconnues =
           type == "Chasses"
             ? anciennes.filter((e) => PartageChasses.reel("Chasses", e, fiches) == null)
@@ -781,7 +798,7 @@ class PartageChasses {
       // les entrées passées quittent ma réponse
       let maintenant = Horloge.serveur().format("YYYY-MM-DD HH:mm"),
         aVenir = anciennes.filter((e) => e.date >= maintenant);
-      if (!nouvelles.length && aVenir.length == anciennes.length) return null;
+      if (!nouvelles.length && aVenir.length == toutes.length) return null;
       ajoutees = nouvelles.length;
       let prochaines = aVenir
         .concat(nouvelles.filter((e) => e.date >= maintenant))
@@ -832,8 +849,9 @@ class PartageChasses {
   static recalerListeChasses(anciennes, groupes, maintenant, fenetre = 0) {
     let minute = (d) => moment(d, "YYYY-MM-DD HH:mm").valueOf() / 60000,
       aVenir = anciennes.filter((e) => e.date >= maintenant),
+      // lignes reprises, par entrée : une, ou une par minute (ligne découpée)
       reprises = new Array(aVenir.length).fill(null),
-      libre = (g) => !reprises.some((r) => r && r.reel == g.fin),
+      libre = (g) => !reprises.some((r) => r && r.some((l) => l.reel == g.fin)),
       // groupe pas encore repris par une autre ligne, le plus proche
       plusProche = (m, liste) =>
         liste
@@ -850,12 +868,23 @@ class PartageChasses {
         );
       if (!g) return;
       // le retard tiré reste : la ligne suit la dernière minute du groupe
-      let date = connue
-        ? PartageChasses.decalerDate(g.fin, minute(e.date) - m)
-        : avant
-          ? e.date
-          : g.fin;
-      reprises[i] = { date, terrain: g.terrain, reel: g.fin };
+      let retard = connue ? minute(e.date) - m : avant ? minute(e.date) - minute(g.fin) : 0,
+        groupesLigne = [g];
+      // ligne d'une version d'avant 1.156.7 : les chasses de minutes
+      // consécutives sur une ligne, à la dernière ; une ligne par minute
+      if (e.terrain > g.terrain)
+        for (let k = 1; ; k++) {
+          let avantG = groupes.find(
+            (x) => minute(x.fin) == minute(g.fin) - k && libre(x) && !groupesLigne.includes(x),
+          );
+          if (!avantG) break;
+          groupesLigne.unshift(avantG);
+        }
+      reprises[i] = groupesLigne.map((x) => ({
+        date: PartageChasses.decalerDate(x.fin, retard),
+        terrain: x.terrain,
+        reel: x.fin,
+      }));
     });
     // retardée par un autre appareil au-delà de mon réglage (son retard, tiré
     // là-bas, est inconnu ici) : la même chasse a le même TdC chassé, publiée au
@@ -872,11 +901,11 @@ class PartageChasses {
               m - DECALAGE_MAX <= minute(g.fin) + 1,
           ),
         );
-      if (g) reprises[i] = { date: e.date, terrain: g.terrain, reel: g.fin };
+      if (g) reprises[i] = [{ date: e.date, terrain: g.terrain, reel: g.fin }];
     });
     let lignes = [];
     aVenir.forEach((e, i) => {
-      if (reprises[i]) return lignes.push(reprises[i]);
+      if (reprises[i]) return lignes.push(...reprises[i]);
       let connue = e.reel != null,
         m = minute(connue ? e.reel : e.date),
         avant = connue ? 0 : fenetre;

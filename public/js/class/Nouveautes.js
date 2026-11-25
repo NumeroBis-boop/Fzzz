@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.156.7",
+    notes: [
+      "Chasses partagées : une ligne par minute d'arrivée au forum, au lieu d'une seule pour une série étalée sur plusieurs minutes, dont les premières chasses arrivées étaient comptées deux fois par les autres membres. Le bloc « Mes attaques en cours » et la synthèse des chasses de la page Ressources montrent aussi une ligne par minute.",
+    ],
+  },
+  {
     version: "1.156.6",
     notes: [
       "TdC à l'impact et évolutions du TdC : une chasse ou un flood arrivé dans la minute où le TdC est lu n'est plus compté deux fois. Une chasse partagée avec un retard depuis un autre appareil n'est plus proposée au partage une seconde fois, ce qui faisait un doublon au forum.",

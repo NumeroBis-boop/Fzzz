@@ -222,13 +222,16 @@ describe("heure d'une chasse : minute du RC, où le TdC change", () => {
     ]);
   });
 
-  test("chasses enchaînées : partagées à la minute du RC de la dernière", () => {
+  test("chasses enchaînées sur deux minutes : une ligne par minute du RC", () => {
+    // une seule ligne, datée de la dernière minute, faisait compter aux autres
+    // les chasses déjà arrivées de la première (SerPounce, 25/11/2026)
     expect(
       lireImpacts(chasse(3, 5960, "23h39") + chasse(4, 6010, "23h40") + chasse(5, 9000, "00h30")),
     ).toEqual([
       "2026-11-11 23:40:00",
       "2026-11-11 23:41:00",
       "2026-11-12 00:31:00",
+      "partage 2026-11-11 23:40",
       "partage 2026-11-11 23:41",
       "partage 2026-11-12 00:31",
     ]);

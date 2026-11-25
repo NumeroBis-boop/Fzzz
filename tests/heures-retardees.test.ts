@@ -341,3 +341,74 @@ describe("chasse retardée sur un autre appareil au-delà de mon réglage", () =
     ).toBe(1);
   });
 });
+
+describe("une ligne de forum par minute (1.156.7) : lignes des versions d'avant", () => {
+  // SerPounce, 25/11/2026 : une série sur deux minutes, partagée sur une ligne à
+  // la dernière, faisait compter aux autres ses chasses déjà arrivées
+  const recaler = (anciennes: any[], groupes: any[], fenetre = 0) =>
+    lire<any>(
+      `PartageChasses.recalerListeChasses(${JSON.stringify(anciennes)}, ${JSON.stringify(groupes)}, "2026-11-21 12:00", ${fenetre})`,
+    );
+  const minute = (h: string, terrain: number) => ({
+    debut: "2026-11-21 " + h,
+    fin: "2026-11-21 " + h,
+    terrain,
+  });
+
+  test("ligne de deux minutes : découpée en une ligne par minute", () => {
+    expect(
+      recaler(
+        [{ date: "2026-11-21 21:44", terrain: 74816 }],
+        [minute("21:43", 30000), minute("21:44", 44816)],
+      ),
+    ).toEqual({
+      lignes: [
+        { date: "2026-11-21 21:43", terrain: 30000, reel: "2026-11-21 21:43" },
+        { date: "2026-11-21 21:44", terrain: 44816, reel: "2026-11-21 21:44" },
+      ],
+      change: true,
+    });
+  });
+
+  test("retardée dans ce navigateur : chaque minute garde le même retard", () => {
+    expect(
+      recaler(
+        [{ date: "2026-11-21 21:55", terrain: 74816, reel: "2026-11-21 21:44" }],
+        [minute("21:43", 30000), minute("21:44", 44816)],
+      ).lignes,
+    ).toEqual([
+      { date: "2026-11-21 21:54", terrain: 30000, reel: "2026-11-21 21:43" },
+      { date: "2026-11-21 21:55", terrain: 44816, reel: "2026-11-21 21:44" },
+    ]);
+  });
+
+  test("lignes déjà par minute : inchangées", () => {
+    expect(
+      recaler(
+        [
+          { date: "2026-11-21 21:44", terrain: 44816 },
+          { date: "2026-11-21 21:43", terrain: 30000 },
+        ],
+        [minute("21:43", 30000), minute("21:44", 44816)],
+      ).change,
+    ).toBe(false);
+  });
+
+  test("partage : la ligne de deux minutes est remplacée par les lignes de ses minutes", async () => {
+    preparer([["Alpha", [ligne("Chasses", chasse("2026-11-21 21:44", 74816))]]], [], {
+      chasses: 0,
+      floods: 0,
+    });
+    expect(
+      await lire(
+        `PartageChasses._partager("Chasses", ${JSON.stringify([chasse("2026-11-21 21:43", 30000), chasse("2026-11-21 21:44", 44816)])})`,
+      ),
+    ).toBe(2);
+    expect(maReponse("11")).toBe(
+      [
+        ligne("Chasses", chasse("2026-11-21 21:44", 44816)),
+        ligne("Chasses", chasse("2026-11-21 21:43", 30000)),
+      ].join("\n"),
+    );
+  });
+});

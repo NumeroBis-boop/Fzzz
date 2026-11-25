@@ -1656,8 +1656,10 @@ class PartageChasses {
         evts.push({ type: "chasse", date: e.date, joueur: p, terrain: e.terrain, id: 0 }),
       );
     d.floods.forEach((f) => evts.push({ ...f, type: "flood", id: f.id || 0 }));
+    // daté de la minute de lecture (minute du RC, arrondie au-dessus) : arrivé
+    // avant elle, déjà dans les TdC lus
     evts = evts
-      .filter((e) => e.date >= maintenant)
+      .filter((e) => e.date > maintenant)
       .sort((a, b) =>
         a.date < b.date
           ? -1

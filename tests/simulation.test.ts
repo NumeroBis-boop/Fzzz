@@ -167,3 +167,52 @@ describe("chronologie : colonne « Lanceur → cible »", () => {
     );
   });
 });
+
+describe("PartageChasses.simuler : TdC lus pendant la minute d'un mouvement", () => {
+  // SerPounce, 25/11/2026 : page d'attaque ouverte à la minute où les chasses de
+  // la cible rentraient, leur TdC compté deux fois (déjà dans le TdC lu). Une
+  // chasse ou un flood est daté de la minute de son RC, arrondie au-dessus : daté
+  // de la minute de lecture, il est arrivé avant elle. Joueurs et TdC inventés.
+  const lu = (d: object, connus: object, depuis: string) =>
+    page.lire<any>(
+      `JSON.parse(JSON.stringify(PartageChasses.simuler(${JSON.stringify(d)}, ${JSON.stringify(connus)}, moment("${depuis}", "YYYY-MM-DD HH:mm:ss"))))`,
+    );
+  const chasses = {
+    vega: [
+      { date: "2026-11-25 11:39", terrain: 90000 },
+      { date: "2026-11-25 11:41", terrain: 10000 },
+    ],
+  };
+
+  test("chasse datée de la minute de lecture : déjà dans le TdC lu, pas rejouée", () => {
+    const sim = lu({ chasses, floods: [] }, { Vega: 150000 }, "2026-11-25 11:39:30");
+    expect(sim.evenements.map((e: any) => [e.date, e.tdcApres])).toEqual([
+      ["2026-11-25 11:41", 160000],
+    ]);
+  });
+
+  test("lue la minute d'avant : les deux chasses sont à venir", () => {
+    const sim = lu({ chasses, floods: [] }, { Vega: 60000 }, "2026-11-25 11:38:50");
+    expect(sim.evenements.map((e: any) => e.tdcApres)).toEqual([150000, 160000]);
+  });
+
+  test("flood daté de la minute de lecture : arrivé, pas rejoué", () => {
+    const sim = lu(
+      {
+        chasses: {},
+        floods: [
+          flood({
+            date: "2026-11-25 11:39",
+            lanceur: "A",
+            cible: "B",
+            unites: 1000,
+            terrain: 1000,
+          }),
+        ],
+      },
+      { A: 10000, B: 10000 },
+      "2026-11-25 11:39:05",
+    );
+    expect(sim.evenements).toEqual([]);
+  });
+});

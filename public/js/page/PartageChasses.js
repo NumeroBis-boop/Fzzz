@@ -753,6 +753,15 @@ class PartageChasses {
         dejaPubliee = (/** @type {any} */ e) => {
           let fin = PartageChasses.decalerDate(e.reel, fenetre),
             k = inconnues.findIndex((a) => a.date >= e.reel && a.date <= fin);
+          // retardée par un autre appareil au-delà de mon réglage : même TdC chassé,
+          // au plus DECALAGE_MAX min après, la plus proche
+          if (k == -1) {
+            let loin = PartageChasses.decalerDate(e.reel, DECALAGE_MAX),
+              proches = inconnues
+                .filter((a) => a.date > fin && a.date <= loin && a.terrain == e.terrain)
+                .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+            k = proches.length ? inconnues.indexOf(proches[0]) : -1;
+          }
           if (k == -1) return false;
           inconnues.splice(k, 1);
           return true;
@@ -806,7 +815,10 @@ class PartageChasses {
    * minute réelle, à une minute près, avec la minute et le TdC actuels du
    * groupe (une chasse du groupe a pu être annulée), son retard gardé ; une
    * entrée retardée arrivée reste jusqu'à son heure publiée ; les autres sont
-   * retirées.
+   * retirées. Une entrée d'heure réelle inconnue ici, publiée plus de `fenetre`
+   * min après son groupe (retard tiré sur un autre appareil, réglé plus haut),
+   * est reconnue à son TdC chassé jusqu'à DECALAGE_MAX min, après les entrées
+   * à l'heure exacte (doublon : celle-ci reste).
    *
    * @static
    * @method recalerListeChasses
@@ -820,31 +832,54 @@ class PartageChasses {
   static recalerListeChasses(anciennes, groupes, maintenant, fenetre = 0) {
     let minute = (d) => moment(d, "YYYY-MM-DD HH:mm").valueOf() / 60000,
       aVenir = anciennes.filter((e) => e.date >= maintenant),
-      lignes = [];
-    aVenir.forEach((e) => {
+      reprises = new Array(aVenir.length).fill(null),
+      libre = (g) => !reprises.some((r) => r && r.reel == g.fin),
+      // groupe pas encore repris par une autre ligne, le plus proche
+      plusProche = (m, liste) =>
+        liste
+          .filter(libre)
+          .sort((a, b) => Math.abs(m - minute(a.fin)) - Math.abs(m - minute(b.fin)))[0];
+    aVenir.forEach((e, i) => {
       let connue = e.reel != null,
         m = minute(connue ? e.reel : e.date),
         // heure réelle inconnue ici : de 0 à `fenetre` min avant l'heure publiée
         avant = connue ? 0 : fenetre,
-        // groupe pas encore repris par une autre ligne, le plus proche
-        g = groupes
-          .filter(
+        g = plusProche(
+          m,
+          groupes.filter((g) => m >= minute(g.debut) - 1 && m - avant <= minute(g.fin) + 1),
+        );
+      if (!g) return;
+      // le retard tiré reste : la ligne suit la dernière minute du groupe
+      let date = connue
+        ? PartageChasses.decalerDate(g.fin, minute(e.date) - m)
+        : avant
+          ? e.date
+          : g.fin;
+      reprises[i] = { date, terrain: g.terrain, reel: g.fin };
+    });
+    // retardée par un autre appareil au-delà de mon réglage (son retard, tiré
+    // là-bas, est inconnu ici) : la même chasse a le même TdC chassé, publiée au
+    // plus DECALAGE_MAX min après son groupe ; heure publiée gardée
+    aVenir.forEach((e, i) => {
+      if (reprises[i] || e.reel != null) return;
+      let m = minute(e.date),
+        g = plusProche(
+          m,
+          groupes.filter(
             (g) =>
-              m >= minute(g.debut) - 1 &&
-              m - avant <= minute(g.fin) + 1 &&
-              !lignes.some((l) => l.reel == g.fin),
-          )
-          .sort((a, b) => Math.abs(m - minute(a.fin)) - Math.abs(m - minute(b.fin)))[0];
-      if (g) {
-        // le retard tiré reste : la ligne suit la dernière minute du groupe
-        let date = connue
-          ? PartageChasses.decalerDate(g.fin, minute(e.date) - m)
-          : avant
-            ? e.date
-            : g.fin;
-        lignes.push({ date, terrain: g.terrain, reel: g.fin });
-        return;
-      }
+              g.terrain == e.terrain &&
+              m > minute(g.fin) + 1 + fenetre &&
+              m - DECALAGE_MAX <= minute(g.fin) + 1,
+          ),
+        );
+      if (g) reprises[i] = { date: e.date, terrain: g.terrain, reel: g.fin };
+    });
+    let lignes = [];
+    aVenir.forEach((e, i) => {
+      if (reprises[i]) return lignes.push(reprises[i]);
+      let connue = e.reel != null,
+        m = minute(connue ? e.reel : e.date),
+        avant = connue ? 0 : fenetre;
       // plus en cours : annulée, ou arrivée avant son heure publiée, gardée
       // jusqu'à elle (la retirer plus tôt donnerait l'heure réelle)
       let retardee = connue ? e.reel != e.date : avant > 0,
@@ -1661,8 +1696,10 @@ class PartageChasses {
         evts.push({ type: "chasse", date: e.date, joueur: p, terrain: e.terrain, id: 0 }),
       );
     d.floods.forEach((f) => evts.push({ ...f, type: "flood", id: f.id || 0 }));
+    // daté de la minute de lecture (minute du RC, arrondie au-dessus) : arrivé
+    // avant elle, déjà dans les TdC lus
     evts = evts
-      .filter((e) => e.date >= maintenant)
+      .filter((e) => e.date > maintenant)
       .sort((a, b) =>
         a.date < b.date
           ? -1

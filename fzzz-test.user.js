@@ -2,7 +2,7 @@
 // @name           Fzzz TEST
 // @name:fr        Extension OUAF - TEST
 // @namespace      https://github.com/NumeroBis-boop/Fzzz/test
-// @version        1.156.6.202611251106
+// @version        1.156.7.202611251224
 // @description    Outils de l'alliance OUAF pour Fourmizzz (serveurs s1 à s5).
 // @description:fr Outils de l'alliance OUAF pour Fourmizzz (serveurs s1 à s5).
 // @author         Hraesvelg (Outiiil), GuiEpi (Toolzzz), NumeroBis-boop (Fzzz)
@@ -34,99 +34,99 @@
 // @connect        *
 // @connect        script.google.com
 // @connect        script.googleusercontent.com
-// @resource       fzzzBase https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/ouaf-autorisation.html
-// @resource       fzzzCss0 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/css/outiiil.css
-// @resource       fzzzCss1 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/css/toasts.css
-// @resource       fzzzCss2 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/css/datatables.css
-// @resource       fzzzJs0 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts_6.0.7.js
-// @resource       fzzzJs1 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts-more.js
-// @resource       fzzzJs2 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts-data.js
-// @resource       fzzzJs3 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts-stock.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/userscript/shim.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/bootstrap.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/jquery_3.2.1.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/jquery-ui_1.12.1.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/jquery-ui-touch-punch_0.2.3.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/jquery-datetimepicker_1.6.3.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/jquery-toast_1.3.1.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/globalize_0.1.1.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/globalize-locale-fr.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/clipboard_1.7.1.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/datatables_1.10.16.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/numeral_2.0.6.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/numeral-locale-fr.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/moment_2.19.1.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/moment-locale-fr.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/moment-duration-format.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/moment-timezone_0.5.48.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Journal.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Fuseau.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Requetes.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/data/menuRapide.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Utils.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/ReglagesAlliance.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/ExportJoueurs.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/ExportRapports.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Classeur.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Alliance.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Armee.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/AttaqueLancee.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Entrepots.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/DelaiRessources.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Chasse.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Combat.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Horloge.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Releves.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Joueur.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Nouveautes.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/MiseAJour.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/OuafSuivi.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/Parametre.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/RappelExport.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/SuiviMembres.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/EnvoiJournal.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/EnvoiReglages.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/ProfilConvois.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/ExportAuto.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/SimulationChasse.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/ModeleChasse.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/LanceurChasse.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/AlerteFloods.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/TroupesDehors.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/class/UnitesGardees.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/ComptePlus.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Radar.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Dock.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Journal.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Boite.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/ImportArmee.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Synthese.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Chasse.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Combat.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Parametres.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/boite/Rapport.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/AllianceFzzz.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Alliance.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Armee.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Attaquer.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Chat.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/ChatGif.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/CommerceFzzz.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Commerce.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Compte.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Construction.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Description.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Laboratoire.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/MessagerieFzzz.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Messagerie.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/PartageChasses.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/ConvoisForum.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Profil.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Reine.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/Ressource.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/StatsMembres.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/page/MultiFlood.js
-// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/content.js
+// @resource       fzzzBase https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/ouaf-autorisation.html
+// @resource       fzzzCss0 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/css/outiiil.css
+// @resource       fzzzCss1 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/css/toasts.css
+// @resource       fzzzCss2 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/css/datatables.css
+// @resource       fzzzJs0 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts_6.0.7.js
+// @resource       fzzzJs1 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts-more.js
+// @resource       fzzzJs2 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts-data.js
+// @resource       fzzzJs3 https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts-stock.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/userscript/shim.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/bootstrap.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/jquery_3.2.1.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/jquery-ui_1.12.1.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/jquery-ui-touch-punch_0.2.3.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/jquery-datetimepicker_1.6.3.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/jquery-toast_1.3.1.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/globalize_0.1.1.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/globalize-locale-fr.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/clipboard_1.7.1.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/datatables_1.10.16.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/numeral_2.0.6.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/numeral-locale-fr.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/moment_2.19.1.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/moment-locale-fr.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/moment-duration-format.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/moment-timezone_0.5.48.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Journal.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Fuseau.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Requetes.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/data/menuRapide.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Utils.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/ReglagesAlliance.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/ExportJoueurs.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/ExportRapports.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Classeur.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Alliance.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Armee.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/AttaqueLancee.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Entrepots.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/DelaiRessources.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Chasse.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Combat.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Horloge.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Releves.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Joueur.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Nouveautes.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/MiseAJour.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/OuafSuivi.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/Parametre.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/RappelExport.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/SuiviMembres.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/EnvoiJournal.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/EnvoiReglages.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/ProfilConvois.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/ExportAuto.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/SimulationChasse.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/ModeleChasse.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/LanceurChasse.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/AlerteFloods.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/TroupesDehors.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/class/UnitesGardees.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/ComptePlus.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Radar.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Dock.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Journal.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Boite.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/ImportArmee.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Synthese.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Chasse.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Combat.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Parametres.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/boite/Rapport.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/AllianceFzzz.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Alliance.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Armee.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Attaquer.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Chat.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/ChatGif.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/CommerceFzzz.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Commerce.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Compte.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Construction.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Description.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Laboratoire.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/MessagerieFzzz.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Messagerie.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/PartageChasses.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/ConvoisForum.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Profil.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Reine.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/Ressource.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/StatsMembres.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/page/MultiFlood.js
+// @require        https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/content.js
 // ==/UserScript==
 
 // Fichier généré par scripts/userscript.ts : ne pas modifier à la main.
@@ -162,14 +162,14 @@ function fzzzScript(nom, url) {
     return "";
   }
 }
-fzzzStyle("fzzzCss0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/css/outiiil.css");
-fzzzStyle("fzzzCss1", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/css/toasts.css");
-fzzzStyle("fzzzCss2", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/css/datatables.css");
+fzzzStyle("fzzzCss0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/css/outiiil.css");
+fzzzStyle("fzzzCss1", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/css/toasts.css");
+fzzzStyle("fzzzCss2", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/css/datatables.css");
 
 // Bibliothèques réservées à certaines pages (voir wxt.config.ts), exécutées seulement là.
 if (["/alliance.php","/messagerie.php"].some((p) => location.pathname.toLowerCase().startsWith(p))) {
-  eval(fzzzScript("fzzzJs0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts_6.0.7.js") + "\n;"); // js/lib/highcharts_6.0.7.js
-  eval(fzzzScript("fzzzJs1", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts-more.js") + "\n;"); // js/lib/highcharts-more.js
-  eval(fzzzScript("fzzzJs2", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts-data.js") + "\n;"); // js/lib/highcharts-data.js
-  eval(fzzzScript("fzzzJs3", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@527936cbddba42a61624c024c76a0b044ab1abfe/public/js/lib/highcharts-stock.js") + "\n;"); // js/lib/highcharts-stock.js
+  eval(fzzzScript("fzzzJs0", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts_6.0.7.js") + "\n;"); // js/lib/highcharts_6.0.7.js
+  eval(fzzzScript("fzzzJs1", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts-more.js") + "\n;"); // js/lib/highcharts-more.js
+  eval(fzzzScript("fzzzJs2", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts-data.js") + "\n;"); // js/lib/highcharts-data.js
+  eval(fzzzScript("fzzzJs3", "https://cdn.jsdelivr.net/gh/NumeroBis-boop/Fzzz@720d8ae4bba0c450b940eb2517ca029228d25dfc/public/js/lib/highcharts-stock.js") + "\n;"); // js/lib/highcharts-stock.js
 }

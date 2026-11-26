@@ -162,6 +162,21 @@ describe("entrée du menu Alliance", () => {
     expect(lire(`$("#o_ongletStatsMembres").length`)).toBe(0);
   });
 
+  test("case « Sans config alliance » : ni entrée ni vue, même à l'adresse de la vue", () => {
+    lire(`(() => {
+      localStorage.setItem("fzzz_sansConfigAlliance", "1");
+      history.replaceState(null, "", "/alliance.php?Membres#statsMembres");
+      StatsMembres.ajouterMenu(); StatsMembres.installer();
+      localStorage.removeItem("fzzz_sansConfigAlliance");
+      history.replaceState(null, "", "/alliance.php?Membres");
+    })()`);
+    expect([
+      lire(`$("#o_ongletStatsMembres").length`),
+      lire(`$("#o_statsMembres").length`),
+      lire(`APPELS`),
+    ]).toEqual([0, 0, []]);
+  });
+
   test("rien n'est lu avant que la vue soit montrée ; l'adresse de la vue la montre à l'arrivée", async () => {
     lire(`StatsMembres.ajouterMenu(); StatsMembres.installer()`);
     expect([lire(`APPELS`), lire(`$("#o_statsMembres").length`)]).toEqual([[], 0]);

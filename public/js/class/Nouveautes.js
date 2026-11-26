@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.159.0",
+    notes: [
+      "Préférences → Partage de données : nouvelle case « Sans config alliance sur ce serveur », pour une alliance qui n'a pas réglé l'extension. Cochée, l'extension ne lit plus le forum de l'alliance et retire ce qui ne sert qu'à plusieurs (partages, GIF et smileys de l'alliance, Stats membres, alerte des floods).",
+    ],
+  },
+  {
     version: "1.158.0",
     notes: [
       "Messagerie : un bouton « GIF » (Mes GIF et GIF de l'alliance) à côté de « Smileys OUAF », dans un nouveau message comme dans une réponse, à tous ou à un seul. Les GIF que tu envoies depuis la Messagerie rejoignent aussi « Mes GIF ».",

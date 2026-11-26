@@ -1034,7 +1034,13 @@ class BoiteParametre extends Boite {
       journal:
         "pseudos de ceux qui ont le journal de l'extension et les boutons qui rangent le forum",
     };
+    let serveur = location.hostname.split(".")[0];
     return (
+      `<label class='o_affichageFzzz'><input type='checkbox' id='o_sansConfigAlliance' ${Utils.sansConfigAlliance() ? "checked" : ""}/> Sans config alliance sur ce serveur (${Utils.echapper(serveur)})</label>` +
+      BoiteParametre.prototype.aide(
+        "À cocher si ton alliance n'a pas réglé l'extension sur ce serveur : rien n'est lu ni écrit dans son forum, et les fonctions qui servent seulement à plusieurs disparaissent. Pris en compte à la page suivante.",
+        `Cochée, sur ce serveur seulement : les réglages de l'alliance ne sont ni lus ni utilisés (site de suivi des convois, Google Sheet de l'alliance, listes de joueurs) ; aucun partage (boutons « Partager » et « + partager » retirés ; le Multi-flood opti a un bouton « Lancer », sans partage) ; ni GIF ni smileys de l'alliance (« Mes GIF » reste) ; ni vue « Stats membres », ni vue « Floods et chasses en cours » de la page Membres, ni synthèse des partages sur la page d'un membre, ni alerte des floods qui arrivent sur toi. Le TdC à l'impact et le Multi-flood ne comptent alors que tes propres chasses et attaques. Tes rapports s'exportent vers ton propre Google Sheet (adresse ci-dessus). Tout le reste marche comme avant.`,
+      ) +
       BoiteParametre.prototype.aide(
         `L'extension marche sur les serveurs s1 à s5. Ce qui est propre à une alliance (adresses de ses sites et de ses fichiers, listes de joueurs) ne s'écrit jamais dans l'extension : un chef le note dans le forum de l'alliance, section cachée « ${FORUM_SECTIONS_CHASSES[0]} » (à créer, visible des grades concernés).`,
         `<b>Sujet « ${TITRE_REGLAGES} »</b> : dans son premier message, une ligne par réglage, « Nom : valeur » (casse et accents sans importance) ; une liste peut continuer sur les lignes suivantes, jusqu'à une ligne vide. Personne n'y répond. Une ligne absente coupe ce qu'elle règle. Ce message dit où partent les données des joueurs : ne le rends pas modifiable par tous les membres (chaque joueur accepte lui-même le site de suivi des convois).<ul>${Object.entries(
@@ -1128,8 +1134,15 @@ class BoiteParametre extends Boite {
     this.reglageExport().majEtiquettes();
     etat();
     etatChasses();
-    let etatReglages = () => $onglet.find("#o_reglagesEtat").text(ReglagesAlliance.resume());
+    let etatReglages = () => {
+      $onglet.find("#o_reglagesEtat").text(ReglagesAlliance.resume());
+      $onglet.find(".o_reglagesRelire").prop("disabled", Utils.sansConfigAlliance());
+    };
     etatReglages();
+    $onglet.find("#o_sansConfigAlliance").on("change", (e) => {
+      Utils.choisirSansConfigAlliance(e.currentTarget.checked);
+      etatReglages();
+    });
     $onglet.find(".o_reglagesRelire").on("click", (e) => {
       let $b = $(e.currentTarget).prop("disabled", true);
       ReglagesAlliance.charger({}, "tout")

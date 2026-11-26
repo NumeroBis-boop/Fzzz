@@ -987,6 +987,8 @@ class ExportRapports {
    * @return {Promise<{autorise: Boolean, adresse: String, illisible?: Boolean}>} illisible : forum pas lu et aucune lecture gardée
    */
   static reglageAlliance(options = {}) {
+    // case « Sans config alliance » : comme un joueur hors liste, sans lire le forum
+    if (Utils.sansConfigAlliance()) return Promise.resolve({ autorise: false, adresse: "" });
     let pseudo = String(monProfil.pseudo || "").toLowerCase();
     return ExportRapports._reglageForum(options).then(
       (r) => {

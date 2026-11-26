@@ -460,6 +460,15 @@ describe("contenu : mes attaques, mes chasses et les floods partagés sur moi, d
 });
 
 describe("« Partager » : floods et chasses", () => {
+  test("case « Sans config alliance » : ni « Partager », ni « Partagée ✓ », ni « Partager tous » ; « Copier » reste", async () => {
+    lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    await ouvrir();
+    expect(
+      lire(`[$("#o_attaquesLancees .o_attaquePartager, #o_attaquesLancees .o_chassePartager, #o_attaquesLancees .o_attaquePartage").length,
+        $("#o_attaquesLanceesPartagerTout").length, $("#o_attaquesLancees .o_attaqueCopier").length, $("#o_attaquesLancees .o_chasseCopier").length > 0]`),
+    ).toEqual([0, 0, 2, true]);
+  });
+
   test("chasse non partagée : son bouton la publie, puis « Partagée ✓ » ; refus du forum : le bouton reste", async () => {
     await ouvrir();
     lire(`ECRITS.partage = false; $("#o_attaquesLancees .o_chassePartager").trigger("click")`);

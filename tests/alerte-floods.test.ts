@@ -121,6 +121,13 @@ describe("floods sur moi d'ici le délai : sous les boutons d'envoi", () => {
     );
   });
 
+  test("case « Sans config alliance » : pas d'alerte, même avec un flood d'ici 1 h", async () => {
+    lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    await installer([flood(700, "10:25", "Autre", "Moi", 30000)]);
+    lire(`localStorage.removeItem("fzzz_sansConfigAlliance")`);
+    expect(lire(`$("#o_alerteFloods").length`)).toBe(0);
+  });
+
   test("hors du délai, ou à la minute en cours (déjà arrivé) : la page ne change pas", async () => {
     const avant = lire<string>(`document.body.innerHTML`);
     await installer([

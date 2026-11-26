@@ -89,7 +89,7 @@ class StatsMembres {
    */
   static ajouterMenu() {
     let $membres = $("#menuAlliance .boutonMembres");
-    if (!$membres.length || $("#o_ongletStatsMembres").length) return;
+    if (!$membres.length || $("#o_ongletStatsMembres").length || Utils.sansConfigAlliance()) return;
     ($("#o_ongletCarte").length ? $("#o_ongletCarte") : $membres)
       .parent()
       .after(
@@ -106,7 +106,7 @@ class StatsMembres {
    * @method installer
    */
   static installer() {
-    if (!$("#alliance").length) return;
+    if (!$("#alliance").length || Utils.sansConfigAlliance()) return;
     StatsMembres.noterTdc(PartageChasses.lireTdcMembres($(document), 3, 5));
     $("#o_ongletStatsMembres").on("click", (e) => {
       e.preventDefault();

@@ -695,6 +695,7 @@ class ChatGif {
    * @param {{mes: Boolean, alliance: Boolean, smileys?: Boolean}} sections listes cochées dans les Préférences
    */
   static installer(sections) {
+    sections = ChatGif.sansAlliance(sections);
     let $champ = $("#message"),
       $formulaire = $("#formulaireChat");
     if (!$champ.length || $("#o_gifBouton, #o_smileysBouton").length) return;
@@ -755,6 +756,19 @@ class ChatGif {
     if (formulaire) formulaire.addEventListener("submit", avantEnvoi, true);
   }
   /**
+   * Case « Sans config alliance » : ni GIF ni smileys de l'alliance, pris
+   * dans son forum ; « Mes GIF » reste.
+   *
+   * @static
+   * @method sansAlliance
+   * @template {{alliance?: Boolean, smileys?: Boolean}} T
+   * @param {T} sections
+   * @return {T}
+   */
+  static sansAlliance(sections) {
+    return Utils.sansConfigAlliance() ? { ...sections, alliance: false, smileys: false } : sections;
+  }
+  /**
    * @static
    * @method libelleSmileys
    * @return {String} « Smileys OUAF » : le bouton porte le tag de l'alliance
@@ -776,6 +790,7 @@ class ChatGif {
   static messagerie(
     sections = { gif: true, smileys: Utils.affichage("messagerieSmileysAlliance") },
   ) {
+    sections = ChatGif.sansAlliance(sections);
     sectionsMessagerie = sections;
     if (!sections.gif && !sections.smileys) return;
     $("#message_envoi, textarea[id^='champ_reponse_']").each((i, element) => {
@@ -842,6 +857,7 @@ class ChatGif {
    * @param {{gif: Boolean, smileys: Boolean}} sections cases cochées dans les Préférences
    */
   static forum(sections) {
+    sections = ChatGif.sansAlliance(sections);
     let $alliance = $("#alliance");
     if (!$alliance.length || (!sections.gif && !sections.smileys)) return;
     sectionsForum = sections;
@@ -921,6 +937,7 @@ class ChatGif {
       ChatGif._section("mes", "Mes GIF").addClass("o_gifMes").appendTo(poste.$panneau),
       (adresse) => ChatGif.choisirGif(poste, adresse),
     );
+    if (Utils.sansConfigAlliance()) return;
     ChatGif._section("alliance", "GIF de l'alliance")
       .append(`<div class="o_gifAlliance"></div>`)
       .appendTo(poste.$panneau);

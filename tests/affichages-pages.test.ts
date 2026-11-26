@@ -61,6 +61,16 @@ describe("page d'attaque : une case par bouton ou ligne", () => {
     });
   });
 
+  test("case « Sans config alliance » : pas de « Lancer + partager », le reste en place", () => {
+    // boutons() vide le localStorage : la case est simulée
+    page.lire(
+      `(() => { window.SANS_CONFIG = Utils.sansConfigAlliance; Utils.sansConfigAlliance = () => true; })()`,
+    );
+    const vus = boutons();
+    page.lire(`Utils.sansConfigAlliance = SANS_CONFIG`);
+    expect(vus).toMatchObject({ lancerPartager: 0, sonder: 1, synchroniser: 1, bloc: 1 });
+  });
+
   test("chaque case retire son seul élément", () => {
     expect(boutons(["lancerPartager"])).toMatchObject({
       lancerPartager: 0,

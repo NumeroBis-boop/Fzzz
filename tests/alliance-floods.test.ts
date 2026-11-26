@@ -674,6 +674,19 @@ describe("page Membres, colonnes de la vue « Floods » choisies dans les Préf�
 });
 
 describe("page Membres, vue « Floods et chasses en cours » décochée", () => {
+  test("case « Sans config alliance » : comme décochée, ni colonnes ni bouton", async () => {
+    page.lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    await ouvrir();
+    page.lire(`localStorage.removeItem("fzzz_sansConfigAlliance")`);
+    expect(
+      page.lire(`$("#tabMembresAlliance th.o_allCol0, #tabMembresAlliance td.o_allCol0").length`),
+    ).toBe(0);
+    expect(page.lire(`$(".o_allVue").map((i, a) => a.dataset.vue).get()`)).toEqual([
+      "reset",
+      "trajet",
+    ]);
+  });
+
   test("ni colonnes ni bouton, la vue par défaut « Floods » devient « Standard », aucun partage lu", async () => {
     page.lire(`localStorage.setItem("fzzz_affichage_membresFloods", "0")`);
     await ouvrir();

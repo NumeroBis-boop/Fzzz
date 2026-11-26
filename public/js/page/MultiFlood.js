@@ -169,7 +169,7 @@ class MultiFlood {
         <p id='o_mfoEtat' class='reduce'></p>
         <div id='o_mfoResultats'></div>
         <p id='o_mfoAvertissement' class='red'></p>
-        <p class='o_mfoBoutons'><button type='button' id='o_mfoLancerPartager' class='o_button o_lieu1' disabled title='Lancement, puis publication des attaques dans le forum de la ${tag}'>Lancer + partager</button></p>
+        <p class='o_mfoBoutons'><button type='button' id='o_mfoLancerPartager' class='o_button o_lieu1' disabled title='${Utils.sansConfigAlliance() ? "Lancement des attaques cochées, sans partage (case « Sans config alliance »)" : `Lancement, puis publication des attaques dans le forum de la ${tag}`}'>${MultiFlood.libelleLancer()}</button></p>
         <p id='o_mfoRecap'></p>
         <div class='o_mfoBas'><hr class='o_mfoSeparateur'/>${etatMultiFlood.gardees.html()}</div>
       </div>`);
@@ -210,7 +210,15 @@ class MultiFlood {
       MultiFlood.rendre();
     });
     // un flood va toujours au terrain de chasse : un seul bouton, au vert du terrain
-    $("#o_mfoLancerPartager").on("click", () => MultiFlood.lancer(true));
+    $("#o_mfoLancerPartager").on("click", () => MultiFlood.lancer(!Utils.sansConfigAlliance()));
+  }
+  /**
+   * @static
+   * @method libelleLancer
+   * @return {String} « Lancer » sans partage (case « Sans config alliance »)
+   */
+  static libelleLancer() {
+    return Utils.sansConfigAlliance() ? "Lancer" : "Lancer + partager";
   }
   /**
    * @private
@@ -1275,7 +1283,7 @@ class MultiFlood {
       .catch((err) => {
         let message = String((err && err.message) || err);
         Journal.erreur("Multi-flood opti", "lancement interrompu", message);
-        $("#o_mfoLancerPartager").text("Lancer + partager");
+        $("#o_mfoLancerPartager").text(MultiFlood.libelleLancer());
         if (suivi.parties) {
           // des attaques sont parties : pas de nouvel essai d'ici (rien ne part deux fois)
           $.toast({

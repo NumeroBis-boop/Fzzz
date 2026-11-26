@@ -553,6 +553,17 @@ describe("lanceur : dans la boîte (page: false)", () => {
       ExportAuto.exports = 0;
     `);
     expect(lire(`$("#b_o_chasseEnvoyerPartager").length`)).toBe(1);
+    // case « Sans config alliance » : « Envoyer » seul
+    lire(`(() => {
+      localStorage.setItem("fzzz_sansConfigAlliance", "1");
+      $("body").append("<div id='o_tabsChasse5'></div>");
+      new LanceurChasse(armee3, 4, { prefixe: "c_", cadre: false, page: false }).afficher($("#o_tabsChasse5"), "append");
+      localStorage.removeItem("fzzz_sansConfigAlliance");
+    })()`);
+    expect(
+      lire(`[$("#c_o_chasseEnvoyer").length, $("#c_o_chasseEnvoyerPartager").length]`),
+    ).toEqual([1, 0]);
+    lire(`$("#o_tabsChasse5").remove()`);
     // le clic sur « Envoyer » a noté le lancement : l'export suit la fin de l'envoi, même refusé par le jeu
     lire(`boite._finLancement(0, 3)`);
     expect(lire(`ExportAuto.exports`)).toBe(1);

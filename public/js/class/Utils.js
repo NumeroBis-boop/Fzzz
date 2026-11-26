@@ -257,7 +257,7 @@ const AFFICHAGES_CONVOIS = {
   convoisSansReceptionBarree: "Sa ligne barrée",
   convoisSansReceptionRouge: "Sa ligne en rouge",
   convoisSansReceptionColonne:
-    "Colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » s'il ne veut pas de convois, « ✅ » s'il en accepte, « Avance » s'il a demandé une avance",
+    "Colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » s'il ne veut pas de convois, « ✅ » s'il en accepte, « (+avance) » s'il a demandé une avance",
 };
 // marques du Récapitulatif pour un joueur qui ne veut pas de convois, cumulables
 // (demande du mainteneur) ; dans cet ordre dans Préférences → Convois

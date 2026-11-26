@@ -6,7 +6,7 @@ import { creerPage } from "./harnais";
 /**
  * Récapitulatif de la page Convois : les demandes d'avance du site de suivi
  * (page Avances, « Demandes d'avance ») après le convoi à faire, « (+montant) »
- * en vert, et « Avance » en vert et en gras dans la colonne « Statut des
+ * en vert, et « (+avance) » en vert et en gras dans la colonne « Statut des
  * stocks » (demandes du mainteneur, 26/11/2026). Le site les donne dans le champ
  * `demandes` de /api/avances (réponse relevée par le mainteneur le
  * 26/11/2026). Joueurs et montants inventés.
@@ -180,10 +180,11 @@ describe("Récapitulatif : « (+montant) » en vert après le convoi à faire", 
     expect(css).toMatch(/\.o_convoisMembres \.o_convoisAvance \{\s*color: var\(--fzzz-succes\);/);
   });
 
-  test("colonne « Statut des stocks » : « Avance » en vert et en gras, à la place de « ✅ » ou de « — »", async () => {
+  test("colonne « Statut des stocks » : « (+avance) » en vert et en gras, à la place de « ✅ » ou de « — »", async () => {
     await ouvrir();
-    expect(statut("Alpha")).toBe("Avance");
-    expect(statut("Charlie")).toBe("Avance");
+    // forme demandée par le mainteneur le 26/11/2026 : « (+avance) »
+    expect(statut("Alpha")).toBe("(+avance)");
+    expect(statut("Charlie")).toBe("(+avance)");
     expect(statut("Bravo")).toBe("✅");
     const $mot = `$("#o_convoisMembres tr[data-pseudo='Alpha'] .o_convoisAvanceStatut")`;
     expect(lire<string>(`${$mot}.attr("title")`)).toContain(
@@ -194,17 +195,17 @@ describe("Récapitulatif : « (+montant) » en vert après le convoi à faire", 
       /\.o_convoisMembres \.o_convoisAvanceStatut \{\s*color: var\(--fzzz-succes\);\s*font-weight: bold;/,
     );
     expect(lire<string>(`$("#o_convoisMembres thead th:eq(2)").attr("title")`)).toContain(
-      "Avance : a demandé une avance",
+      "(+avance) : a demandé une avance",
     );
   });
 
-  test("ne veut pas de convois et a demandé une avance : « ⚠️ Plein ⚠️ » puis « Avance »", async () => {
+  test("ne veut pas de convois et a demandé une avance : « ⚠️ Plein ⚠️ » puis « (+avance) »", async () => {
     const mes = {
       ...MES,
       lignes: MES.lignes.map((l) => (l.vers == "Alpha" ? { ...l, sans_reception: true } : l)),
     };
     await ouvrir(AVANCES, false, { mes });
-    expect(statut("Alpha")).toBe("⚠️ Plein ⚠️ Avance");
+    expect(statut("Alpha")).toBe("⚠️ Plein ⚠️ (+avance)");
     expect(
       lire<number>(`$("#o_convoisMembres tr[data-pseudo='Alpha'] .o_convoisPlein").length`),
     ).toBe(1);

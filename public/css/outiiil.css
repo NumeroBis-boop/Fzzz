@@ -3988,3 +3988,112 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   color: #ffab9f;
   font-weight: bold;
 }
+
+/* Conseil sous « Bouclier Thoracique » du Laboratoire (méthode d'Optizzz) */
+html:not(.o_originePage) tr.ligneAmelioration:has(.o_conseil[open]) > td {
+  vertical-align: top !important;
+}
+.o_conseil {
+  margin-top: 0.5em;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-left: 3px solid var(--fzzz-secondaire);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  text-align: left;
+  font-size: var(--fzzz-reduit);
+  line-height: 1.35;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.o_conseil[data-verdict="recherche"] {
+  border-left-color: var(--fzzz-succes);
+}
+.o_conseil[data-verdict="ponte"] {
+  border-left-color: var(--fzzz-info);
+}
+.o_conseil > summary {
+  padding: 0.3em 0.6em;
+  cursor: pointer;
+}
+.o_conseilTag {
+  display: inline-block;
+  padding: 0 0.4em;
+  border-radius: 3px;
+  background: var(--fzzz-secondaire);
+  color: #fff;
+  font-size: var(--fzzz-petit);
+}
+.o_conseilPlus {
+  margin-left: 0.4em;
+  color: var(--fzzz-info);
+  font-size: var(--fzzz-petit);
+}
+.o_conseil[open] .o_conseilPlus {
+  display: none;
+}
+.o_conseilCorps {
+  padding: 0 0.6em 0.6em;
+}
+.o_conseilCorps p {
+  margin: 0.4em 0;
+}
+.o_conseilBarres {
+  display: grid;
+  gap: 0.35em;
+  margin: 0.4em 0 0.5em;
+}
+.o_conseilBarreTete {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 0.8em;
+}
+.o_conseilValeur {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+.o_conseilPiste {
+  height: 0.5em;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+.o_conseilPiste > span {
+  display: block;
+  height: 100%;
+  background: var(--fzzz-info);
+}
+.o_conseilRecherche .o_conseilPiste > span {
+  background: var(--fzzz-succes);
+}
+.o_conseilDefile {
+  /* une cellule de tableau grandit jusqu'à son contenu : le tableau défile
+     dans la largeur du bloc au lieu d'élargir la page */
+  width: 0;
+  min-width: 100%;
+  overflow-x: auto;
+}
+.o_conseilTableau {
+  margin-top: 0.3em;
+  border-collapse: collapse;
+}
+.o_conseilTableau th,
+.o_conseilTableau td {
+  padding: 0.1em 0.5em;
+  text-align: right;
+  white-space: nowrap;
+}
+.o_conseilTableau th:first-child,
+.o_conseilTableau td:first-child {
+  text-align: left;
+}
+.o_conseilMeilleure td {
+  font-weight: bold;
+}
+.o_conseilNote {
+  color: var(--fzzz-secondaire);
+  font-size: var(--fzzz-petit);
+}
+.o_conseilLigne > td {
+  padding: 0 0.5em 0.5em;
+}

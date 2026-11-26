@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.157.0",
+    notes: [
+      "Page Convois : le Récapitulatif montre en vert, après le convoi à faire, l'avance qu'un membre suivi a demandée sur la page Avances du site de suivi, « (+montant) ».",
+    ],
+  },
+  {
     version: "1.156.9",
     notes: [
       "Lanceur de Flood, méthode « Optimisée » : supprimer une attaque laisse aux autres leur montant, au lieu de les recalculer pour le nouveau nombre d'attaques.",

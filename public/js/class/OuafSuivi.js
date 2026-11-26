@@ -511,6 +511,35 @@ class OuafSuivi {
     return choix;
   }
   /**
+   * Demandes d'avance publiées sur le site (page Avances, « Demandes
+   * d'avance ») : montant souhaité par joueur, pseudo en minuscules.
+   *
+   * @static
+   * @method demandesAvance
+   * @param {Array} [demandes] champ `demandes` de /api/avances
+   * @return {Map<string, number>}
+   */
+  static demandesAvance(demandes) {
+    let parJoueur = new Map();
+    (Array.isArray(demandes) ? demandes : []).forEach((d) => {
+      let montant = Number(d && d.montant);
+      if (d && d.pseudo && montant > 0) parJoueur.set(String(d.pseudo).toLowerCase(), montant);
+    });
+    return parJoueur;
+  }
+  /**
+   * @static
+   * @method lireDemandesAvance
+   * @return {Promise<Map<string, number>>} voir demandesAvance
+   */
+  static lireDemandesAvance() {
+    return OuafSuivi.connecter().then(() =>
+      OuafSuivi.requete("GET", "/api/avances").then((av) =>
+        OuafSuivi.demandesAvance(av && av.demandes),
+      ),
+    );
+  }
+  /**
    * Lecture de « Mes convois » sur le site : reste à livrer par destinataire,
    * membres connus du site et destinataires qui ne veulent pas de convois.
    *

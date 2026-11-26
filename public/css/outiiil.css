@@ -3189,6 +3189,11 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
 .o_convoisMembres .o_convoisAvance {
   color: var(--fzzz-succes);
 }
+/* « Avance » de la colonne « Statut des stocks » ; vert aussi sur une ligne en rouge */
+.o_convoisMembres .o_convoisAvanceStatut {
+  color: var(--fzzz-succes);
+  font-weight: bold;
+}
 /* champ vers lequel Fzzz renvoie (mot de passe du suivi OUAF à renseigner) */
 .o_champSignale {
   outline: 2px solid #c27c0e;

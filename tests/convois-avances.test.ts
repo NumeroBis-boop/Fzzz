@@ -6,7 +6,8 @@ import { creerPage } from "./harnais";
 /**
  * Récapitulatif de la page Convois : les demandes d'avance du site de suivi
  * (page Avances, « Demandes d'avance ») après le convoi à faire, « (+montant) »
- * en vert (demande du mainteneur, 26/11/2026). Le site les donne dans le champ
+ * en vert, et « Avance » en vert et en gras dans la colonne « Statut des
+ * stocks » (demandes du mainteneur, 26/11/2026). Le site les donne dans le champ
  * `demandes` de /api/avances (réponse relevée par le mainteneur le
  * 26/11/2026). Joueurs et montants inventés.
  */
@@ -62,10 +63,15 @@ const AVANCES = {
  * Page Convois ouverte, Alpha, Bravo et Charlie suivis (Charlie : aucun convoi
  * prévu vers lui). `avances` : réponse de /api/avances, ou "erreur" (refusée).
  */
-async function ouvrir(avances: object | "erreur" = AVANCES, mesEnAttente = false) {
+async function ouvrir(
+  avances: object | "erreur" = AVANCES,
+  mesEnAttente = false,
+  { mes = MES as object, colonne = true } = {},
+) {
   lire(`(() => {
     localStorage.clear();
     localStorage.setItem("fzzz_convoisMembres", JSON.stringify(["Alpha", "Bravo", "Charlie"]));
+    if (!${colonne}) localStorage.setItem("fzzz_affichage_convoisSansReceptionColonne", "0");
     localStorage.setItem("fzzz_reglagesAlliance", JSON.stringify({ lu: 0, section: true, sujet: true, reglages: { siteConvois: "http://convois.invalid" } }));
     $.toast = () => {};
     // une page par test : pas les écouteurs des pages d'avant
@@ -79,7 +85,7 @@ async function ouvrir(avances: object | "erreur" = AVANCES, mesEnAttente = false
     OuafSuivi.requete = (methode, chemin) => {
       lectures.push(methode + " " + chemin);
       if (chemin == "/api/mes")
-        return ${mesEnAttente} ? new Promise(() => {}) : Promise.resolve(${JSON.stringify(MES)});
+        return ${mesEnAttente} ? new Promise(() => {}) : Promise.resolve(${JSON.stringify(mes)});
       if (chemin == "/api/avances")
         return ${JSON.stringify(avances)} == "erreur"
           ? Promise.reject(Object.assign(new Error("HTTP 500"), { name: "reseau" }))
@@ -103,6 +109,11 @@ const cellule = (pseudo: string) =>
 const avance = (pseudo: string) =>
   lire<string | null>(
     `$("#o_convoisMembres tr[data-pseudo='${pseudo}'] .o_convoisAvance").text() || null`,
+  );
+/** Colonne « Statut des stocks » (3e colonne quand elle est cochée). */
+const statut = (pseudo: string) =>
+  lire<string>(
+    `$("#o_convoisMembres tr[data-pseudo='${pseudo}'] td:eq(2)").text().replace(/\s+/g, " ").trim()`,
   );
 const nombre = (n: number) => lire<string>(`numeral(${n}).format()`).replace(/\s+/g, " ");
 
@@ -169,10 +180,47 @@ describe("Récapitulatif : « (+montant) » en vert après le convoi à faire", 
     expect(css).toMatch(/\.o_convoisMembres \.o_convoisAvance \{\s*color: var\(--fzzz-succes\);/);
   });
 
+  test("colonne « Statut des stocks » : « Avance » en vert et en gras, à la place de « ✅ » ou de « — »", async () => {
+    await ouvrir();
+    expect(statut("Alpha")).toBe("Avance");
+    expect(statut("Charlie")).toBe("Avance");
+    expect(statut("Bravo")).toBe("✅");
+    const $mot = `$("#o_convoisMembres tr[data-pseudo='Alpha'] .o_convoisAvanceStatut")`;
+    expect(lire<string>(`${$mot}.attr("title")`)).toContain(
+      `avance de ${lire<string>(`numeral(31000000).format()`)}`,
+    );
+    const css = readFileSync(join(__dirname, "..", "public", "css", "outiiil.css"), "utf8");
+    expect(css).toMatch(
+      /\.o_convoisMembres \.o_convoisAvanceStatut \{\s*color: var\(--fzzz-succes\);\s*font-weight: bold;/,
+    );
+    expect(lire<string>(`$("#o_convoisMembres thead th:eq(2)").attr("title")`)).toContain(
+      "Avance : a demandé une avance",
+    );
+  });
+
+  test("ne veut pas de convois et a demandé une avance : « ⚠️ Plein ⚠️ » puis « Avance »", async () => {
+    const mes = {
+      ...MES,
+      lignes: MES.lignes.map((l) => (l.vers == "Alpha" ? { ...l, sans_reception: true } : l)),
+    };
+    await ouvrir(AVANCES, false, { mes });
+    expect(statut("Alpha")).toBe("⚠️ Plein ⚠️ Avance");
+    expect(
+      lire<number>(`$("#o_convoisMembres tr[data-pseudo='Alpha'] .o_convoisPlein").length`),
+    ).toBe(1);
+  });
+
+  test("colonne décochée dans les Préférences : pas de colonne, le « (+montant) » reste", async () => {
+    await ouvrir(AVANCES, false, { colonne: false });
+    expect(lire<number>(`$("#o_convoisMembres .o_convoisAvanceStatut").length`)).toBe(0);
+    expect(cellule("Alpha")).toBe(`${nombre(6452503)} (+${nombre(31000000)})`);
+  });
+
   test("demandes illisibles : le convoi à faire s'affiche quand même, sans avance, et le journal le note", async () => {
     await ouvrir("erreur");
     expect(cellule("Alpha")).toBe(nombre(6452503));
     expect(avance("Alpha")).toBeNull();
+    expect(statut("Alpha")).toBe("✅");
     expect(lire<string[]>(`notes`)).toEqual(["Convois : demandes d'avance du site non lues"]);
   });
 

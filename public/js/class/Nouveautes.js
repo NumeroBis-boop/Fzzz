@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.158.0",
+    notes: [
+      "Messagerie : un bouton « GIF » (Mes GIF et GIF de l'alliance) à côté de « Smileys OUAF », dans un nouveau message comme dans une réponse, à tous ou à un seul. Les GIF que tu envoies depuis la Messagerie rejoignent aussi « Mes GIF ».",
+    ],
+  },
+  {
     version: "1.157.3",
     notes: [
       "Récapitulatif de la page Convois : sans convoi prévu vers un membre, le montant de l'avance qu'il a demandée prend la place du « — » dans « Convoi à faire ».",

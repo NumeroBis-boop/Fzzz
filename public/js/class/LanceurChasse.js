@@ -238,7 +238,7 @@ class LanceurChasse {
             <div id='${this._p}o_simuChasse'><table id='${this._p}o_simulationChasse' cellspacing=0 class='o_maxWidth'></table></div>
                         <div class='o_marginT15'>Intervalle entre les chasses <select id='${this._p}o_chasseInt' title='Intervalle entre les chasses'><option value='0'>Minimal</option><option value='1'>1 seconde</option><option value='2' selected>2 secondes</option><option value='30'>30 secondes</option><option value='60'>1 minute</option><option value='120'>2 minutes</option></select></div>
             <div class='o_pile o_marginT15'><button class='o_button f_success' type='button' id='${this._p}o_chasseEnvoyer'>Envoyer</button>
-            <button class='o_button f_info' type='button' id='${this._p}o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button></div>
+            ${Utils.sansConfigAlliance() ? "" : `<button class='o_button f_info' type='button' id='${this._p}o_chasseEnvoyerPartager' title='Lance les chasses, puis publie toutes tes chasses en cours dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Envoyer + partager</button>`}</div>
             <p class='o_marginT0'><em class='small'>Veuillez rester sur cette page le temps du lancement !</em></p>
             <table id='${this._p}o_recapChasse' cellspacing=0>
 			<tr class='ligne_paire'><td colspan='3' class='gras'>Récapitulatif</td></tr>

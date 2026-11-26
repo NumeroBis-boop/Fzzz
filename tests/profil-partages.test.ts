@@ -139,6 +139,19 @@ describe("page d'un membre : la synthèse seule", () => {
     expect(bloc().texte).toContain("TdC de <img src=x onerror=alert(1)> illisible");
   });
 
+  test("case « Sans config alliance » : rien, aucun partage lu", async () => {
+    page.lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    page.lire(`(() => {
+      document.body.innerHTML = "<span id='tag_alliance'>OUAF</span><div class='boite_membre'>Action</div>";
+      window.LUS_PROFIL = 0;
+      PartageChasses.charger = () => { LUS_PROFIL++; return Promise.resolve(${JSON.stringify(PARTAGES)}); };
+      PartageChasses.afficherProfil("Alpha", 200000, null);
+    })()`);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(page.lire(`[$("#o_chassesPartagees").length, LUS_PROFIL]`)).toEqual([0, 0]);
+    page.lire(`localStorage.removeItem("fzzz_sansConfigAlliance")`);
+  });
+
   test("case « Évolution du TdC avec les chasses et floods partagés » décochée : rien", async () => {
     page.lire(`localStorage.setItem("fzzz_affichage_profilPartages", "0")`);
     page.lire(`(() => {

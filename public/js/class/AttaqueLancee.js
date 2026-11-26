@@ -845,9 +845,11 @@ class AttaqueLancee {
           <td class="o_priseAttaque">${PartageChasses.libellePrise({ delta: e.prise }, "")}</td>
           <td class="o_tdcApres">${AttaqueLancee._tdc(e.tdcApres)}</td>
           <td class="o_attaqueActions"><button type="button" class="o_button o_chasseCopier" title="Copier le détail ${nb > 1 ? "des chasses" : "de la chasse"}">Copier</button>${
-            c.partagee
-              ? `<span class="o_attaquePartage" title="Déjà publiée dans le forum de la ${tag}">Partagée ✓</span>`
-              : `<button type="button" class="o_button f_info o_chassePartager" title="Partager cette chasse avec la ${tag}">Partager</button>`
+            Utils.sansConfigAlliance()
+              ? ""
+              : c.partagee
+                ? `<span class="o_attaquePartage" title="Déjà publiée dans le forum de la ${tag}">Partagée ✓</span>`
+                : `<button type="button" class="o_button f_info o_chassePartager" title="Partager cette chasse avec la ${tag}">Partager</button>`
           }${
             annulables.length
               ? `<span class="o_chasseAnnuler"><a href="/Ressources.php?annuler=${annulables[0]}" data-ids="${annulables.join(",")}" title="${annulables.length > 1 ? `Annuler les ${annulables.length} chasses de cette ligne` : "Annuler cette chasse"}, et son partage dans le forum">Annuler</a></span>`
@@ -1054,12 +1056,12 @@ class AttaqueLancee {
         ${AttaqueLancee.celluleLieu(AttaqueLancee.lieu(a))}
         <td class="o_priseAttaque">${AttaqueLancee.priseEstimee(a)}</td>
         <td class="o_tdcApres">…</td>
-        <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button><button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager cette attaque avec la ${tag}">Partager</button><span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span></td></tr>`;
+        <td class="o_attaqueActions"><button type="button" class="o_button o_attaqueCopier" data-i="${i}" title="Copier le détail de l'attaque">Copier</button>${Utils.sansConfigAlliance() ? "" : `<button type="button" class="o_button f_info o_attaquePartager" data-i="${i}" data-id="${a.ligne.id}" title="Partager cette attaque avec la ${tag}">Partager</button>`}<span id="${id}Annuler${i}" class="o_attaqueAnnuler"></span></td></tr>`;
     });
     html += `</tbody></table>`;
     // boutons groupés sur la ligne du titre : une rangée de moins
     let boutons = attaques.length
-      ? `<span class="o_attaquesBoutons o_attaquesEnTete"><button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods et toutes mes chasses avec la ${tag}">Partager tous</button>${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`
+      ? `<span class="o_attaquesBoutons o_attaquesEnTete">${Utils.sansConfigAlliance() ? "" : `<button type="button" id="${id}PartagerTout" class="o_button f_info" title="Partager tous mes floods et toutes mes chasses avec la ${tag}">Partager tous</button>`}${annulables.length > 1 ? `<button type="button" id="${id}ToutAnnuler" class="o_button f_error">Tout annuler</button>` : ""}</span>`
       : "";
     // en haut de la page ; la liste du jeu sous « Attaque(s) en cours » reste telle
     // quelle. Armée et Attaquer visent le premier .simulateur qui n'est pas un

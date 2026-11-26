@@ -156,7 +156,7 @@ class PageRessource {
     if (groupes.length > 1) html += ligne("Total", chasses, "gras o_syntheseTotal");
     html += `</table><div class='o_syntheseBoutons'>
         <button type='button' id='o_copierSynthese' class='o_button f_info'>Copier la synthèse</button>
-        <button type='button' id='o_partagerChasses' class='o_button f_info'>Partager mes chasses avec la ${Utils.alliance || "l'alliance"}</button>
+        ${Utils.sansConfigAlliance() ? "" : `<button type='button' id='o_partagerChasses' class='o_button f_info'>Partager mes chasses avec la ${Utils.alliance || "l'alliance"}</button>`}
       </div>`;
     html =
       "<div id='o_syntheseChasses'>" +

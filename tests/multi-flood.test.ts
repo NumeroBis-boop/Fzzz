@@ -401,6 +401,23 @@ describe("vue de la page Ennemies", () => {
     ]);
   });
 
+  test("case « Sans config alliance » : bouton « Lancer », attaques enregistrées sans partage", async () => {
+    lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    await ouvrir();
+    await ajouter("Cocop");
+    expect(lire(`$("#o_mfoLancerPartager").text()`)).toBe("Lancer");
+    lire(`(() => {
+      let lancer = MultiFlood.lancer;
+      MultiFlood.lancer = (partager) => (window.LANCEMENT = lancer.call(MultiFlood, partager));
+      $("#o_mfoLancerPartager").trigger("click");
+      MultiFlood.lancer = lancer;
+    })()`);
+    await lire(`LANCEMENT`);
+    expect(lire(`ENREGISTRES.length`)).toBe(3);
+    expect(lire(`[...new Set(ENREGISTRES.map(([, , , o]) => o.partager))]`)).toEqual([false]);
+    lire(`localStorage.removeItem("fzzz_sansConfigAlliance")`);
+  });
+
   test("attaques enregistrées sous le pseudo du formulaire d'attaque du jeu, même tapé autrement", async () => {
     await ouvrir();
     // page du membre sans titre lisible : la cible garde le pseudo tapé

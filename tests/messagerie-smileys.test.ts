@@ -337,6 +337,24 @@ describe("bouton « GIF » : nouveau message et réponses, à tous ou à un seul
     ).toEqual([`Salut [img]${GIF_B}[/img]`, true, "false"]);
   });
 
+  test("case « Sans config alliance » : « GIF » avec « Mes GIF » seul, pas de « Smileys OUAF », rien lu au forum", async () => {
+    avecGifs();
+    lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    ouvrir(ecrire(), { cases: { messagerieSmileysAlliance: true } });
+    await attendre();
+    expect(lire(`[$(".o_gifBoutonMessagerie").length, $(".o_smileysBouton").length]`)).toEqual([
+      1, 0,
+    ]);
+    clic(".o_gifBoutonMessagerie");
+    await attendre();
+    expect(appels()).toEqual([]);
+    expect(
+      lire(
+        `[$(".o_gifPanneauForum summary").map((i, s) => s.textContent).get(), $(".o_gifPanneauForum .o_gifMes img").attr("src"), $(".o_gifAlliance").length]`,
+      ),
+    ).toEqual([["Mes GIF"], GIF_A, 0]);
+  });
+
   test("un seul panneau ouvert par message : « GIF » ferme « Smileys » et inversement", async () => {
     ouvrir();
     clic(".o_smileysBouton");

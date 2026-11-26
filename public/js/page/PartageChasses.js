@@ -125,8 +125,11 @@ class PartageChasses {
    * @param {String} fonction
    * @param {any} [args]
    * @param {Object} [options] réglages de plus pour $.ajax, ex. {fond: true} (Requetes.js)
+   * @return {Promise<any>} rejetée avec Error("absente"), sans requête, quand la case
+   *   « Sans config alliance » est cochée
    */
   static _xajax(fonction, args, options = {}) {
+    if (Utils.sansConfigAlliance()) return Promise.reject(new Error("absente"));
     let requete = Promise.resolve(
       $.ajax({
         type: "post",
@@ -300,9 +303,12 @@ class PartageChasses {
    * @method trouverSection
    * @param {Object} [options] réglages de plus pour $.ajax (_xajax)
    * @return {Promise<String>} rejetée avec Error("absente") si la section n'est pas
-   *   dans la liste (inexistante, ou cachée au grade du joueur)
+   *   dans la liste (inexistante, ou cachée au grade du joueur), ou si la case
+   *   « Sans config alliance » est cochée
    */
   static trouverSection(options = {}) {
+    // case « Sans config alliance » : ni section ni lecture gardée
+    if (Utils.sansConfigAlliance()) return Promise.reject(new Error("absente"));
     if (PartageChasses.idSection) return Promise.resolve(PartageChasses.idSection);
     return PartageChasses._xajax("callGetForum", undefined, options).then((data) => {
       // DOMParser : le HTML du forum (écrit par des membres) n'exécute rien
@@ -934,7 +940,8 @@ class PartageChasses {
       fin = localStorage.getItem(CLE_FIN_CHASSES_PARTAGEES);
     } catch (e) {}
     // "-" : aucune chasse à venir dans ma réponse ; null : jamais vérifié
-    if ((fin != null && fin < maintenant) || !monProfil.pseudo) return Promise.resolve();
+    if ((fin != null && fin < maintenant) || !monProfil.pseudo || Utils.sansConfigAlliance())
+      return Promise.resolve();
     let retenir = (/** @type {Array<any>} */ lignes) => {
       try {
         localStorage.setItem(
@@ -1205,6 +1212,8 @@ class PartageChasses {
    * @return {Promise}
    */
   static retirerFloods(ids) {
+    // case « Sans config alliance » : rien à retirer, l'état des partages reste
+    if (Utils.sansConfigAlliance()) return Promise.resolve();
     ids = ids.filter((id) => !retraitsEnCours.has(id));
     if (!ids.length) return Promise.resolve();
     PartageChasses.noterARetirer(ids, true);
@@ -1361,6 +1370,7 @@ class PartageChasses {
    * @param {Array} groupes [{impact (moment), terrain, unites (texte)}]
    */
   static partager(groupes, $bouton) {
+    if (Utils.sansConfigAlliance()) return Promise.resolve(false);
     // en file : un second partage (clic répété, page rechargée) relit le sujet écrit par le premier
     return PartageChasses.enFile(() =>
       PartageChasses._avecBouton(
@@ -1381,6 +1391,7 @@ class PartageChasses {
    * @method partagerFloods
    */
   static partagerFloods(captures, $bouton) {
+    if (Utils.sansConfigAlliance()) return Promise.resolve(false);
     if ($bouton) $bouton.prop("disabled", true);
     return PartageChasses.enFile(() => PartageChasses._partagerFloods(captures, $bouton));
   }
@@ -1448,9 +1459,11 @@ class PartageChasses {
    * @param {Array|null} chassesDe pseudos dont lire les chasses (null : tous)
    * @param {Boolean} [avecFloods] false : les chasses seulement
    * @param {{prevoir: (n: Number) => void, faite: () => void}|null} [suivi] prévenu de chaque lecture (avancement affiché)
-   * @return {Promise<Object>} {chasses: {pseudo minuscule: [...]}, floods: [... avec lanceur]}
+   * @return {Promise<Object>} {chasses: {pseudo minuscule: [...]}, floods: [... avec lanceur]} ;
+   *   vides, sans requête, quand la case « Sans config alliance » est cochée (rien de partagé)
    */
   static charger(chassesDe = null, avecFloods = true, suivi = null) {
+    if (Utils.sansConfigAlliance()) return Promise.resolve({ chasses: {}, floods: [] });
     if (suivi) suivi.prevoir(1);
     return PartageChasses.sujets(true).then((sujets) => {
       let voulus = chassesDe ? chassesDe.map((p) => p.toLowerCase()) : null,
@@ -2064,7 +2077,7 @@ class PartageChasses {
    * @param {{secondes: Number|null, depart: Object}|null} [attaque] trajet vers lui et heure d'ouverture (null : son propre profil)
    */
   static afficherProfil(pseudo, terrain, attaque = null) {
-    if (!Utils.affichage("profilPartages")) return;
+    if (!Utils.affichage("profilPartages") || Utils.sansConfigAlliance()) return;
     // chasses du joueur affiché, les miennes et celles des joueurs reliés ;
     // floods de tous les membres : à chaque affichage, une correction faite dans
     // le forum est prise en compte

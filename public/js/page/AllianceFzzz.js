@@ -64,7 +64,8 @@ class AllianceFzzz {
    */
   static colonnes() {
     let $t = $("#tabMembresAlliance");
-    AllianceFzzz.avecFloods = Utils.affichage("membresFloods");
+    // case « Sans config alliance » : rien de partagé, pas de vue « Floods et chasses en cours »
+    AllianceFzzz.avecFloods = Utils.affichage("membresFloods") && !Utils.sansConfigAlliance();
     if (AllianceFzzz.avecFloods)
       $t.find("thead tr").append(
         ALLIANCE_COLONNES_FZZZ.map(

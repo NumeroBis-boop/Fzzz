@@ -81,6 +81,15 @@ describe("boutons sous le message à écrire", () => {
     expect(boutons()).toEqual(["GIF", "Smileys OUAF"]);
   });
 
+  test("case « Sans config alliance » : « GIF » seul, pas de « Smileys OUAF »", async () => {
+    lire(
+      `localStorage.setItem("fzzz_sansConfigAlliance", "1"); ChatGif.forum({ gif: true, smileys: true })`,
+    );
+    await afficher(reponse());
+    lire(`localStorage.removeItem("fzzz_sansConfigAlliance")`);
+    expect(boutons()).toEqual(["GIF"]);
+  });
+
   test("case décochée : son bouton manque ; les deux décochées : rien", async () => {
     lire(`ChatGif.forum({ gif: false, smileys: true })`);
     await afficher(reponse());

@@ -170,7 +170,8 @@ class AlerteFloods {
    * @return {Promise<void>}
    */
   static installer() {
-    if (!monProfil.pseudo || !Utils.alliance) return Promise.resolve();
+    if (!monProfil.pseudo || !Utils.alliance || Utils.sansConfigAlliance())
+      return Promise.resolve();
     let heures = AlerteFloods.heures();
     return AlerteFloods.lire(PageRessource.lireChasses($(document)))
       .catch((/** @type {any} */ e) => {

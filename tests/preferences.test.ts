@@ -60,6 +60,36 @@ function construire(stockage: Record<string, string> = {}) {
   })()`);
 }
 
+describe("Partage de données : case « Sans config alliance » (demande du mainteneur, 26/11/2026)", () => {
+  test("dans « Fonctionnement sur les autres serveurs », décochée par défaut, gardée par serveur ; cochée : « Relire les réglages » bloqué", () => {
+    construire();
+    const $case = `$("#o_tabsParametrePartage #o_sansConfigAlliance")`;
+    expect(lire(`${$case}.closest(".o_sectionParam").find(".o_titreParam").text()`)).toBe(
+      "Fonctionnement sur les autres serveurs",
+    );
+    expect(lire(`${$case}.closest("label").text().trim()`)).toStartWith(
+      "Sans config alliance sur ce serveur (",
+    );
+    expect(lire(`[${$case}.prop("checked"), $(".o_reglagesRelire").prop("disabled")]`)).toEqual([
+      false,
+      false,
+    ]);
+    lire(`${$case}.prop("checked", true).trigger("change")`);
+    expect(
+      lire(
+        `[localStorage.getItem("fzzz_sansConfigAlliance"), $(".o_reglagesRelire").prop("disabled")]`,
+      ),
+    ).toEqual(["1", true]);
+    expect(lire<string>(`$("#o_reglagesEtat").text()`)).toContain(
+      "« Sans config alliance » cochée",
+    );
+    construire({ fzzz_sansConfigAlliance: "1" });
+    expect(lire(`${$case}.prop("checked")`)).toBe(true);
+    lire(`${$case}.prop("checked", false).trigger("change")`);
+    expect(lire(`localStorage.getItem("fzzz_sansConfigAlliance")`)).toBeNull();
+  });
+});
+
 describe("Général : « Journal de débug » (demande du mainteneur, 20/11/2026)", () => {
   test("Partage de données : envoi du journal les jours avec une erreur, case cochée par défaut", () => {
     construire();

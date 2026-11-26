@@ -182,6 +182,22 @@ describe("« GIF de l'alliance » : premier message du sujet caché", () => {
     expect(premierGif()).toBe(GIF2);
   });
 
+  test("case « Sans config alliance » : « GIF » avec « Mes GIF » seul, pas de « Smileys », rien lu au forum", async () => {
+    sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
+    lire(`localStorage.setItem("fzzz_sansConfigAlliance", "1")`);
+    ouvrirChat("/alliance.php", {
+      chatMesGif: true,
+      chatGifAlliance: true,
+      chatSmileysAlliance: true,
+    });
+    await attendre();
+    lire(`localStorage.removeItem("fzzz_sansConfigAlliance")`);
+    expect(
+      lire(`[$("#o_gifBouton").length, $("#o_smileysBouton").length, FORUM.appels.length]`),
+    ).toEqual([1, 0, 0]);
+    lire(`$("#o_gifBouton, #o_gifPanneau").remove()`);
+  });
+
   test("liste décochée : rien lu à l'ouverture", async () => {
     sujet("4", "GIF de l'alliance", `<img src="${GIF1}"/>`);
     ouvrirChat("/alliance.php", { chatMesGif: true, chatGifAlliance: false });

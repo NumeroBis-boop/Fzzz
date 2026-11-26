@@ -241,6 +241,15 @@ describe("TdC à l'impact : lanceur de flood", () => {
     // une attaque ajoutée passe avant « Supprimer / Ajouter », pas après les TdC à l'impact
     const lignes = page.lire<number>(`$("input[id^='o_attaque']").length`);
     page.lire(`p.ajouterAttaque()`);
+    // case « Sans config alliance » : « Flooder » seul
+    page.lire(
+      `(() => { localStorage.setItem("fzzz_sansConfigAlliance", "1"); $("#o_prepaFlood").remove(); p.formulaireFlood(); localStorage.removeItem("fzzz_sansConfigAlliance"); })()`,
+    );
+    expect(page.lire(`[$("#o_lanceFlood").length, $("#o_lanceFloodPartager").length]`)).toEqual([
+      1, 0,
+    ]);
+    ouvrir();
+    page.lire(`p.ajouterAttaque()`);
     expect(page.lire(`$("input[id^='o_attaque']").length`)).toBe(lignes + 1);
     expect(page.lire(`$("#o_floodActions").prev().find("input[id^='o_attaque']").length`)).toBe(1);
     expect(page.lire(`$("#o_simulationFlood tr:last").hasClass("o_floodImpactLigne")`)).toBe(true);

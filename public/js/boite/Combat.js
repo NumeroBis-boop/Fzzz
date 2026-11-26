@@ -776,7 +776,7 @@ class BoiteCombat extends Boite {
             <p id="o_mfRecap" class="o_marginT15"></p>
             ${this._mfUnitesGardees.html()}
             <div class='o_pile o_marginT15'><button id="o_mfLancer" class="o_button f_success" type="button" disabled>Lancer ces attaques</button>
-            <button id="o_mfLancerPartager" class="o_button f_info" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button></div>
+            ${Utils.sansConfigAlliance() ? "" : `<button id="o_mfLancerPartager" class="o_button f_info" type="button" disabled title="Lance les attaques, puis les publie dans le forum de l'alliance (partage des floods)">Lancer + partager</button>`}</div>
         </div>`);
     /**
      * Cibles sélectionnées par l'utilisateur. Chaque entrée :

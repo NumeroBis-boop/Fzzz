@@ -313,7 +313,7 @@ class PageAttaquer {
     let sonder = Utils.affichage("sonder"),
       synchroniser = Utils.affichage("synchroniser"),
       boutons =
-        (Utils.affichage("lancerPartager")
+        (Utils.affichage("lancerPartager") && !Utils.sansConfigAlliance()
           ? `<button type="button" id="o_lancerPartager" class="o_button" title="${Utils.echapper(titrePartager)}" disabled>Lancer + partager</button>`
           : "") +
         (sonder
@@ -627,7 +627,7 @@ class PageAttaquer {
             }
             </table>
             <div class='o_floodBoutons'><div class='o_pile'><button id='o_lanceFlood' class='o_button o_lieu1'>Flooder</button>
-            <button type='button' id='o_lanceFloodPartager' class='o_button o_lieu1' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button></div></div>
+            ${Utils.sansConfigAlliance() ? "" : `<button type='button' id='o_lanceFloodPartager' class='o_button o_lieu1' title='Flood, puis publication des attaques dans le forum de la ${Utils.echapper(Utils.alliance || "l'alliance")}'>Flooder + partager</button>`}</div></div>
             <p class="reduce left">Reste : place les unités restantes sur l'attaque sélectionnée.</p>
             ${this._unitesGardees.html()}
             </fieldset>`);

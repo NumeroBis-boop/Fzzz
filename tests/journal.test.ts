@@ -10,7 +10,8 @@ import { creerPage } from "./harnais";
  * JavaScript.
  */
 const page = creerPage(
-  ["js/class/Journal.js", "js/boite/Dock.js", "js/boite/Journal.js"],
+  // Utils.js : ReglagesAlliance y lit la case « Sans config alliance »
+  ["js/class/Utils.js", "js/class/Journal.js", "js/boite/Dock.js", "js/boite/Journal.js"],
   `var VERSION = "1.87.0", NOM_EXTENSION = "Extension OUAF";
    var Horloge = { maintenant: () => 1762600000000, serveur: () => moment(1762600000000) };
    var AFFICHES = [];

@@ -25,6 +25,8 @@ const TITRE_SYNTHESE = "Synthèse";
 // seul serveur des versions 1.42 à 1.125 : ses clés du stockage de l'extension
 // sont restées sans suffixe (Utils.cleServeur)
 const SERVEUR_CLES_SANS_SUFFIXE = "s5";
+// case « Sans config alliance » (Préférences → Partage de données), par serveur
+const CLE_SANS_CONFIG_ALLIANCE = "fzzz_sansConfigAlliance";
 
 // Fzzz : champs jQuery UI « spinner » : nombres affichés et relus à la
 // française, quelle que soit la langue du navigateur. Le widget délègue à
@@ -435,6 +437,33 @@ class Utils {
    */
   static get alliance() {
     return $("#tag_alliance").text();
+  }
+  /**
+   * Case « Sans config alliance » de Préférences → Partage de données, gardée
+   * dans le localStorage du jeu, donc par serveur : ni réglages d'alliance, ni
+   * lecture ou écriture du forum de l'alliance, ni partages.
+   *
+   * @static
+   * @method sansConfigAlliance
+   * @return {Boolean}
+   */
+  static sansConfigAlliance() {
+    try {
+      return localStorage.getItem(CLE_SANS_CONFIG_ALLIANCE) == "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  /**
+   * @static
+   * @method choisirSansConfigAlliance
+   * @param {Boolean} coche
+   */
+  static choisirSansConfigAlliance(coche) {
+    try {
+      if (coche) localStorage.setItem(CLE_SANS_CONFIG_ALLIANCE, "1");
+      else localStorage.removeItem(CLE_SANS_CONFIG_ALLIANCE);
+    } catch (e) {}
   }
   /**
    * Renvoie si le joueur à du compte plus.

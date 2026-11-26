@@ -211,13 +211,15 @@ class ReglagesAlliance {
   /**
    * Dernière lecture gardée dans ce navigateur pour ce serveur (le localStorage
    * du jeu est propre à chaque serveur) ; celle d'une autre alliance que celle
-   * de la page (le joueur en a changé) ne compte pas.
+   * de la page (le joueur en a changé) ne compte pas, ni aucune quand la case
+   * « Sans config alliance » est cochée.
    *
    * @static
    * @method garde
    * @return {{lu: Number, version: String, alliance: String, section: Boolean, sujet: Boolean, reglages: ReturnType<typeof ReglagesAlliance.vides>}|null}
    */
   static garde() {
+    if (Utils.sansConfigAlliance()) return null;
     let g = ReglagesAlliance._brut(),
       tag = ReglagesAlliance._tag();
     if (!g || !g.reglages) return null;
@@ -319,6 +321,9 @@ class ReglagesAlliance {
    * @return {Promise<{section: Boolean, sujet: Boolean, reglages: ReturnType<typeof ReglagesAlliance.vides>}>} rejetée si le forum ne se lit pas
    */
   static charger(options = {}, lecture = "garde") {
+    // case « Sans config alliance » : aucune requête, réglages vides
+    if (Utils.sansConfigAlliance())
+      return Promise.resolve({ section: false, sujet: false, reglages: ReglagesAlliance.vides() });
     if (lecture == "garde" && ReglagesAlliance._recente(REGLAGES_FRAIS))
       return Promise.resolve(/** @type {any} */ (ReglagesAlliance.garde()));
     ReglagesAlliance._noterEssai();
@@ -349,6 +354,8 @@ class ReglagesAlliance {
    * @return {String}
    */
   static resume() {
+    if (Utils.sansConfigAlliance())
+      return "Réglages de l'alliance ni lus ni utilisés : case « Sans config alliance » cochée.";
     let g = ReglagesAlliance.garde();
     if (!g) return "Réglages de l'alliance pas encore lus dans ce navigateur.";
     let minutes = Math.max(0, Math.round((Horloge.maintenant() - g.lu) / 60000)),

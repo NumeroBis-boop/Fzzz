@@ -6,7 +6,11 @@ import { creerPage } from "./harnais";
  * bouton « Smileys OUAF » au bout de la barre de mise en forme du nouveau
  * message et de chaque réponse ; un clic écrit le code {nom} du smiley, que
  * l'extension remplace par [img]adresse[/img] quand le joueur clique sur
- * « Envoyer » ou « Répondre », avant que le jeu lise le message.
+ * « Envoyer » ou « Répondre », avant que le jeu lise le message. Depuis
+ * 1.158.0 (demande du mainteneur, 26/11/2026 : « smileys et GIF doivent être
+ * disponibles quand on écrit ou quand on répond à un message, qu'il soit privé
+ * ou commun avec plusieurs joueurs »), un bouton « GIF » avant lui, comme au
+ * forum : « Mes GIF » et « GIF de l'alliance ».
  */
 const nouvellePage = () =>
   creerPage(
@@ -125,18 +129,26 @@ describe("nouveau message : bouton « Smileys OUAF »", () => {
     await attendre();
     expect(
       lire(`(() => {
-        let $b = $("#barre_bbcode_nouveau_message .o_smileysBouton");
-        return [$b.length, $b.prop("tagName") + "/" + $b.attr("type") + "/" + $b.val(), $b.prev().attr("id"),
+        let $g = $("#barre_bbcode_nouveau_message .o_gifBoutonMessagerie"),
+          $b = $("#barre_bbcode_nouveau_message .o_smileysBouton");
+        return [$b.length, $b.prop("tagName") + "/" + $b.attr("type") + "/" + $b.val(),
+          $g.length, $g.val(), $g.prev().attr("id"), $g[0].previousSibling.nodeValue, $b.prev().attr("class"),
           $b[0].previousSibling.nodeValue, $b.next().attr("id"),
-          $("#barre_bbcode_nouveau_message").children().last().attr("class"), $(".o_smileysPanneau").prop("hidden")];
+          $("#barre_bbcode_nouveau_message").children().slice(-2).map((i, e) => e.className).get(),
+          $(".o_smileysPanneau").prop("hidden"), $(".o_gifPanneauForum").prop("hidden")];
       })()`),
     ).toEqual([
       1,
       "INPUT/button/Smileys OUAF",
+      1,
+      "GIF",
       "barreJeu",
       " ",
+      "o_gifBoutonMessagerie",
+      " ",
       "message_autosave_0",
-      "o_smileysPanneau",
+      ["o_gifPanneauForum", "o_smileysPanneau"],
+      true,
       true,
     ]);
     expect(appels()).toEqual([]);
@@ -183,24 +195,37 @@ describe("nouveau message : bouton « Smileys OUAF »", () => {
     ouvrir(ecrire(""), { comptePlus: false });
     expect(
       lire(
-        `[$(".o_smileysBouton").length, $(".o_smileysBouton").parent().attr("id"), $(".o_smileysBouton").next().attr("class")]`,
+        `[$(".o_smileysBouton").length, $(".o_smileysBouton").parent().attr("id"), $(".o_smileysBouton").prev().attr("class"), $(".o_smileysBouton").next().attr("class")]`,
       ),
-    ).toEqual([1, "barre_bbcode_nouveau_message", "o_smileysPanneau"]);
+    ).toEqual([1, "barre_bbcode_nouveau_message", "o_gifBoutonMessagerie", "o_gifPanneauForum"]);
     // la barre de l'extension suit la flèche des smileys du jeu : le bouton vient juste après elle
     ouvrir(ecrire(""), { comptePlus: false, cases: { messagerieMiseEnForme: true } });
     expect(
       lire(
-        `[$(".o_smileysBouton").length, $(".o_smileysBouton").prev().find("#o_colorMessmessage_envoi").length, $(".o_smileysBouton").prev().prev().attr("id")]`,
+        `[$(".o_gifBoutonMessagerie").length, $(".o_gifBoutonMessagerie").prev().find("#o_colorMessmessage_envoi").length, $(".o_gifBoutonMessagerie").prev().prev().attr("id")]`,
       ),
     ).toEqual([1, 1, "smileySuivant0"]);
   });
 
-  test("case décochée : ni bouton ni conversion", async () => {
-    await lire(`ChatGif.lireAlliance("smileys")`);
+  test("case décochée : ni bouton ni conversion ; le bouton « GIF » reste", async () => {
     ouvrir(ecrire(), { cases: { messagerieSmileysAlliance: false } });
+    // sujet lu pour cette alliance : ses codes seraient convertis si la case était cochée
+    await lire(`ChatGif.lireAlliance("smileys")`);
+    expect(lire(`ChatGif.codes().size`)).toBeGreaterThan(0);
     lire(`$("#message_envoi").val("{colley}")`);
     clic("#bt_envoi_message");
-    expect([lire(`$(".o_smileysBouton").length`), lus()]).toEqual([0, ["{colley}"]]);
+    expect([
+      lire(`$(".o_smileysBouton").length`),
+      lire(`$(".o_gifBoutonMessagerie").length`),
+      lus(),
+    ]).toEqual([0, 1, ["{colley}"]]);
+    // une conversation ouverte ensuite : un bouton de plus pour elle, pas un second au nouveau message
+    await ouvrirConversation(12);
+    expect(
+      lire(
+        `[$("#barre_bbcode_nouveau_message .o_gifBoutonMessagerie").length, $("#champ_bbcode_12 .o_gifBoutonMessagerie").length]`,
+      ),
+    ).toEqual([1, 1]);
   });
 });
 
@@ -214,6 +239,7 @@ describe("réponse d'une conversation ouverte", () => {
         `[$(".o_smileysBouton").length, $("#champ_bbcode_12 .o_smileysBouton").length, $("#champ_bbcode_12").children().last().attr("class"), $("#champ_bbcode_34 .o_smileysBouton").length]`,
       ),
     ).toEqual([3, 1, "o_smileysPanneau", 1]);
+    expect(lire(`$(".o_gifBoutonMessagerie").length`)).toBe(3);
     clic("#champ_bbcode_12 .o_smileysBouton");
     await attendre();
     clic("#champ_bbcode_34 .o_smileysBouton");
@@ -229,7 +255,7 @@ describe("réponse d'une conversation ouverte", () => {
     ).toEqual(["", "{colley} ", "{krokmou-1} "]);
     // les ajouts de l'extension ne relancent pas d'autres boutons
     await attendre(120);
-    expect(lire(`$(".o_smileysBouton").length`)).toBe(3);
+    expect(lire(`$(".o_smileysBouton, .o_gifBoutonMessagerie").length`)).toBe(6);
   });
 
   test("« Répondre » et « Répondre à un seul » : converti avant la lecture du jeu ; une autre action ne touche pas au message", async () => {
@@ -259,7 +285,9 @@ describe("réponse d'une conversation ouverte", () => {
     ouvrir();
     await lire(`ChatGif.lireAlliance("smileys")`);
     await ouvrirConversation(56, false);
-    expect(lire(`$("#reaction_56 .o_smileysBouton").length`)).toBe(0);
+    expect(
+      lire(`$("#reaction_56 .o_smileysBouton, #reaction_56 .o_gifBoutonMessagerie").length`),
+    ).toBe(0);
     lire(`$("#champ_reponse_56").val("{colley}")`);
     clic("#repondre_tous_56");
     expect(lus()).toEqual([`[img]${COLLEY}[/img]`]);
@@ -271,5 +299,97 @@ describe("réponse d'une conversation ouverte", () => {
     lire(`$("#champ_reponse_12").val("{colley}")`);
     clic("#repondre_tous_12");
     expect([lus(), appels()]).toEqual([["{colley}"], []]);
+  });
+});
+
+const GIF_A = "https://media.tenor.com/aaa/chien.gif";
+const GIF_B = "https://i.postimg.cc/bbb/os.webp";
+const SUJET_GIF = `<img src="${GIF_B}"/>`;
+
+describe("bouton « GIF » : nouveau message et réponses, à tous ou à un seul", () => {
+  const avecGifs = () =>
+    lire(`(() => {
+      localStorage.setItem("fzzz_mesGif", JSON.stringify([${JSON.stringify(GIF_A)}]));
+      FORUM.sujets.push({ id: "9", titre: "GIF de l'alliance", messages: [${JSON.stringify(SUJET_GIF)}] });
+    })()`);
+
+  test("nouveau message : « Mes GIF » et « GIF de l'alliance » ; un clic met [img] au curseur et ferme le panneau ; rien lu avant le clic", async () => {
+    avecGifs();
+    ouvrir();
+    await attendre();
+    expect(appels()).toEqual([]);
+    lire(
+      `(() => { let c = $("#message_envoi")[0]; c.value = "Salut"; c.setSelectionRange(5, 5); })()`,
+    );
+    clic(".o_gifBoutonMessagerie");
+    await attendre();
+    expect(appels()).toEqual(["callGetForum", "callGetTopic"]);
+    expect(
+      lire(
+        `[$(".o_gifPanneauForum").prop("hidden"), $(".o_gifPanneauForum summary").map((i, s) => s.textContent).get(), $(".o_gifPanneauForum .o_gifMes img").attr("src"), $(".o_gifPanneauForum .o_gifAlliance img").attr("src")]`,
+      ),
+    ).toEqual([false, ["Mes GIF", "GIF de l'alliance"], GIF_A, GIF_B]);
+    clic(".o_gifPanneauForum .o_gifAlliance .o_gifChoix");
+    expect(
+      lire(
+        `[$("#message_envoi").val(), $(".o_gifPanneauForum").prop("hidden"), $(".o_gifBoutonMessagerie").attr("aria-expanded")]`,
+      ),
+    ).toEqual([`Salut [img]${GIF_B}[/img]`, true, "false"]);
+  });
+
+  test("un seul panneau ouvert par message : « GIF » ferme « Smileys » et inversement", async () => {
+    ouvrir();
+    clic(".o_smileysBouton");
+    await attendre();
+    clic(".o_gifBoutonMessagerie");
+    await attendre();
+    expect(
+      lire(`[$(".o_smileysPanneau").prop("hidden"), $(".o_gifPanneauForum").prop("hidden")]`),
+    ).toEqual([true, false]);
+    clic(".o_smileysBouton");
+    await attendre();
+    expect(
+      lire(`[$(".o_smileysPanneau").prop("hidden"), $(".o_gifPanneauForum").prop("hidden")]`),
+    ).toEqual([false, true]);
+  });
+
+  test("réponse : le GIF va dans le message de sa conversation ; « Répondre » et « Répondre à un seul » le gardent dans « Mes GIF »", async () => {
+    avecGifs();
+    ouvrir();
+    await ouvrirConversation(12);
+    await ouvrirConversation(34);
+    clic("#champ_bbcode_34 .o_gifBoutonMessagerie");
+    await attendre();
+    clic("#champ_bbcode_34 .o_gifMes .o_gifChoix");
+    expect(
+      lire(
+        `["message_envoi", "champ_reponse_12", "champ_reponse_34"].map((c) => $("#" + c).val())`,
+      ),
+    ).toEqual(["", "", `[img]${GIF_A}[/img]`]);
+    // réponse à tous, avec un GIF collé à la main : il rejoint « Mes GIF »
+    const AUTRE = "https://media.tenor.com/ccc/os.gif";
+    lire(`$("#champ_reponse_12").val("[img]${AUTRE}[/img]")`);
+    clic("#repondre_tous_12");
+    expect(lus()).toEqual([`[img]${AUTRE}[/img]`]);
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_mesGif"))[0]`)).toBe(AUTRE);
+    // réponse à un seul : la même chose
+    const ENCORE = "https://media.tenor.com/ddd/patte.gif";
+    lire(`(() => {
+      $("#repondre_tous_34").attr("id", "tmp"); $("#repondre_unique_34").attr("id", "repondre_tous_34"); $("#tmp").attr("id", "repondre_unique_34");
+      $("#champ_reponse_34").val("[img]${ENCORE}[/img]");
+    })()`);
+    clic("#reaction_34 .reaction_choisie");
+    expect(lus()[1]).toBe(`[img]${ENCORE}[/img]`);
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_mesGif"))[0]`)).toBe(ENCORE);
+  });
+
+  test("nouveau message envoyé : ses GIF rejoignent « Mes GIF », pas les smileys de l'alliance", async () => {
+    ouvrir();
+    clic(".o_smileysBouton");
+    await attendre();
+    lire(`$("#message_envoi").val("[img]${GIF_A}[/img] {colley}")`);
+    clic("#bt_envoi_message");
+    expect(lus()).toEqual([`[img]${GIF_A}[/img] [img]${COLLEY}[/img]`]);
+    expect(lire(`JSON.parse(localStorage.getItem("fzzz_mesGif"))`)).toEqual([GIF_A]);
   });
 });

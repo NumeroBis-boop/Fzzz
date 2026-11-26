@@ -53,6 +53,8 @@ let codesSmileysJeu = null;
 /** @type {Record<String, Promise<any>>} */
 let lecturesAlliance = {};
 let envoisMessagerieSuivis = false;
+// Messagerie : « GIF » toujours, « Smileys » selon sa case des Préférences
+let sectionsMessagerie = { gif: true, smileys: false };
 // forum : listes cochées dans les Préférences, envois suivis une fois par page
 let sectionsForum = { gif: false, smileys: false };
 let envoisForumSuivis = false;
@@ -761,39 +763,67 @@ class ChatGif {
     return `Smileys ${Utils.alliance}`.trim();
   }
   /**
-   * Messagerie : bouton « Smileys » de chaque message à écrire, le nouveau
-   * message et les réponses des conversations ouvertes, au bout de sa barre de
-   * mise en forme ; leurs codes deviennent des images à l'envoi. Rappelé quand
-   * le jeu ajoute une conversation à la page.
+   * Messagerie : boutons « GIF » et « Smileys » de chaque message à écrire,
+   * le nouveau message et les réponses des conversations ouvertes (à tous ou
+   * à un seul), au bout de sa barre de mise en forme ; les codes des smileys
+   * deviennent des images à l'envoi. Rappelé quand le jeu ajoute une
+   * conversation à la page.
    *
    * @static
    * @method messagerie
+   * @param {{gif: Boolean, smileys: Boolean}} [sections] défaut : GIF, et Smileys selon sa case
    */
-  static messagerie() {
+  static messagerie(
+    sections = { gif: true, smileys: Utils.affichage("messagerieSmileysAlliance") },
+  ) {
+    sectionsMessagerie = sections;
+    if (!sections.gif && !sections.smileys) return;
     $("#message_envoi, textarea[id^='champ_reponse_']").each((i, element) => {
       let champ = /** @type {HTMLTextAreaElement} */ (element),
         reponse = /^champ_reponse_(\d+)$/.exec(champ.id);
       if (!reponse && champ.id != "message_envoi") return;
       let $barre = $(reponse ? `#champ_bbcode_${reponse[1]}` : "#barre_bbcode_nouveau_message");
-      if (!$barre.length || $barre.find(".o_smileysBouton").length) return;
-      let $ancre = ChatGif._ancre($barre),
-        $bouton = $(`<input type="button" class="o_smileysBouton" aria-expanded="false"/>`).attr(
-          "value",
-          ChatGif.libelleSmileys(),
-        ),
-        $panneau = $(`<div class="o_smileysPanneau" hidden></div>`),
-        poste = { champ, $bouton, $panneau };
-      if ($ancre.length) $bouton.insertAfter($ancre);
-      else $bouton.appendTo($barre);
-      // espace avant : le navigateur peut passer à la ligne avant le bouton
-      $bouton.before(document.createTextNode(" "));
-      // dans la barre : caché avec elle quand le joueur choisit autre chose que « Répondre »
-      $panneau.appendTo($barre);
-      $bouton.on("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        ChatGif.basculerSmileys(poste);
-      });
+      if (!$barre.length || $barre.find(".o_gifBoutonMessagerie, .o_smileysBouton").length) return;
+      let $apres = ChatGif._ancre($barre),
+        /** @type {Array<PosteSmileys>} */
+        postes = [],
+        ajouter = (
+          /** @type {String} */ libelle,
+          /** @type {String} */ classeBouton,
+          /** @type {String} */ classePanneau,
+          /** @type {(poste: PosteSmileys) => void} */ remplir,
+        ) => {
+          let poste = {
+            champ,
+            $bouton: $(`<input type="button" class="${classeBouton}" aria-expanded="false"/>`).attr(
+              "value",
+              libelle,
+            ),
+            $panneau: $(`<div class="${classePanneau}" hidden></div>`),
+          };
+          if ($apres.length) poste.$bouton.insertAfter($apres);
+          else poste.$bouton.appendTo($barre);
+          // espace avant : le navigateur peut passer à la ligne avant le bouton
+          poste.$bouton.before(document.createTextNode(" "));
+          $apres = poste.$bouton;
+          // dans la barre : caché avec elle quand le joueur choisit autre chose que « Répondre »
+          poste.$panneau.appendTo($barre);
+          postes.push(poste);
+          poste.$bouton.on("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            ChatGif._basculerPostes(poste, postes, () => remplir(poste));
+          });
+        };
+      if (sections.gif)
+        ajouter("GIF", "o_gifBoutonMessagerie", "o_gifPanneauForum", (poste) =>
+          ChatGif._remplirGif(poste),
+        );
+      if (sections.smileys)
+        ajouter(ChatGif.libelleSmileys(), "o_smileysBouton", "o_smileysPanneau", (poste) => {
+          poste.$panneau.html(`<div class="o_smileysAlliance"></div>`);
+          ChatGif.afficherAlliance("smileys", poste);
+        });
     });
     if (envoisMessagerieSuivis) return;
     envoisMessagerieSuivis = true;
@@ -863,16 +893,7 @@ class ChatGif {
       poste.$bouton.on("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        ChatGif._basculerForum(poste, postes, () => {
-          ChatGif._montrerMes(
-            ChatGif._section("mes", "Mes GIF").addClass("o_gifMes").appendTo(poste.$panneau),
-            (adresse) => ChatGif.choisirGif(poste, adresse),
-          );
-          ChatGif._section("alliance", "GIF de l'alliance")
-            .append(`<div class="o_gifAlliance"></div>`)
-            .appendTo(poste.$panneau);
-          ChatGif.afficherAlliance("gif", poste);
-        });
+        ChatGif._basculerPostes(poste, postes, () => ChatGif._remplirGif(poste));
       });
     }
     if (sectionsForum.smileys) {
@@ -880,7 +901,7 @@ class ChatGif {
       poste.$bouton.on("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        ChatGif._basculerForum(poste, postes, () => {
+        ChatGif._basculerPostes(poste, postes, () => {
           poste.$panneau.html(`<div class="o_smileysAlliance"></div>`);
           ChatGif.afficherAlliance("smileys", poste);
         });
@@ -888,7 +909,26 @@ class ChatGif {
     }
   }
   /**
-   * Ouvre ou ferme le panneau d'un bouton du forum ; l'autre se ferme.
+   * Panneau des GIF d'un message du forum ou de la Messagerie : « Mes GIF »
+   * et « GIF de l'alliance ».
+   *
+   * @private
+   * @static
+   * @param {PosteSmileys} poste
+   */
+  static _remplirGif(poste) {
+    ChatGif._montrerMes(
+      ChatGif._section("mes", "Mes GIF").addClass("o_gifMes").appendTo(poste.$panneau),
+      (adresse) => ChatGif.choisirGif(poste, adresse),
+    );
+    ChatGif._section("alliance", "GIF de l'alliance")
+      .append(`<div class="o_gifAlliance"></div>`)
+      .appendTo(poste.$panneau);
+    ChatGif.afficherAlliance("gif", poste);
+  }
+  /**
+   * Ouvre ou ferme le panneau d'un bouton d'un message du forum ou de la
+   * Messagerie ; celui de l'autre bouton se ferme.
    *
    * @private
    * @static
@@ -896,7 +936,7 @@ class ChatGif {
    * @param {Array<PosteSmileys>} postes ceux du même message
    * @param {() => void} remplir contenu du panneau, à l'ouverture
    */
-  static _basculerForum(poste, postes, remplir) {
+  static _basculerPostes(poste, postes, remplir) {
     let ouvrir = poste.$panneau.prop("hidden");
     postes.forEach((p) => ChatGif._fermer(p.$panneau, p.$bouton));
     if (!ouvrir) return;
@@ -940,7 +980,8 @@ class ChatGif {
   }
   /**
    * Clic sur « Envoyer » ou sur « Répondre » d'une conversation : les codes
-   * des smileys du message envoyé deviennent leurs images.
+   * des smileys du message envoyé deviennent leurs images, et ses GIF
+   * rejoignent « Mes GIF ».
    *
    * @private
    * @static
@@ -956,7 +997,10 @@ class ChatGif {
         m = reaction && /^repondre_(?:tous|unique)_(\d+)$/.exec(reaction.id);
       if (m) champ = document.getElementById(`champ_reponse_${m[1]}`);
     }
-    if (champ) ChatGif.avantEnvoi(/** @type {HTMLTextAreaElement} */ (champ), e);
+    if (!champ) return;
+    let texte = /** @type {HTMLTextAreaElement} */ (champ);
+    if (sectionsMessagerie.smileys && !ChatGif.avantEnvoi(texte, e)) return;
+    if (sectionsMessagerie.gif) ChatGif.noterEnvoi(texte.value);
   }
   /**
    * Place des boutons : au bout de la ligne d'« Envoyer », après les boutons

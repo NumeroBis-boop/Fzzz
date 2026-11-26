@@ -1746,6 +1746,7 @@ html:not(.o_originePage) #color {
 /* chats, Messagerie et forum : boutons « GIF » et « Smileys », leurs listes (ChatGif) */
 #o_gifBouton,
 #o_smileysBouton,
+.o_gifBoutonMessagerie,
 .o_smileysBouton {
   margin-left: 6px;
 }

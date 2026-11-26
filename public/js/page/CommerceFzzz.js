@@ -1075,13 +1075,13 @@ class CommerceFzzz {
               : null,
       // vrai : ne veut pas de convois ; indéfini : le site ne le dit pas (aucune ligne vers lui)
       refuse = (p) => (ouaf.sansReception ? ouaf.sansReception.get(p.toLowerCase()) : undefined),
-      statut = (p) => {
+      // a : avance demandée par p sur la page Avances du site (voir avance)
+      statut = (p, a) => {
+        if (provisoire()) return provisoire();
         let r = refuse(p),
-          a = avance(p),
           mot = a
             ? `<span class='o_convoisAvanceStatut' title='A demandé une avance de ${numeral(a).format()} sur le site de suivi (page Avances)'>(+avance)</span>`
             : "";
-        if (provisoire()) return provisoire();
         if (r === true)
           return `<span class='o_convoisPlein' title='${TITRE_SANS_RECEPTION}'>⚠️ Plein ⚠️</span>${mot ? " " + mot : ""}`;
         if (mot) return mot;
@@ -1089,21 +1089,27 @@ class CommerceFzzz {
           return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi : son choix n&#39;y est pas donné'>—</span>";
         return "<span title='Accepte les convois (site de suivi)'>✅</span>";
       },
-      // avance demandée sur la page Avances du site, montrée après le convoi à faire
-      avance = (p) => (!provisoire() && ouaf.avances ? ouaf.avances.get(p.toLowerCase()) || 0 : 0),
-      reste = (p) => {
+      // 0 sans demande (site pas encore lu : provisoire() l'emporte dans chaque cellule)
+      avance = (p) => (ouaf.avances ? ouaf.avances.get(p.toLowerCase()) || 0 : 0),
+      // convoi à faire (null : aucun convoi prévu vers lui)
+      aFaire = (p) => (provisoire() ? null : ouaf.restes.get(p.toLowerCase())),
+      reste = (p, a) => {
         if (provisoire()) return provisoire();
-        let r = ouaf.restes.get(p.toLowerCase()),
-          a = avance(p),
-          montant =
-            r == null
-              ? "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>"
-              : r > 0
-                ? `<a href='#' class='o_convoisMembreMontant' data-montant='${Math.round(r)}' title='Clic : ${Utils.echapper(p)} en destinataire et ce montant en matériaux (au plus ton stock)'>${numeral(r).format()}</a>`
-                : numeral(r).format();
-        return a
-          ? `<span class='o_convoisReste'>${montant}</span> <span class='o_convoisAvance' title='Avance demandée par ${Utils.echapper(p)} sur le site de suivi (page Avances) : ${numeral(a).format()}'>(+${numeral(a).format()})</span>`
-          : montant;
+        let r = aFaire(p),
+          enAvance = a
+            ? `<span class='o_convoisAvance' title='Avance demandée par ${Utils.echapper(p)} sur le site de suivi (page Avances) : ${numeral(a).format()}'>(+${numeral(a).format()})</span>`
+            : "";
+        // sans convoi prévu, l'avance demandée prend la place du « — »
+        if (r == null)
+          return (
+            enAvance ||
+            "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>"
+          );
+        let montant =
+          r > 0
+            ? `<a href='#' class='o_convoisMembreMontant' data-montant='${Math.round(r)}' title='Clic : ${Utils.echapper(p)} en destinataire et ce montant en matériaux (au plus ton stock)'>${numeral(r).format()}</a>`
+            : numeral(r).format();
+        return enAvance ? `<span class='o_convoisReste'>${montant}</span> ${enAvance}` : montant;
       },
       choix = () => {
         let libres = [...new Set([...Object.keys(connus), ...ouaf.membres])]
@@ -1115,13 +1121,16 @@ class CommerceFzzz {
         if (!p)
           return `<tr class='o_convoisMembreVide'><td>${choix()}</td><td>—</td>${colonneStatut ? "<td>—</td>" : ""}<td>—</td><td>—</td><td></td></tr>`;
         let t = trajet(p),
+          a = avance(p),
+          // convoi à faire et avance : la cellule peut passer à la ligne entre les deux
+          deuxMontants = a > 0 && aFaire(p) != null,
           marques =
             refuse(p) === true
               ? [barree && "o_convoisBarree", rouge && "o_convoisRouge"].filter(Boolean)
               : [];
         return `<tr data-pseudo='${Utils.echapper(p)}'${marques.length ? ` class='${marques.join(" ")}' title='${TITRE_SANS_RECEPTION}'` : ""}><td>${lien(p)}</td>
-          <td${avance(p) ? " class='o_convoisAvecAvance'" : ""}>${reste(p)}</td>
-          ${colonneStatut ? `<td class='o_convoisMembreStatut'>${statut(p)}</td>` : ""}
+          <td${deuxMontants ? " class='o_convoisAvecAvance'" : ""}>${reste(p, a)}</td>
+          ${colonneStatut ? `<td class='o_convoisMembreStatut'>${statut(p, a)}</td>` : ""}
           <td>${t == null ? "<span class='small' title='Position inconnue : « Actualiser les positions » en bas de ce tableau'>?</span>" : hms(t)}</td>
           <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
           <td><span class='o_convoisMembreRetirer' title='Ne plus suivre ce membre'>✕</span></td></tr>`;

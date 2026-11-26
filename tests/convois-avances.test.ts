@@ -139,16 +139,33 @@ describe("demandes d'avance lues dans /api/avances", () => {
 });
 
 describe("Récapitulatif : « (+montant) » en vert après le convoi à faire", () => {
-  test("convoi à faire puis l'avance demandée ; sans demande, rien ; sans convoi prévu, « — » puis l'avance", async () => {
+  test("convoi à faire puis l'avance demandée ; sans demande, rien ; sans convoi prévu, l'avance à la place du « — »", async () => {
     await ouvrir();
     expect(lire(`lectures.slice().sort()`)).toEqual(["GET /api/avances", "GET /api/mes"]);
     expect(cellule("Alpha")).toBe(`${nombre(6452503)} (+${nombre(31000000)})`);
     expect(avance("Alpha")).toBe(`(+${lire<string>(`numeral(31000000).format()`)})`);
     expect(cellule("Bravo")).toBe(nombre(1231594));
     expect(avance("Bravo")).toBeNull();
-    expect(cellule("Charlie")).toBe(`— (+${nombre(1500)})`);
+    // demande du mainteneur, 26/11/2026 : sans montant de convoi, l'avance remplace le tiret
+    expect(cellule("Charlie")).toBe(`(+${nombre(1500)})`);
+    expect(
+      lire<number>(`$("#o_convoisMembres tr[data-pseudo='Charlie'] .o_convoisAvance").length`),
+    ).toBe(1);
     // un joueur qui n'est pas suivi n'ajoute pas de ligne
     expect(lire<number>(`$("#o_convoisMembres tr[data-pseudo]").length`)).toBe(3);
+  });
+
+  test("convoi prévu déjà tout livré (« 0 ») : le 0 reste, l'avance après lui", async () => {
+    const mes = {
+      ...MES,
+      lignes: MES.lignes.map((l) => (l.vers == "Bravo" ? { ...l, envoye: l.demande } : l)),
+    };
+    const avances = {
+      ...AVANCES,
+      demandes: [...AVANCES.demandes, { pseudo: "Bravo", montant: 700.0 }],
+    };
+    await ouvrir(avances, false, { mes });
+    expect(cellule("Bravo")).toBe(`0 (+${nombre(700)})`);
   });
 
   test("info-bulle de l'avance ; le clic sur le convoi à faire garde son montant, pas celui de l'avance", async () => {
@@ -171,6 +188,10 @@ describe("Récapitulatif : « (+montant) » en vert après le convoi à faire", 
     ).toBe("o_convoisAvecAvance");
     expect(
       lire<string>(`$("#o_convoisMembres tr[data-pseudo='Bravo'] td:eq(1)").attr("class") || ""`),
+    ).toBe("");
+    // l'avance seule ne passe pas à la ligne
+    expect(
+      lire<string>(`$("#o_convoisMembres tr[data-pseudo='Charlie'] td:eq(1)").attr("class") || ""`),
     ).toBe("");
     const css = readFileSync(join(__dirname, "..", "public", "css", "outiiil.css"), "utf8");
     expect(css).toMatch(/\.o_convoisMembres td\.o_convoisAvecAvance \{\s*white-space: normal;/);

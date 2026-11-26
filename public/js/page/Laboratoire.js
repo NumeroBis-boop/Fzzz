@@ -49,12 +49,15 @@ class PageLaboratoire {
     } catch (e) {
       console.error("Fzzz : ressources manquantes", e);
     }
+    // avant que tableauEvolution range les recherches en cours
+    let bouclier = this.ligneBouclier();
     // Armée complète (page Reine : garnison et troupes parties comprises),
     // à défaut garnison d'Armee.php plus les troupes parties d'ici
     Promise.all([
       Utils.lireReine(),
       Promise.resolve(this._armee.getArmee()).catch(() => null),
-    ]).then(([reine, html]) => {
+      Utils.pageReine().catch(() => null),
+    ]).then(([reine, html, $reine]) => {
       let complete = reine.reine
         ? Utils.armeeReine(reine.brut, html ? Armee.debloquees(html) : null)
         : null;
@@ -65,8 +68,10 @@ class PageLaboratoire {
         this._raisonReine = reine.raison || "unités de la page Reine non reconnues";
         if (html) this._armee.chargeData(html);
       }
-      // Affichage de la rentabilité du bouclier et de la rentabilité de l'armes
-      if (Utils.affichage("laboInfobulles")) this.titleBouclier().titleArmes();
+      if (Utils.affichage("laboInfobulles")) {
+        if (bouclier) this.conseilBouclier(bouclier, html != null, $reine);
+        this.titleArmes();
+      }
       this.fdfArmes();
     });
     // Rentabilité de l'étable à pucerons, aussi sous Communication avec les animaux
@@ -88,34 +93,67 @@ class PageLaboratoire {
     return this;
   }
   /**
-   * Ajoute un title detaillé pour connaitre la rentabilité du niveau bouclier.
+   * Ligne « Bouclier Thoracique » : sa description, le niveau dont part son
+   * coût et les ouvrières qu'il demande ; null sans elle.
    *
-   * @private
-   * @method titleBouclier
+   * @method ligneBouclier
+   * @return {{$description: any, niveau: Number, ouvrieres: Number}|null}
    */
-  titleBouclier() {
-    let vieAB = this._armee.getBaseVie() + this._armee.getBonusVie(monProfil.niveauRecherche[1]);
-    let tOuv =
-      numeral($(".ligneAmelioration:eq(1)").find(".ouvriere").text()).value() *
-      (TEMPS_UNITE[0] * Math.pow(0.9, monProfil.getTDP()));
-    let apportPonte = Math.round(
-      parseInt(tOuv / (TEMPS_UNITE[1] * Math.pow(0.9, monProfil.getTDP()))) *
-        (8 + (8 * monProfil.niveauRecherche[1]) / 10),
+  ligneBouclier() {
+    let $ligne = $(".ligneAmelioration").filter(
+      (i, tr) =>
+        Utils.texteUnite($(tr).find("h2").first().text()) == Utils.texteUnite(NOM_BOUCLIER),
     );
-    let vieABSupp =
-      this._armee.getBaseVie() + this._armee.getBonusVie(monProfil.niveauRecherche[1] + 1);
-    let bLigneGras = vieAB + apportPonte >= vieABSupp ? true : false;
-    let title = `<table>
-            <tr><td>Vie AB actuelle</td><td class='right'>${numeral(vieAB).format()}</td></tr>
-            <tr${bLigneGras ? " class='gras' " : ""}><td>Vie AB + ponte JSN</td><td class='right' style='padding-left:10px'>${numeral(vieAB + apportPonte).format()} (+ ${numeral(apportPonte).format()})</td></tr>
-            <tr${!bLigneGras ? " class='gras' " : ""}><td>Vie AB niveau ${monProfil.niveauRecherche[1] + 1}</td><td class='right'>${numeral(vieABSupp).format()} (+ ${numeral(vieABSupp - vieAB).format()})</td></tr>
-            </table>`;
-    $(".desciption_amelioration:eq(1) h2")
-      .attr("title", title)
-      .tooltip({
-        position: { my: "left+5 top", at: "right top" },
-        content: title,
-        tooltipClass: "ui-tooltip-brown ui-tooltip-lightBrown",
+    if (!$ligne.length) return null;
+    let affiche = /\d+/.exec($ligne.find(".niveau_amelioration").first().text()),
+      ouvrieres = numeral($ligne.find(".cout_amelioration .ouvriere").first().text()).value();
+    if (!affiche || !(ouvrieres > 0)) return null;
+    return {
+      $description: $ligne.find(".desciption_amelioration").first(),
+      niveau: ConseilBouclier.niveauDepart($(document), Number(affiche[0])),
+      ouvrieres: ouvrieres,
+    };
+  }
+  /**
+   * Conseil d'Optizzz sous le Bouclier Thoracique : son niveau suivant, ou les
+   * unités pondues pendant le temps de repondre ses ouvrières.
+   *
+   * @method conseilBouclier
+   * @param {{$description: any, niveau: Number, ouvrieres: Number}} ligne
+   * @param {Boolean} armeeLue page Armée lue (garnison) quand la page Reine ne donne pas l'armée
+   * @param {any} $reine page Reine, ou null
+   */
+  conseilBouclier(ligne, armeeLue, $reine) {
+    let armee = this._armee.unite,
+      niveaux = [
+        monProfil.niveauConstruction[3],
+        monProfil.niveauConstruction[4],
+        monProfil.niveauRecherche[0],
+      ],
+      vitesse = niveaux.every((n) => n >= 0) ? Math.pow(0.9, monProfil.getTDP()) : null,
+      // une page de connexion n'est pas « aucune unité à pondre »
+      reineLue = !!$reine && $reine.find("input[name='typeUnite']").length > 0,
+      pondables = reineLue ? ConseilBouclier.pondables($reine) : [],
+      manque =
+        !this._armeeComplete && !armeeLue
+          ? "Armée inconnue : ni la page Reine ni la page Armée n'ont pu être lues."
+          : !armee.some((n) => n > 0)
+            ? "Aucune unité dans ton armée : rien à renforcer pour l'instant."
+            : !reineLue
+              ? "Unités à pondre inconnues : la page Reine n'a pas pu être lue."
+              : "";
+    let $bloc = ConseilBouclier.afficher(
+        ligne.$description,
+        ligne,
+        manque ? { manque } : { armee, complete: this._armeeComplete, vitesse, pondables },
+      ),
+      attente = 0;
+    // fenêtre tournée ou redimensionnée : affichage seulement
+    $(window)
+      .off("resize.o_conseilBouclier")
+      .on("resize.o_conseilBouclier", () => {
+        clearTimeout(attente);
+        attente = setTimeout(() => ConseilBouclier.placer($bloc, ligne.$description), 200);
       });
     return this;
   }

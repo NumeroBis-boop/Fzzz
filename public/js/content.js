@@ -96,10 +96,12 @@ const NOM_RAC_UNITE = [
   "Tu",
   "TuE",
 ];
+// temps de ponte et nourriture de chaque unité : tcaste et ncaste du util.js
+// du jeu (24/11/2026), rangés dans l'ordre de NOM_UNITE
 const TEMPS_UNITE = [
-  60, 300, 450, 570, 740, 1000, 1410, 1410, 1440, 1520, 1450, 1860, 1860, 2740, 2740,
+  60, 300, 450, 570, 740, 1000, 1410, 1560, 1440, 1520, 1450, 1860, 2150, 2740, 2740,
 ];
-const COUT_UNITE = [5, 16, 20, 26, 30, 36, 70, 100, 30, 34, 44, 100, 150, 80, 90];
+const COUT_UNITE = [5, 16, 20, 26, 30, 36, 70, 70, 30, 34, 44, 100, 100, 80, 90];
 const VIE_UNITE = [-1, 8, 10, 13, 16, 20, 30, 40, 10, 12, 27, 35, 50, 50, 55];
 const ATT_UNITE = [-1, 3, 5, 7, 10, 15, 1, 1, 30, 35, 24, 55, 80, 50, 55];
 const DEF_UNITE = [-1, 2, 4, 6, 9, 14, 25, 35, 15, 18, 23, 1, 1, 50, 55];

@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.160.0",
+    notes: [
+      "Laboratoire : sous « Bouclier Thoracique », le conseil d'Optizzz dit si le niveau suivant renforce plus ton armée que les unités que la Reine pondrait à la place des ouvrières qu'il coûte. Correction des temps de ponte et de la nourriture du Concierge d'élite et du Tank d'élite, d'après le jeu.",
+    ],
+  },
+  {
     version: "1.159.0",
     notes: [
       "Préférences → Partage de données : nouvelle case « Sans config alliance sur ce serveur », pour une alliance qui n'a pas réglé l'extension. Cochée, l'extension ne lit plus le forum de l'alliance et retire ce qui ne sert qu'à plusieurs (partages, GIF et smileys de l'alliance, Stats membres, alerte des floods).",

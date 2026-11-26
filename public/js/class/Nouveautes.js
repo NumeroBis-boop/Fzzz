@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.157.3",
+    notes: [
+      "Récapitulatif de la page Convois : sans convoi prévu vers un membre, le montant de l'avance qu'il a demandée prend la place du « — » dans « Convoi à faire ».",
+    ],
+  },
+  {
     version: "1.157.2",
     notes: [
       "Récapitulatif de la page Convois : la colonne « Statut des stocks » écrit « (+avance) » au lieu de « Avance » pour un membre qui a demandé une avance.",

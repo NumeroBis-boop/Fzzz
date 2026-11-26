@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.157.2",
+    notes: [
+      "Récapitulatif de la page Convois : la colonne « Statut des stocks » écrit « (+avance) » au lieu de « Avance » pour un membre qui a demandé une avance.",
+    ],
+  },
+  {
     version: "1.157.1",
     notes: [
       "Récapitulatif de la page Convois : la colonne « Statut des stocks » affiche aussi « Avance » en vert et en gras pour un membre qui a demandé une avance sur le site de suivi.",

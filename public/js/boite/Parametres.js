@@ -923,7 +923,7 @@ class BoiteParametre extends Boite {
             <p id='o_profilSiteEtat' class='left small'></p>
             ${this.aide(
               "Le mot de passe reste dans ton navigateur, dans l'espace privé de l'extension.",
-              "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif, le lien « Ouvrir le site de suivi des convois » et la mise à jour de ton profil sur le site (niveaux de l'Étable à pucerons et de la Champignonnière, nombre total d'ouvrières, convois compris), une fois par jour et quand l'un de ces deux niveaux change. Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
+              "Il n'est envoyé qu'au site de suivi, une fois ce site accepté : pour « 📤 Envoyer au suivi » à côté d'un convoi, la colonne « Convoi à faire » du Récapitulatif (avec les avances demandées sur la page Avances du site), le lien « Ouvrir le site de suivi des convois » et la mise à jour de ton profil sur le site (niveaux de l'Étable à pucerons et de la Champignonnière, nombre total d'ouvrières, convois compris), une fois par jour et quand l'un de ces deux niveaux change. Si les réglages de l'alliance donnent un autre site et que tu l'acceptes, ce mot de passe est effacé : il ne part pas vers le nouveau site.",
             )}`,
         )}
         ${this.section(

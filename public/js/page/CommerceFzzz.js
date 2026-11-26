@@ -1052,7 +1052,7 @@ class CommerceFzzz {
           localStorage.setItem(CLE_CONVOIS_MEMBRES, JSON.stringify(suivis));
         } catch (e) {}
       },
-      ouaf = { restes: null, etat: "attente", membres: [], sansReception: null },
+      ouaf = { restes: null, etat: "attente", membres: [], sansReception: null, avances: null },
       barree = Utils.affichage("convoisSansReceptionBarree"),
       rouge = Utils.affichage("convoisSansReceptionRouge"),
       colonneStatut = Utils.affichage("convoisSansReceptionColonne"),
@@ -1084,14 +1084,21 @@ class CommerceFzzz {
           ? `<span class='o_convoisPlein' title='${TITRE_SANS_RECEPTION}'>⚠️ Plein ⚠️</span>`
           : "<span title='Accepte les convois (site de suivi)'>✅</span>";
       },
+      // avance demandée sur la page Avances du site, montrée après le convoi à faire
+      avance = (p) => (!provisoire() && ouaf.avances ? ouaf.avances.get(p.toLowerCase()) || 0 : 0),
       reste = (p) => {
         if (provisoire()) return provisoire();
-        let r = ouaf.restes.get(p.toLowerCase());
-        if (r == null)
-          return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>";
-        return r > 0
-          ? `<a href='#' class='o_convoisMembreMontant' data-montant='${Math.round(r)}' title='Clic : ${Utils.echapper(p)} en destinataire et ce montant en matériaux (au plus ton stock)'>${numeral(r).format()}</a>`
-          : numeral(r).format();
+        let r = ouaf.restes.get(p.toLowerCase()),
+          a = avance(p),
+          montant =
+            r == null
+              ? "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi'>—</span>"
+              : r > 0
+                ? `<a href='#' class='o_convoisMembreMontant' data-montant='${Math.round(r)}' title='Clic : ${Utils.echapper(p)} en destinataire et ce montant en matériaux (au plus ton stock)'>${numeral(r).format()}</a>`
+                : numeral(r).format();
+        return a
+          ? `<span class='o_convoisReste'>${montant}</span> <span class='o_convoisAvance' title='Avance demandée par ${Utils.echapper(p)} sur le site de suivi (page Avances) : ${numeral(a).format()}'>(+${numeral(a).format()})</span>`
+          : montant;
       },
       choix = () => {
         let libres = [...new Set([...Object.keys(connus), ...ouaf.membres])]
@@ -1108,7 +1115,7 @@ class CommerceFzzz {
               ? [barree && "o_convoisBarree", rouge && "o_convoisRouge"].filter(Boolean)
               : [];
         return `<tr data-pseudo='${Utils.echapper(p)}'${marques.length ? ` class='${marques.join(" ")}' title='${TITRE_SANS_RECEPTION}'` : ""}><td>${lien(p)}</td>
-          <td>${reste(p)}</td>
+          <td${avance(p) ? " class='o_convoisAvecAvance'" : ""}>${reste(p)}</td>
           ${colonneStatut ? `<td class='o_convoisMembreStatut'>${statut(p)}</td>` : ""}
           <td>${t == null ? "<span class='small' title='Position inconnue : « Actualiser les positions » en bas de ce tableau'>?</span>" : hms(t)}</td>
           <td class='o_convoisMembreRetour'>${t == null ? "—" : Horloge.clic().add(t, "s").format("DD/MM HH:mm")}</td>
@@ -1304,14 +1311,22 @@ class CommerceFzzz {
             .text(Horloge.clic().add(t, "s").format("DD/MM HH:mm"));
       });
     }, 30000);
-    // reste à livrer : une lecture du site à l'ouverture de la page, puis
-    // après chaque convoi que le joueur y enregistre (EVENEMENT_CONVOI_ENREGISTRE)
+    // reste à livrer et demandes d'avance : une lecture du site à l'ouverture de
+    // la page, puis après chaque convoi que le joueur y enregistre
+    // (EVENEMENT_CONVOI_ENREGISTRE) ; sans les demandes, le reste s'affiche quand même
     let lireSite = () =>
       OuafSuivi.lireCode().then((code) => {
         if (!code) {
           ouaf.etat = "code";
           return afficher();
         }
+        OuafSuivi.lireDemandesAvance().then(
+          (avances) => {
+            ouaf.avances = avances;
+            afficher();
+          },
+          (e) => Journal.info("Convois", "demandes d'avance du site non lues", e && e.message),
+        );
         return OuafSuivi.mesConvois().then(
           (r) => {
             Object.assign(ouaf, {

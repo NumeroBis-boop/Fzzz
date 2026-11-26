@@ -931,7 +931,7 @@ class BoiteParametre extends Boite {
           `<p class='left small'>Le montrer par (une case ou plusieurs) :</p>${this.cases("Convois", MARQUES_SANS_RECEPTION)}` +
             this.aide(
               "",
-              "Ligne barrée, ligne en rouge, colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Aucune case cochée : rien n'est signalé. Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place.",
+              "Ligne barrée, ligne en rouge, colonne « Statut des stocks » : « ⚠️ Plein ⚠️ » pour ce joueur, « ✅ » s'il accepte, « Avance » en vert s'il a demandé une avance sur la page Avances du site (après « ⚠️ Plein ⚠️ » s'il ne veut pas de convois), « — » quand le site ne le dit pas (aucun convoi prévu vers lui). Aucune case cochée : rien n'est signalé. Lu avec la colonne « Convoi à faire » à l'ouverture de la page Convois, mot de passe du site enregistré : rien de plus n'est demandé au site. Les montants restent ceux du site, et un clic sur un montant remplit toujours le convoi. Sur téléphone, la colonne élargit le tableau ; la ligne barrée ou rouge ne prend pas de place.",
             ),
         )}
         ${this.section(

@@ -1077,13 +1077,18 @@ class CommerceFzzz {
       // vrai : ne veut pas de convois ; indéfini : le site ne le dit pas (aucune ligne vers lui)
       refuse = (p) => (ouaf.sansReception ? ouaf.sansReception.get(p.toLowerCase()) : undefined),
       statut = (p) => {
-        let r = refuse(p);
+        let r = refuse(p),
+          a = avance(p),
+          mot = a
+            ? `<span class='o_convoisAvanceStatut' title='A demandé une avance de ${numeral(a).format()} sur le site de suivi (page Avances)'>Avance</span>`
+            : "";
         if (provisoire()) return provisoire();
+        if (r === true)
+          return `<span class='o_convoisPlein' title='${TITRE_SANS_RECEPTION}'>⚠️ Plein ⚠️</span>${mot ? " " + mot : ""}`;
+        if (mot) return mot;
         if (r == null)
           return "<span class='small' title='Aucun convoi prévu vers ce joueur sur le site de suivi : son choix n&#39;y est pas donné'>—</span>";
-        return r
-          ? `<span class='o_convoisPlein' title='${TITRE_SANS_RECEPTION}'>⚠️ Plein ⚠️</span>`
-          : "<span title='Accepte les convois (site de suivi)'>✅</span>";
+        return "<span title='Accepte les convois (site de suivi)'>✅</span>";
       },
       // avance demandée sur la page Avances du site, montrée après le convoi à faire
       avance = (p) => (!provisoire() && ouaf.avances ? ouaf.avances.get(p.toLowerCase()) || 0 : 0),
@@ -1126,7 +1131,7 @@ class CommerceFzzz {
       $bloc = $(`<div id='o_convoisMembres' class='boite_amelioration simulateur centre'>
           <div class='o_convoisMembresTitre'><span class='titre'>Récapitulatif</span></div>
           <div class='o_convoisMembresDefile'><table class='o_convoisMembres o_maxWidth centre' cellspacing='0'>
-            <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th>${colonneStatut ? "<th title='⚠️ Plein ⚠️ : ne veut pas de convois (case du site de suivi) ; ✅ : en accepte ; — : le site ne le dit pas'>Statut des stocks</th>" : ""}<th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
+            <thead><tr><th data-tri='joueur'>Joueur&nbsp;<span class='o_triIcone'></span></th><th data-tri='reste' title='Convoi restant à livrer (site de suivi)'>Convoi à faire&nbsp;<span class='o_triIcone'></span></th>${colonneStatut ? "<th title='⚠️ Plein ⚠️ : ne veut pas de convois (case du site de suivi) ; ✅ : en accepte ; Avance : a demandé une avance sur le site ; — : le site ne le dit pas'>Statut des stocks</th>" : ""}<th data-tri='trajet'>Temps de trajet&nbsp;<span class='o_triIcone'></span></th><th data-tri='retour' title='Horaire de retour d&#39;un convoi lancé maintenant'>Horaire de retour&nbsp;<span class='o_triIcone'></span></th><th></th></tr></thead>
             <tbody></tbody>
             <tfoot><tr><td colspan='${colonneStatut ? 6 : 5}'><a href='#' id='o_convoisMembreAjouter'>+ Ajouter un membre à suivre</a><a href='#' class='o_convoisPositions' title='Relit les positions des membres de l&#39;alliance, comme « Charger / Actualiser » de la Carte (un nouveau membre, une fourmilière déplacée)'>Actualiser les positions</a></td></tr></tfoot>
           </table></div>

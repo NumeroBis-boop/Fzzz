@@ -204,8 +204,7 @@ const AFFICHAGES_FZZZ = {
     "Tableau « Construction(s) / Recherche(s) en cours » à la place des lignes du jeu",
   retourAnnuler: "Lien « Retour » à côté de « Je confirme » quand on annule",
   laboBordures: "Lignes de Construction et du Laboratoire sans bordure",
-  laboInfobulles:
-    "Conseil sous « Bouclier Thoracique » et info-bulle de rentabilité sur le titre « Armes »",
+  laboInfobulles: "Conseils sous « Bouclier Thoracique » et « Armes » (page Laboratoire)",
   reineBonus: "Hors Compte+ : vie et dégâts « Avec bonus » au clic sur l'icône d'une unité",
   reinePonte:
     "Hors Compte+ : formulaire de ponte par nombre, durée ou nourriture, avec un curseur de 1 à 7 jours",

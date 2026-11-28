@@ -50,7 +50,9 @@ class PageLaboratoire {
       console.error("Fzzz : ressources manquantes", e);
     }
     // avant que tableauEvolution range les recherches en cours
-    let bouclier = this.ligneBouclier();
+    let lignes = ["bouclier", "armes"]
+      .map((r) => this.ligneRecherche(/** @type {RechercheConseil} */ (r)))
+      .filter(Boolean);
     // Armée complète (page Reine : garnison et troupes parties comprises),
     // à défaut garnison d'Armee.php plus les troupes parties d'ici
     Promise.all([
@@ -68,11 +70,8 @@ class PageLaboratoire {
         this._raisonReine = reine.raison || "unités de la page Reine non reconnues";
         if (html) this._armee.chargeData(html);
       }
-      if (Utils.affichage("laboInfobulles")) {
-        if (bouclier) this.conseilBouclier(bouclier, html != null, $reine);
-        this.titleArmes();
-      }
-      this.fdfArmes();
+      if (Utils.affichage("laboInfobulles"))
+        lignes.forEach((ligne) => this.conseil(ligne, html != null, $reine));
     });
     // Rentabilité de l'étable à pucerons, aussi sous Communication avec les animaux
     let $communication = $(".ligneAmelioration").filter((i, elt) =>
@@ -93,38 +92,43 @@ class PageLaboratoire {
     return this;
   }
   /**
-   * Ligne « Bouclier Thoracique » : sa description, le niveau dont part son
+   * Ligne d'une recherche conseillée : sa description, le niveau dont part son
    * coût et les ouvrières qu'il demande ; null sans elle.
    *
-   * @method ligneBouclier
-   * @return {{$description: any, niveau: Number, ouvrieres: Number}|null}
+   * @method ligneRecherche
+   * @param {RechercheConseil} recherche
+   * @return {{recherche: RechercheConseil, $description: any, niveau: Number, ouvrieres: Number}|null}
    */
-  ligneBouclier() {
-    let $ligne = $(".ligneAmelioration").filter(
-      (i, tr) =>
-        Utils.texteUnite($(tr).find("h2").first().text()) == Utils.texteUnite(NOM_BOUCLIER),
-    );
+  ligneRecherche(recherche) {
+    let nom = RECHERCHES_CONSEIL[recherche].nom,
+      $ligne = $(".ligneAmelioration").filter(
+        (i, tr) => Utils.texteUnite($(tr).find("h2").first().text()) == Utils.texteUnite(nom),
+      );
     if (!$ligne.length) return null;
     let affiche = /\d+/.exec($ligne.find(".niveau_amelioration").first().text()),
       ouvrieres = numeral($ligne.find(".cout_amelioration .ouvriere").first().text()).value();
     if (!affiche || !(ouvrieres > 0)) return null;
     return {
+      recherche,
       $description: $ligne.find(".desciption_amelioration").first(),
-      niveau: ConseilBouclier.niveauDepart($(document), Number(affiche[0])),
+      niveau: ConseilRecherche.niveauDepart($(document), nom, Number(affiche[0])),
       ouvrieres: ouvrieres,
     };
   }
   /**
-   * Conseil d'Optizzz sous le Bouclier Thoracique : son niveau suivant, ou les
-   * unités pondues pendant le temps de repondre ses ouvrières.
+   * Conseil d'Optizzz sous une recherche : son niveau suivant, ou les unités
+   * pondues pendant le temps de repondre ses ouvrières.
    *
-   * @method conseilBouclier
-   * @param {{$description: any, niveau: Number, ouvrieres: Number}} ligne
+   * @method conseil
+   * @param {{recherche: RechercheConseil, $description: any, niveau: Number, ouvrieres: Number}} ligne
    * @param {Boolean} armeeLue page Armée lue (garnison) quand la page Reine ne donne pas l'armée
    * @param {any} $reine page Reine, ou null
    */
-  conseilBouclier(ligne, armeeLue, $reine) {
-    let armee = this._armee.unite,
+  conseil(ligne, armeeLue, $reine) {
+    // sans l'armée complète de la page Reine : la garnison, plus les troupes
+    // parties en chasse ou en attaque depuis ce navigateur
+    let dehors = this._armeeComplete ? [] : TroupesDehors.total(),
+      armee = this._armee.unite.map((n, i) => n + (dehors[i] || 0)),
       niveaux = [
         monProfil.niveauConstruction[3],
         monProfil.niveauConstruction[4],
@@ -133,7 +137,7 @@ class PageLaboratoire {
       vitesse = niveaux.every((n) => n >= 0) ? Math.pow(0.9, monProfil.getTDP()) : null,
       // une page de connexion n'est pas « aucune unité à pondre »
       reineLue = !!$reine && $reine.find("input[name='typeUnite']").length > 0,
-      pondables = reineLue ? ConseilBouclier.pondables($reine) : [],
+      pondables = reineLue ? ConseilRecherche.pondables($reine) : [],
       manque =
         !this._armeeComplete && !armeeLue
           ? "Armée inconnue : ni la page Reine ni la page Armée n'ont pu être lues."
@@ -142,150 +146,20 @@ class PageLaboratoire {
             : !reineLue
               ? "Unités à pondre inconnues : la page Reine n'a pas pu être lue."
               : "";
-    let $bloc = ConseilBouclier.afficher(
+    let $bloc = ConseilRecherche.afficher(
         ligne.$description,
         ligne,
         manque ? { manque } : { armee, complete: this._armeeComplete, vitesse, pondables },
       ),
-      attente = 0;
+      attente = 0,
+      evenement = "resize.o_conseil_" + ligne.recherche;
     // fenêtre tournée ou redimensionnée : affichage seulement
     $(window)
-      .off("resize.o_conseilBouclier")
-      .on("resize.o_conseilBouclier", () => {
+      .off(evenement)
+      .on(evenement, () => {
         clearTimeout(attente);
-        attente = setTimeout(() => ConseilBouclier.placer($bloc, ligne.$description), 200);
+        attente = setTimeout(() => ConseilRecherche.placer($bloc, ligne.$description), 200);
       });
-    return this;
-  }
-  /**
-   * Détail de l'armée prise en compte dans la FdF (bulle au survol) : une
-   * ligne par unité, nombre × attaque HB.
-   *
-   * @method detailArmee
-   * @param {Array} unites nombres, ordre d'Armee.unite
-   * @return {String}
-   */
-  detailArmee(unites) {
-    let lignes = unites
-      .map((n, i) =>
-        n
-          ? `${numeral(n).format()} ${n > 1 ? NOM_UNITES[i + 1] : NOM_UNITE[i + 1]} × ${ATT_UNITE[i + 1]} = ${numeral(n * ATT_UNITE[i + 1]).format()}`
-          : "",
-      )
-      .filter(Boolean);
-    return lignes.length
-      ? `Armée prise en compte (${this._armeeComplete ? "complète, page Reine" : "estimée"}) :\n${lignes.join("\n")}`
-      : "Aucune unité de combat";
-  }
-  /**
-   * Ajoute un title detaillé pour connaitre la rentabilité du niveau d'armes.
-   *
-   * @private
-   * @method titleArmes
-   */
-  titleArmes() {
-    let attAB = this._armee.getTotalAtt(monProfil.niveauRecherche[2]);
-    let tOuv =
-      numeral($(".ligneAmelioration:eq(2)").find(".ouvriere").text()).value() *
-      (TEMPS_UNITE[0] * Math.pow(0.9, monProfil.getTDP()));
-    let apportPonteJS = Math.round(
-      parseInt(tOuv / (TEMPS_UNITE[4] * Math.pow(0.9, monProfil.getTDP()))) *
-        (10 + (10 * monProfil.niveauRecherche[2]) / 10),
-    );
-    let apportPonteTk = Math.round(
-      parseInt(tOuv / (TEMPS_UNITE[11] * Math.pow(0.9, monProfil.getTDP()))) *
-        (55 + (55 * monProfil.niveauRecherche[2]) / 10),
-    );
-    let attABSupp = this._armee.getTotalAtt(monProfil.niveauRecherche[2] + 1);
-    let bLigneGrasJS = attAB + apportPonteJS >= attABSupp ? true : false;
-    let bLigneGrasTk = attAB + apportPonteTk >= attABSupp ? true : false;
-
-    let defAB = this._armee.getTotalDef(monProfil.niveauRecherche[2]);
-    let apportPonteTuE = Math.round(
-      parseInt(tOuv / (TEMPS_UNITE[14] * Math.pow(0.9, monProfil.getTDP()))) *
-        (55 + (55 * monProfil.niveauRecherche[2]) / 10),
-    );
-    let defABSupp = this._armee.getTotalDef(monProfil.niveauRecherche[2] + 1);
-    let bLigneGrasTuE = defAB + apportPonteTuE >= defABSupp ? true : false;
-
-    let title = `<table>
-            <tr><td>Attaque AB actuelle</td><td class='right'>${numeral(attAB).format()}</td></tr>
-            <tr${bLigneGrasJS ? " class='gras' " : ""}><td>Attaque AB + ponte JS</td><td class='right' style='padding-left:10px'>${numeral(attAB + apportPonteJS).format()} (+ ${numeral(apportPonteJS).format()})</td></tr>
-            <tr${bLigneGrasTk ? " class='gras' " : ""}><td>Attaque AB + ponte Tank</td><td class='right' style='padding-left:10px'>${numeral(attAB + apportPonteTk).format()} (+ ${numeral(apportPonteTk).format()})</td></tr>
-            <tr${!bLigneGrasTk ? " class='gras' " : ""}><td>Attaque AB niveau ${monProfil.niveauRecherche[2] + 1}</td><td class='right'>${numeral(attABSupp).format()} (+ ${numeral(attABSupp - attAB).format()})</td></tr></table><hr/><table>
-            <tr><td>Défense AB actuelle</td><td class='right'>${numeral(defAB).format()}</td></tr>
-            <tr${bLigneGrasTuE ? " class='gras' " : ""}><td>Défense AB + ponte TuE</td><td class='right' style='padding-left:10px'>${numeral(defAB + apportPonteTuE).format()} (+ ${numeral(apportPonteTuE).format()})</td></tr>
-            <tr${!bLigneGrasTuE ? " class='gras' " : ""}><td>Défense AB niveau ${monProfil.niveauRecherche[2] + 1}</td><td class='right'>${numeral(defABSupp).format()} (+ ${numeral(defABSupp - defAB).format()})</td></tr>
-            </table>`;
-    $(".desciption_amelioration:eq(2) h2")
-      .attr("title", title)
-      .tooltip({
-        position: { my: "left+5 top", at: "right top" },
-        content: title,
-        tooltipClass: "ui-tooltip-brown ui-tooltip-lightBrown",
-      });
-    return this;
-  }
-  /**
-   * Extension sous la ligne Armes (la ligne du jeu reste intacte) : FdF hors
-   * bonus (HB) de l'armée, FdF HB requise pour que le niveau suivant rapporte
-   * autant que la ponte de JS, d'Artilleuses, de Tanks ou de Tueuses d'élite pendant le temps de
-   * ponte des ouvrières sacrifiées, ce qu'il manque, et le nombre d'unités de
-   * chaque sorte qui comblerait ce manque.
-   *
-   *   Sₙ = ⌈Cₙ × 60 / tᵤ × aᵤ × (n + 9)⌉, rentable si FdF HB ≥ Sₙ
-   *
-   * n = niveau visé, Cₙ = ouvrières du niveau (lues sur la page), tᵤ et aᵤ =
-   * temps de ponte et attaque de base de l'unité. Les bonus de ponte
-   * (Couveuse, Solarium, Technique de ponte) touchent ouvrières et unités de
-   * la même façon : ils s'annulent.
-   *
-   * @private
-   * @method fdfArmes
-   */
-  fdfArmes() {
-    let $ligne = $(".ligneAmelioration:eq(2)"),
-      ouvrieres = numeral($ligne.find(".ouvriere").text()).value(),
-      niveau = monProfil.niveauRecherche[2] + 1;
-    if (!$ligne.length || !ouvrieres || isNaN(niveau)) return this;
-    // armée complète (Reine), sinon garnison (Armee.php) + troupes parties en
-    // chasse ou en attaque depuis ce navigateur
-    let dehors = this._armeeComplete ? [] : TroupesDehors.total(),
-      unites = this._armee.unite.map((n, i) => n + (dehors[i] || 0)),
-      fdf = unites.reduce((s, n, i) => s + n * ATT_UNITE[i + 1], 0),
-      // calcul entier exact, arrondi supérieur à la fin
-      seuil = (u) =>
-        Number(
-          (BigInt(ouvrieres) * 60n * BigInt(ATT_UNITE[u]) * BigInt(niveau + 9) +
-            BigInt(TEMPS_UNITE[u]) -
-            1n) /
-            BigInt(TEMPS_UNITE[u]),
-        ),
-      lignes = [4, 8, 11, 14]
-        .map((u) => {
-          let s = seuil(u),
-            manque = Math.max(0, s - fdf),
-            // unités de cette sorte (attaque HB aᵤ chacune) qui combleraient le manque
-            nombre = Math.ceil(manque / ATT_UNITE[u]);
-          return `<tr><td class='left'>${NOM_UNITES[u]}</td><td class='right'>${numeral(s).format()}</td>
-            <td class='right ${manque ? "red" : "green"}'>${manque ? numeral(manque).format() : "rentable"}</td>
-            <td class='right'>${manque ? numeral(nombre).format() + " " + NOM_RAC_UNITE[u] : "—"}</td></tr>`;
-        })
-        .join("");
-    Utils.ajouterSpoilerRentabilite(
-      $ligne,
-      "o_fdfArmesLigne",
-      `<p><strong class='o_fdfDetail' title="${Utils.echapper(this.detailArmee(unites))}">FdF HB actuelle : ${numeral(fdf).format()}</strong>
-        ${
-          this._armeeComplete
-            ? `<span class='small' title="Lue dans la page Reine : garnison et troupes parties en chasse ou en attaque">(armée complète)</span>`
-            : `<span class='small' title="Page Reine illisible (${Utils.echapper(this._raisonReine || "")}) : garnison de la page Armée, plus les chasses et attaques lancées depuis ce navigateur et encore en cours">(armée estimée)</span>`
-        }</p>
-      <table cellspacing='0'>
-        <tr class='gras'><td class='left'>Armes ${niveau} contre la ponte de</td><td class='right'>FdF HB requise</td><td class='right'>FdF HB manquante</td><td class='right'>Unités à pondre</td></tr>
-        ${lignes}
-      </table>`,
-    );
     return this;
   }
   /**

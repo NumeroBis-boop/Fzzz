@@ -25,6 +25,17 @@
   --fzzz-succes-clair: #27ae60;
 }
 
+/* Un navigateur de téléphone (Firefox Android, aussi Chrome) grossit le texte
+ * d'un bloc large qui en contient beaucoup, jusqu'à 1,5 fois : les blocs de
+ * l'extension l'étaient (info-bulle des délais 20/11/2026, Préférences 21/11,
+ * conseil du Bouclier 28/11), pas les cellules étroites du jeu. Leur texte
+ * garde sa taille, comme celui du jeu ; <html> porte aussi des classes o_. */
+:is([class^="o_"], [class*=" o_"], [id^="o_"]):not(html) {
+  -moz-text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
 /* couleur */
 .black {
   color: #000;
@@ -647,11 +658,6 @@ html:not(.o_origineGenerale) #recherche {
 }
 
 /* toolbar avec les outils */
-/* Fzzz : FdF HB actuelle, détail de l'armée au survol */
-.o_fdfDetail {
-  cursor: help;
-  border-bottom: 1px dotted currentColor;
-}
 /* Fzzz : encadré « Extension OUAF » (style de l'encadré Compte+ du jeu) */
 #o_boiteExtension {
   margin-top: 8px;
@@ -1071,14 +1077,9 @@ hr.o_calcSepar {
 
 /* Parametre */
 /* hauteur des onglets : BoiteParametre.ajusterTaille (la croix reste à l'écran) */
-/* text-size-adjust : Firefox Android grossissait les aides (capture du 21/11/2026),
-   « En savoir plus » se coupant alors mot par mot, comme dans .o_delaiInfobulle */
 #o_boiteParametre {
   min-width: 40%;
   max-width: min(760px, calc(100vw - 16px));
-  -moz-text-size-adjust: none;
-  -webkit-text-size-adjust: none;
-  text-size-adjust: none;
 }
 #o_tabsParametre .ui-tabs-panel {
   box-sizing: border-box;
@@ -3950,15 +3951,10 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   cursor: help;
 }
 /* les événements souris d'un toucher passent à la cellule : sinon elle est « quittée » et la bulle se ferme ;
-   largeur : les 500 px du jeu (.warning-tooltip, !important), moins sur un téléphone ;
-   text-size-adjust : un navigateur mobile (Firefox Android, capture du 20/11/2026) grossit le texte
-   d'un bloc large et long, ici environ 1,5 fois, bien plus que celui de la page */
+   largeur : les 500 px du jeu (.warning-tooltip, !important), moins sur un téléphone */
 .ui-tooltip.o_delaiInfobulle {
   max-width: min(92vw, 500px) !important;
   pointer-events: none;
-  -moz-text-size-adjust: none;
-  -webkit-text-size-adjust: none;
-  text-size-adjust: none;
 }
 .o_delaiInfobulle .o_delaiDetail,
 .o_delaiInfobulle .o_delaiNote {
@@ -3989,7 +3985,7 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   font-weight: bold;
 }
 
-/* Conseil sous « Bouclier Thoracique » du Laboratoire (méthode d'Optizzz) */
+/* Conseils sous « Bouclier Thoracique » et « Armes » du Laboratoire (méthode d'Optizzz) */
 html:not(.o_originePage) tr.ligneAmelioration:has(.o_conseil[open]) > td {
   vertical-align: top !important;
 }
@@ -4002,7 +3998,8 @@ html:not(.o_originePage) tr.ligneAmelioration:has(.o_conseil[open]) > td {
   text-align: left;
   font-size: var(--fzzz-reduit);
   line-height: 1.35;
-  max-width: 100%;
+  /* sur un téléphone, le tableau du jeu est déjà plus large que l'écran */
+  max-width: min(100%, calc(100vw - 24px));
   box-sizing: border-box;
 }
 .o_conseil[data-verdict="recherche"] {
@@ -4093,6 +4090,13 @@ html:not(.o_originePage) tr.ligneAmelioration:has(.o_conseil[open]) > td {
 .o_conseilNote {
   color: var(--fzzz-secondaire);
   font-size: var(--fzzz-petit);
+}
+.o_conseilChoix button {
+  margin-left: 0.4em;
+}
+.o_conseilChoix button[aria-pressed="true"] {
+  font-weight: bold;
+  outline: 2px solid var(--fzzz-succes);
 }
 .o_conseilLigne > td {
   padding: 0 0.5em 0.5em;

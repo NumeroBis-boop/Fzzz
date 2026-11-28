@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.161.0",
+    notes: [
+      "Laboratoire : sous « Armes », le même conseil que sous le Bouclier, comparé sur l'attaque ou la défense au choix ; il remplace l'ancienne estimation de rentabilité. Sur téléphone, le navigateur ne grossit plus le texte des blocs de l'extension.",
+    ],
+  },
+  {
     version: "1.160.0",
     notes: [
       "Laboratoire : sous « Bouclier Thoracique », le conseil d'Optizzz dit si le niveau suivant renforce plus ton armée que les unités que la Reine pondrait à la place des ouvrières qu'il coûte. Correction des temps de ponte et de la nourriture du Concierge d'élite et du Tank d'élite, d'après le jeu.",

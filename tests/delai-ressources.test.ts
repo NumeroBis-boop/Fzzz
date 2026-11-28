@@ -645,15 +645,16 @@ describe("toucher (téléphone)", () => {
   });
 
   test("le navigateur ne grossit pas le texte de l'info-bulle (Firefox Android : environ 1,5 fois)", () => {
+    // règle commune aux éléments de l'extension (tests/taille-texte.test.ts)
     const css = readFileSync(join(import.meta.dir, "..", "public", "css", "outiiil.css"), "utf8");
-    const regle = css.match(/\.ui-tooltip\.o_delaiInfobulle \{([^}]*)\}/);
-    expect(regle).not.toBeNull();
-    // -moz- pour Firefox (auto | none seulement), -webkit- et sans préfixe pour Chromium et Safari
-    for (const propriete of [
-      "-moz-text-size-adjust",
-      "-webkit-text-size-adjust",
-      "text-size-adjust",
-    ])
-      expect(regle![1]).toMatch(new RegExp(`(^|[\\s;])${propriete}: none;`));
+    const selecteur = /([^{}]*)\{[^}]*-moz-text-size-adjust: none;/
+      .exec(css)![1]!
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .trim();
+    expect(
+      lire(
+        `$("<div class='ui-tooltip o_delaiInfobulle'>")[0].matches(${JSON.stringify(selecteur)})`,
+      ),
+    ).toBe(true);
   });
 });

@@ -12,9 +12,6 @@
 const PAS_RECHERCHE = 0.1;
 // à 5 % près, le calcul ne départage pas la recherche et la ponte
 const ECART_EGAL_CONSEIL = 0.05;
-// en dessous (téléphone), la description du jeu est une colonne trop étroite :
-// le bloc passe sur une ligne de toute la largeur, sous celle de la recherche
-const LARGEUR_MIN_CONSEIL = 280;
 // Armes comparée sur l'attaque (attaquant) ou la défense (défenseur), au choix
 const CLE_CONSEIL_ARMES_STAT = "fzzz_conseilArmesStat";
 
@@ -202,34 +199,43 @@ class ConseilRecherche {
     }
   }
   /**
-   * Bloc « Conseil » à la fin de la description de la ligne, replié sur son
-   * verdict ; son ouverture est gardée par serveur.
+   * Dépliant « Conseil » sur une ligne de toute la largeur, sous celle de la
+   * recherche, au format du dépliant de rentabilité de l'étable
+   * (Utils.ajouterSpoilerRentabilite), replié sur son verdict ; son ouverture
+   * est gardée par serveur.
    *
    * @static
    * @method afficher
    * @param {any} $description cellule de description de la ligne
    * @param {LigneConseil} ligne
    * @param {{manque: String}|DonneesConseil} donnees
-   * @return {any} le bloc
+   * @return {any} le dépliant
    */
   static afficher($description, ligne, donnees) {
     let cleOuvert = RECHERCHES_CONSEIL[ligne.recherche].ouvert,
-      ouvert = false;
+      ouvert = false,
+      $ligne = $description.closest("tr");
     try {
       ouvert = localStorage.getItem(cleOuvert) == "1";
     } catch (e) {}
-    $description.find(".o_conseil").remove();
-    $description.closest("tr").next(".o_conseilLigne").remove();
+    $ligne.next(".o_conseilLigne").remove();
     let $bloc = $(
-      `<details class="o_conseil" data-recherche="${ligne.recherche}"${ouvert ? " open" : ""}></details>`,
+      `<details class="o_spoilerCadre o_conseil" data-recherche="${ligne.recherche}"${ouvert ? " open" : ""}></details>`,
     );
+    $(
+      `<tr class="o_spoilerLigne o_conseilLigne"><td colspan="${$ligne.children("td").length || 4}"></td></tr>`,
+    )
+      .insertAfter($ligne)
+      .children("td")
+      .append($bloc);
     $bloc.on("toggle", () => {
+      let ouvre = $bloc.prop("open");
+      $bloc.find("> summary .o_fleche").text(ouvre ? "▼" : "▶");
       try {
-        if ($bloc.prop("open")) localStorage.setItem(cleOuvert, "1");
+        if (ouvre) localStorage.setItem(cleOuvert, "1");
         else localStorage.removeItem(cleOuvert);
       } catch (e) {}
     });
-    ConseilRecherche.placer($bloc, $description);
     ConseilRecherche._remplir($bloc, ligne, donnees);
     return $bloc;
   }
@@ -241,12 +247,14 @@ class ConseilRecherche {
    * @param {{manque: String}|DonneesConseil} donnees
    */
   static _remplir($bloc, ligne, donnees) {
-    let $resume = $(`<summary><span class="o_conseilTag">Conseil</span></summary>`);
+    let $resume = $(
+      `<summary class="o_spoilerBandeau"><span class="o_fleche">${$bloc.prop("open") ? "▼" : "▶"}</span> Conseil · </summary>`,
+    );
     $bloc.empty().removeAttr("data-verdict").append($resume);
     if ("manque" in donnees) {
-      $resume.append($("<span>").text(" " + donnees.manque));
+      $resume.append(document.createTextNode(donnees.manque));
       $bloc.append(
-        `<div class="o_conseilCorps"><p class="o_conseilNote">Le conseil compare la recherche à la ponte d'unités pendant le temps de repondre ses ouvrières.</p></div>`,
+        `<div class="o_spoilerContenu o_conseilCorps"><p class="o_conseilNote">Le conseil compare la recherche à la ponte d'unités pendant le temps de repondre ses ouvrières.</p></div>`,
       );
       return;
     }
@@ -261,11 +269,7 @@ class ConseilRecherche {
         pondables: donnees.pondables,
       });
     $bloc.attr("data-verdict", ConseilRecherche.verdict(c.ecart));
-    $resume.append(
-      " ",
-      $("<strong>").text(ConseilRecherche.texteVerdict(c, stat)),
-      ` <span class="o_conseilPlus">Détails</span>`,
-    );
+    $resume.append(document.createTextNode(ConseilRecherche.texteVerdict(c, stat)));
     let $corps = $(ConseilRecherche._corps(ligne, c, donnees, stat)).appendTo($bloc);
     $corps.find(".o_conseilChoix button").on("click", (e) => {
       try {
@@ -273,32 +277,6 @@ class ConseilRecherche {
       } catch (err) {}
       ConseilRecherche._remplir($bloc, ligne, donnees);
     });
-  }
-  /**
-   * Dans la description de la ligne, comme Optizzz ; sur une ligne de toute la
-   * largeur juste dessous quand la description est trop étroite. Largeur
-   * inconnue (0) : dans la description.
-   *
-   * @static
-   * @method placer
-   * @param {any} $bloc
-   * @param {any} $description
-   */
-  static placer($bloc, $description) {
-    let $ligne = $description.closest("tr"),
-      $dessous = $ligne.next(".o_conseilLigne");
-    $bloc.detach();
-    let largeur = $description[0].getBoundingClientRect().width;
-    if (largeur && largeur < LARGEUR_MIN_CONSEIL) {
-      if (!$dessous.length)
-        $dessous = $(
-          `<tr class="o_conseilLigne"><td colspan="${$ligne.children().length}"></td></tr>`,
-        ).insertAfter($ligne);
-      $dessous.children("td").append($bloc);
-    } else {
-      $description.append($bloc);
-      $dessous.remove();
-    }
   }
   /**
    * @private
@@ -322,7 +300,7 @@ class ConseilRecherche {
       temps = donnees.vitesse
         ? ` : les repondre prend ${ConseilRecherche.duree(c.secondes)},`
         : ",",
-      html = `<div class="o_conseilCorps">`;
+      html = `<div class="o_spoilerContenu o_conseilCorps">`;
     if (ligne.recherche == "armes")
       html += `<p class="o_conseilChoix" role="group">Comparer sur : ${[
         ["attaque", "l'attaque"],

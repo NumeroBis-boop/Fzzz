@@ -74,6 +74,6 @@ L'ancienne version de Fzzz (0.5, écrite de zéro) est archivée dans la branche
 - Fork maintenu : [Toolzzz](https://github.com/GuiEpi/toolzzz) par GuiEpi
 - Fzzz : NumeroBis-boop
 - Thème jQuery UI « humanity » (paquet npm `jquery-ui-themes` 1.12.0, jQuery Foundation, licence MIT), embarqué dans `public/css/lib/`
-- Conseil sous « Bouclier Thoracique » (page Laboratoire) : méthode et textes repris du conseil « Armes et Bouclier Thoracique » d'[Optizzz](https://github.com/Achaak/Optizzz) (Copyright (c) 2026 Axel Lavoie, licence MIT), réécrits dans `public/js/class/ConseilBouclier.js`
+- Conseils sous « Bouclier Thoracique » et « Armes » (page Laboratoire) : méthode et textes repris du conseil « Armes et Bouclier Thoracique » d'[Optizzz](https://github.com/Achaak/Optizzz) (Copyright (c) 2026 Axel Lavoie, licence MIT), réécrits dans `public/js/class/ConseilRecherche.js`
 
 [GPL-3.0](LICENSE), conformément à la licence des projets d'origine.

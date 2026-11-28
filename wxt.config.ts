@@ -177,7 +177,7 @@ export default defineConfig({
           "js/class/AttaqueLancee.js",
           "js/class/Entrepots.js",
           "js/class/DelaiRessources.js",
-          "js/class/ConseilBouclier.js",
+          "js/class/ConseilRecherche.js",
           "js/class/Chasse.js",
           "js/class/Combat.js",
           "js/class/Horloge.js",

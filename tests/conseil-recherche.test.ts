@@ -4,9 +4,10 @@ import { join } from "node:path";
 import { creerPage } from "./harnais";
 
 /**
- * Conseil sous « Bouclier Thoracique » du Laboratoire (demande du mainteneur,
- * 26/11/2026 : « l'affichage et le même calcul que ce qui était fait sur
- * optizzz »), méthode d'Optizzz (github.com/Achaak/Optizzz, MIT) : le niveau
+ * Conseils sous « Bouclier Thoracique » (demande du mainteneur, 26/11/2026 :
+ * « l'affichage et le même calcul que ce qui était fait sur optizzz ») et
+ * « Armes » (28/11/2026 : « reprend le même modèle que optizzz ») du
+ * Laboratoire, méthode d'Optizzz (github.com/Achaak/Optizzz, MIT) : le niveau
  * suivant contre les unités que la Reine pondrait pendant le temps de repondre
  * les ouvrières qu'il coûte. Le cas de référence est celui des tests d'Optizzz
  * (2 560 ouvrières, Bouclier 5 → 6, 15 000 JSN et 1 282 SN).
@@ -26,11 +27,13 @@ const page = creerPage(
   [
     "js/class/Utils.js",
     "js/class/Armee.js",
-    "js/class/ConseilBouclier.js",
+    "js/class/ConseilRecherche.js",
     "js/page/Laboratoire.js",
   ],
   `${UNITES.map(constante).join("\n")}
-   var monProfil = { niveauConstruction: [0, 0, 0, 10, 9], niveauRecherche: [9, 5], getTDP() { return 28; } };`,
+   var monProfil = { niveauConstruction: [0, 0, 0, 10, 9], niveauRecherche: [9, 5], getTDP() { return 28; } };
+   // troupes parties en chasse ou en attaque depuis ce navigateur
+   var TroupesDehors = { total: () => window.DEHORS || [] };`,
 );
 const lire = <T = any>(e: string) => page.lire<T>(e);
 // la Reine du cas de référence : 2 560 ouvrières repondues en 7 235 s
@@ -41,10 +44,12 @@ const armee = (unites: Record<number, number>) =>
 const ARMEE = armee({ 1: 15000, 2: 1282 });
 const calculer = (e: Record<string, unknown>) =>
   lire<any>(
-    `ConseilBouclier.calculer(${JSON.stringify({ niveau: 5, ouvrieres: 2560, armee: ARMEE, vitesse: VITESSE, pondables: [1, 2, 3], ...e })})`,
+    `ConseilRecherche.calculer(${JSON.stringify({ stat: "vie", niveau: 5, ouvrieres: 2560, armee: ARMEE, vitesse: VITESSE, pondables: [1, 2, 3], ...e })})`,
   );
 const verdict = (e: Record<string, unknown>) =>
-  lire<string>(`ConseilBouclier.texteVerdict(${JSON.stringify(calculer(e))})`);
+  lire<string>(
+    `ConseilRecherche.texteVerdict(${JSON.stringify(calculer(e))}, ${JSON.stringify(e.stat || "vie")})`,
+  );
 const espaces = (t: string) => t.replace(/[\s ]+/g, " ").trim();
 
 describe("calcul (celui d'Optizzz)", () => {
@@ -103,7 +108,7 @@ describe("calcul (celui d'Optizzz)", () => {
     );
     expect(
       lire(
-        `[ConseilBouclier.verdict(0.06), ConseilBouclier.verdict(-0.06), ConseilBouclier.verdict(0.05)]`,
+        `[ConseilRecherche.verdict(0.06), ConseilRecherche.verdict(-0.06), ConseilRecherche.verdict(0.05)]`,
       ),
     ).toEqual(["recherche", "ponte", "egal"]);
   });
@@ -111,7 +116,7 @@ describe("calcul (celui d'Optizzz)", () => {
   test("durée écrite comme Optizzz", () => {
     expect(
       lire(
-        `[ConseilBouclier.duree(7235), ConseilBouclier.duree(2700), ConseilBouclier.duree(277200)]`,
+        `[ConseilRecherche.duree(7235), ConseilRecherche.duree(2700), ConseilRecherche.duree(277200)]`,
       ),
     ).toEqual(["2 h 01", "45 min", "3 j 5 h"]);
   });
@@ -129,14 +134,16 @@ const REINE = `<table>${ligneReine("Ouvrière", 0, true).replace("input_cout_nom
 describe("lectures des pages du jeu", () => {
   // Soldate : un prérequis manquant malgré un champ ; Concierge : sans champ
   test("unités à pondre : celles qui ont leur champ de quantité et aucun prérequis manquant, l'ouvrière exclue", () => {
-    expect(lire(`ConseilBouclier.pondables(Utils.parseHtml(${JSON.stringify(REINE)}))`)).toEqual([
+    expect(lire(`ConseilRecherche.pondables(Utils.parseHtml(${JSON.stringify(REINE)}))`)).toEqual([
       1, 2, 8, 12,
     ]);
   });
 
   test("recherche du Bouclier en cours : le coût affiché part du niveau en file", () => {
     const depart = (html: string) =>
-      lire<number>(`ConseilBouclier.niveauDepart(Utils.parseHtml(${JSON.stringify(html)}), 10)`);
+      lire<number>(
+        `ConseilRecherche.niveauDepart(Utils.parseHtml(${JSON.stringify(html)}), "Bouclier Thoracique", 10)`,
+      );
     expect(
       depart(`<div id="centre"><strong>- Armes 12 terminé dans: <span>1h</span></strong></div>`),
     ).toBe(10);
@@ -172,11 +179,11 @@ describe("bloc « Conseil » de la ligne", () => {
 
   test("à la fin de la description, replié sur son verdict ; le détail du calcul dans le bloc", () => {
     const ligne = lire<any>(
-      `(() => { let l = p.ligneBouclier(); return { niveau: l.niveau, ouvrieres: l.ouvrieres }; })()`,
+      `(() => { let l = p.ligneRecherche("bouclier"); return { niveau: l.niveau, ouvrieres: l.ouvrieres }; })()`,
     );
     expect(ligne).toEqual({ niveau: 5, ouvrieres: 2560 });
     lire(
-      `(() => { monProfil.getTDP = () => Math.log(${VITESSE}) / Math.log(0.9); p.conseilBouclier(p.ligneBouclier(), true, REINE); })()`,
+      `(() => { monProfil.getTDP = () => Math.log(${VITESSE}) / Math.log(0.9); p.conseil(p.ligneRecherche("bouclier"), true, REINE); })()`,
     );
     expect(
       lire(
@@ -216,16 +223,16 @@ describe("bloc « Conseil » de la ligne", () => {
     // gardé ouvert ou fermé par le joueur
     lire(`$(".o_conseil").prop("open", true)[0].dispatchEvent(new Event("toggle"))`);
     expect(lire(`localStorage.getItem("fzzz_conseilBouclierOuvert")`)).toBe("1");
-    lire(`p.conseilBouclier(p.ligneBouclier(), true, REINE)`);
+    lire(`p.conseil(p.ligneRecherche("bouclier"), true, REINE)`);
     expect(lire(`[$(".o_conseil").length, $(".o_conseil").prop("open")]`)).toEqual([1, true]);
   });
 
   test("description trop étroite (téléphone) : sur une ligne de toute la largeur, sous celle du Bouclier", () => {
     const place = (largeur: number) =>
       lire(`(() => {
-        let l = p.ligneBouclier();
+        let l = p.ligneRecherche("bouclier");
         l.$description[0].getBoundingClientRect = () => ({ width: ${largeur} });
-        p.conseilBouclier(l, true, REINE);
+        p.conseil(l, true, REINE);
         let $b = $(".o_conseil");
         return [$b.closest("td").attr("class") || "", $b.closest("td").attr("colspan") || "",
           $b.closest("tr").find("h2").text() || "dessous de " + $b.closest("tr").prev().find("h2").text(), $(".o_conseilLigne").length, $b.length];
@@ -238,7 +245,7 @@ describe("bloc « Conseil » de la ligne", () => {
 
   test("ponte préférable : le bloc le dit, l'armée sous le seuil", () => {
     lire(
-      `(() => { p._armee.unite = ${JSON.stringify(armee({ 1: 3000 }))}; p.conseilBouclier(p.ligneBouclier(), true, REINE); })()`,
+      `(() => { p._armee.unite = ${JSON.stringify(armee({ 1: 3000 }))}; p.conseil(p.ligneRecherche("bouclier"), true, REINE); })()`,
     );
     expect(lire(`$(".o_conseil").attr("data-verdict")`)).toBe("ponte");
     expect(espaces(bloc())).toContain(
@@ -249,12 +256,12 @@ describe("bloc « Conseil » de la ligne", () => {
   test("garnison seule : la note le dit ; niveaux de ponte inconnus : pas de durée", () => {
     lire(`(() => {
       p._armeeComplete = false; monProfil.niveauConstruction = [0, 0, 0, -1, 9];
-      p.conseilBouclier(p.ligneBouclier(), true, REINE);
+      p.conseil(p.ligneRecherche("bouclier"), true, REINE);
       monProfil.niveauConstruction = [0, 0, 0, 10, 9];
     })()`);
     const texte = espaces(bloc());
     expect(texte).toContain(
-      "garnison de la page Armée, troupes en chasse ou en attaque non comptées",
+      "garnison de la page Armée et troupes parties en chasse ou en attaque depuis ce navigateur",
     );
     expect(texte).toContain(
       "La recherche coûte 2 560 ouvrières, le temps de pondre 512 Jeunes Soldates Naines",
@@ -264,7 +271,7 @@ describe("bloc « Conseil » de la ligne", () => {
 
   test("ce qui manque plutôt qu'un calcul faux", () => {
     const manque = (js: string) => {
-      lire(`(() => { ${js}; p.conseilBouclier(p.ligneBouclier(), ARMEE_LUE, PAGE_REINE); })()`);
+      lire(`(() => { ${js}; p.conseil(p.ligneRecherche("bouclier"), ARMEE_LUE, PAGE_REINE); })()`);
       return [
         espaces(lire(`$(".o_conseil > summary").text()`)),
         lire(`$(".o_conseil").attr("data-verdict")`),
@@ -288,6 +295,123 @@ describe("bloc « Conseil » de la ligne", () => {
         `window.PAGE_REINE = Utils.parseHtml("<div class='boite_connexion_titre'>Connexion</div>")`,
       )[0],
     ).toBe("Conseil Unités à pondre inconnues : la page Reine n'a pas pu être lue.");
+  });
+});
+
+// lignes « Bouclier Thoracique » et « Armes » du Laboratoire (noms et niveaux comme le jeu les écrit)
+const ligneLabo = (nom: string, niveau: number, ouvrieres: string) =>
+  `<tr class="ligneAmelioration"><td class="desciption_amelioration"><h2>${nom}</h2> <span class="niveau_amelioration">niveau ${niveau}</span></td>
+    <td class="cout_amelioration"><div class="ouvriere">${ouvrieres} </div></td></tr>`;
+const LABO_DEUX = `<div id="centre"><table>${ligneLabo("Bouclier Thoracique", 5, "2 560")}${ligneLabo("Armes", 0, "2 560")}</table></div>`;
+
+describe("Armes (même modèle, attaque ou défense au choix)", () => {
+  beforeEach(() =>
+    lire(`(() => {
+      localStorage.clear(); window.DEHORS = [];
+      document.body.innerHTML = ${JSON.stringify(LABO_DEUX)};
+      window.p = Object.create(PageLaboratoire.prototype);
+      p._armee = new Armee(); p._armee.unite = ${JSON.stringify(ARMEE)}; p._armeeComplete = true;
+      window.REINE = Utils.parseHtml(${JSON.stringify(REINE)});
+      monProfil.getTDP = () => Math.log(${VITESSE}) / Math.log(0.9);
+    })()`),
+  );
+  const resume = (recherche: string) =>
+    espaces(lire(`$(".o_conseil[data-recherche='${recherche}'] > summary").text()`));
+
+  test("calcul : la recherche donne 10 % de l'attaque (ou de la défense) de base ; chaque unité son attaque (ou sa défense) avec le bonus", () => {
+    // attaque de base 15 000 × 3 + 1 282 × 5 = 51 410 ; Tank 82 × 55, Artilleuse 106 × 30, JSN 512 × 3
+    const a = calculer({ stat: "attaque", niveau: 0, pondables: [1, 8, 11] });
+    expect([a.base, a.gainRecherche]).toEqual([51410, 5141]);
+    expect(a.options.map((o: any) => [o.unite, o.gain])).toEqual([
+      [11, 4510],
+      [8, 3180],
+      [1, 1536],
+    ]);
+    expect(verdict({ stat: "attaque", niveau: 0, pondables: [1, 8, 11] })).toBe(
+      "Recherche préférable · +14 % d'attaque que la ponte",
+    );
+    // défense de base 15 000 × 2 + 1 282 × 4 = 35 128 ; Concierge ⌊153 600 ÷ 1 410⌋ = 108 × 25
+    const d = calculer({ stat: "defense", niveau: 0, pondables: [1, 6] });
+    expect([d.base, d.meilleure.unite, d.meilleure.gain]).toEqual([35128, 6, 2700]);
+    expect(verdict({ stat: "defense", niveau: 0, pondables: [1, 6] })).toBe(
+      "Recherche préférable · +30 % de défense que la ponte",
+    );
+    // le bonus des unités pondues est celui du niveau actuel d'Armes
+    expect(calculer({ stat: "attaque", niveau: 11, pondables: [11] }).meilleure.gain).toBeCloseTo(
+      4510 * 2.1,
+    );
+  });
+
+  test("un bloc sous chaque ligne ; Armes comparée sur l'attaque, puis sur la défense au clic, choix gardé", () => {
+    lire(`(() => {
+      ["bouclier", "armes"].forEach((r) => p.conseil(p.ligneRecherche(r), true, REINE));
+    })()`);
+    expect(
+      lire(
+        `$(".o_conseil").map((i, b) => $(b).closest("tr").find("h2").text() + " : " + b.dataset.recherche).get()`,
+      ),
+    ).toEqual(["Bouclier Thoracique : bouclier", "Armes : armes"]);
+    // Tank d'élite : 71 × 80 = 5 680 contre 5 141
+    expect(resume("armes")).toBe(
+      "Conseil Ponte préférable · Tanks d’élites : +10 % d'attaque Détails",
+    );
+    expect(lire(`$(".o_conseil[data-recherche='bouclier'] .o_conseilChoix").length`)).toBe(0);
+    expect(
+      lire(
+        `$(".o_conseil[data-recherche='armes'] .o_conseilChoix button").map((i, b) => b.textContent + ":" + b.getAttribute("aria-pressed")).get()`,
+      ),
+    ).toEqual(["l'attaque:true", "la défense:false"]);
+    expect(
+      espaces(lire(`$(".o_conseil[data-recherche='armes'] .o_conseilBarre").first().text()`)),
+    ).toBe("Recherche niveau 1+5 141 dégâts en attaque");
+    lire(
+      `$(".o_conseil[data-recherche='armes'] .o_conseilChoix button[data-stat='defense']").trigger("click")`,
+    );
+    expect(lire(`localStorage.getItem("fzzz_conseilArmesStat")`)).toBe("defense");
+    // défense de base 35 128 : +3 513 ; Artilleuse 106 × 15 = 1 590, SN 341 × 4, JSN 512 × 2
+    expect(resume("armes")).toBe(
+      "Conseil Recherche préférable · +121 % de défense que la ponte Détails",
+    );
+    const texte = espaces(lire(`$(".o_conseil[data-recherche='armes']").text()`));
+    expect(texte).toContain("dégâts en défense de base dans l'armée");
+    expect(texte).not.toContain("Dôme");
+    expect(
+      lire(
+        `$(".o_conseil[data-recherche='armes'] .o_conseilChoix button[aria-pressed='true']").text()`,
+      ),
+    ).toBe("la défense");
+    // redessiné à l'ouverture suivante : le choix reste
+    lire(`p.conseil(p.ligneRecherche("armes"), true, REINE)`);
+    expect(resume("armes")).toContain("de défense que la ponte");
+    // ouvert ou fermé : chaque bloc le sien
+    lire(
+      `$(".o_conseil[data-recherche='armes']").prop("open", true)[0].dispatchEvent(new Event("toggle"))`,
+    );
+    expect(
+      lire(
+        `[localStorage.getItem("fzzz_conseilArmesOuvert"), localStorage.getItem("fzzz_conseilBouclierOuvert")]`,
+      ),
+    ).toEqual(["1", null]);
+  });
+
+  test("armée sans la page Reine : la garnison et les troupes parties depuis ce navigateur", () => {
+    lire(`(() => {
+      p._armeeComplete = false; window.DEHORS = ${JSON.stringify(armee({ 1: 1000 }))};
+      p.conseil(p.ligneRecherche("bouclier"), true, REINE);
+    })()`);
+    // 132 820 + 1 000 JSN × 8
+    expect(espaces(lire(`$(".o_conseil[data-recherche='bouclier']").text()`))).toContain(
+      "la tienne en a 140 820",
+    );
+  });
+
+  test("recherche d'Armes en cours : le coût part du niveau en file", () => {
+    lire(
+      `$("#centre").prepend("<strong>- Armes 1 terminé dans: <span>1h</span></strong><strong>- Bouclier Thoracique 6 terminé dans: <span>2h</span></strong>")`,
+    );
+    expect(lire(`[p.ligneRecherche("armes").niveau, p.ligneRecherche("bouclier").niveau]`)).toEqual(
+      [1, 6],
+    );
   });
 });
 

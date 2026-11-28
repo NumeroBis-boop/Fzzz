@@ -3985,54 +3985,17 @@ html:not(.o_desactivee):not(.o_originePage) #tabMembresAlliance tbody tr.o_allMo
   font-weight: bold;
 }
 
-/* Conseils sous « Bouclier Thoracique » et « Armes » du Laboratoire (méthode d'Optizzz) */
-html:not(.o_originePage) tr.ligneAmelioration:has(.o_conseil[open]) > td {
-  vertical-align: top !important;
-}
-.o_conseil {
-  margin-top: 0.5em;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  border-left: 3px solid var(--fzzz-secondaire);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.35);
-  text-align: left;
-  font-size: var(--fzzz-reduit);
-  line-height: 1.35;
-  /* sur un téléphone, le tableau du jeu est déjà plus large que l'écran */
-  max-width: min(100%, calc(100vw - 24px));
-  box-sizing: border-box;
-}
-.o_conseil[data-verdict="recherche"] {
-  border-left-color: var(--fzzz-succes);
-}
-.o_conseil[data-verdict="ponte"] {
-  border-left-color: var(--fzzz-info);
-}
+/* Conseils sous « Bouclier Thoracique » et « Armes » du Laboratoire (méthode
+   d'Optizzz) : le dépliant de rentabilité de l'étable (.o_spoilerCadre), en <details> */
 .o_conseil > summary {
-  padding: 0.3em 0.6em;
-  cursor: pointer;
+  display: block;
+  list-style: none;
 }
-.o_conseilTag {
-  display: inline-block;
-  padding: 0 0.4em;
-  border-radius: 3px;
-  background: var(--fzzz-secondaire);
-  color: #fff;
-  font-size: var(--fzzz-petit);
-}
-.o_conseilPlus {
-  margin-left: 0.4em;
-  color: var(--fzzz-info);
-  font-size: var(--fzzz-petit);
-}
-.o_conseil[open] .o_conseilPlus {
+.o_conseil > summary::-webkit-details-marker {
   display: none;
 }
-.o_conseilCorps {
-  padding: 0 0.6em 0.6em;
-}
-.o_conseilCorps p {
-  margin: 0.4em 0;
+.o_conseil[open] > summary {
+  border-bottom: 1px solid #8b7440;
 }
 .o_conseilBarres {
   display: grid;
@@ -4097,7 +4060,4 @@ html:not(.o_originePage) tr.ligneAmelioration:has(.o_conseil[open]) > td {
 .o_conseilChoix button[aria-pressed="true"] {
   font-weight: bold;
   outline: 2px solid var(--fzzz-succes);
-}
-.o_conseilLigne > td {
-  padding: 0 0.5em 0.5em;
 }

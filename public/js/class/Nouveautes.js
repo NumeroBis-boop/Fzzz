@@ -9,6 +9,12 @@
 /** Plus récente en premier ; une entrée par version publiée (vérifié par tests/nouveautes.test.ts). */
 const NOUVEAUTES = [
   {
+    version: "1.161.1",
+    notes: [
+      "Laboratoire : les conseils sous « Bouclier Thoracique » et « Armes » prennent la forme du dépliant de rentabilité de l'étable, sur toute la largeur sous la recherche.",
+    ],
+  },
+  {
     version: "1.161.0",
     notes: [
       "Laboratoire : sous « Armes », le même conseil que sous le Bouclier, comparé sur l'attaque ou la défense au choix ; il remplace l'ancienne estimation de rentabilité. Sur téléphone, le navigateur ne grossit plus le texte des blocs de l'extension.",

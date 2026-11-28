@@ -177,7 +177,7 @@ describe("bloc « Conseil » de la ligne", () => {
   );
   const bloc = () => lire<string>(`$(".o_conseil").text()`);
 
-  test("à la fin de la description, replié sur son verdict ; le détail du calcul dans le bloc", () => {
+  test("dépliant sous la ligne, replié sur son verdict ; le détail du calcul dedans", () => {
     const ligne = lire<any>(
       `(() => { let l = p.ligneRecherche("bouclier"); return { niveau: l.niveau, ouvrieres: l.ouvrieres }; })()`,
     );
@@ -187,11 +187,11 @@ describe("bloc « Conseil » de la ligne", () => {
     );
     expect(
       lire(
-        `[$(".o_conseil").parent().find("h2").text(), $(".o_conseil").prop("open"), $(".o_conseil").attr("data-verdict"), $(".o_conseil").length]`,
+        `[$(".o_conseil").closest("tr").prev().find("h2").text(), $(".o_conseil").prop("open"), $(".o_conseil").attr("data-verdict"), $(".o_conseil").length]`,
       ),
     ).toEqual(["Bouclier Thoracique", false, "recherche", 1]);
     expect(espaces(lire(`$(".o_conseil > summary").text()`))).toBe(
-      "Conseil Recherche préférable · +116 % de vie que la ponte Détails",
+      "▶ Conseil · Recherche préférable · +116 % de vie que la ponte",
     );
     expect(
       lire<[string, string][]>(
@@ -223,24 +223,36 @@ describe("bloc « Conseil » de la ligne", () => {
     // gardé ouvert ou fermé par le joueur
     lire(`$(".o_conseil").prop("open", true)[0].dispatchEvent(new Event("toggle"))`);
     expect(lire(`localStorage.getItem("fzzz_conseilBouclierOuvert")`)).toBe("1");
+    expect(espaces(lire(`$(".o_conseil > summary .o_fleche").text()`))).toBe("▼");
     lire(`p.conseil(p.ligneRecherche("bouclier"), true, REINE)`);
-    expect(lire(`[$(".o_conseil").length, $(".o_conseil").prop("open")]`)).toEqual([1, true]);
+    expect(
+      lire(
+        `[$(".o_conseil").length, $(".o_conseil").prop("open"), $(".o_conseil .o_fleche").text()]`,
+      ),
+    ).toEqual([1, true, "▼"]);
   });
 
-  test("description trop étroite (téléphone) : sur une ligne de toute la largeur, sous celle du Bouclier", () => {
-    const place = (largeur: number) =>
+  test("au format du dépliant de l'étable : une ligne de toute la largeur sous la recherche, une seule après un nouvel affichage", () => {
+    const place = () =>
       lire(`(() => {
-        let l = p.ligneRecherche("bouclier");
-        l.$description[0].getBoundingClientRect = () => ({ width: ${largeur} });
-        p.conseil(l, true, REINE);
-        let $b = $(".o_conseil");
-        return [$b.closest("td").attr("class") || "", $b.closest("td").attr("colspan") || "",
-          $b.closest("tr").find("h2").text() || "dessous de " + $b.closest("tr").prev().find("h2").text(), $(".o_conseilLigne").length, $b.length];
+        p.conseil(p.ligneRecherche("bouclier"), true, REINE);
+        let $b = $(".o_conseil"), $tr = $b.closest("tr");
+        return [$tr.attr("class"), $b.closest("td").attr("colspan"), $tr.prev().find("h2").text(),
+          $b.attr("class"), $b.children("summary").attr("class"), $b.children("div").attr("class"),
+          $(".o_conseilLigne").length, $(".desciption_amelioration .o_conseil").length];
       })()`);
-    expect(place(115)).toEqual(["", "2", "dessous de Bouclier Thoracique", 1, 1]);
-    // redessiné : une seule ligne ; assez large : dans la description, la ligne retirée
-    expect(place(115)).toEqual(["", "2", "dessous de Bouclier Thoracique", 1, 1]);
-    expect(place(500)).toEqual(["desciption_amelioration", "", "Bouclier Thoracique", 0, 1]);
+    const attendu = [
+      "o_spoilerLigne o_conseilLigne",
+      "2",
+      "Bouclier Thoracique",
+      "o_spoilerCadre o_conseil",
+      "o_spoilerBandeau",
+      "o_spoilerContenu o_conseilCorps",
+      1,
+      0,
+    ];
+    expect(place()).toEqual(attendu);
+    expect(place()).toEqual(attendu);
   });
 
   test("ponte préférable : le bloc le dit, l'armée sous le seuil", () => {
@@ -280,21 +292,21 @@ describe("bloc « Conseil » de la ligne", () => {
     expect(
       manque(`window.ARMEE_LUE = false; window.PAGE_REINE = REINE; p._armeeComplete = false`),
     ).toEqual([
-      "Conseil Armée inconnue : ni la page Reine ni la page Armée n'ont pu être lues.",
+      "▶ Conseil · Armée inconnue : ni la page Reine ni la page Armée n'ont pu être lues.",
       undefined,
     ]);
     expect(manque(`window.ARMEE_LUE = true; p._armee.unite = new Array(14).fill(0)`)[0]).toBe(
-      "Conseil Aucune unité dans ton armée : rien à renforcer pour l'instant.",
+      "▶ Conseil · Aucune unité dans ton armée : rien à renforcer pour l'instant.",
     );
     expect(manque(`window.PAGE_REINE = null; p._armee.unite = ${JSON.stringify(ARMEE)}`)[0]).toBe(
-      "Conseil Unités à pondre inconnues : la page Reine n'a pas pu être lue.",
+      "▶ Conseil · Unités à pondre inconnues : la page Reine n'a pas pu être lue.",
     );
     // une page de connexion à la place de la page Reine
     expect(
       manque(
         `window.PAGE_REINE = Utils.parseHtml("<div class='boite_connexion_titre'>Connexion</div>")`,
       )[0],
-    ).toBe("Conseil Unités à pondre inconnues : la page Reine n'a pas pu être lue.");
+    ).toBe("▶ Conseil · Unités à pondre inconnues : la page Reine n'a pas pu être lue.");
   });
 });
 
@@ -348,13 +360,11 @@ describe("Armes (même modèle, attaque ou défense au choix)", () => {
     })()`);
     expect(
       lire(
-        `$(".o_conseil").map((i, b) => $(b).closest("tr").find("h2").text() + " : " + b.dataset.recherche).get()`,
+        `$(".o_conseil").map((i, b) => $(b).closest("tr").prev().find("h2").text() + " : " + b.dataset.recherche).get()`,
       ),
     ).toEqual(["Bouclier Thoracique : bouclier", "Armes : armes"]);
     // Tank d'élite : 71 × 80 = 5 680 contre 5 141
-    expect(resume("armes")).toBe(
-      "Conseil Ponte préférable · Tanks d’élites : +10 % d'attaque Détails",
-    );
+    expect(resume("armes")).toBe("▶ Conseil · Ponte préférable · Tanks d’élites : +10 % d'attaque");
     expect(lire(`$(".o_conseil[data-recherche='bouclier'] .o_conseilChoix").length`)).toBe(0);
     expect(
       lire(
@@ -370,7 +380,7 @@ describe("Armes (même modèle, attaque ou défense au choix)", () => {
     expect(lire(`localStorage.getItem("fzzz_conseilArmesStat")`)).toBe("defense");
     // défense de base 35 128 : +3 513 ; Artilleuse 106 × 15 = 1 590, SN 341 × 4, JSN 512 × 2
     expect(resume("armes")).toBe(
-      "Conseil Recherche préférable · +121 % de défense que la ponte Détails",
+      "▶ Conseil · Recherche préférable · +121 % de défense que la ponte",
     );
     const texte = espaces(lire(`$(".o_conseil[data-recherche='armes']").text()`));
     expect(texte).toContain("dégâts en défense de base dans l'armée");

@@ -146,20 +146,11 @@ class PageLaboratoire {
             : !reineLue
               ? "Unités à pondre inconnues : la page Reine n'a pas pu être lue."
               : "";
-    let $bloc = ConseilRecherche.afficher(
-        ligne.$description,
-        ligne,
-        manque ? { manque } : { armee, complete: this._armeeComplete, vitesse, pondables },
-      ),
-      attente = 0,
-      evenement = "resize.o_conseil_" + ligne.recherche;
-    // fenêtre tournée ou redimensionnée : affichage seulement
-    $(window)
-      .off(evenement)
-      .on(evenement, () => {
-        clearTimeout(attente);
-        attente = setTimeout(() => ConseilRecherche.placer($bloc, ligne.$description), 200);
-      });
+    ConseilRecherche.afficher(
+      ligne.$description,
+      ligne,
+      manque ? { manque } : { armee, complete: this._armeeComplete, vitesse, pondables },
+    );
     return this;
   }
   /**
